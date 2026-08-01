@@ -132,6 +132,34 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
     }
   };
 
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setEditLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = [{
+      code: formData.get("code") as string,
+      password: (formData.get("password") as string) || "123",
+      affiliationNo: formData.get("affiliationNo") as string,
+      name: formData.get("name") as string,
+      place: formData.get("place") as string,
+      zoneName: zones.find(z => z.id === formData.get("zoneId"))?.name || "MALAPPURAM EAST",
+      district: formData.get("district") as string,
+      stream: formData.get("stream") as string,
+    }];
+
+    const res = await bulkImportInstitutions(data);
+    if (res.success) {
+      setShowAddModal(false);
+      window.location.reload();
+    } else {
+      alert("Failed to add institution: " + res.error);
+    }
+    setEditLoading(false);
+  };
+
   return (
     <div>
       {/* Upload Box */}
@@ -141,9 +169,14 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
             <h3 style={{ margin: 0 }}>Upload Master Institution Excel</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload CSV/Excel containing Code, Affiliation No, College Name, Zone, District, and Stream.</p>
           </div>
-          <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            📥 Download Sample Excel Template
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
+              ➕ Add Single Institution
+            </button>
+            <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
+              📥 Download Sample Excel Template
+            </button>
+          </div>
         </div>
 
         <div style={{ border: '2px dashed var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-lg)', textAlign: 'center', backgroundColor: 'var(--surface-color)' }}>
@@ -284,6 +317,61 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                 <button type="button" onClick={() => setEditingInst(null)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" disabled={editLoading} className="btn btn-primary">
                   {editLoading ? "Saving..." : "Save Changes"}
+      {/* Add Institution Modal */}
+      {showAddModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Add New Institution</h3>
+            <form onSubmit={handleAddSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">College Code</label>
+                <input type="text" name="code" placeholder="e.g. SIG" required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Affiliation No</label>
+                <input type="text" name="affiliationNo" placeholder="CSWC /155/2026" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Institution Name</label>
+                <input type="text" name="name" placeholder="Full College Name" required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Place / Location</label>
+                <input type="text" name="place" placeholder="Location" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">District</label>
+                <input type="text" name="district" placeholder="District" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Regional Zone</label>
+                <select name="zoneId" required className="form-input">
+                  {zones.map(z => (
+                    <option key={z.id} value={z.id}>{z.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Stream</label>
+                <input type="text" name="stream" defaultValue="FADHILA FADHEELA" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Manager Password</label>
+                <input type="text" name="password" defaultValue="123" required className="form-input" />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={editLoading} className="btn btn-primary">
+                  {editLoading ? "Adding..." : "Add Institution"}
                 </button>
               </div>
 

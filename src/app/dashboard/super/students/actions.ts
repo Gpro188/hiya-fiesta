@@ -73,3 +73,87 @@ export async function bulkImportStudents(studentsData: Array<{
     return { success: false, error: error.message || "Failed to import students" };
   }
 }
+
+export async function addStudent(data: {
+  uid: string;
+  name: string;
+  institutionId: string;
+  district?: string;
+  phone?: string;
+  stream: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const student = await prisma.masterStudent.create({
+      data: {
+        uid: data.uid.trim(),
+        name: data.name.trim(),
+        institutionId: data.institutionId,
+        district: data.district || null,
+        phone: data.phone || null,
+        stream: (data.stream || "FADHILA").trim().toUpperCase()
+      }
+    });
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true, student };
+  } catch (error: any) {
+    console.error("Failed to add student:", error);
+    return { success: false, error: error.message || "Failed to add student" };
+  }
+}
+
+export async function updateStudent(id: string, data: {
+  uid: string;
+  name: string;
+  institutionId: string;
+  district?: string;
+  phone?: string;
+  stream: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.masterStudent.update({
+      where: { id },
+      data: {
+        uid: data.uid.trim(),
+        name: data.name.trim(),
+        institutionId: data.institutionId,
+        district: data.district || null,
+        phone: data.phone || null,
+        stream: (data.stream || "FADHILA").trim().toUpperCase()
+      }
+    });
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to update student:", error);
+    return { success: false, error: error.message || "Failed to update student" };
+  }
+}
+
+export async function deleteStudent(id: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.masterStudent.delete({ where: { id } });
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to delete student:", error);
+    return { success: false, error: error.message || "Failed to delete student" };
+  }
+}

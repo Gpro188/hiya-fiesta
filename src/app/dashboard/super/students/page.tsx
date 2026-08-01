@@ -11,13 +11,19 @@ export default async function MasterStudentsPage() {
     redirect("/dashboard");
   }
 
-  const students = await prisma.masterStudent.findMany({
-    include: {
-      institution: { select: { name: true, code: true, zone: { select: { name: true } } } }
-    },
-    take: 300,
-    orderBy: { createdAt: 'desc' }
-  });
+  const [students, institutions] = await Promise.all([
+    prisma.masterStudent.findMany({
+      include: {
+        institution: { select: { id: true, name: true, code: true, zone: { select: { name: true } } } }
+      },
+      take: 500,
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.masterInstitution.findMany({
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' }
+    })
+  ]);
 
   return (
     <div className="animate-fade-in">
@@ -28,7 +34,7 @@ export default async function MasterStudentsPage() {
         </p>
       </div>
 
-      <StudentsClient initialStudents={students} />
+      <StudentsClient initialStudents={students} institutions={institutions} />
     </div>
   );
 }

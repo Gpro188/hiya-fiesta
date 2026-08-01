@@ -2,14 +2,19 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { bulkImportStudents } from "./actions";
+import { bulkImportStudents, addStudent, updateStudent, deleteStudent } from "./actions";
 
-export default function StudentsClient({ initialStudents }: { initialStudents: any[] }) {
+export default function StudentsClient({ initialStudents, institutions }: { initialStudents: any[], institutions: any[] }) {
   const [students, setStudents] = useState(initialStudents);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [search, setSearch] = useState("");
+
+  // Modals state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const downloadTemplate = () => {
     const sampleData = [
@@ -72,7 +77,7 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
         const result = await bulkImportStudents(mapped);
         if (result.success) {
           setSuccess(`Successfully imported ${result.count} student UIDs!`);
-          setTimeout(() => window.location.reload(), 1500);
+          setTimeout(() => window.location.reload(), 1200);
         } else {
           setError(result.error || "Failed to import students.");
         }
@@ -85,6 +90,66 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
     reader.readAsBinaryString(file);
   };
 
+  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setActionLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      uid: formData.get("uid") as string,
+      name: formData.get("name") as string,
+      institutionId: formData.get("institutionId") as string,
+      district: formData.get("district") as string,
+      phone: formData.get("phone") as string,
+      stream: formData.get("stream") as string,
+    };
+
+    const res = await addStudent(data);
+    if (res.success) {
+      setShowAddModal(false);
+      window.location.reload();
+    } else {
+      alert("Failed to add student: " + res.error);
+    }
+    setActionLoading(false);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    setActionLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      uid: formData.get("uid") as string,
+      name: formData.get("name") as string,
+      institutionId: formData.get("institutionId") as string,
+      district: formData.get("district") as string,
+      phone: formData.get("phone") as string,
+      stream: formData.get("stream") as string,
+    };
+
+    const res = await updateStudent(editingStudent.id, data);
+    if (res.success) {
+      setEditingStudent(null);
+      window.location.reload();
+    } else {
+      alert("Failed to update student: " + res.error);
+    }
+    setActionLoading(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete student "${name}"?`)) {
+      const res = await deleteStudent(id);
+      if (res.success) {
+        window.location.reload();
+      } else {
+        alert("Failed to delete: " + res.error);
+      }
+    }
+  };
+
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.uid.toLowerCase().includes(search.toLowerCase()) ||
@@ -93,16 +158,21 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
 
   return (
     <div>
-      {/* Upload Box */}
+      {/* Upload Box & Manual Add Action */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
           <div>
             <h3 style={{ margin: 0 }}>Upload Master Student UID Excel</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload student roster with Institution Name, Name, District, UID Number, Phone, and Stream.</p>
           </div>
-          <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            📥 Download Sample UID Excel Template
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
+              ➕ Add Single Student
+            </button>
+            <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
+              📥 Download Sample UID Excel Template
+            </button>
+          </div>
         </div>
 
         <div style={{ border: '2px dashed var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-lg)', textAlign: 'center', backgroundColor: 'var(--surface-color)' }}>
@@ -159,6 +229,7 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
                   <th>District</th>
                   <th>Phone</th>
                   <th>Stream</th>
+                  <th style={{ textAlign: 'right', paddingRight: '8px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,10 +237,28 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
                   <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '10px 8px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{s.uid}</td>
                     <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td>{s.institution?.name}</td>
+                    <td>{s.institution?.name || '-'}</td>
                     <td>{s.district || '-'}</td>
                     <td>{s.phone || '-'}</td>
                     <td><span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontWeight: 600, fontSize: '0.75rem' }}>{s.stream}</span></td>
+                    <td style={{ textAlign: 'right', paddingRight: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <button 
+                          onClick={() => setEditingStudent(s)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(s.id, s.name)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--error)', borderColor: 'rgba(239,68,68,0.3)' }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -177,6 +266,114 @@ export default function StudentsClient({ initialStudents }: { initialStudents: a
           </div>
         )}
       </div>
+
+      {/* Add Student Modal */}
+      {showAddModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Add New Master Student</h3>
+            <form onSubmit={handleAddSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Student UID Number</label>
+                <input type="text" name="uid" placeholder="e.g. FL26CH12" required className="form-input" style={{ fontFamily: 'monospace' }} />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Student Full Name</label>
+                <input type="text" name="name" placeholder="Full Name" required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Institution / College</label>
+                <select name="institutionId" required className="form-input">
+                  <option value="">Select College...</option>
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name} ({inst.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">District</label>
+                <input type="text" name="district" placeholder="e.g. Malappuram" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Phone Number</label>
+                <input type="text" name="phone" placeholder="Phone Number" className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Stream / Division</label>
+                <input type="text" name="stream" defaultValue="FADHILA" required className="form-input" />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Adding..." : "Add Student"}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Edit Student Details</h3>
+            <form onSubmit={handleEditSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Student UID Number</label>
+                <input type="text" name="uid" defaultValue={editingStudent.uid} required className="form-input" style={{ fontFamily: 'monospace' }} />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Student Full Name</label>
+                <input type="text" name="name" defaultValue={editingStudent.name} required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Institution / College</label>
+                <select name="institutionId" defaultValue={editingStudent.institutionId} required className="form-input">
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name} ({inst.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">District</label>
+                <input type="text" name="district" defaultValue={editingStudent.district || ""} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Phone Number</label>
+                <input type="text" name="phone" defaultValue={editingStudent.phone || ""} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Stream / Division</label>
+                <input type="text" name="stream" defaultValue={editingStudent.stream || "FADHILA"} required className="form-input" />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
