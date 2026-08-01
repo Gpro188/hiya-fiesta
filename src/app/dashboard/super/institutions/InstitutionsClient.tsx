@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { bulkImportInstitutions } from "./actions";
+import { bulkImportInstitutions, updateInstitution, deleteInstitution } from "./actions";
 
 export default function InstitutionsClient({ initialInstitutions, zones }: { initialInstitutions: any[], zones: any[] }) {
   const [institutions, setInstitutions] = useState(initialInstitutions);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Edit Modal State
+  const [editingInst, setEditingInst] = useState<any | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   const downloadTemplate = () => {
     const sampleData = [
@@ -77,7 +81,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
         const result = await bulkImportInstitutions(mapped);
         if (result.success) {
           setSuccess(`Successfully imported ${result.count} institutions! Login accounts created.`);
-          setTimeout(() => window.location.reload(), 1500);
+          setTimeout(() => window.location.reload(), 1200);
         } else {
           setError(result.error || "Failed to import institutions.");
         }
@@ -88,6 +92,44 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
       setImporting(false);
     };
     reader.readAsBinaryString(file);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingInst) return;
+    setEditLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      code: formData.get("code") as string,
+      name: formData.get("name") as string,
+      affiliationNo: formData.get("affiliationNo") as string,
+      place: formData.get("place") as string,
+      zoneId: formData.get("zoneId") as string,
+      district: formData.get("district") as string,
+      stream: formData.get("stream") as string,
+      password: formData.get("password") as string,
+    };
+
+    const res = await updateInstitution(editingInst.id, data);
+    if (res.success) {
+      setEditingInst(null);
+      window.location.reload();
+    } else {
+      alert("Failed to update: " + res.error);
+    }
+    setEditLoading(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      const res = await deleteInstitution(id);
+      if (res.success) {
+        window.location.reload();
+      } else {
+        alert("Delete failed: " + res.error);
+      }
+    }
   };
 
   return (
@@ -148,6 +190,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                   <th>Zone</th>
                   <th>District</th>
                   <th>Stream</th>
+                  <th style={{ textAlign: 'right', paddingRight: '8px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,9 +200,27 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                     <td>{inst.affiliationNo || '-'}</td>
                     <td style={{ fontWeight: 600 }}>{inst.name}</td>
                     <td>{inst.place || '-'}</td>
-                    <td><span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>{inst.zone.name}</span></td>
+                    <td><span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>{inst.zone?.name || 'Unassigned'}</span></td>
                     <td>{inst.district || '-'}</td>
                     <td><span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inst.stream || 'FADHILA'}</span></td>
+                    <td style={{ textAlign: 'right', paddingRight: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <button 
+                          onClick={() => setEditingInst(inst)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(inst.id, inst.name)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '0.75rem', color: 'var(--error)', borderColor: 'rgba(239,68,68,0.3)' }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -167,6 +228,69 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
           </div>
         )}
       </div>
+
+      {/* Edit Institution Modal */}
+      {editingInst && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Edit Institution</h3>
+            <form onSubmit={handleSaveEdit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">College Code</label>
+                <input type="text" name="code" defaultValue={editingInst.code} required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Affiliation No</label>
+                <input type="text" name="affiliationNo" defaultValue={editingInst.affiliationNo || ""} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Institution Name</label>
+                <input type="text" name="name" defaultValue={editingInst.name} required className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Place / Location</label>
+                <input type="text" name="place" defaultValue={editingInst.place || ""} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">District</label>
+                <input type="text" name="district" defaultValue={editingInst.district || ""} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Regional Zone</label>
+                <select name="zoneId" defaultValue={editingInst.zoneId} required className="form-input">
+                  {zones.map(z => (
+                    <option key={z.id} value={z.id}>{z.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Stream</label>
+                <input type="text" name="stream" defaultValue={editingInst.stream || "FADHILA FADHEELA"} className="form-input" />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                <label className="form-label">Reset Login Password (Optional)</label>
+                <input type="text" name="password" placeholder="Leave blank to keep existing password" className="form-input" />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setEditingInst(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={editLoading} className="btn btn-primary">
+                  {editLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

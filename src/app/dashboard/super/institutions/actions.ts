@@ -97,3 +97,66 @@ export async function bulkImportInstitutions(institutionsData: Array<{
     return { success: false, error: error.message || "Failed to import institutions" };
   }
 }
+
+export async function updateInstitution(id: string, data: {
+  code: string;
+  name: string;
+  affiliationNo?: string;
+  place?: string;
+  zoneId: string;
+  district?: string;
+  stream?: string;
+  password?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const inst = await prisma.masterInstitution.update({
+      where: { id },
+      data: {
+        code: data.code.trim().toUpperCase(),
+        name: data.name.trim(),
+        affiliationNo: data.affiliationNo || null,
+        place: data.place || null,
+        zoneId: data.zoneId,
+        district: data.district || null,
+        stream: data.stream || null,
+        password: data.password || undefined
+      }
+    });
+
+    if (data.password) {
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      await prisma.user.updateMany({
+        where: { institutionId: id },
+        data: { password: hashedPassword }
+      });
+    }
+
+    revalidatePath("/dashboard/super/institutions");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to update institution:", error);
+    return { success: false, error: error.message || "Failed to update institution" };
+  }
+}
+
+export async function deleteInstitution(id: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.masterInstitution.delete({ where: { id } });
+
+    revalidatePath("/dashboard/super/institutions");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to delete institution:", error);
+    return { success: false, error: error.message || "Failed to delete institution" };
+  }
+}
