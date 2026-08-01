@@ -15,8 +15,8 @@ export async function getSettings(eventId?: string | null) {
           data: {
             id: eventId, // explicitly set id so it doesn't default to "default"
             eventId,
-            festName: event?.name || "Arts Fest",
-            festMoto: "Celebrating Creativity"
+            festName: event?.name || "CSWC Hiya Fiesta 2026",
+            festMoto: "Council of Samastha Women's Colleges"
           }
         });
       }
@@ -25,19 +25,22 @@ export async function getSettings(eventId?: string | null) {
 
     return await prisma.globalSetting.upsert({
       where: { id: "default" },
-      update: {},
+      update: {
+        festName: "CSWC Hiya Fiesta 2026",
+        festMoto: "Council of Samastha Women's Colleges"
+      },
       create: { 
         id: "default", 
-        festName: "Arts Fest",
-        festMoto: "Celebrating Creativity"
+        festName: "CSWC Hiya Fiesta 2026",
+        festMoto: "Council of Samastha Women's Colleges"
       }
     });
   } catch (e) {
     console.error("getSettings failed:", e);
     return { 
       id: "default", 
-      festName: "Arts Fest", 
-      festMoto: "Celebrating Creativity", 
+      festName: "CSWC Hiya Fiesta 2026", 
+      festMoto: "Council of Samastha Women's Colleges", 
       festLogo: null,
       posterBgUrl: null,
       posterLogoUrl: null,

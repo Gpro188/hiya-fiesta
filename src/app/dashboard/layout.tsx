@@ -34,8 +34,8 @@ export default async function DashboardLayout({
       <DashboardSidebar 
         role={role} 
         username={username} 
-        festName={role === "SUPER_ADMIN" ? "Artsfest Central" : settings.festName} 
-        festMoto={role === "SUPER_ADMIN" ? "System Administration" : settings.festMoto} 
+        festName={settings.festName || "CSWC Hiya Fiesta 2026"} 
+        festMoto={settings.festMoto || "Council of Samastha Women's Colleges"} 
       />
 
       {/* Main Content */}
