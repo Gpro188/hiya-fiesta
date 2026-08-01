@@ -30,6 +30,11 @@ export const metadata: Metadata = {
     "samastha womens colleges",
     "artsfest system",
   ],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
     title: {
       template: "%s | CSWC Hiya Fiesta 2026",
