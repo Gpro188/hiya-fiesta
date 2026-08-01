@@ -66,6 +66,35 @@ export default function CandidateForm({
     setLoading(false);
   };
 
+  const [uid, setUid] = useState("");
+  const [searchingUid, setSearchingUid] = useState(false);
+  const [uidStatus, setUidStatus] = useState("");
+
+  const handleUidLookup = async (inputUid: string) => {
+    setUid(inputUid);
+    if (inputUid.trim().length >= 4) {
+      setSearchingUid(true);
+      setUidStatus("Searching UID...");
+      const { lookupStudentByUID } = await import("./uidLookup");
+      const res = await lookupStudentByUID(inputUid);
+      if (res.success && res.student) {
+        setName(res.student.name);
+        setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
+        
+        // Auto-match category if stream matches FADHILA or FADHEELA
+        if (res.student.stream) {
+          const matchedCat = categories.find(c => c.name.toUpperCase().includes(res.student.stream.toUpperCase()));
+          if (matchedCat) setCategoryId(matchedCat.id);
+        }
+      } else {
+        setUidStatus("⚠️ UID not found in Master Directory. You can type name manually.");
+      }
+      setSearchingUid(false);
+    } else {
+      setUidStatus("");
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       {error && (
@@ -79,7 +108,22 @@ export default function CandidateForm({
         </div>
       )}
       
-      <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1.5fr 1.5fr 1.5fr 1.5fr auto' : '2fr 1.5fr 2fr auto', gap: 'var(--spacing-md)', alignItems: 'end' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1.5fr 1.2fr 1.2fr auto' : '1fr 1.5fr 1.2fr auto', gap: 'var(--spacing-md)', alignItems: 'end' }}>
+        
+        {/* UID Search Field */}
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 700 }}>Student UID #</label>
+          <input 
+            type="text" 
+            className="form-input" 
+            value={uid}
+            onChange={(e) => handleUidLookup(e.target.value)}
+            placeholder="e.g. FL26CH12"
+            style={{ fontWeight: 700, fontFamily: 'monospace' }}
+          />
+          {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
+        </div>
+
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label">Candidate Name</label>
           <input 

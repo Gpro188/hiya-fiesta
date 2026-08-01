@@ -111,6 +111,28 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         },
       ],
     });
+
+    if (role === "SUPER_ADMIN") {
+      groups.push({
+        section: "Central Registry",
+        items: [
+          {
+            name: "Master Institutions",
+            subtitle: "80+ Colleges & Zone mappings",
+            icon: "🏫",
+            href: "/dashboard/super/institutions",
+            highlight: true,
+          },
+          {
+            name: "Master Students (UID)",
+            subtitle: "Central student UID directory",
+            icon: "👨‍🎓",
+            href: "/dashboard/super/students",
+            highlight: true,
+          },
+        ],
+      });
+    }
   }
 
   if (role === "MEDIA") {

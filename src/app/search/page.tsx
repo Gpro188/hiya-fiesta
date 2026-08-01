@@ -70,6 +70,7 @@ export default async function SearchPage(props: {
       if (query) {
         filters.push({
           OR: [
+            { uid: { contains: query, mode: 'insensitive' } },
             { chestNumber: { contains: query, mode: 'insensitive' } },
             { name: { contains: query, mode: 'insensitive' } },
             { team: { name: { contains: query, mode: 'insensitive' } } },
