@@ -36,9 +36,7 @@ export default async function HomePage() {
       <header style={{ padding: '1rem 0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'linear-gradient(135deg, #ec4899, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1.2rem' }}>
-              CS
-            </div>
+            <img src="/logo.png" alt="CSWC Fiesta Logo" style={{ width: '45px', height: '45px', objectFit: 'contain' }} />
             <div>
               <h1 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, color: 'white', letterSpacing: '-0.3px' }}>CSWC Hiya Fiesta 2026</h1>
               <div style={{ fontSize: '0.75rem', color: '#ec4899', fontWeight: 600 }}>Council of Samastha Women's Colleges</div>

@@ -231,21 +231,19 @@ export default function DashboardSidebar({
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
             style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #ec4899, #3b82f6)",
+              width: "42px",
+              height: "42px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              color: "white",
-              fontWeight: 800,
-              fontSize: "1.1rem",
-              boxShadow: "0 2px 8px rgba(236,72,153,0.35)",
             }}
           >
-            CS
+            <img
+              src="/logo.png"
+              alt="CSWC Fiesta Logo"
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
           </div>
           <div>
             <div
