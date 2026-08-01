@@ -233,20 +233,19 @@ export default function DashboardSidebar({
             style={{
               width: "40px",
               height: "40px",
-              borderRadius: "10px",
-              background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #ec4899, #3b82f6)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
+              color: "white",
+              fontWeight: 800,
+              fontSize: "1.1rem",
+              boxShadow: "0 2px 8px rgba(236,72,153,0.35)",
             }}
           >
-            <img
-              src="/logo.png"
-              alt="Logo"
-              style={{ width: "26px", height: "26px", objectFit: "contain" }}
-            />
+            CS
           </div>
           <div>
             <div

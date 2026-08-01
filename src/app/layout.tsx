@@ -17,43 +17,40 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Dpro ArtsFes",
-    default: "Dpro ArtsFes | Premium Festival Management",
+    template: "%s | CSWC Hiya Fiesta 2026",
+    default: "CSWC Hiya Fiesta 2026 | Council of Samastha Women's Colleges",
   },
   description:
-    "Dpro ArtsFes is a premium multi-tenant festival management suite by Dpro Technologies. Manage teams, programs, and live standings.",
-  applicationName: "Dpro ArtsFes",
+    "Official Centralized ArtsFest Platform for Council of Samastha Women's Colleges (CSWC Hiya Fiesta 2026).",
+  applicationName: "CSWC Hiya Fiesta 2026",
   keywords: [
-    "dpro",
-    "dpro technologies",
-    "dpro artsfest system",
-    "dpro artsfest",
+    "cswc",
+    "cswc hiya fiesta",
+    "hiya fiesta 2026",
+    "samastha womens colleges",
     "artsfest system",
-    "artsfest management system",
-    "arts fest system",
-    "festival management software",
   ],
   openGraph: {
     title: {
-      template: "%s | Dpro ArtsFes",
-      default: "Dpro ArtsFes",
+      template: "%s | CSWC Hiya Fiesta 2026",
+      default: "CSWC Hiya Fiesta 2026",
     },
     description:
-      "Premium Multi-Tenant Festival Management Suite by Dpro Technologies",
+      "Centralized Multi-Zone Festival Platform for CSWC Women's Colleges",
     type: "website",
     url: "https://dpro-artsfest.vercel.app/",
-    siteName: "Dpro ArtsFes",
+    siteName: "CSWC Hiya Fiesta 2026",
     images: [
       {
         url: "/logo.png",
         width: 800,
         height: 600,
-        alt: "Dpro ArtsFes Logo",
+        alt: "CSWC Hiya Fiesta Logo",
       },
     ],
   },
   appleWebApp: {
-    title: "Dpro ArtsFes",
+    title: "CSWC Hiya Fiesta 2026",
     statusBarStyle: "default",
   },
 };
