@@ -10,9 +10,6 @@ export const config = {
 
 export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
-  const hostname = req.headers.get('host') || 'localhost:3000';
-  const searchParams = req.nextUrl.searchParams.toString();
-  const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ''}`;
 
   // Global Dashboard Protection
   if (url.pathname.startsWith('/dashboard')) {
@@ -20,13 +17,6 @@ export default async function middleware(req: NextRequest) {
     if (!token) {
       return NextResponse.redirect(new URL('/login', req.url));
     }
-  }
-
-  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
-  const isVercel = hostname.endsWith('.vercel.app');
-
-  if (!isLocalhost && !isVercel) {
-    return NextResponse.rewrite(new URL(`/_domain/${hostname}${path}`, req.url));
   }
 
   return NextResponse.next();
