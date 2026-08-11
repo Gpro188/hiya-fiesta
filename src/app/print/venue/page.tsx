@@ -9,8 +9,23 @@ export default async function PrintVenuePage(props: {
   const eventId = searchParams.eventId;
   const settings = await getSettings(eventId);
 
+  let whereClause: any = {};
+  if (eventId) {
+    const activeEv = await prisma.event.findUnique({ where: { id: eventId } });
+    if (activeEv?.parentId) {
+      whereClause = {
+        OR: [
+          { eventId: eventId },
+          { eventId: activeEv.parentId }
+        ]
+      };
+    } else {
+      whereClause = { eventId };
+    }
+  }
+
   const programs = await prisma.program.findMany({
-    where: eventId ? { eventId } : {},
+    where: whereClause,
     orderBy: [
       { venue: 'asc' },
       { startTime: 'asc' }

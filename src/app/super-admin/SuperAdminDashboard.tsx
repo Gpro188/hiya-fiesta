@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createFest, createFestUser, deleteFest, deleteUser, resetUserPassword, updateFestDomain } from "../actions/superAdmin";
 
-interface SuperAdminDashboardProps {
+interface SuperAdminDashboarCSWCps {
   initialData: {
     totalVisits: number;
     totalEvents: number;
@@ -12,7 +12,7 @@ interface SuperAdminDashboardProps {
   };
 }
 
-export default function SuperAdminDashboard({ initialData }: SuperAdminDashboardProps) {
+export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarCSWCps) {
   const [data, setData] = useState(initialData);
   const [festName, setFestName] = useState("");
   const [festLoading, setFestLoading] = useState(false);

@@ -8,6 +8,7 @@ export default function CandidateForm({
   teamId: initialTeamId = "", 
   teams = [], 
   categories, 
+  masterStudents = [],
   isRegistrationOpen = true, 
   statusMessage = "",
   isAdmin = false
@@ -15,6 +16,7 @@ export default function CandidateForm({
   teamId?: string, 
   teams?: any[], 
   categories: any[], 
+  masterStudents?: any[],
   isRegistrationOpen?: boolean, 
   statusMessage?: string,
   isAdmin?: boolean
@@ -50,15 +52,20 @@ export default function CandidateForm({
       setError("Please select a team for this candidate.");
       return;
     }
+    if (!photo) {
+      setError("Candidate photo is mandatory.");
+      return;
+    }
     setLoading(true);
     setError("");
     setSuccess(false);
     
-    const result = await addCandidate({ name, categoryId, teamId: selectedTeamId, photo });
+    const result = await addCandidate({ name, categoryId, teamId: selectedTeamId, photo, uid });
     
     if (result.success) {
       setSuccess(true);
       setName("");
+      setUid("");
       setPhoto("");
     } else {
       setError(result.error || "Failed to add candidate");
@@ -108,34 +115,67 @@ export default function CandidateForm({
         </div>
       )}
       
-      <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1.5fr 1.2fr 1.2fr auto' : '1fr 1.5fr 1.2fr auto', gap: 'var(--spacing-md)', alignItems: 'end' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1.5fr 1.2fr 1.2fr auto' : '1fr 1.5fr 1.2fr 1fr auto', gap: 'var(--spacing-md)', alignItems: 'end' }}>
         
-        {/* UID Search Field */}
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 700 }}>Student UID #</label>
-          <input 
-            type="text" 
-            className="form-input" 
-            value={uid}
-            onChange={(e) => handleUidLookup(e.target.value)}
-            placeholder="e.g. FL26CH12"
-            style={{ fontWeight: 700, fontFamily: 'monospace' }}
-          />
-          {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
-        </div>
+        {isAdmin ? (
+          <>
+            {/* UID Search Field for Admin */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 700 }}>Student UID #</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={uid}
+                onChange={(e) => handleUidLookup(e.target.value)}
+                placeholder="e.g. FL26CH12"
+                style={{ fontWeight: 700, fontFamily: 'monospace' }}
+              />
+              {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
+            </div>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Candidate Name</label>
-          <input 
-            type="text" 
-            className="form-input" 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Full Name"
-            required
-          />
-          <span className="field-helper">Enter full name.</span>
-        </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Candidate Name</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full Name"
+                required
+              />
+              <span className="field-helper">Enter full name.</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 700 }}>Student UID #</label>
+              <input
+                type="text"
+                className="form-input"
+                value={uid}
+                onChange={(e) => handleUidLookup(e.target.value)}
+                placeholder="e.g. FL26CH12"
+                style={{ fontWeight: 700, fontFamily: 'monospace' }}
+              />
+              {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
+            </div>
+            
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Candidate Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={name}
+                readOnly
+                placeholder="Auto-filled from UID"
+                style={{ backgroundColor: 'var(--surface-color)', opacity: 0.7 }}
+                required
+              />
+              <span className="field-helper">Enter UID to fetch name.</span>
+            </div>
+          </>
+        )}
         
         {isAdmin && (
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -160,21 +200,23 @@ export default function CandidateForm({
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             required
+            disabled={!!uid}
+            style={{ backgroundColor: !!uid ? 'var(--surface-color)' : '', opacity: !!uid ? 0.7 : 1 }}
           >
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
           </select>
-          <span className="field-helper">Age-group division.</span>
+          <span className="field-helper">{!!uid ? "Category is locked to the pre-registered student's stream." : "Age-group division."}</span>
         </div>
 
         <ImageUpload 
-          label="Photo (Optional)" 
+          label="Photo (Compulsory)" 
           folder="candidates" 
           initialUrl={photo}
           onUploadComplete={(url) => setPhoto(url)} 
         />
         
         <button type="submit" className="btn btn-primary" disabled={loading} style={{ height: '42px', marginBottom: 'var(--spacing-md)' }}>
-          {loading ? "Adding..." : "Add Candidate"}
+          {loading ? "Adding..." : "Add Student"}
         </button>
       </div>
     </form>

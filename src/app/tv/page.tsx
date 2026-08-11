@@ -34,13 +34,13 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
     );
   }
 
-  const [teams, results, recentWinners] = await Promise.all([
+  const [teams, results, recentWinners, totalStudents, totalPrograms, publishedProgramsCount] = await Promise.all([
     prisma.team.findMany({
       where: { eventId: eventObj.id },
       include: {
         results: {
           where: { isPublished: true },
-          select: { points: true }
+          select: { points: true, rank: true }
         }
       }
     }),
@@ -56,32 +56,52 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
         program: { include: { category: true } }
       },
       orderBy: { updatedAt: 'desc' },
-      take: 10
-    })
+      take: 5
+    }),
+    prisma.candidate.count({ where: { team: { eventId: eventObj.id } } }),
+    prisma.program.count({ where: { eventId: eventObj.id, type: { not: 'BREAK' } } }),
+    prisma.program.count({ where: { eventId: eventObj.id, results: { some: { isPublished: true } } } })
   ]);
 
   // Calculate Live Scores
   const leaderboard = teams.map(t => {
     const totalPoints = t.results.reduce((sum, r) => sum + r.points, 0);
+    const goldCount = t.results.filter(r => r.rank === 1).length;
+    const silverCount = t.results.filter(r => r.rank === 2).length;
+    const bronzeCount = t.results.filter(r => r.rank === 3).length;
+
     return {
       id: t.id,
       name: t.name,
       prefixCode: t.prefixCode,
       flagColor: t.flagColor || '#ec4899',
-      points: totalPoints
+      points: totalPoints,
+      gold: goldCount,
+      silver: silverCount,
+      bronze: bronzeCount,
+      change: 0, // Hardcoded to 0 for now as we don't store historical points
+      changeType: 'up'
     };
   }).sort((a, b) => b.points - a.points);
 
   const allEvents = await prisma.event.findMany({
     select: { id: true, name: true, type: true }
   });
+  
+  const stats = {
+    institutions: teams.length,
+    students: totalStudents,
+    competitions: totalPrograms,
+    resultsPublished: publishedProgramsCount
+  };
 
   return (
     <TVDisplayClient 
       event={eventObj} 
       leaderboard={leaderboard} 
       recentWinners={recentWinners} 
-      allEvents={allEvents} 
+      allEvents={allEvents}
+      stats={stats}
     />
   );
 }

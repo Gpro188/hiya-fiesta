@@ -14,7 +14,7 @@ export async function GET(request: Request, context: { params: Promise<{ resultI
       include: {
         candidate: { include: { team: true } },
         team: true,
-        program: { include: { mediaTemplate: true, category: true } }
+        program: { include: { category: true } }
       }
     });
 
@@ -29,8 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ resultI
     const winnerName = result.candidate?.name || result.team?.name || 'Winner';
     const teamName = result.candidate?.team.name || result.team?.name || 'Team';
 
-    const templateBgUrl = result.program.mediaTemplate?.imageUrl;
-    const bgImage = templateBgUrl ? templateBgUrl : (settings?.posterBgUrl || 'https://placehold.co/1080x1080/0F172A/FFF?text=Winner'); // Fallback
+    const bgImage = settings?.posterBgUrl || 'https://placehold.co/1080x1080/0F172A/FFF?text=Winner';
 
     const textColor = settings?.posterTextColor || 'white';
     const primaryColor = settings?.posterPrimaryColor || '#FCD34D';

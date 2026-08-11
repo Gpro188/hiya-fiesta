@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://dpro-artsfest.vercel.app'; // Or your actual domain
+  const baseUrl = 'https://cswc-hiya-fiesta.vercel.app'; // Or your actual domain
 
   // Get all events
   const events = await prisma.event.findMany({

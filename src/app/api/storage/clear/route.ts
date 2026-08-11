@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -11,6 +13,11 @@ const s3Client = new S3Client({
 });
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const bucketName = process.env.R2_BUCKET_NAME;
 

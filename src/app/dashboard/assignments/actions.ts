@@ -10,44 +10,93 @@ export async function assignProgram(candidateId: string, programId: string) {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
-    if (session.user.role === "MANAGER") {
-      const team = await prisma.team.findUnique({
-        where: { managerId: session.user.id },
-        include: { event: true }
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
+      if (!fullUser?.institutionId) return { success: false, error: "Institution not found" };
+
+      // Find zone event via institution → zone → zone event
+      const institution = await prisma.masterInstitution.findUnique({
+        where: { id: fullUser.institutionId },
+        include: { zone: true }
       });
-      if (!team) return { success: false, error: "Team not found" };
-      
-      const now = new Date();
-      if (team.event.assignmentStart && now < team.event.assignmentStart) {
-        return { success: false, error: `Program assignments open on ${team.event.assignmentStart.toLocaleString()}` };
-      }
-      if (team.event.assignmentEnd && now > team.event.assignmentEnd) {
-        return { success: false, error: "Assignment deadline has passed. Please contact Admin." };
+
+      let teamForManager = null;
+      if (institution?.zone) {
+        const zoneEvent = await prisma.event.findFirst({
+          where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } }
+        });
+        if (zoneEvent) {
+          teamForManager = await prisma.team.findFirst({
+            where: { institutionId: fullUser.institutionId, eventId: zoneEvent.id },
+            include: { event: true }
+          });
+          if (teamForManager) {
+            if (teamForManager.isAssignmentsConfirmed) {
+              return { success: false, error: "Program assignments have been submitted to the Zone and are now locked." };
+            }
+            const now = new Date();
+            if (zoneEvent.registrationStart && now < zoneEvent.registrationStart) {
+              return { success: false, error: `Program registration opens on ${zoneEvent.registrationStart.toLocaleString()}` };
+            }
+            if (zoneEvent.registrationEnd && now > zoneEvent.registrationEnd) {
+              return { success: false, error: "Registration deadline has passed." };
+            }
+          }
+        }
       }
     }
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
       include: { 
-        programs: { include: { program: true } }, 
-        category: { include: { pointMatrix: true } }
+        programs: { include: { program: { include: { category: true } } } }, 
+        category: true,
+        masterStudent: true
       }
     });
 
-    const program = await prisma.program.findUnique({ where: { id: programId } });
+    const program = await prisma.program.findUnique({ 
+      where: { id: programId },
+      include: { category: true }
+    });
 
     if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
 
-    // Validation 1: Category Match
-    if (program.type !== "GENERAL" && program.categoryId !== candidate.categoryId) {
-      return { success: false, error: "Category mismatch" };
+    const isGeneral = !program.category || program.category.name.toUpperCase() === "GENERAL";
+    const programCatName = program.category?.name?.toUpperCase() || "GENERAL";
+    const studentStream = candidate.masterStudent?.stream?.toUpperCase();
+
+    // Validation 1: Stream Mismatch
+    if (!isGeneral && studentStream) {
+      if (studentStream === "FADHILA" && programCatName === "FADHEELA") {
+        return { success: false, error: "Fadhila stream students cannot register for Fadheela programs." };
+      }
+      if (studentStream === "FADHEELA" && programCatName === "FADHILA") {
+        return { success: false, error: "Fadheela stream students cannot register for Fadhila programs." };
+      }
     }
 
-    // Validation 2: Max Individual Limit
-    const maxLimit = candidate.category.pointMatrix?.maxIndividualPrograms || 3;
-    const currentIndividualCount = candidate.programs.filter(p => p.program.type === "INDIVIDUAL").length;
+    // Validation 2: Individual Registration Limits
+    // Max 2 On-stage, 2 Off-stage, 1 General
+    const currentOnStage = candidate.programs.filter(p => p.program.stageType === "ON_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length;
+    const currentOffStage = candidate.programs.filter(p => p.program.stageType === "OFF_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length;
+    const currentGeneral = candidate.programs.filter(p => !p.program.category || p.program.category.name.toUpperCase() === "GENERAL").length;
 
-    if (program.type === "INDIVIDUAL" && currentIndividualCount >= maxLimit) {
-      return { success: false, error: `Exceeded max individual limit of ${maxLimit}` };
+    if (isGeneral) {
+      if (currentGeneral >= 1) return { success: false, error: "Exceeded max limit of 1 General program per candidate." };
+    } else {
+      if (program.stageType === "ON_STAGE" && currentOnStage >= 2) {
+        return { success: false, error: "Exceeded max limit of 2 On-Stage programs per candidate." };
+      }
+      if (program.stageType === "OFF_STAGE" && currentOffStage >= 2) {
+        return { success: false, error: "Exceeded max limit of 2 Off-Stage programs per candidate." };
+      }
+    }
+
+    if (program.type === "INDIVIDUAL") {
+      const currentIndividual = candidate.programs.filter(p => p.program.type === "INDIVIDUAL").length;
+      if (currentIndividual >= 4) {
+        return { success: false, error: "Exceeded max limit of 4 Individual programs per candidate." };
+      }
     }
 
     // Validation 3: Per Team Limit
@@ -88,13 +137,21 @@ export async function unassignProgram(candidateId: string, programId: string) {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
-    if (session.user.role === "MANAGER") {
-      const team = await prisma.team.findUnique({
-        where: { managerId: session.user.id },
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { team: true } });
+      if (candidate?.team?.isAssignmentsConfirmed) {
+        return { success: false, error: "Program assignments have been submitted to the Zone and are now locked." };
+      }
+      
+      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
+      const team = fullUser?.institutionId ? await prisma.team.findFirst({
+        where: fullUser.eventId 
+          ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
+          : { institutionId: fullUser.institutionId },
         include: { event: true }
-      });
-      if (team && team.event.assignmentEnd && new Date() > team.event.assignmentEnd) {
-        return { success: false, error: "Assignment deadline has passed. Cannot unassign program." };
+      }) : null;
+      if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
+        return { success: false, error: "Registration deadline has passed. Cannot unassign program." };
       }
     }
     await prisma.programAssignment.delete({
@@ -114,5 +171,24 @@ export async function unassignProgram(candidateId: string, programId: string) {
       return { success: false, error: "Assignment not found or already removed." };
     }
     return { success: false, error: error.message || "Failed to unassign program." };
+  }
+}
+
+
+export async function confirmTeamAssignments(teamId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { isAssignmentsConfirmed: true }
+    });
+
+    revalidatePath("/dashboard/assignments");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to confirm assignments:", error);
+    return { success: false, error: "Failed to confirm assignments." };
   }
 }

@@ -9,87 +9,67 @@ export async function saveHomepageSettings(data: any) {
   try {
     const session = await getServerSession(authOptions);
     const user = session?.user;
-    if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
+    if (!user || (!["SUPER_ADMIN", "ADMIN", "MANAGER", "INSTITUTION_MANAGER"].includes(user.role))) {
       return { success: false, message: "Unauthorized" };
     }
 
-    if (!user.eventId) {
-      return { success: false, message: "No event associated with this user" };
+    const eventId = data.targetEventId || user.eventId;
+    
+    if (!eventId) {
+      return { success: false, message: "No event specified" };
     }
 
-    if (!user.eventId) {
-        return { success: false, message: "No event assigned" };
+    // Authorization check
+    if (user.role !== "SUPER_ADMIN" && user.eventId !== eventId) {
+      return { success: false, message: "Unauthorized to edit other event settings" };
     }
-
-    const eventId = user.eventId;
 
     let committeeMembers = [];
     let galleryImages = [];
+    let heroSlides = [];
+    let statsCounter = {};
+    let socialLinks = {};
+    
     try {
       committeeMembers = data.committeeMembers ? JSON.parse(data.committeeMembers) : [];
       galleryImages = data.galleryImages ? JSON.parse(data.galleryImages) : [];
+      heroSlides = data.heroSlides ? JSON.parse(data.heroSlides) : [];
+      statsCounter = data.statsCounter ? JSON.parse(data.statsCounter) : {};
+      socialLinks = data.socialLinks ? JSON.parse(data.socialLinks) : {};
     } catch (e) {
-      console.error("Failed to parse JSON arrays", e);
+      console.error("Failed to parse JSON", e);
     }
 
     await prisma.homepageSetting.upsert({
       where: { eventId },
       update: {
-        heroTitle: data.heroTitle,
-        heroSubtitle: data.heroSubtitle,
-        heroBgUrl: data.heroBgUrl,
         aboutTitle: data.aboutTitle,
         aboutText: data.aboutText,
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
         bgColor: data.bgColor,
-        stat1Label: data.stat1Label,
-        stat1Value: data.stat1Value,
-        stat2Label: data.stat2Label,
-        stat2Value: data.stat2Value,
-        stat3Label: data.stat3Label,
-        stat3Value: data.stat3Value,
-        stat4Label: data.stat4Label,
-        stat4Value: data.stat4Value,
-        contactEmail: data.contactEmail,
-        contactPhone: data.contactPhone,
-        socialFacebook: data.socialFacebook,
-        socialInstagram: data.socialInstagram,
-        socialYoutube: data.socialYoutube,
-        pinnedButtonText: data.pinnedButtonText,
-        pinnedButtonLogoUrl: data.pinnedButtonLogoUrl,
         committeeMembers,
         committeeTitle: data.committeeTitle || "Program Committee",
         galleryImages,
+        tickerText: data.tickerText,
+        heroSlides,
+        statsCounter,
+        socialLinks
       },
       create: {
         eventId,
-        heroTitle: data.heroTitle,
-        heroSubtitle: data.heroSubtitle,
-        heroBgUrl: data.heroBgUrl,
         aboutTitle: data.aboutTitle,
         aboutText: data.aboutText,
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
         bgColor: data.bgColor,
-        stat1Label: data.stat1Label,
-        stat1Value: data.stat1Value,
-        stat2Label: data.stat2Label,
-        stat2Value: data.stat2Value,
-        stat3Label: data.stat3Label,
-        stat3Value: data.stat3Value,
-        stat4Label: data.stat4Label,
-        stat4Value: data.stat4Value,
-        contactEmail: data.contactEmail,
-        contactPhone: data.contactPhone,
-        socialFacebook: data.socialFacebook,
-        socialInstagram: data.socialInstagram,
-        socialYoutube: data.socialYoutube,
-        pinnedButtonText: data.pinnedButtonText,
-        pinnedButtonLogoUrl: data.pinnedButtonLogoUrl,
         committeeMembers,
         committeeTitle: data.committeeTitle || "Program Committee",
         galleryImages,
+        tickerText: data.tickerText,
+        heroSlides,
+        statsCounter,
+        socialLinks
       },
     });
 

@@ -11,7 +11,7 @@ type CandidateType = {
   category: { name: string };
   chestNumber: string | null;
   isApproved: boolean;
-  photo: string | null;
+  photoUrl: string | null;
   team: { name: string, prefixCode: string, event: { name: string } };
   _count: { programs: number };
 };
@@ -42,9 +42,9 @@ export default function CandidateList({ candidates, role, categories }: { candid
           {candidates.map((candidate) => (
             <tr key={candidate.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
               <td style={{ padding: 'var(--spacing-sm)' }}>
-                 {candidate.photo ? (
+                 {candidate.photoUrl ? (
                    <img 
-                    src={candidate.photo} 
+                    src={candidate.photoUrl} 
                     alt={candidate.name} 
                     style={{ width: '35px', height: '35px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} 
                     onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -98,13 +98,24 @@ export default function CandidateList({ candidates, role, categories }: { candid
                       alignItems: 'center', 
                       gap: '4px', 
                       padding: '0.2rem 0.5rem', 
-                      fontSize: '0.75rem', 
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
                       color: 'var(--success)',
-                      fontWeight: 600
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.75rem'
                     }}
                   >
-                    ✅ Approved
+                    ✓ Approved
                   </span>
+                )}
+                
+                {["MANAGER", "INSTITUTION_MANAGER", "ADMIN"].includes(role) && (
+                  <a 
+                    href={`/dashboard/assignments?candidateId=${candidate.id}`}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none' }}
+                  >
+                    Assign Programs
+                  </a>
                 )}
 
                 {/* Only allow editing if not approved (for Manager) or always (for Admin) */}

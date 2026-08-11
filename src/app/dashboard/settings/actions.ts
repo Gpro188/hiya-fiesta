@@ -71,20 +71,34 @@ export async function updateEventDeadlines(eventId: string, data: {
   registrationEnd: string | null;
   assignmentStart: string | null;
   assignmentEnd: string | null;
+  institutionRegistrationEndDate: string | null;
+  zoneActiveStartTime: string | null;
+  zoneActiveEndTime: string | null;
+  stateConfirmEndDate: string | null;
+  statusOverride?: string | null;
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
+
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
 
     await prisma.event.update({
       where: { id: eventId },
       data: {
-        registrationStart: data.registrationStart ? new Date(data.registrationStart) : null,
-        registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
-        assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
-        assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
+        ...(isAdmin ? {
+          registrationStart: data.registrationStart ? new Date(data.registrationStart) : null,
+          registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
+          assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
+          assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
+          zoneActiveStartTime: data.zoneActiveStartTime ? new Date(data.zoneActiveStartTime) : null,
+          zoneActiveEndTime: data.zoneActiveEndTime ? new Date(data.zoneActiveEndTime) : null,
+          stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
+        } : {}),
+        institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
+        ...(data.statusOverride ? { statusOverride: data.statusOverride } : {})
       }
     });
 

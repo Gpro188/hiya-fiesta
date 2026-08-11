@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const homepage = await getHomepageSettings(id);
   
   const festName = homepage?.heroTitle || globalSetting.festName || event.name;
-  const title = `${festName} | Dpro Artsfest System`;
+  const title = `${festName} | CSWC Hiya Fiesta System`;
   const description = homepage?.heroSubtitle || homepage?.aboutText || `Join us in the wonderful celebration of arts and creativity at ${festName}.`;
   
   return {
@@ -22,8 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description,
     keywords: [
       festName,
-      "dpro",
-      "dpro technologies",
+      "cswc",
+      "cswc technologies",
       "artsfest management system",
       "arts fest system"
     ],

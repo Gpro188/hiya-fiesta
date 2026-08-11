@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { bulkImportStudents, addStudent, updateStudent, deleteStudent } from "./actions";
+import { bulkImportStudents, addStudent, updateStudent, deleteStudent, bulkDeleteStudentsByZone, bulkDeleteStudentsByInstitution } from "./actions";
 
-export default function StudentsClient({ initialStudents, institutions }: { initialStudents: any[], institutions: any[] }) {
+export default function StudentsClient({ initialStudents, institutions, zones }: { initialStudents: any[], institutions: any[], zones: any[] }) {
   const [students, setStudents] = useState(initialStudents);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedUploadInstitutionId, setSelectedUploadInstitutionId] = useState("");
+  const [deleteZoneId, setDeleteZoneId] = useState("");
+  const [deleteInstId, setDeleteInstId] = useState("");
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -27,11 +30,11 @@ export default function StudentsClient({ initialStudents, institutions }: { init
         "Stream": "FADHILA"
       },
       {
-        "Institution Name": "DARUSSALAM WOMEN'S SHAREE-ATH COLLEGE",
-        "Name": "AAYISHA SUZANA",
+        "Institution Name": "SAJIPA USTHAD WOMENS SHAREEATH AND +1 +2 COLLEGE",
+        "Name": "AAYISHA RABIYA",
         "District": "DAKSHINA KANNADA",
-        "UID": "FL26C0046",
-        "Phone": "9880842882",
+        "UID": "FL26C0075",
+        "Phone": "9740549256",
         "Stream": "FADHILA"
       }
     ];
@@ -66,7 +69,7 @@ export default function StudentsClient({ initialStudents, institutions }: { init
         }
 
         const mapped = data.map((row: any) => ({
-          institutionName: (row["Institution Name"] || row["institutionName"] || "").toString().trim(),
+          institutionName: (row["Institution Name"] || row["Institution"] || "").toString().trim(),
           name: (row["Name"] || row["name"] || "").toString().trim(),
           district: (row["District"] || row["district"] || "").toString().trim(),
           uid: (row["UID"] || row["uid"] || row["UID Number"] || "").toString().trim(),
@@ -150,6 +153,38 @@ export default function StudentsClient({ initialStudents, institutions }: { init
     }
   };
 
+  const handleBulkDeleteByZone = async () => {
+    if (!deleteZoneId) return alert("Select a zone first");
+    const zName = zones.find(z => z.id === deleteZoneId)?.name;
+    if (confirm(`Are you SURE you want to delete ALL students from institutions in ${zName}?`)) {
+      setActionLoading(true);
+      const res = await bulkDeleteStudentsByZone(deleteZoneId);
+      if (res.success) {
+        setSuccess(`Successfully deleted students for ${zName}`);
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        alert("Failed to bulk delete: " + res.error);
+        setActionLoading(false);
+      }
+    }
+  };
+
+  const handleBulkDeleteByInst = async () => {
+    if (!deleteInstId) return alert("Select an institution first");
+    const iName = institutions.find(i => i.id === deleteInstId)?.name;
+    if (confirm(`Are you SURE you want to delete ALL students from ${iName}?`)) {
+      setActionLoading(true);
+      const res = await bulkDeleteStudentsByInstitution(deleteInstId);
+      if (res.success) {
+        setSuccess(`Successfully deleted students for ${iName}`);
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        alert("Failed to bulk delete: " + res.error);
+        setActionLoading(false);
+      }
+    }
+  };
+
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.uid.toLowerCase().includes(search.toLowerCase()) ||
@@ -163,7 +198,7 @@ export default function StudentsClient({ initialStudents, institutions }: { init
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
           <div>
             <h3 style={{ margin: 0 }}>Upload Master Student UID Excel</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload student roster with Institution Name, Name, District, UID Number, Phone, and Stream.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload student roster with Name, District, UID Number, Phone, and Stream.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
@@ -189,9 +224,11 @@ export default function StudentsClient({ initialStudents, institutions }: { init
               />
               <label htmlFor="students-upload" style={{ cursor: 'pointer', display: 'block' }}>
                 <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>👨‍🎓📊</div>
-                <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '1.05rem' }}>Click to Upload Student UIDs Excel</div>
+                <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '1.05rem' }}>
+                  Click to Upload Student UIDs Excel
+                </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Supports <code>FL26CH12</code> UID format for instant lookup in candidate registration.
+                  Ensure your Excel has an <code>Institution Name</code> column to match automatically!
                 </div>
               </label>
             </>
@@ -200,6 +237,32 @@ export default function StudentsClient({ initialStudents, institutions }: { init
 
         {error && <div style={{ marginTop: '10px', color: 'var(--error)' }}>❌ {error}</div>}
         {success && <div style={{ marginTop: '10px', color: 'var(--success)' }}>✅ {success}</div>}
+      </div>
+
+      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+        <div style={{ border: '1px solid var(--border-color)', padding: '16px', borderRadius: '8px' }}>
+          <h4 style={{ margin: '0 0 12px 0', color: 'var(--error)' }}>Bulk Delete by Zone</h4>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Delete all students belonging to institutions in a specific zone.</p>
+          <select className="form-input" value={deleteZoneId} onChange={(e) => setDeleteZoneId(e.target.value)} style={{ marginBottom: '12px' }}>
+            <option value="">Select Zone...</option>
+            {zones?.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+          <button onClick={handleBulkDeleteByZone} disabled={!deleteZoneId || actionLoading} className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--error)' }}>
+            🗑️ Delete Zone Students
+          </button>
+        </div>
+
+        <div style={{ border: '1px solid var(--border-color)', padding: '16px', borderRadius: '8px' }}>
+          <h4 style={{ margin: '0 0 12px 0', color: 'var(--error)' }}>Bulk Delete by Institution</h4>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Delete all students belonging to a specific institution.</p>
+          <select className="form-input" value={deleteInstId} onChange={(e) => setDeleteInstId(e.target.value)} style={{ marginBottom: '12px' }}>
+            <option value="">Select Institution...</option>
+            {institutions?.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+          <button onClick={handleBulkDeleteByInst} disabled={!deleteInstId || actionLoading} className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--error)' }}>
+            🗑️ Delete Institution Students
+          </button>
+        </div>
       </div>
 
       {/* Directory Table */}

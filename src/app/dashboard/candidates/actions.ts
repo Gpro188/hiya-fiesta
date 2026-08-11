@@ -5,16 +5,27 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-export async function addCandidate(data: { name: string, categoryId: string, teamId: string, photo?: string }) {
+export async function addCandidate(data: { name: string, categoryId: string, teamId: string, photo?: string, uid?: string }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
-    if (session.user.role === "MANAGER") {
-      const team = await prisma.team.findUnique({
-        where: { managerId: session.user.id },
+    if (session.user.role === "ZONE_ADMIN") {
+      return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    }
+
+    let finalUid = data.uid;
+    let institutionId = null;
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
+      institutionId = fullUser?.institutionId;
+      const team = institutionId ? await prisma.team.findFirst({
+        where: fullUser?.eventId 
+          ? { institutionId, eventId: fullUser.eventId }
+          : { institutionId },
         include: { event: true }
-      });
+      }) : null;
       if (!team) return { success: false, error: "Team not found" };
       
       const now = new Date();
@@ -24,6 +35,22 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       if (team.event.registrationEnd && now > team.event.registrationEnd) {
         return { success: false, error: "Registration deadline has passed. Please contact Admin." };
       }
+
+      // Verify UID belongs to their institution
+      if (finalUid) {
+         const masterStudent = await prisma.masterStudent.findUnique({
+            where: { uid: finalUid }
+         });
+         if (!masterStudent || masterStudent.institutionId !== institutionId) {
+            // Invalid UID or doesn't belong to them
+            finalUid = undefined;
+         }
+      }
+    } else {
+       // Admins can set any UID
+       if (!["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+         finalUid = undefined;
+       }
     }
 
     await prisma.candidate.create({
@@ -31,7 +58,10 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
         name: data.name,
         categoryId: data.categoryId,
         teamId: data.teamId,
-        photo: data.photo,
+        photoUrl: data.photo,
+        uid: finalUid || null,
+        isApproved: false,
+        chestNumber: null
       }
     });
 
@@ -59,11 +89,18 @@ export async function updateCandidate(id: string, data: { name: string, category
     const candidate = await prisma.candidate.findUnique({ where: { id } });
     if (!candidate) return { success: false, error: "Candidate not found" };
 
-    if (session.user.role === "MANAGER") {
-      const team = await prisma.team.findUnique({
-        where: { managerId: session.user.id },
+    if (session.user.role === "ZONE_ADMIN") {
+      return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    }
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
+      const team = fullUser?.institutionId ? await prisma.team.findFirst({
+        where: fullUser.eventId 
+          ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
+          : { institutionId: fullUser.institutionId },
         include: { event: true }
-      });
+      }) : null;
       if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
         return { success: false, error: "Registration deadline has passed. Cannot edit candidate." };
       }
@@ -103,11 +140,18 @@ export async function deleteCandidate(id: string) {
     const candidate = await prisma.candidate.findUnique({ where: { id } });
     if (!candidate) return { success: false, error: "Candidate not found" };
 
-    if (session.user.role === "MANAGER") {
-      const team = await prisma.team.findUnique({
-        where: { managerId: session.user.id },
+    if (session.user.role === "ZONE_ADMIN") {
+      return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    }
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
+      const team = fullUser?.institutionId ? await prisma.team.findFirst({
+        where: fullUser.eventId 
+          ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
+          : { institutionId: fullUser.institutionId },
         include: { event: true }
-      });
+      }) : null;
       if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
         return { success: false, error: "Registration deadline has passed. Cannot delete candidate." };
       }
@@ -224,5 +268,48 @@ export async function bulkImportCandidates(candidatesList: Array<{ name: string,
       return { success: false, error: "Duplicate chest number or candidate constraint failed during import." };
     }
     return { success: false, error: error.message || "Failed to import candidates" };
+  }
+}
+
+export async function generateChestNumbers(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const categories = await prisma.category.findMany({
+      where: { eventId },
+      orderBy: { name: 'asc' }
+    });
+
+    let totalUpdated = 0;
+
+    for (const cat of categories) {
+      let counter = cat.chestNumberOffset || 100;
+      
+      const candidates = await prisma.candidate.findMany({
+        where: { categoryId: cat.id, isApproved: true },
+        orderBy: [
+          { team: { name: 'asc' } },
+          { name: 'asc' }
+        ]
+      });
+
+      for (const cand of candidates) {
+        counter++;
+        await prisma.candidate.update({
+          where: { id: cand.id },
+          data: { chestNumber: counter.toString() }
+        });
+        totalUpdated++;
+      }
+    }
+
+    revalidatePath("/dashboard/candidates");
+    return { success: true, count: totalUpdated };
+  } catch (error: any) {
+    console.error("Failed to generate chest numbers:", error);
+    return { success: false, error: error.message || "Failed to generate chest numbers" };
   }
 }

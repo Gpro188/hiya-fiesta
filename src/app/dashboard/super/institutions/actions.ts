@@ -12,9 +12,9 @@ export async function bulkImportInstitutions(institutionsData: Array<{
   affiliationNo?: string;
   name: string;
   place?: string;
-  zoneName: string;
   district?: string;
   stream?: string;
+  zoneName?: string;
 }>) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,25 +22,28 @@ export async function bulkImportInstitutions(institutionsData: Array<{
       return { success: false, error: "Unauthorized" };
     }
 
+    const zones = await prisma.zone.findMany({
+      select: { id: true, name: true }
+    });
+
     let importedCount = 0;
 
     for (const item of institutionsData) {
       if (!item.code || !item.name || !item.zoneName) continue;
 
-      const normZoneName = item.zoneName.trim().toUpperCase();
-      let zone = await prisma.zone.findFirst({
-        where: { OR: [{ name: { equals: normZoneName, mode: 'insensitive' } }, { code: { equals: normZoneName, mode: 'insensitive' } }] }
-      });
+      const searchZoneName = item.zoneName.trim().toUpperCase();
+      let matchedZoneId = null;
 
-      if (!zone) {
-        // Auto-create zone if not existing
-        zone = await prisma.zone.create({
-          data: {
-            name: normZoneName,
-            code: normZoneName.substring(0, 4)
-          }
-        });
+      for (const zone of zones) {
+        const dbZoneName = zone.name.trim().toUpperCase();
+        // Match exact or substring (e.g. "KASARAGOD" in "KASARAGOD Zone")
+        if (dbZoneName === searchZoneName || dbZoneName.includes(searchZoneName) || searchZoneName.includes(dbZoneName)) {
+          matchedZoneId = zone.id;
+          break;
+        }
       }
+
+      if (!matchedZoneId) continue;
 
       const instPassword = item.password || "123";
       const hashedPassword = await bcrypt.hash(instPassword, 10);
@@ -52,7 +55,7 @@ export async function bulkImportInstitutions(institutionsData: Array<{
           password: instPassword,
           affiliationNo: item.affiliationNo || null,
           place: item.place || null,
-          zoneId: zone.id,
+          zoneId: matchedZoneId,
           district: item.district || null,
           stream: item.stream || null,
         },
@@ -62,7 +65,7 @@ export async function bulkImportInstitutions(institutionsData: Array<{
           name: item.name.trim(),
           affiliationNo: item.affiliationNo || null,
           place: item.place || null,
-          zoneId: zone.id,
+          zoneId: matchedZoneId,
           district: item.district || null,
           stream: item.stream || null,
         }
@@ -75,14 +78,14 @@ export async function bulkImportInstitutions(institutionsData: Array<{
         update: {
           password: hashedPassword,
           institutionId: institution.id,
-          zoneId: zone.id,
+          zoneId: matchedZoneId,
           role: "INSTITUTION_MANAGER"
         },
         create: {
           username,
           password: hashedPassword,
           institutionId: institution.id,
-          zoneId: zone.id,
+          zoneId: matchedZoneId,
           role: "INSTITUTION_MANAGER"
         }
       });

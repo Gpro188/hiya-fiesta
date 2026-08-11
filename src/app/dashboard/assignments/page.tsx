@@ -5,42 +5,69 @@ import { prisma } from "@/lib/prisma";
 import AssignmentForm from "./AssignmentForm";
 import Link from "next/link";
 
-export default async function AssignmentsPage() {
+export default async function AssignmentsPage({ searchParams }: { searchParams: { candidateId?: string } }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || (session.user.role !== "MANAGER" && session.user.role !== "ADMIN")) {
+  if (!session || (!["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && session.user.role !== "ADMIN")) {
     redirect("/dashboard");
   }
 
   let teamId = null;
   let isAssignmentOpen = true;
   let assignmentStatusMessage = "";
+  let isAssignmentsConfirmed = false;
+  let zoneEventId: string | null = null;
+  let parentEventId: string | null = null;
 
-  if (session.user.role === "MANAGER") {
-    const team = await prisma.team.findUnique({
-      where: { managerId: session.user.id },
-      include: { event: true }
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+    const fullUser = await prisma.user.findUnique({ 
+      where: { id: session.user.id }, 
+      select: { institutionId: true, eventId: true } 
     });
-    if (!team) return <div>You are not assigned to any team.</div>;
-    teamId = team.id;
+    if (!fullUser?.institutionId) return <div>You are not assigned to any institution.</div>;
 
-    // Check event-specific assignment window
-    const now = new Date();
-    const start = team.event.assignmentStart;
-    const end = team.event.assignmentEnd;
-    
-    if (start && now < start) {
-      isAssignmentOpen = false;
-      assignmentStatusMessage = `Program assignments will open on ${start.toLocaleString()}.`;
-    } else if (end && now > end) {
-      isAssignmentOpen = false;
-      assignmentStatusMessage = `Program assignments closed on ${end.toLocaleString()}.`;
+    // Find team via institution → zone → zone event (same logic as candidates page)
+    const institution = await prisma.masterInstitution.findUnique({
+      where: { id: fullUser.institutionId },
+      include: { zone: true }
+    });
+
+    if (institution?.zone) {
+      const zoneEvent = await prisma.event.findFirst({
+        where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } }
+      });
+
+      if (zoneEvent) {
+        zoneEventId = zoneEvent.id;
+        parentEventId = zoneEvent.parentId;
+        const team = await prisma.team.findFirst({
+          where: { institutionId: fullUser.institutionId, eventId: zoneEvent.id }
+        });
+        if (team) {
+          teamId = team.id;
+          isAssignmentsConfirmed = team.isAssignmentsConfirmed;
+          // Check assignment window
+          const now = new Date();
+          const start = zoneEvent.assignmentStart;
+          const end = zoneEvent.assignmentEnd;
+          if (start && now < start) {
+            isAssignmentOpen = false;
+            assignmentStatusMessage = `Program assignments will open on ${start.toLocaleString()}.`;
+          } else if (end && now > end) {
+            isAssignmentOpen = false;
+            assignmentStatusMessage = `Program assignments closed on ${end.toLocaleString()}.`;
+          }
+        }
+      }
     }
+  } else if (session.user.eventId) {
+    zoneEventId = session.user.eventId;
+    const ev = await prisma.event.findUnique({ where: { id: zoneEventId } });
+    if (ev) parentEventId = ev.parentId;
   }
 
-  const eventFilter = session.user.eventId ? { eventId: session.user.eventId } : undefined;
-
-  const whereClause: any = { isApproved: true };
+  // Candidates scoped to team (for institution managers) or event (for admins)
+  const whereClause: any = {};
   if (teamId) {
     whereClause.teamId = teamId;
   } else if (session.user.eventId) {
@@ -57,13 +84,7 @@ export default async function AssignmentsPage() {
       category: {
         select: {
           id: true,
-          name: true,
-          pointMatrix: {
-            select: {
-              id: true,
-              maxIndividualPrograms: true
-            }
-          }
+          name: true
         }
       },
       programs: {
@@ -74,7 +95,8 @@ export default async function AssignmentsPage() {
             select: {
               id: true,
               name: true,
-              type: true
+              type: true,
+              stageType: true
             }
           }
         }
@@ -82,8 +104,9 @@ export default async function AssignmentsPage() {
     }
   });
 
+  const eventIdsToSearch = [zoneEventId, parentEventId, session.user.eventId].filter(Boolean) as string[];
   const programs = await prisma.program.findMany({
-    where: eventFilter,
+    where: eventIdsToSearch.length > 0 ? { eventId: { in: eventIdsToSearch } } : {},
     include: { 
       event: true,
       category: true
@@ -92,12 +115,84 @@ export default async function AssignmentsPage() {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Program Assignments</h1>
-        <p className="page-description">
-          Enroll approved candidates into competition programs. Category limits and eligibility rules are enforced automatically.
-        </p>
+      <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Program Assignments</h1>
+          <p className="page-description">
+            Enroll approved candidates into competition programs. Category limits and eligibility rules are enforced automatically.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <a 
+            href="/program_manual.pdf" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Program Manual
+          </a>
+          
+          <a 
+            href={`/print/assignments${teamId ? `?teamId=${teamId}` : ''}`} 
+            target="_blank" 
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Print Assignments List
+          </a>
+        </div>
       </div>
+
+      {(() => {
+        const totalCandidates = candidates.length;
+        const assignedCandidates = candidates.filter(c => c.programs.length > 0).length;
+        
+        // Calculate Total Available Program Slots for the Team
+        const candidateCategoryIds = new Set(candidates.map(c => c.categoryId));
+        const candidateCategoryNames = new Set(candidates.map(c => c.category?.name));
+        
+        const applicablePrograms = programs.filter(p => 
+          p.type === "GENERAL" || 
+          (p.categoryId !== null && candidateCategoryIds.has(p.categoryId)) || 
+          (p.category && candidateCategoryNames.has(p.category.name))
+        );
+
+        const totalAvailableSlots = applicablePrograms.reduce((acc, p) => acc + (p.candidateLimitPerTeam || 1), 0);
+        const totalAssignments = candidates.reduce((acc, c) => acc + c.programs.length, 0);
+        const pendingPrograms = Math.max(0, totalAvailableSlots - totalAssignments);
+
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+            <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Total Candidates</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{totalCandidates}</div>
+            </div>
+            <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Total Assignments</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--success)' }}>{totalAssignments}</div>
+            </div>
+            <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Available Slots</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)' }}>{totalAvailableSlots}</div>
+            </div>
+            <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Pending Slots</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--warning)' }}>{pendingPrograms}</div>
+            </div>
+          </div>
+        );
+      })()}
       
       {candidates.length === 0 ? (
         <div className="glass-panel empty-state-guidance">
@@ -105,7 +200,7 @@ export default async function AssignmentsPage() {
             No approved candidates found.
           </p>
           <p>Candidates must be registered and approved by the Admin before program assignments can be made.</p>
-          {session.user.role === "MANAGER" ? (
+          {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? (
             <Link href="/dashboard/candidates" className="empty-state-action">Go to Candidates &rarr;</Link>
           ) : (
             <Link href="/dashboard/candidates" className="empty-state-action">Review Candidates &rarr;</Link>
@@ -113,11 +208,24 @@ export default async function AssignmentsPage() {
         </div>
       ) : (
         <div data-tour="assignments-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Assign Candidates to Programs</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+            <h3 style={{ margin: 0 }}>Assign Candidates to Programs</h3>
+            {isAssignmentsConfirmed && (
+              <span style={{ padding: '4px 8px', backgroundColor: 'var(--success)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>CONFIRMED</span>
+            )}
+          </div>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)', fontSize: '0.85rem' }}>
             Select a candidate below to see available programs and make assignments. Validations enforce category rules and entry limits.
           </p>
-          <AssignmentForm candidates={candidates as any} programs={programs as any} isAssignmentOpen={isAssignmentOpen} statusMessage={assignmentStatusMessage} />
+          <AssignmentForm 
+            candidates={candidates as any} 
+            programs={programs as any} 
+            isAssignmentOpen={isAssignmentOpen}
+            statusMessage={assignmentStatusMessage}
+            initialCandidateId={searchParams.candidateId}
+            teamId={teamId}
+            isAssignmentsConfirmed={isAssignmentsConfirmed}
+          />
         </div>
       )}
     </div>

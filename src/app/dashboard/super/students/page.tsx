@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import StudentsClient from "./StudentsClient";
+import { bulkDeleteStudentsByZone, bulkDeleteStudentsByInstitution } from "./actions";
 
 export default async function MasterStudentsPage() {
   const session = await getServerSession(authOptions);
@@ -11,7 +12,7 @@ export default async function MasterStudentsPage() {
     redirect("/dashboard");
   }
 
-  const [students, institutions] = await Promise.all([
+  const [students, institutions, zones] = await Promise.all([
     prisma.masterStudent.findMany({
       include: {
         institution: { select: { id: true, name: true, code: true, zone: { select: { name: true } } } }
@@ -21,6 +22,10 @@ export default async function MasterStudentsPage() {
     }),
     prisma.masterInstitution.findMany({
       select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' }
+    }),
+    prisma.zone.findMany({
+      select: { id: true, name: true },
       orderBy: { name: 'asc' }
     })
   ]);
@@ -34,7 +39,7 @@ export default async function MasterStudentsPage() {
         </p>
       </div>
 
-      <StudentsClient initialStudents={students} institutions={institutions} />
+      <StudentsClient initialStudents={students} institutions={institutions} zones={zones} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import ThemeToggle from "@/app/components/ThemeToggle";
 interface SidebarProps {
   role: string;
   username: string;
+  displayName?: string;
   festName: string;
   festMoto: string;
 }
@@ -61,10 +62,16 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/teams",
         },
         {
-          name: "Candidates",
-          subtitle: "Register & approve participants",
-          icon: "👤",
-          href: "/dashboard/candidates",
+          name: "Users",
+          subtitle: "Portal access & credentials",
+          icon: "👥",
+          href: "/dashboard/users",
+        },
+        {
+          name: "Jury Directory",
+          subtitle: "Global master list of judges",
+          icon: "⚖️",
+          href: "/dashboard/juries",
         },
         {
           name: "Programs",
@@ -73,29 +80,17 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/programs",
         },
         {
-          name: "Program Assignments",
-          subtitle: "Enroll candidates into programs",
-          icon: "📝",
-          href: "/dashboard/assignments",
-        },
-        {
-          name: "Results & Scoring",
-          subtitle: "Enter marks & publish results",
-          icon: "🏆",
-          href: "/dashboard/scoring",
-        },
-        {
-          name: "Global Schedule",
-          subtitle: "Timeline & venue planning",
-          icon: "📅",
-          href: "/dashboard/schedule",
-        },
-        {
-          name: "Media Branding",
-          subtitle: "Posters, logos & branding",
-          icon: "🎨",
-          href: "/dashboard/media",
+          name: "State Advancements",
+          subtitle: "Promote winners to state",
+          icon: "⭐",
+          href: "/dashboard/promotions",
           highlight: true,
+        },
+        {
+          name: "Reports & Print Hub",
+          subtitle: "All printables & schedules",
+          icon: "🖨️",
+          href: "/dashboard/reports",
         },
         {
           name: "Settings",
@@ -109,6 +104,12 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "🎨",
           href: "/dashboard/settings/homepage",
         },
+        {
+          name: "Poster Branding",
+          subtitle: "Design result posters",
+          icon: "🖼️",
+          href: "/dashboard/media",
+        },
       ],
     });
 
@@ -116,6 +117,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
       groups.push({
         section: "Central Registry",
         items: [
+          {
+            name: "Master Zones",
+            subtitle: "Manage 8 Regional Zones",
+            icon: "🗺️",
+            href: "/dashboard/super/zones",
+            highlight: true,
+          },
           {
             name: "Master Institutions",
             subtitle: "80+ Colleges & Zone mappings",
@@ -133,6 +141,50 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         ],
       });
     }
+  }
+
+  if (role === "ZONE_ADMIN") {
+    groups.push({
+      section: "Zone Management",
+      items: [
+        {
+          name: "Teams & Users",
+          subtitle: "Zone Institutions",
+          icon: "🛡️",
+          href: "/dashboard/teams",
+        },
+        {
+          name: "Jury Selection",
+          subtitle: "Assign judges to programs",
+          icon: "⚖️",
+          href: "/dashboard/juries",
+        },
+        {
+          name: "Scheduling & Stages",
+          subtitle: "Assign venues & time slots",
+          icon: "📅",
+          href: "/dashboard/schedule",
+        },
+        {
+          name: "Reports & Print Hub",
+          subtitle: "All printables & schedules",
+          icon: "🖨️",
+          href: "/dashboard/reports",
+        },
+        {
+          name: "Results & Scoring",
+          subtitle: "Mark Entry & Publishing",
+          icon: "🏆",
+          href: "/dashboard/scoring",
+        },
+        {
+          name: "Zone Settings",
+          subtitle: "Registration Dates",
+          icon: "⚙️",
+          href: "/dashboard/settings",
+        },
+      ],
+    });
   }
 
   if (role === "MEDIA") {
@@ -156,25 +208,31 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     });
   }
 
-  if (role === "MANAGER") {
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
     groups.push({
-      section: "Team Manager",
+      section: "Institution Hub",
       items: [
         {
-          name: "Candidates",
-          subtitle: "Register your team's participants",
+          name: "Student Roster",
+          subtitle: "View & register candidates",
           icon: "👤",
           href: "/dashboard/candidates",
         },
         {
-          name: "Program Assignments",
-          subtitle: "Enroll candidates in programs",
+          name: "Program Allocations",
+          subtitle: "Assign students to programs",
           icon: "📜",
           href: "/dashboard/assignments",
         },
         {
-          name: "Print Schedule",
-          subtitle: "View & print team timetable",
+          name: "Reports & Print Hub",
+          subtitle: "Printable ID cards & timetable",
+          icon: "🖨️",
+          href: "/dashboard/reports",
+        },
+        {
+          name: "Entry Passes & Schedule",
+          subtitle: "Printable ID cards & timetable",
           icon: "🖨️",
           href: "/dashboard/schedule",
         },
@@ -196,6 +254,7 @@ function roleColor(role: string) {
     case "MEDIA":
       return "#0ea5e9";
     case "MANAGER":
+    case "INSTITUTION_MANAGER":
       return "#f43f5e";
     default:
       return "#98a2b3";
@@ -205,6 +264,7 @@ function roleColor(role: string) {
 export default function DashboardSidebar({
   role,
   username,
+  displayName,
   festName,
   festMoto,
 }: SidebarProps) {
@@ -292,9 +352,11 @@ export default function DashboardSidebar({
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                maxWidth: "160px",
               }}
+              title={displayName || username}
             >
-              {username}
+              {displayName || username}
             </div>
             <div style={{ marginTop: "2px" }}>
               <span className="role-badge">{role.replace("_", " ").toLowerCase()}</span>

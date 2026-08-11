@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { bulkImportPrograms } from "./actions";
+import { bulkImportPrograms, syncMasterPrograms, pushMasterProgramsToAllZones } from "./actions";
 
 export default function ProgramBulkActions({ events, programs, categories }: { events: any[], programs: any[], categories: any[] }) {
   const [selectedEventId, setSelectedEventId] = useState(events[0]?.id || "");
@@ -11,6 +11,45 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
   const [success, setSuccess] = useState("");
 
   const selectedEvent = events.find(e => e.id === selectedEventId) || events[0];
+
+  const handleSyncMaster = async () => {
+    if (!selectedEventId) {
+      setError("Please select a target Event before syncing.");
+      return;
+    }
+    
+    setImporting(true);
+    setError("");
+    setSuccess("");
+    
+    const result = await syncMasterPrograms(selectedEventId);
+    if (result.success) {
+      if (result.count === 0) {
+        setSuccess(result.message || "Programs already synced.");
+      } else {
+        setSuccess(`Successfully synced ${result.count} programs from Master Event into ${selectedEvent?.name}!`);
+      }
+    } else {
+      setError(result.error || "Failed to sync programs.");
+    }
+    setImporting(false);
+  };
+
+  const handlePushToZones = async () => {
+    if (!confirm("Are you sure? This will create or update all Master Programs in all 8 Zones immediately.")) return;
+    
+    setImporting(true);
+    setError("");
+    setSuccess("");
+    
+    const result = await pushMasterProgramsToAllZones();
+    if (result.success) {
+      setSuccess(`Successfully pushed Master Programs to all zones! (${result.count} new program records created across zones). Existing programs were updated.`);
+    } else {
+      setError(result.error || "Failed to push programs.");
+    }
+    setImporting(false);
+  };
 
   const handleExport = () => {
     const exportData = programs.map(p => ({
@@ -57,7 +96,7 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
           return;
         }
 
-        const mappedPrograms = data.map((row: any) => {
+        const mappeCSWCgrams = data.map((row: any) => {
           const catName = row["Category"] || row["category"] || "";
           const category = categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
           
@@ -71,14 +110,14 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
           };
         });
 
-        const invalid = mappedPrograms.filter(p => !p.name);
+        const invalid = mappeCSWCgrams.filter(p => !p.name);
         if (invalid.length > 0) {
           setError(`${invalid.length} programs are missing a name. Please check your file.`);
           setImporting(false);
           return;
         }
 
-        const result = await bulkImportPrograms(selectedEventId, mappedPrograms);
+        const result = await bulkImportPrograms(selectedEventId, mappeCSWCgrams);
         if (result.success) {
           setSuccess(`Successfully imported ${result.count} programs into ${selectedEvent?.name}!`);
         } else {
@@ -128,6 +167,15 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select target festival event, download template, and import all programs at once.</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          {events.length === 1 && events[0].parentId === null ? (
+            <button onClick={handlePushToZones} disabled={importing} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--success)' }}>
+              🚀 Push Master Programs to All Zones
+            </button>
+          ) : (
+            <button onClick={handleSyncMaster} disabled={importing} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              🔄 Sync Master Programs
+            </button>
+          )}
           <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             📥 Download Template
           </button>

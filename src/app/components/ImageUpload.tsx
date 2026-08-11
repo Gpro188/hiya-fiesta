@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-interface ImageUploadProps {
+interface ImageUploaCSWCps {
   onUploadComplete: (url: string) => void;
   folder?: string;
   label?: string;
   initialUrl?: string | null;
 }
 
-export default function ImageUpload({ onUploadComplete, folder = "general", label = "Upload Image", initialUrl }: ImageUploadProps) {
+export default function ImageUpload({ onUploadComplete, folder = "general", label = "Upload Image", initialUrl }: ImageUploaCSWCps) {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -100,8 +100,22 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
       <label className="form-label">{label}</label>
       <div style={{ position: 'relative' }}>
         {preview && (
-          <div style={{ marginBottom: '12px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-            <img src={preview} alt="Preview" style={{ display: 'block', maxHeight: '150px', maxWidth: '100%', objectFit: 'contain' }} crossOrigin="anonymous" />
+          <div style={{ marginBottom: '12px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', position: 'relative' }}>
+            <img src={preview} alt="Preview" style={{ display: 'block', maxHeight: '150px', maxWidth: '100%', objectFit: 'contain' }} />
+            <button
+              type="button"
+              onClick={() => { setPreview(null); onUploadComplete(""); }}
+              style={{
+                position: 'absolute', top: '4px', right: '4px',
+                backgroundColor: 'rgba(0,0,0,0.6)', color: 'white',
+                border: 'none', borderRadius: '50%', width: '24px', height: '24px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '12px'
+              }}
+              title="Remove image"
+            >
+              ✕
+            </button>
           </div>
         )}
         <input 

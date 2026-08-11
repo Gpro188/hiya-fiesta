@@ -21,16 +21,28 @@ export default async function DashboardPage() {
   let userTeam: any = null;
   let hasTeam = false;
 
-  if (role === "MANAGER") {
-    userTeam = await prisma.team.findUnique({
-      where: { managerId: userId },
-      select: {
-        id: true,
-        name: true,
-        eventId: true,
-        event: { select: { name: true } },
-      },
-    });
+  let pendingPrograms: any[] = [];
+  
+  const fullUser = await prisma.user.findUnique({ 
+    where: { id: userId }, 
+    select: { institutionId: true, eventId: true, zoneId: true } 
+  });
+
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
+
+    if (fullUser?.institutionId) {
+      userTeam = await prisma.team.findFirst({
+        where: fullUser.eventId 
+          ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
+          : { institutionId: fullUser.institutionId },
+        select: {
+          id: true,
+          name: true,
+          eventId: true,
+          event: { select: { name: true, zone: { select: { name: true } } } },
+        },
+      });
+    }
 
     if (userTeam) {
       hasTeam = true;
@@ -57,6 +69,17 @@ export default async function DashboardPage() {
         .filter((r) => r.isPublished)
         .reduce((sum, r) => sum + r.points, 0);
       const totalPoints = teamResults.reduce((sum, r) => sum + r.points, 0);
+
+      // Find Pending Programs
+      const allPrograms = await prisma.program.findMany({
+        where: { eventId: userTeam.eventId },
+        include: { 
+          category: { select: { name: true } },
+          assignments: { where: { candidate: { teamId } } } 
+        }
+      });
+      
+      pendingPrograms = allPrograms.filter(p => p.assignments.length < p.candidateLimitPerTeam);
 
       stats = [
         {
@@ -104,7 +127,27 @@ export default async function DashboardPage() {
       ];
     }
   } else {
-    const eventIdFilter = eventId ? { eventId } : undefined;
+    let eventFilter: any = eventId ? { id: eventId } : undefined;
+    let teamFilter: any = eventId ? { eventId } : undefined;
+    
+    // Default program and result filters for ADMIN/SUPER_ADMIN
+    let programFilter: any = eventId ? { eventId } : undefined;
+    let resultFilter: any = eventId ? { program: { eventId } } : {};
+    
+    if (role === "ZONE_ADMIN" && fullUser?.eventId) {
+      const zoneEventId = fullUser.eventId;
+      eventFilter = { id: zoneEventId };
+      teamFilter = { eventId: zoneEventId };
+      programFilter = {
+        assignments: { some: { candidate: { team: { eventId: zoneEventId } } } }
+      };
+      resultFilter = {
+        OR: [
+          { team: { eventId: zoneEventId } },
+          { candidate: { team: { eventId: zoneEventId } } }
+        ]
+      };
+    }
 
     const [
       eventsCount,
@@ -114,25 +157,25 @@ export default async function DashboardPage() {
       publishedResults,
       pendingResults,
     ] = await Promise.all([
-      eventId ? Promise.resolve(1) : prisma.event.count(),
-      prisma.team.count({ where: eventIdFilter }),
-      prisma.program.count({ where: eventIdFilter }),
+      prisma.event.count({ where: eventFilter }),
+      prisma.team.count({ where: teamFilter }),
+      prisma.program.count({ where: programFilter }),
       prisma.candidate.count({
         where: {
-          team: eventId ? { eventId } : undefined,
+          team: teamFilter,
           programs: { some: {} },
         },
       }),
       prisma.result.count({
         where: {
           isPublished: true,
-          program: eventId ? { eventId } : undefined,
+          ...resultFilter
         },
       }),
       prisma.result.count({
         where: {
           isPublished: false,
-          program: eventId ? { eventId } : undefined,
+          ...resultFilter
         },
       }),
     ]);
@@ -189,7 +232,7 @@ export default async function DashboardPage() {
     ];
   }
 
-  if (role === "MANAGER" && !hasTeam) {
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && !hasTeam) {
     return (
       <div className="animate-fade-in" style={{ padding: "var(--spacing-xl)" }}>
         <div
@@ -221,13 +264,15 @@ export default async function DashboardPage() {
   }
 
   const quickLinks: { label: string; href: string; icon: string; color: string }[] = [];
-  if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
+  if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role)) {
     quickLinks.push(
+      { label: "Manage Teams", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
       { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#6366f1" },
       { label: "Manage Schedule", href: "/dashboard/schedule", icon: "📅", color: "#10b981" },
-      { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" }
+      { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
+      { label: "Print All ID Cards", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
     );
-  } else if (role === "MANAGER" && hasTeam) {
+  } else if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam) {
     quickLinks.push(
       { label: "Register Candidates", href: "/dashboard/candidates", icon: "👤", color: "#ec4899" },
       { label: "View Assignments", href: "/dashboard/assignments", icon: "📜", color: "#f59e0b" },
@@ -250,7 +295,7 @@ export default async function DashboardPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            {role === "MANAGER" ? "Team Dashboard" : "Management Overview"}
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "Team Dashboard" : "Management Overview"}
           </h1>
           <p className="page-subtitle">
             Welcome back, <strong>{username}</strong> · {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
@@ -374,10 +419,23 @@ export default async function DashboardPage() {
             <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Welcome Back</h3>
           </div>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem", marginBottom: "1.25rem" }}>
-            {role === "MANAGER" ? (
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? (
               <>
                 Logged in as <strong>{username}</strong>, managing team{" "}
                 <strong>{userTeam?.name}</strong> for <strong>{userTeam?.event?.name}</strong>.
+                {userTeam?.event?.zone?.name && (
+                  <span style={{ 
+                    marginLeft: '8px',
+                    padding: '2px 8px', 
+                    background: 'var(--primary)', 
+                    color: 'white', 
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}>
+                    {userTeam.event.zone.name} ZONE
+                  </span>
+                )}
               </>
             ) : (
               <>
@@ -457,7 +515,69 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam && (
+        <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginBottom: "2rem", borderLeft: "4px solid #10b981" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981" }}>
+            <span>📝</span> Registration Guide
+          </h3>
+          <ol style={{ paddingLeft: "1.2rem", margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <li style={{ paddingBottom: "0.5rem" }}>
+              <strong>Step 1:</strong> Go to the <strong>Students List</strong> and add candidates by typing their Name or UID.
+            </li>
+            <li style={{ paddingBottom: "0.5rem" }}>
+              <strong>Step 2:</strong> Go to <strong>View Assignments</strong> and assign programs to the students you just added.
+            </li>
+            <li style={{ paddingBottom: "0.5rem" }}>
+              <strong>Step 3:</strong> Once you have finished assigning all programs, contact your <strong>Zone Admin</strong> to confirm your registration. <em>(This will officially generate their Chest Numbers)</em>.
+            </li>
+            <li>
+              <strong>Step 4:</strong> After confirmation, go to <strong>Print Schedule</strong> to print individual student schedules and your total institution schedule.
+            </li>
+          </ol>
+        </div>
+      )}
+
       <CustomerGuidelines role={role} />
+
+      {/* Pending Programs for Managers */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && pendingPrograms.length > 0 && (
+        <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginTop: "2rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ color: "var(--warning)" }}>⚠️</span> Pending Program Assignments
+          </h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+            You have not reached the candidate limit for the following programs. Please assign candidates before the deadline.
+          </p>
+          <div style={{ overflowX: "auto" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Program</th>
+                  <th>Category</th>
+                  <th>Assigned / Limit</th>
+                  <th style={{ textAlign: "right" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingPrograms.map(p => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{p.name} {p.programCode && <span className="badge">{p.programCode}</span>}</td>
+                    <td>{p.category?.name}</td>
+                    <td>
+                      <span style={{ color: "var(--error)", fontWeight: 600 }}>{p.assignments.length}</span> / {p.candidateLimitPerTeam}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Link href={`/dashboard/assignments?programId=${p.id}`} className="btn btn-sm btn-primary">
+                        Assign Now
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

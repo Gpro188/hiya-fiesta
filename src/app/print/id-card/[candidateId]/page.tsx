@@ -125,7 +125,7 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
             </div>
             <div style={{ flex: 1, textAlign: 'right' }}>
               <div style={{ fontSize: '0.6rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Event</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e1b4b' }}>{settings.festName}</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e1b4b' }}>CSWC Hiya Fiesta 2026</div>
             </div>
           </div>
 

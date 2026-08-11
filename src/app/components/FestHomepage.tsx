@@ -228,7 +228,7 @@ export default function FestHomepage({ event, homepageSetting, globalSetting, ba
       {/* Footer */}
       <footer style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--surface-color)', borderTop: '1px solid var(--border-color)' }}>
         <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 700 }}>{event.name}</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Powered by Dpro Artsfest System.</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Powered by CSWC Hiya Fiesta System.</p>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>© {new Date().getFullYear()} {event.name}. All rights reserved.</p>
       </footer>
     </div>

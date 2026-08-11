@@ -9,6 +9,7 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
   const [name, setName] = useState("");
   const [programCode, setProgramCode] = useState("");
   const [type, setType] = useState("INDIVIDUAL");
+  const [stageType, setStageType] = useState("ON_STAGE");
   const [eventId, setEventId] = useState(events[0]?.id || "");
   
   const selectedEvent = events.find(e => e.id === eventId);
@@ -17,6 +18,8 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
   const [candidateLimitPerTeam, setCandidateLimitPerTeam] = useState(1);
   const [duration, setDuration] = useState(10);
+  const [description, setDescription] = useState("");
+  const [evaluationCriteria, setEvaluationCriteria] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,11 +36,16 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
       eventId,
       candidateLimitPerTeam: parseInt(candidateLimitPerTeam.toString()) || 1,
       duration: parseInt(duration.toString()) || 10,
+      description,
+      evaluationCriteria,
+      stageType,
     });
     
     if (result.success) {
       setName("");
       setProgramCode("");
+      setDescription("");
+      setEvaluationCriteria("");
     } else {
       setError(result.error || "Failed to create program");
     }
@@ -111,6 +119,20 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
         <span className="field-helper">Individual = scored per candidate. Group = scored as a team. General = non-category program.</span>
       </div>
 
+      <div className="form-group">
+        <label className="form-label">Stage Type</label>
+        <select 
+          className="form-input" 
+          value={stageType}
+          onChange={(e) => setStageType(e.target.value)}
+          required
+        >
+          <option value="ON_STAGE">On-Stage (Live Performance)</option>
+          <option value="OFF_STAGE">Off-Stage (Written/Submission)</option>
+        </select>
+        <span className="field-helper">Off-stage programs generally occur before the live events.</span>
+      </div>
+
       {type !== "GENERAL" && (
         <div className="form-group">
           <label className="form-label">Category</label>
@@ -142,6 +164,30 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
           required
         />
         <span className="field-helper">Time allocated in minutes. Used for schedule planning.</span>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Description (Topics etc.)</label>
+        <textarea 
+          className="form-input" 
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. Topics for speech: Faith over fame, etc."
+          rows={3}
+        />
+        <span className="field-helper">Optional details about the program topics or rules.</span>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Evaluation Criteria / Assessment Criteria</label>
+        <textarea 
+          className="form-input" 
+          value={evaluationCriteria}
+          onChange={(e) => setEvaluationCriteria(e.target.value)}
+          placeholder="e.g. Voice 20, Pronunciation 30..."
+          rows={3}
+        />
+        <span className="field-helper">Optional breakdown of how this program is judged.</span>
       </div>
 
       <div className="form-group">

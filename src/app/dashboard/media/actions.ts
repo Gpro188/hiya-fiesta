@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 export async function saveMediaTemplate(programId: string, imageUrl: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "MEDIA")) {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "MEDIA"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -47,35 +47,49 @@ export async function updatePosterSettings(data: {
   posterBgUrl?: string,
   posterPrimaryColor?: string,
   posterSecondaryColor?: string,
-  posterTextColor?: string
+  posterTextColor?: string,
+  targetEventId?: string
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "MEDIA")) {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "MEDIA"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const { eventId } = session.user;
+    const userEventId = session.user.eventId;
+    const targetEventId = data.targetEventId || userEventId;
 
-    if (eventId) {
+    if (targetEventId) {
+      // If Super Admin specifies targetEventId, they can edit anything
+      // If Zone Admin uses their userEventId, they can only edit their own
+      if (session.user.role !== "SUPER_ADMIN" && userEventId && userEventId !== targetEventId) {
+        return { success: false, error: "Unauthorized to edit other event settings" };
+      }
+      
+      const updateData = { ...data };
+      delete updateData.targetEventId;
+
       await prisma.globalSetting.upsert({
-        where: { eventId },
-        update: data,
+        where: { eventId: targetEventId },
+        update: updateData,
         create: {
-          eventId,
-          id: `event-${eventId}`,
+          eventId: targetEventId,
+          id: `event-${targetEventId}`,
           festName: "Arts Fest",
-          ...data
+          ...updateData
         }
       });
     } else {
+      const updateData = { ...data };
+      delete updateData.targetEventId;
+
       await prisma.globalSetting.upsert({
         where: { id: "default" },
-        update: data,
+        update: updateData,
         create: {
           id: "default",
           festName: "Arts Fest",
-          ...data
+          ...updateData
         }
       });
     }
@@ -91,7 +105,7 @@ export async function updatePosterSettings(data: {
 export async function updateCategoryBranding(categoryId: string, posterBgUrl: string) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || (session.user.role !== "ADMIN" && session.user.role !== "MEDIA")) {
+        if (!session || !["ADMIN", "SUPER_ADMIN", "MEDIA"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 

@@ -3,26 +3,28 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id            String            @id @default(uuid())
-  username      String            @unique
-  password      String
-  role          String            @default("INSTITUTION_MANAGER") // SUPER_ADMIN, ZONE_ADMIN, INSTITUTION_MANAGER, JUDGE
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  
-  // Relations
-  zoneId        String?
-  zone          Zone?             @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  institutionId String?
-  institution   MasterInstitution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
-  eventId       String?
-  event         Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  username         String             @unique
+  password         String
+  role             String             @default("INSTITUTION_MANAGER")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  phone            String?
+  place            String?
+  zoneId           String?
+  institutionId    String?
+  eventId          String?
+  event            Event?             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  institution      MasterInstitution? @relation(fields: [institutionId], references: [id])
+  zone             Zone?              @relation(fields: [zoneId], references: [id])
+  assignedPrograms Program[]          @relation("ProgramJudges")
+
+  judgingEvents    Event[]            @relation("EventJudges")
 
   @@index([eventId])
   @@index([zoneId])
@@ -31,132 +33,147 @@ model User {
 
 model Zone {
   id           String              @id @default(uuid())
-  name         String              @unique // e.g., MALAPPURAM EAST, PALAKKAD, KANNUR, KASSARAGOD, KOZHIKODE, KARNATAKA, THRISSUR, KOLLAM
+  name         String              @unique
   code         String              @unique
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
+  events       Event[]
   institutions MasterInstitution[]
   users        User[]
-  events       Event[]
 }
 
 model MasterInstitution {
-  id            String      @id @default(uuid())
-  code          String      @unique // e.g., SIG, TWI, AAW, TAC
-  password      String      @default("123")
+  id            String          @id @default(uuid())
+  code          String          @unique
+  password      String          @default("123")
   affiliationNo String?
   name          String
   place         String?
   zoneId        String
   district      String?
-  stream        String?     // e.g. FADHILA, FADHEELA, FADHILA FADHEELA
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  
-  zone          Zone        @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  students      MasterStudent[]
-  users         User[]
+  stream        String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   candidates    Candidate[]
+  zone          Zone            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  students      MasterStudent[]
   teams         Team[]
+  users         User[]
 
   @@index([zoneId])
 }
 
 model MasterStudent {
   id            String            @id @default(uuid())
-  uid           String            @unique // e.g. FL26CH12, FL26C0075
+  uid           String            @unique
   name          String
   institutionId String
   district      String?
   phone         String?
-  stream        String            // FADHILA or FADHEELA
+  stream        String
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
-
-  institution   MasterInstitution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   candidates    Candidate[]
+  institution   MasterInstitution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
   @@index([institutionId])
   @@index([uid])
 }
 
 model Event {
-  id                 String          @id @default(uuid())
-  name               String
-  type               String          @default("ZONE") // ZONE or STATE
-  zoneId             String?
-  startDate          DateTime?
-  endDate            DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  parentId           String?
-  parent             Event?          @relation("SubEvents", fields: [parentId], references: [id], onDelete: Cascade)
-  subEvents          Event[]         @relation("SubEvents")
-  categories         Category[]
-  programs           Program[]
-  teams              Team[]
-  users              User[]
-  pageVisits         PageVisit[]
-  globalSetting      GlobalSetting?
-  homepageSetting    HomepageSetting?
-  contactMessages    ContactMessage[]
-  zone               Zone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  id                             String           @id @default(uuid())
+  name                           String
+  type                           String           @default("ZONE")
+  zoneId                         String?
+  startDate                      DateTime?
+  endDate                        DateTime?
+  createdAt                      DateTime         @default(now())
+  updatedAt                      DateTime         @updatedAt
+  parentId                       String?
+  institutionRegistrationEndDate DateTime?
+  stateConfirmEndDate            DateTime?
+  zoneActiveEndTime              DateTime?
+  zoneActiveStartTime            DateTime?
+  assignmentEnd                  DateTime?
+  assignmentStart                DateTime?
+  registrationEnd                DateTime?
+  registrationStart              DateTime?
+  statusOverride                 String           @default("AUTO")
+  customDomain                   String?
+  categories                     Category[]
+  contactMessages                ContactMessage[]
+  zone                           Zone?            @relation(fields: [zoneId], references: [id])
+  parent                         Event?           @relation("SubEvents", fields: [parentId], references: [id], onDelete: Cascade)
+  subEvents                      Event[]          @relation("SubEvents")
+  globalSetting                  GlobalSetting?
+  homepageSetting                HomepageSetting?
+  pageVisits                     PageVisit[]
+  programs                       Program[]
+  teams                          Team[]
+  users                          User[]
+  selectedJudges                 User[]           @relation("EventJudges")
+  generalPointMatrix             PointMatrix?     @relation("EventGeneralPointMatrix")
 
   @@index([zoneId])
 }
 
 model Category {
-  id                String       @id @default(uuid())
-  name              String       // FADHILA, FADHEELA, GENERAL
-  chestNumberOffset Int          @default(0)
+  id                String      @id @default(uuid())
+  name              String
+  chestNumberOffset Int         @default(0)
   eventId           String
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  posterBgUrl       String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
   candidates        Candidate[]
-  event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event             Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   programs          Program[]
+  pointMatrix       PointMatrix?
 
   @@index([eventId])
 }
 
 model Team {
-  id            String            @id @default(uuid())
-  name          String
-  prefixCode    String            @unique
-  eventId       String
-  institutionId String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  flagColor     String?           @default("#EC4899") // CSWC Pink theme default
-  leaderName    String?
-  candidates    Candidate[]
-  results       Result[]
-  event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  institution   MasterInstitution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  id                     String              @id @default(uuid())
+  name                   String
+  prefixCode             String              @unique
+  eventId                String
+  institutionId          String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  flagColor              String?             @default("#EC4899")
+  leaderName             String?
+  leaderPhoto            String?
+  isAssignmentsConfirmed Boolean             @default(false)
+  candidates             Candidate[]
+  results                Result[]
+  institution            MasterInstitution?  @relation(fields: [institutionId], references: [id])
+  event                  Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@index([institutionId])
 }
 
 model Candidate {
-  id            String              @id @default(uuid())
-  name          String
-  uid           String?             // Reference to MasterStudent UID e.g. FL26CH12
-  chestNumber   String?             @unique
-  categoryId    String
-  teamId        String
-  institutionId String?
-  isApproved    Boolean             @default(true)
-  isStateQualified Boolean          @default(false)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  
-  team          Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  category      Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  institution   MasterInstitution?  @relation(fields: [institutionId], references: [id], onDelete: SetNull)
-  masterStudent MasterStudent?      @relation(fields: [uid], references: [uid], onDelete: SetNull)
-  programs      ProgramAssignment[]
-  results       Result[]
+  id               String              @id @default(uuid())
+  name             String
+  uid              String?
+  chestNumber      String?             @unique
+  photoUrl         String?
+  photo            String?
+  categoryId       String
+  teamId           String
+  institutionId    String?
+  isApproved       Boolean             @default(true)
+  isStateQualified Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  masterStudent    MasterStudent?      @relation(fields: [uid], references: [uid])
+  institution      MasterInstitution?  @relation(fields: [institutionId], references: [id])
+  category         Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  team             Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  programs         ProgramAssignment[]
+  results          Result[]
 
   @@index([categoryId])
   @@index([teamId])
@@ -167,20 +184,24 @@ model Program {
   id                    String              @id @default(uuid())
   programCode           String?
   name                  String
-  type                  String              @default("INDIVIDUAL") // INDIVIDUAL or GROUP
+  type                  String              @default("INDIVIDUAL")
   categoryId            String?
   eventId               String
   venue                 String?
   startTime             DateTime?
   duration              Int                 @default(10)
-  stageType             String              @default("ON_STAGE") // ON_STAGE or OFF_STAGE
+  stageType             String              @default("ON_STAGE")
   candidateLimitPerTeam Int                 @default(1)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  description           String?
+  evaluationCriteria    String?
+  category              Category?           @relation(fields: [categoryId], references: [id])
   event                 Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  category              Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   assignments           ProgramAssignment[]
   results               Result[]
+  judges                User[]              @relation("ProgramJudges")
+  mediaTemplate         MediaTemplate?
 
   @@index([eventId])
   @@index([categoryId])
@@ -193,15 +214,15 @@ model ProgramAssignment {
   createdAt     DateTime  @default(now())
   scheduledTime DateTime?
   slotNumber    Int?
-  program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
   candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, programId])
   @@index([programId])
 }
 
 model Result {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   candidateId String?
   teamId      String?
   programId   String
@@ -209,12 +230,12 @@ model Result {
   rank        Int?
   grade       String?
   points      Float
-  isPublished Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  program     Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  isPublished Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   team        Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  program     Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, programId])
   @@unique([teamId, programId])
@@ -223,13 +244,23 @@ model Result {
 }
 
 model GlobalSetting {
-  id                            String    @id @default("default")
-  festName                      String    @default("CSWC Hiya Fiesta 2026")
-  festMoto                      String    @default("She Can. She Will.")
-  festLogo                      String?
-  updatedAt                     DateTime  @updatedAt
-  eventId                       String?   @unique
-  event                         Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id                      String   @id @default("default")
+  festName                String   @default("CSWC Hiya Fiesta 2026")
+  festMoto                String   @default("She Can. She Will.")
+  festLogo                String?
+  updatedAt               DateTime @updatedAt
+  eventId                 String?  @unique
+  event                   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  // Poster Branding Fields
+  posterBgUrl             String?
+  posterLogoUrl           String?
+  posterHeaderUrl         String?
+  posterFooterUrl         String?
+  posterPrimaryColor      String?  @default("#1e293b")
+  posterSecondaryColor    String?  @default("#f97316")
+  posterTextColor         String?  @default("#1e293b")
+  posterCongratulationUrl String?
 }
 
 model PageVisit {
@@ -243,22 +274,29 @@ model PageVisit {
 }
 
 model HomepageSetting {
-  id                  String   @id @default(uuid())
-  eventId             String   @unique
-  heroTitle           String?  @default("CSWC Hiya Fiesta 2026")
-  heroSubtitle        String?  @default("She Can. She Will.")
-  heroBgUrl           String?
-  aboutText           String?
-  aboutTitle          String?  @default("Council of Samastha Women's Colleges")
-  primaryColor        String?  @default("#EC4899") // CSWC Pink
-  secondaryColor      String?  @default("#3B82F6") // Royal Blue
-  bgColor             String?  @default("#FFFFFF")
-  committeeMembers    Json?
-  committeeTitle      String?  @default("Organizing Committee")
-  galleryImages       Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  event               Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id               String   @id @default(uuid())
+  eventId          String   @unique
+  heroTitle        String?  @default("CSWC Hiya Fiesta 2026")
+  heroSubtitle     String?  @default("She Can. She Will.")
+  heroBgUrl        String?
+  aboutText        String?
+  aboutTitle       String?  @default("Council of Samastha Women's Colleges")
+  primaryColor     String?  @default("#EC4899")
+  secondaryColor   String?  @default("#3B82F6")
+  bgColor          String?  @default("#FFFFFF")
+  committeeMembers Json?
+  committeeTitle   String?  @default("Organizing Committee")
+  galleryImages    Json?
+  
+  // NEW HOMEPAGE FIELDS
+  tickerText       String?
+  heroSlides       Json?
+  statsCounter     Json?
+  socialLinks      Json?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model ContactMessage {
@@ -271,4 +309,27 @@ model ContactMessage {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+}
+
+model PointMatrix {
+  id                    String    @id @default(uuid())
+  categoryId            String?   @unique
+  eventId               String?   @unique
+  maxIndividualPrograms Int?
+  individualPoints      String?
+  groupPoints           String?
+  generalPoints         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  category              Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  event                 Event?    @relation("EventGeneralPointMatrix", fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model MediaTemplate {
+  id        String   @id @default(uuid())
+  programId String   @unique
+  imageUrl  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
 }

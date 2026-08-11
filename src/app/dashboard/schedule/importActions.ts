@@ -121,6 +121,55 @@ export async function checkSchedulingConflicts(eventId: string) {
       }
     });
 
+    // --- Jury Clash Detection ---
+    const programsWithJudges = await prisma.program.findMany({
+      where: { eventId, startTime: { not: null } },
+      include: { judges: true }
+    });
+
+    const jurySchedules: Record<string, any[]> = {};
+    programsWithJudges.forEach(program => {
+      if (!program.startTime) return;
+      const start = new Date(program.startTime).getTime();
+      const end = start + (program.duration * 60 * 1000);
+
+      program.judges.forEach(judge => {
+        if (!jurySchedules[judge.id]) jurySchedules[judge.id] = [];
+        jurySchedules[judge.id].push({
+          juryName: judge.username,
+          programName: program.name,
+          start,
+          end
+        });
+      });
+    });
+
+    Object.values(jurySchedules).forEach(schedule => {
+      for (let i = 0; i < schedule.length; i++) {
+        for (let j = i + 1; j < schedule.length; j++) {
+          const a = schedule[i];
+          const b = schedule[j];
+          
+          if (a.start < b.end && b.start < a.end) {
+            // Check if this specific conflict is already added to avoid duplicates
+            const conflictExists = conflicts.some(c => 
+              c.candidateName === `Jury: ${a.juryName}` && 
+              c.programs.includes(a.programName) && 
+              c.programs.includes(b.programName)
+            );
+            
+            if (!conflictExists) {
+              conflicts.push({
+                candidateName: `Jury: ${a.juryName}`,
+                programs: [a.programName, b.programName],
+                time: new Date(a.start).toLocaleString()
+              });
+            }
+          }
+        }
+      }
+    });
+
     return { success: true, conflicts };
   } catch (error) {
     return { success: false, error: "Failed to check conflicts" };

@@ -8,7 +8,7 @@ export default function DemoGuidePage() {
           Interactive Demo Guide
         </h1>
         <p style={{ fontSize: '1.25rem', color: '#94a3b8', lineHeight: 1.6 }}>
-          Welcome to the Dpro Artsfest System Demo. Here you can explore the automated features without altering live data.
+          Welcome to the CSWC Hiya Fiesta System Demo. Here you can explore the automated features without altering live data.
         </p>
       </div>
 

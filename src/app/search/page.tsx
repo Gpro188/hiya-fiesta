@@ -54,10 +54,14 @@ export default async function SearchPage(props: {
     return true;
   });
 
-  const categories = await prisma.category.findMany({
+  const rawCategories = await prisma.category.findMany({
     where: eventId ? { eventId } : {},
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    select: { name: true }
   });
+  
+  const categoryNames = Array.from(new Set(rawCategories.map(c => c.name))).sort();
+  const categories = categoryNames.map(name => ({ id: name, name }));
 
   let candidateResults: any[] = [];
   let programResults: any[] = [];
@@ -70,15 +74,15 @@ export default async function SearchPage(props: {
       if (query) {
         filters.push({
           OR: [
-            { uid: { contains: query, mode: 'insensitive' } },
-            { chestNumber: { contains: query, mode: 'insensitive' } },
-            { name: { contains: query, mode: 'insensitive' } },
-            { team: { name: { contains: query, mode: 'insensitive' } } },
-            { team: { prefixCode: { contains: query, mode: 'insensitive' } } }
+            { uid: { contains: query } },
+            { chestNumber: { contains: query } },
+            { name: { contains: query } },
+            { team: { name: { contains: query } } },
+            { team: { prefixCode: { contains: query } } }
           ]
         });
       }
-      if (categoryId) filters.push({ categoryId });
+      if (categoryId) filters.push({ category: { name: categoryId } });
       if (eventId) filters.push({ team: { eventId } });
 
       if (filters.length > 0) {
@@ -102,6 +106,7 @@ export default async function SearchPage(props: {
             include: { program: true } 
           },
           results: {
+            where: { isPublished: true },
             include: { program: true }
           }
         }
@@ -113,13 +118,21 @@ export default async function SearchPage(props: {
       if (query) {
         filters.push({
           OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { programCode: { contains: query, mode: 'insensitive' } }
+            { name: { contains: query } },
+            { programCode: { contains: query } }
           ]
         });
       }
-      if (categoryId) filters.push({ categoryId });
-      if (eventId) filters.push({ eventId });
+      if (categoryId) filters.push({ category: { name: categoryId } });
+      if (eventId) {
+        const targetEvent = await prisma.event.findUnique({ where: { id: eventId } });
+        filters.push({
+          OR: [
+            { eventId: eventId },
+            ...(targetEvent?.parentId ? [{ eventId: targetEvent.parentId }] : [])
+          ]
+        });
+      }
       if (stageType) filters.push({ stageType: stageType as any });
       if (programType) filters.push({ type: programType as any });
 
@@ -133,6 +146,7 @@ export default async function SearchPage(props: {
           event: true,
           category: true,
           results: {
+            where: eventId ? { candidate: { team: { eventId } } } : {},
             orderBy: { marks: 'desc' },
             include: { candidate: { include: { team: true } } }
           },
@@ -249,9 +263,12 @@ export default async function SearchPage(props: {
                                         <div style={{ color: '#FCD34D', fontWeight: 'bold', fontSize: '0.9rem' }}>
                                           {candidate.results.find((r: any) => r.programId === p.programId).rank ? `Rank ${candidate.results.find((r: any) => r.programId === p.programId).rank}` : ''}
                                         </div>
-                                        <div style={{ color: 'var(--success)', fontSize: '0.8rem' }}>
+                                        <div style={{ color: 'var(--success)', fontSize: '0.8rem', marginBottom: '4px' }}>
                                           {candidate.results.find((r: any) => r.programId === p.programId).grade ? `Grade ${candidate.results.find((r: any) => r.programId === p.programId).grade}` : ''}
                                         </div>
+                                        <Link href={`/results/${p.programId}`} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                                          View Poster
+                                        </Link>
                                       </div>
                                     )}
                                   </div>
@@ -290,34 +307,84 @@ export default async function SearchPage(props: {
                         </div>
                         
                         <h4 style={{ marginBottom: 'var(--spacing-sm)', fontSize: '1rem' }}>Winners List</h4>
-                        {program.results.length === 0 ? (
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No published results for this program.</div>
-                        ) : (
-                          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                                <th style={{ padding: 'var(--spacing-sm) 0' }}>Candidate</th>
-                                <th>Team</th>
-                                <th>Rank</th>
-                                <th>Grade</th>
-                                <th>Poster</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {program.results.map((res: any) => (
-                                <tr key={res.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <td style={{ padding: 'var(--spacing-sm) 0' }}>{res.candidate.name} <span style={{color: 'var(--text-muted)', fontSize: '0.8rem'}}>({res.candidate.chestNumber})</span></td>
-                                  <td>{res.candidate.team.name}</td>
-                                  <td style={{ color: '#FCD34D', fontWeight: res.rank ? 'bold' : 'normal' }}>{res.rank || '-'}</td>
-                                  <td style={{ color: 'var(--success)', fontWeight: res.grade ? 'bold' : 'normal' }}>{res.grade || '-'}</td>
-                                  <td>
-                                    <Link href={`/results/${program.id}`} style={{ color: 'var(--primary)', fontSize: '0.875rem' }}>Full Board</Link>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                        {(() => {
+                          const publishedResults = program.results.filter((r: any) => r.isPublished);
+                          
+                          if (publishedResults.length === 0) {
+                            return (
+                              <div style={{ padding: 'var(--spacing-sm) 0' }}>
+                                <span style={{ 
+                                  fontSize: '0.8rem', 
+                                  padding: '4px 8px', 
+                                  borderRadius: '4px', 
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                                  color: 'var(--error)', 
+                                  fontWeight: 'bold',
+                                  border: '1px solid rgba(239, 68, 68, 0.2)'
+                                }}>
+                                  STATUS: RESULTS PENDING OR NOT PUBLISHED
+                                </span>
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <>
+                              <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                <span style={{ 
+                                  fontSize: '0.8rem', 
+                                  padding: '4px 8px', 
+                                  borderRadius: '4px', 
+                                  backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                                  color: 'var(--success)', 
+                                  fontWeight: 'bold',
+                                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                                }}>
+                                  STATUS: PUBLISHED
+                                </span>
+                              </div>
+                              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', margin: '0 -10px', padding: '0 10px' }}>
+                                <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                  <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                      <th style={{ padding: '8px 4px 8px 0', width: '35%' }}>Candidate</th>
+                                      <th style={{ padding: '8px 4px', width: '35%' }}>Team</th>
+                                      <th style={{ padding: '8px 4px', textAlign: 'center' }}>Rank</th>
+                                      <th style={{ padding: '8px 4px', textAlign: 'center' }}>Grade</th>
+                                      <th style={{ padding: '8px 0 8px 4px', textAlign: 'right' }}>Board</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {publishedResults.map((res: any) => (
+                                      <tr key={res.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <td style={{ padding: '8px 4px 8px 0', verticalAlign: 'top' }}>
+                                          <div style={{ fontWeight: '600', lineHeight: '1.2', marginBottom: '2px' }}>{res.candidate.name}</div>
+                                          <div style={{color: 'var(--text-muted)', fontSize: '0.65rem'}}>{res.candidate.chestNumber}</div>
+                                        </td>
+                                        <td style={{ padding: '8px 4px', verticalAlign: 'top', lineHeight: '1.2' }}>{res.candidate.team.name}</td>
+                                        <td style={{ padding: '8px 4px', color: '#FCD34D', fontWeight: res.rank ? 'bold' : 'normal', textAlign: 'center', verticalAlign: 'top' }}>{res.rank || '-'}</td>
+                                        <td style={{ padding: '8px 4px', color: 'var(--success)', fontWeight: res.grade ? 'bold' : 'normal', textAlign: 'center', verticalAlign: 'top' }}>{res.grade || '-'}</td>
+                                        <td style={{ padding: '8px 0 8px 4px', textAlign: 'right', verticalAlign: 'top' }}>
+                                          <Link href={`/results/${program.id}`} style={{ 
+                                            color: 'var(--primary)', 
+                                            fontWeight: '600',
+                                            textDecoration: 'none',
+                                            padding: '4px 8px',
+                                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                                            borderRadius: '4px',
+                                            display: 'inline-block'
+                                          }}>
+                                            Poster
+                                          </Link>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

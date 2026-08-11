@@ -10,18 +10,18 @@ import { prisma } from "@/lib/prisma";
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
-  const { eventId } = session.user;
+  const { eventId, role } = session.user;
   const settings = await getSettings(eventId);
 
-  const eventFilter = eventId ? { eventId } : undefined;
+  const eventFilter = (eventId && role !== "SUPER_ADMIN") ? { eventId } : undefined;
 
   // Fetch events for deadline configuration
   const events = await prisma.event.findMany({
-    where: eventId ? { 
+    where: (eventId && role !== "SUPER_ADMIN") ? { 
       OR: [
         { id: eventId },
         { parentId: eventId }
@@ -34,6 +34,11 @@ export default async function SettingsPage() {
       registrationEnd: true,
       assignmentStart: true,
       assignmentEnd: true,
+      institutionRegistrationEndDate: true,
+      zoneActiveStartTime: true,
+      zoneActiveEndTime: true,
+      stateConfirmEndDate: true,
+      statusOverride: true,
     },
     orderBy: { createdAt: 'asc' }
   });
@@ -87,19 +92,21 @@ export default async function SettingsPage() {
             Configure festival-wide settings, audit program assignments, and manage data maintenance operations.
           </p>
         </div>
-        <a 
-          href="/dashboard/settings/homepage" 
-          className="btn btn-primary" 
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
-        >
-          <span>🎨</span> Homepage & Theme Settings
-        </a>
+        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+          <a 
+            href="/dashboard/settings/homepage" 
+            className="btn btn-primary" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+          >
+            <span>🎨</span> Homepage & Theme Settings
+          </a>
+        )}
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xl)' }}>
         <div data-tour="settings-config" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>General Configuration</h2>
-          <SettingsForm initialSettings={settings} events={events as any} />
+          <SettingsForm initialSettings={settings} events={events as any} role={role} />
         </div>
 
         <div data-tour="settings-audit" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>

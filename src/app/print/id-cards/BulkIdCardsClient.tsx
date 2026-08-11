@@ -68,8 +68,8 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   overflow: 'hidden'
                 }}>
-                  {candidate.photo ? (
-                    <img src={candidate.photo} alt={candidate.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {candidate.photoUrl ? (
+                    <img src={candidate.photoUrl} alt={candidate.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>👤</div>
                   )}
@@ -125,7 +125,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
                 </div>
                 <div style={{ flex: 1, textAlign: 'right' }}>
                   <div style={{ fontSize: '0.6rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Event</div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e1b4b' }}>ARTS FEST 2026</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e1b4b' }}>CSWC Hiya Fiesta 2026</div>
                 </div>
               </div>
 

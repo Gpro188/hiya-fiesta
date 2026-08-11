@@ -18,14 +18,26 @@ export default async function SchedulePage(props: {
 
   const { role, id: userId } = session.user;
 
-  if (role === "ADMIN") {
-    const userEventId = session.user.eventId;
-    const eventWhere: any = userEventId ? {
-      OR: [
-        { id: userEventId },
-        { parentId: userEventId }
-      ]
-    } : {};
+  const fullUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { eventId: true, zoneId: true, institutionId: true }
+  });
+
+  if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role)) {
+    const userEventId = fullUser?.eventId;
+    const userZoneId = fullUser?.zoneId;
+    
+    let eventWhere: any = {};
+    if (role === "ZONE_ADMIN" && userZoneId) {
+      eventWhere = { zoneId: userZoneId };
+    } else if (userEventId) {
+      eventWhere = {
+        OR: [
+          { id: userEventId },
+          { parentId: userEventId }
+        ]
+      };
+    }
 
     const rawEvents = await prisma.event.findMany({
       where: eventWhere,
@@ -45,8 +57,23 @@ export default async function SchedulePage(props: {
       ? searchParams.eventId 
       : events[0]?.id;
 
+    let programWhere: any = {};
+    if (activeEventId) {
+      const activeEv = await prisma.event.findUnique({ where: { id: activeEventId } });
+      if (activeEv?.parentId) {
+        programWhere = {
+          OR: [
+            { eventId: activeEventId },
+            { eventId: activeEv.parentId }
+          ]
+        };
+      } else {
+        programWhere = { eventId: activeEventId };
+      }
+    }
+
     const programs = await prisma.program.findMany({
-      where: activeEventId ? { eventId: activeEventId } : {},
+      where: programWhere,
       include: {
         event: true,
         category: true,
@@ -55,10 +82,22 @@ export default async function SchedulePage(props: {
           include: {
             candidate: { include: { team: true } }
           }
+        },
+        judges: {
+          select: { id: true, username: true }
         }
       },
       orderBy: { startTime: 'asc' }
     });
+
+    let zoneJudges: any[] = [];
+    if (activeEventId) {
+      const activeEv = await prisma.event.findUnique({
+        where: { id: activeEventId },
+        include: { selectedJudges: { select: { id: true, username: true } } }
+      });
+      zoneJudges = activeEv?.selectedJudges || [];
+    }
 
     return (
       <div className="animate-fade-in">
@@ -76,6 +115,9 @@ export default async function SchedulePage(props: {
             <a href={`/print/venue?eventId=${activeEventId}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
               Print Venue List
             </a>
+            <a href={`/print/stage-manager?eventId=${activeEventId}`} target="_blank" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              Stage Manager Sheet
+            </a>
           </div>
         </div>
 
@@ -84,15 +126,24 @@ export default async function SchedulePage(props: {
         </div>
 
         <div data-tour="schedule-grid">
-          <AdminScheduler initialPrograms={programs as any} eventId={activeEventId || "default"} />
+          <AdminScheduler 
+            initialPrograms={programs as any} 
+            eventId={activeEventId || "default"} 
+            allJudges={zoneJudges}
+          />
         </div>
       </div>
     );
   }
 
-  if (role === "MANAGER") {
-    const team = await prisma.team.findUnique({
-      where: { managerId: userId }
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
+    const fullUser = await prisma.user.findUnique({ where: { id: userId }, select: { institutionId: true, eventId: true } });
+    if (!fullUser?.institutionId) return <div>You are not assigned to any institution.</div>;
+
+    const team = await prisma.team.findFirst({
+      where: fullUser.eventId 
+        ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
+        : { institutionId: fullUser.institutionId }
     });
 
     if (!team) return <div>You are not assigned to any team.</div>;
@@ -119,9 +170,14 @@ export default async function SchedulePage(props: {
               View all programs and track your team's assignments and time slots.
             </p>
           </div>
-          <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-            Print Team Schedule
-          </a>
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+            <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              Print Team Schedule
+            </a>
+            <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              Candidate Schedule Report
+            </a>
+          </div>
         </div>
         <ManagerScheduler initialPrograms={programs as any} teamId={team.id} />
       </div>

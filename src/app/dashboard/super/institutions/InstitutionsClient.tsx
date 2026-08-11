@@ -9,6 +9,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedUploadZoneId, setSelectedUploadZoneId] = useState("");
 
   // Edit Modal State
   const [editingInst, setEditingInst] = useState<any | null>(null);
@@ -22,7 +23,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
         "Affiliation No": "CSWC /155/2026",
         "Institution Name": "SIDRA INSTITUTE FOR GIRLS",
         "Place": "ANCHACHAVIDI",
-        "Zone": "MALAPPURAM EAST",
+        "Zone": "KASARAGOD Zone",
         "District": "MALAPPURAM",
         "Stream": "FADHILA FADHEELA"
       },
@@ -32,7 +33,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
         "Affiliation No": "CSWC /157/2026",
         "Institution Name": "THARBIYYA WOMEN'S ISLAMIC AND ARTS COLLEGE",
         "Place": "MUNDAPPALAM",
-        "Zone": "MALAPPURAM EAST",
+        "Zone": "KASARAGOD Zone",
         "District": "MALAPPURAM",
         "Stream": "FADHILA"
       }
@@ -73,9 +74,9 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
           affiliationNo: (row["Affiliation No"] || row["affiliationNo"] || "").toString().trim(),
           name: (row["Institution Name"] || row["Name"] || "").toString().trim(),
           place: (row["Place"] || row["place"] || "").toString().trim(),
-          zoneName: (row["Zone"] || row["zone"] || "").toString().trim(),
           district: (row["District"] || row["district"] || "").toString().trim(),
           stream: (row["Stream"] || row["stream"] || "").toString().trim(),
+          zoneName: (row["Zone"] || row["zone"] || "").toString().trim(),
         }));
 
         const result = await bulkImportInstitutions(mapped);
@@ -145,17 +146,17 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
       affiliationNo: formData.get("affiliationNo") as string,
       name: formData.get("name") as string,
       place: formData.get("place") as string,
-      zoneName: zones.find(z => z.id === formData.get("zoneId"))?.name || "MALAPPURAM EAST",
       district: formData.get("district") as string,
       stream: formData.get("stream") as string,
+      zoneName: zones.find(z => z.id === formData.get("zoneId"))?.name || ""
     }];
 
-    const res = await bulkImportInstitutions(data);
-    if (res.success) {
+    const result = await bulkImportInstitutions(data);
+    if (result.success) {
       setShowAddModal(false);
       window.location.reload();
     } else {
-      alert("Failed to add institution: " + res.error);
+      alert("Failed to add institution: " + result.error);
     }
     setEditLoading(false);
   };
@@ -167,7 +168,7 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
           <div>
             <h3 style={{ margin: 0 }}>Upload Master Institution Excel</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload CSV/Excel containing Code, Affiliation No, College Name, Zone, District, and Stream.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload CSV/Excel containing Code, Affiliation No, College Name, District, and Stream.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
@@ -193,9 +194,11 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
               />
               <label htmlFor="inst-upload" style={{ cursor: 'pointer', display: 'block' }}>
                 <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🏫📊</div>
-                <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '1.05rem' }}>Click to Upload Institutions Excel</div>
+                <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '1.05rem' }}>
+                  Click to Upload Institutions Excel
+                </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Auto-generates college logins (e.g. username: <code>SIG</code>, password: <code>123</code>).
+                  Ensure your Excel file has a <code>Zone</code> column. Auto-generates college logins.
                 </div>
               </label>
             </>
@@ -317,6 +320,14 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                 <button type="button" onClick={() => setEditingInst(null)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" disabled={editLoading} className="btn btn-primary">
                   {editLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add Institution Modal */}
       {showAddModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>

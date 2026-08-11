@@ -139,7 +139,7 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
             maxWidth: '550px'
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>
-              ⚡ Powered by <strong>Dpro_artsfest system</strong>.
+              ⚡ Powered by <strong>CSWC Hiya Fiesta_artsfest system</strong>.
             </p>
             <Link href="/" style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               Host your own arts fest on this system ➔

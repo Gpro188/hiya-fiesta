@@ -26,7 +26,7 @@ export default function DemoIDCardPage() {
             border: '1px solid #e2e8f0'
           }}>
             <div style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', padding: '1rem', textAlign: 'center', color: '#fff' }}>
-              <div style={{ fontWeight: 800, letterSpacing: '1px', fontSize: '0.9rem' }}>DPRO ARTSFEST '26</div>
+              <div style={{ fontWeight: 800, letterSpacing: '1px', fontSize: '0.9rem' }}>CSWC Hiya Fiesta '26</div>
               <div style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px' }}>PARTICIPANT</div>
             </div>
             
@@ -40,7 +40,7 @@ export default function DemoIDCardPage() {
               <div style={{ marginTop: 'auto', width: '100%', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {/* Mock QR Code */}
                 <div style={{ width: '60px', height: '60px', background: 'repeating-linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%, #0f172a), repeating-linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%, #0f172a)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px', borderRadius: '4px', opacity: 0.8 }}></div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.5rem', letterSpacing: '1px' }}>ID: DPRO-1042</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.5rem', letterSpacing: '1px' }}>ID: CSWC-1042</div>
               </div>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default function DemoIDCardPage() {
             border: '1px solid #e2e8f0'
           }}>
             <div style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)', padding: '1rem', textAlign: 'center', color: '#fff' }}>
-              <div style={{ fontWeight: 800, letterSpacing: '1px', fontSize: '0.9rem' }}>DPRO ARTSFEST '26</div>
+              <div style={{ fontWeight: 800, letterSpacing: '1px', fontSize: '0.9rem' }}>CSWC Hiya Fiesta '26</div>
               <div style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px' }}>TEAM MANAGER</div>
             </div>
             
@@ -79,7 +79,7 @@ export default function DemoIDCardPage() {
               <div style={{ marginTop: 'auto', width: '100%', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {/* Mock QR Code */}
                 <div style={{ width: '60px', height: '60px', background: 'repeating-linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%, #0f172a), repeating-linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%, #0f172a)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px', borderRadius: '4px', opacity: 0.8 }}></div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.5rem', letterSpacing: '1px' }}>ID: DPRO-M-04</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.5rem', letterSpacing: '1px' }}>ID: CSWC-M-04</div>
               </div>
             </div>
           </div>

@@ -130,10 +130,10 @@ function LoginForm() {
           </div>
 
           <h1 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.75rem", lineHeight: 1.1 }}>
-            Dpro ArtsFes
+            CSWC Hiya Fiesta 2026
           </h1>
           <p style={{ fontSize: "1rem", opacity: 0.8, lineHeight: 1.6, maxWidth: "280px" }}>
-            Premium multi-tenant festival management platform for seamless arts fest operations.
+            She Can. She Will.
           </p>
 
           {/* Feature bullets */}

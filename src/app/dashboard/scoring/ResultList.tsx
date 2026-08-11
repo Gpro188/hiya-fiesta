@@ -97,7 +97,7 @@ export default function ResultList({ results, role }: { results: any[], role: st
                     🖨️ {isFullyPublished ? "Notice Board" : "Announce Print"}
                   </a>
 
-                  {role === "ADMIN" && hasPending && (
+                  {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && hasPending && (
                     <button 
                       onClick={() => {
                         if (confirm(`Publish all results for ${group.program.name}?`)) {
@@ -169,7 +169,7 @@ export default function ResultList({ results, role }: { results: any[], role: st
                          <div style={{ width: '15px', textAlign: 'center', color: 'var(--success)', fontWeight: 'bold' }}>{result.grade || '-'}</div>
                          
                          <div style={{ display: 'flex', gap: '4px' }}>
-                           {role === "ADMIN" && (
+                           {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
                              <>
                               <button 
                                 onClick={() => setEditingResult(result)}

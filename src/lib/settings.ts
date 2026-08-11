@@ -7,15 +7,23 @@ export async function getSettings(eventId?: string | null) {
         where: { eventId }
       });
       if (!settings) {
-        // Fetch event name to pre-populate settings
         const event = await prisma.event.findUnique({
           where: { id: eventId }
         });
+        if (!event) {
+          return { 
+            id: eventId, 
+            festName: "CSWC Hiya Fiesta 2026", 
+            festMoto: "Council of Samastha Women's Colleges", 
+            festLogo: null,
+            posterPrimaryColor: "#1e293b" 
+          } as any;
+        }
         settings = await prisma.globalSetting.create({
           data: {
             id: eventId, // explicitly set id so it doesn't default to "default"
             eventId,
-            festName: event?.name || "CSWC Hiya Fiesta 2026",
+            festName: event.name || "CSWC Hiya Fiesta 2026",
             festMoto: "Council of Samastha Women's Colleges"
           }
         });
@@ -69,10 +77,13 @@ export async function getHomepageSettings(eventId: string) {
     });
 
     if (!settings) {
+      const eventExists = await prisma.event.findUnique({ where: { id: eventId } });
+      if (!eventExists) return null;
+
       settings = await prisma.homepageSetting.create({
         data: {
           eventId,
-          heroTitle: "Dpro Arts Fest 2026",
+          heroTitle: "CSWC Hiya Fiesta 2026",
           heroSubtitle: "A Celebration of Innovation and Creativity",
           heroBgUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80",
           aboutTitle: "About the Extravaganza",

@@ -51,7 +51,7 @@ export default async function SuperAdminPage() {
           gap: 'var(--spacing-md)'
         }}>
           <div>
-            <h1 style={{ color: 'white', margin: 0, fontSize: '2rem', fontWeight: 800 }}>Dpro_artsfest system Super Admin</h1>
+            <h1 style={{ color: 'white', margin: 0, fontSize: '2rem', fontWeight: 800 }}>CSWC_artsfest system Super Admin</h1>
             <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '0.85rem' }}>
               System-wide metrics and tenant provisioning dashboard
             </p>

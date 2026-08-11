@@ -19,44 +19,41 @@ export async function bulkImportStudents(studentsData: Array<{
       return { success: false, error: "Unauthorized" };
     }
 
+    const institutions = await prisma.masterInstitution.findMany({
+      select: { id: true, name: true }
+    });
+
     let importedCount = 0;
 
     for (const item of studentsData) {
       if (!item.uid || !item.name || !item.institutionName) continue;
 
-      const normInstName = item.institutionName.trim();
-      let inst = await prisma.masterInstitution.findFirst({
-        where: { name: { equals: normInstName, mode: 'insensitive' } }
-      });
+      const searchInstName = item.institutionName.trim().toUpperCase();
+      let targetInstitutionId = null;
 
-      if (!inst) {
-        // Fallback default institution
-        let defaultZone = await prisma.zone.findFirst();
-        if (!defaultZone) {
-          defaultZone = await prisma.zone.create({ data: { name: 'GENERAL', code: 'GEN' } });
+      for (const inst of institutions) {
+        const dbInstName = inst.name.trim().toUpperCase();
+        if (dbInstName === searchInstName || dbInstName.includes(searchInstName) || searchInstName.includes(dbInstName)) {
+          targetInstitutionId = inst.id;
+          break;
         }
-        inst = await prisma.masterInstitution.create({
-          data: {
-            code: item.uid.substring(0, 5).toUpperCase(),
-            name: normInstName,
-            zoneId: defaultZone.id
-          }
-        });
       }
+
+      if (!targetInstitutionId) continue;
 
       await prisma.masterStudent.upsert({
         where: { uid: item.uid.trim() },
         update: {
           name: item.name.trim(),
-          institutionId: inst.id,
+          institutionId: targetInstitutionId,
           district: item.district || null,
           phone: item.phone || null,
-          stream: (item.stream || "FADHILA").trim().toUpperCase()
+          stream: item.stream || "FADHILA",
         },
         create: {
-          uid: item.uid.trim(),
+          uid: item.uid.trim().toUpperCase(),
           name: item.name.trim(),
-          institutionId: inst.id,
+          institutionId: targetInstitutionId,
           district: item.district || null,
           phone: item.phone || null,
           stream: (item.stream || "FADHILA").trim().toUpperCase()
@@ -155,5 +152,53 @@ export async function deleteStudent(id: string) {
   } catch (error: any) {
     console.error("Failed to delete student:", error);
     return { success: false, error: error.message || "Failed to delete student" };
+  }
+}
+
+export async function bulkDeleteStudentsByZone(zoneId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Find all institutions in this zone
+    const institutions = await prisma.masterInstitution.findMany({
+      where: { zoneId },
+      select: { id: true }
+    });
+    
+    const instIds = institutions.map(i => i.id);
+
+    if (instIds.length > 0) {
+      await prisma.masterStudent.deleteMany({
+        where: { institutionId: { in: instIds } }
+      });
+    }
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to bulk delete by zone:", error);
+    return { success: false, error: error.message || "Failed to bulk delete" };
+  }
+}
+
+export async function bulkDeleteStudentsByInstitution(institutionId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.masterStudent.deleteMany({
+      where: { institutionId }
+    });
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to bulk delete by institution:", error);
+    return { success: false, error: error.message || "Failed to bulk delete" };
   }
 }

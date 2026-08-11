@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { updateCandidateSlot } from "./actions";
 
 export default function ManagerScheduler({ initialPrograms, teamId }: { initialPrograms: any[], teamId: string }) {
   const [programs, setPrograms] = useState(initialPrograms);
@@ -11,7 +10,7 @@ export default function ManagerScheduler({ initialPrograms, teamId }: { initialP
   const categories = Array.from(new Set(initialPrograms.map(p => p.category?.name || "General Event").filter(Boolean)));
   const types = Array.from(new Set(initialPrograms.map(p => p.type)));
 
-  const filteredPrograms = programs.filter(p => {
+  const filtereCSWCgrams = programs.filter(p => {
     const pCat = p.category?.name || "General Event";
     const categoryMatch = selectedCategory === "all" || pCat === selectedCategory;
     const typeMatch = selectedType === "all" || p.type === selectedType;
@@ -62,12 +61,12 @@ export default function ManagerScheduler({ initialPrograms, teamId }: { initialP
 
       <div className="print-area">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-          {filteredPrograms.length === 0 ? (
+          {filtereCSWCgrams.length === 0 ? (
             <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
               No programs found for these filters.
             </div>
           ) : (
-            filteredPrograms.map((p) => {
+            filtereCSWCgrams.map((p) => {
               const hasAssignments = p.assignments && p.assignments.length > 0;
               return (
                 <div key={p.id} className="glass-panel" style={{ 

@@ -2,24 +2,35 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 // Helper to determine Grade based on marks
 function calculateGrade(marks: number) {
   if (marks >= 80) return "A";
   if (marks >= 60) return "B";
+  if (marks > 0) return "C";
   return null;
 }
 
 // Helper to recalculate ranks and points for a specific program
-async function recalculateProgramResults(programId: string, manualUpdateId?: string) {
+async function recalculateProgramResults(programId: string, manualUpdateId?: string, eventId?: string) {
+  const whereClause: any = { programId };
+  if (eventId) {
+    whereClause.OR = [
+      { team: { eventId } },
+      { candidate: { team: { eventId } } }
+    ];
+  }
+
   const results = await prisma.result.findMany({
-    where: { programId },
+    where: whereClause,
     orderBy: { marks: 'desc' },
     include: { 
       program: { 
         include: { 
-          category: { include: { pointMatrix: true } },
-          event: { include: { generalPointMatrix: true } }
+          category: true,
+          event: true
         } 
       } 
     }
@@ -30,23 +41,15 @@ async function recalculateProgramResults(programId: string, manualUpdateId?: str
   const program = results[0].program;
   const programType = program.type;
   
-  let pointsConfig = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3 };
+  let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+  if (programType !== "INDIVIDUAL") {
+    pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+  }
 
   if (programType === "GENERAL") {
-    const eventMatrix = program.event?.generalPointMatrix;
-    if (eventMatrix?.generalPoints) {
-      try {
-        pointsConfig = JSON.parse(eventMatrix.generalPoints);
-      } catch (e) {}
-    }
+    // General points no longer parsed from matrix, using default
   } else {
-    const categoryMatrix = program.category?.pointMatrix;
-    if (categoryMatrix) {
-      let pointsConfigStr = programType === "INDIVIDUAL" ? categoryMatrix.individualPoints : categoryMatrix.groupPoints;
-      try {
-        if (pointsConfigStr) pointsConfig = JSON.parse(pointsConfigStr);
-      } catch (e) {}
-    }
+    // Category points no longer parsed from matrix, using default
   }
 
   // Assign ranks, handle ties
@@ -79,6 +82,7 @@ async function recalculateProgramResults(programId: string, manualUpdateId?: str
 
     if (grade === "A") points += pointsConfig.gradeA || 0;
     else if (grade === "B") points += pointsConfig.gradeB || 0;
+    else if (grade === "C") points += pointsConfig.gradeC || 0;
 
     await prisma.result.update({
       where: { id: res.id },
@@ -98,11 +102,16 @@ export async function submitMarks(data: {
   manualGrade?: string | null
 }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const program = await prisma.program.findUnique({
       where: { id: data.programId },
       include: { 
-        category: { include: { pointMatrix: true } }, 
-        event: { include: { generalPointMatrix: true } } 
+        category: true, 
+        event: true 
       }
     });
 
@@ -129,12 +138,9 @@ export async function submitMarks(data: {
     let grade = data.manualGrade || null;
 
     if (data.manualRank || data.manualGrade) {
-       let pointsConfig = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3 };
-       if (program.type === "GENERAL") {
-         if (program.event.generalPointMatrix?.generalPoints) pointsConfig = JSON.parse(program.event.generalPointMatrix.generalPoints);
-       } else if (program.category?.pointMatrix) {
-         const str = program.type === "INDIVIDUAL" ? program.category.pointMatrix.individualPoints : program.category.pointMatrix.groupPoints;
-         if (str) pointsConfig = JSON.parse(str);
+       let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+       if (program.type !== "INDIVIDUAL") {
+         pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
        }
 
        if (rank === 1) points += pointsConfig.rank1 || 0;
@@ -143,6 +149,7 @@ export async function submitMarks(data: {
 
        if (grade === "A") points += pointsConfig.gradeA || 0;
        else if (grade === "B") points += pointsConfig.gradeB || 0;
+       else if (grade === "C") points += pointsConfig.gradeC || 0;
     }
 
     if (candidateId) {
@@ -187,7 +194,7 @@ export async function submitMarks(data: {
 
     // If NOT manual mode, recalculate program
     if (data.manualRank === undefined && data.manualGrade === undefined) {
-      await recalculateProgramResults(data.programId);
+      await recalculateProgramResults(data.programId, undefined, data.eventId);
     }
 
     revalidatePath("/dashboard/scoring");
@@ -200,6 +207,10 @@ export async function submitMarks(data: {
 
 export async function togglePublishResult(id: string, isPublished: boolean) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
     await prisma.result.update({ where: { id }, data: { isPublished } });
     revalidatePath("/dashboard/scoring");
     return { success: true };
@@ -210,6 +221,10 @@ export async function togglePublishResult(id: string, isPublished: boolean) {
 
 export async function publishProgramResults(programId: string) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
     await prisma.result.updateMany({
       where: { programId },
       data: { isPublished: true }
@@ -224,6 +239,10 @@ export async function publishProgramResults(programId: string) {
 
 export async function deleteResult(id: string) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
     const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
     if (!result) return { success: false, error: "Result not found" };
     await prisma.result.delete({ where: { id } });
@@ -235,10 +254,40 @@ export async function deleteResult(id: string) {
   }
 }
 
-export async function updateResultMark(id: string, marks: number) {
+export async function updateResultMark(id: string, marks: number, manualRank?: number | null, manualGrade?: string | null) {
   try {
-    const result = await prisma.result.update({ where: { id }, data: { marks } });
-    await recalculateProgramResults(result.programId);
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    
+    const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
+    if (!result) return { success: false, error: "Result not found" };
+
+    if (manualRank !== undefined && manualRank !== null || manualGrade !== undefined && manualGrade !== null) {
+      let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+      if (result.program.type !== "INDIVIDUAL") {
+        pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+      }
+
+      let points = 0;
+      if (manualRank === 1) points += pointsConfig.rank1 || 0;
+      else if (manualRank === 2) points += pointsConfig.rank2 || 0;
+      else if (manualRank === 3) points += pointsConfig.rank3 || 0;
+
+      if (manualGrade === "A") points += pointsConfig.gradeA || 0;
+      else if (manualGrade === "B") points += pointsConfig.gradeB || 0;
+      else if (manualGrade === "C") points += pointsConfig.gradeC || 0;
+
+      await prisma.result.update({ 
+        where: { id }, 
+        data: { marks, rank: manualRank, grade: manualGrade, points } 
+      });
+    } else {
+      await prisma.result.update({ where: { id }, data: { marks, rank: null, grade: null, points: 0 } });
+      await recalculateProgramResults(result.programId);
+    }
+    
     revalidatePath("/dashboard/scoring");
     return { success: true };
   } catch (error) {

@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ScoringForm from "./ScoringForm";
@@ -15,7 +16,7 @@ export default async function ScoringPage(props: {
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
 
-  if (!session || (session.user.role !== "JUDGE" && session.user.role !== "ADMIN")) {
+  if (!session || !["SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
@@ -64,51 +65,12 @@ export default async function ScoringPage(props: {
     select: {
       id: true,
       name: true,
-      generalPointMatrix: {
-        select: {
-          id: true,
-          generalPoints: true
-        }
-      },
+      parentId: true,
       teams: {
         select: {
           id: true,
           name: true,
           flagColor: true
-        }
-      },
-      programs: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          categoryId: true,
-          category: {
-            select: {
-              id: true,
-              name: true,
-              pointMatrix: {
-                select: {
-                  id: true,
-                  individualPoints: true,
-                  groupPoints: true,
-                  generalPoints: true
-                }
-              }
-            }
-          },
-          assignments: {
-            select: {
-              id: true,
-              candidate: {
-                select: {
-                  id: true,
-                  name: true,
-                  chestNumber: true
-                }
-              }
-            }
-          }
         }
       }
     }
@@ -116,12 +78,58 @@ export default async function ScoringPage(props: {
 
   if (!activeEvent) redirect("/dashboard/scoring");
 
+  const programsEventId = activeEvent.parentId || activeEvent.id;
+
+  const programsForScoring = await prisma.program.findMany({
+    where: { eventId: programsEventId },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      categoryId: true,
+      category: {
+        select: {
+          id: true,
+          name: true,
+        }
+      },
+      assignments: {
+        where: {
+          candidate: { team: { eventId: activeEventId } }
+        },
+        select: {
+          id: true,
+          candidate: {
+            select: {
+              id: true,
+              name: true,
+              chestNumber: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const activeEventWithPrograms = {
+    ...activeEvent,
+    programs: programsForScoring
+  };
+
+  if (!activeEvent) redirect("/dashboard/scoring");
+
   // Fetch results, pending programs, and flat results for standings in PARALLEL
   const [results, allPrograms, allResultsForScore] = await Promise.all([
     prisma.result.findMany({
-      where: { program: { eventId: activeEventId } },
+      where: { 
+        OR: [
+          { team: { eventId: activeEventId } },
+          { candidate: { team: { eventId: activeEventId } } }
+        ]
+      },
       select: {
         id: true,
+        marks: true,
         points: true,
         rank: true,
         grade: true,
@@ -138,17 +146,33 @@ export default async function ScoringPage(props: {
       take: 200 // Limit to 200 for speed
     }),
     prisma.program.findMany({
-      where: { eventId: activeEventId, assignments: { some: {} } },
+      where: { 
+        eventId: programsEventId, 
+        assignments: { some: { candidate: { team: { eventId: activeEventId } } } } 
+      },
       select: {
         id: true,
         name: true,
-        results: { select: { id: true } },
+        results: { 
+          where: {
+            OR: [
+              { team: { eventId: activeEventId } },
+              { candidate: { team: { eventId: activeEventId } } }
+            ]
+          },
+          select: { id: true } 
+        },
         category: { select: { name: true } },
-        _count: { select: { assignments: true } }
+        _count: { select: { assignments: { where: { candidate: { team: { eventId: activeEventId } } } } } }
       }
     }),
     prisma.result.findMany({
-      where: { program: { eventId: activeEventId } },
+      where: { 
+        OR: [
+          { team: { eventId: activeEventId } },
+          { candidate: { team: { eventId: activeEventId } } }
+        ]
+      },
       select: {
         points: true,
         isPublished: true,
@@ -215,7 +239,9 @@ export default async function ScoringPage(props: {
               <h2 style={{ marginBottom: 'var(--spacing-lg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                  Rapid Result Entry
               </h2>
-              <ScoringForm events={[activeEvent]} />
+              <Suspense fallback={<div>Loading form...</div>}>
+                <ScoringForm events={[activeEventWithPrograms]} />
+              </Suspense>
             </div>
 
             {/* Results Management Section */}
@@ -229,7 +255,7 @@ export default async function ScoringPage(props: {
             <div data-tour="scoring-teams">
               <TeamScorePreview scores={teamScores} />
             </div>
-            
+
             <div data-tour="scoring-pending" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
               <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 Pending Entries

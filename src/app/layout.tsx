@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     description:
       "Centralized Multi-Zone Festival Platform for CSWC Women's Colleges",
     type: "website",
-    url: "https://dpro-artsfest.vercel.app/",
+    url: "https://cswc-hiya-fiesta.vercel.app/",
     siteName: "CSWC Hiya Fiesta 2026",
     images: [
       {
@@ -68,8 +68,8 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "Dpro ArtsFes",
-    url: "https://dpro-artsfest.vercel.app/",
+    name: "CSWC Hiya Fiesta",
+    url: "https://cswc-hiya-fiesta.vercel.app/",
   };
 
   return (

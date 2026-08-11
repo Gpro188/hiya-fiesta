@@ -9,14 +9,18 @@ import { authOptions } from "@/lib/auth";
 export async function createEvent(name: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.eventId) {
+    if (!session || !session.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+    
+    if (session.user.role !== "SUPER_ADMIN" && !session.user.eventId) {
       return { success: false, error: "Unauthorized or no Main Event assigned" };
     }
 
     await prisma.event.create({
       data: { 
         name,
-        parentId: session.user.eventId
+        parentId: session.user.eventId || null
       },
     });
     revalidatePath("/dashboard/events");
@@ -27,11 +31,14 @@ export async function createEvent(name: string) {
   }
 }
 
-export async function updateEvent(id: string, data: { name: string }) {
+export async function updateEvent(id: string, data: { name?: string, statusOverride?: string }) {
   try {
     await prisma.event.update({
       where: { id },
-      data: { name: data.name },
+      data: { 
+        name: data.name,
+        statusOverride: data.statusOverride
+      },
     });
     revalidatePath("/dashboard/events");
     return { success: true };

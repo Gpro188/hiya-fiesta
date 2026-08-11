@@ -29,7 +29,6 @@ export default async function HubPage(props: {
           </Link>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
             <Link href="/search" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Search</Link>
-            <Link href="/dashboard" className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '8px 15px' }}>Dashboard</Link>
           </div>
         </div>
       </header>
@@ -41,7 +40,7 @@ export default async function HubPage(props: {
       </main>
 
       <footer style={{ padding: 'var(--spacing-xl) 0', borderTop: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.8rem' }}>
-        <p>&copy; {new Date().getFullYear()} {settings.festName} Management Hub. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} {settings.festName} Live Results. All rights reserved.</p>
       </footer>
 
       <HubTourWrapper />

@@ -22,6 +22,18 @@ export default async function DashboardLayout({
 
   const { role, username } = session.user;
 
+  const userFull = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { institution: true, zone: true }
+  });
+
+  let displayName = username;
+  if (userFull?.institution) {
+    displayName = userFull.institution.name;
+  } else if (userFull?.zone) {
+    displayName = userFull.zone.name + " Zone";
+  }
+
   const homepageSettings = session.user.eventId ? await getHomepageSettings(session.user.eventId) : null;
 
   return (
@@ -34,6 +46,7 @@ export default async function DashboardLayout({
       <DashboardSidebar 
         role={role} 
         username={username} 
+        displayName={displayName}
         festName={settings.festName || "CSWC Hiya Fiesta 2026"} 
         festMoto={settings.festMoto || "Council of Samastha Women's Colleges"} 
       />

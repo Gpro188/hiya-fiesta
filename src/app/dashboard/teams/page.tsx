@@ -9,23 +9,49 @@ import Link from "next/link";
 export default async function TeamsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
-  const events = await prisma.event.findMany({
-    where: { parentId: session.user.eventId },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, createdAt: true }
+  const fullUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { eventId: true, zoneId: true }
   });
 
+  const { role } = session.user;
+
+  let eventWhere: any = {};
+  if (role === "ZONE_ADMIN" && fullUser?.zoneId) {
+    eventWhere = { zoneId: fullUser.zoneId };
+  } else if (fullUser?.eventId) {
+    eventWhere = { parentId: fullUser.eventId };
+  }
+
+  const events = await prisma.event.findMany({
+    where: eventWhere,
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, name: true, createdAt: true, _count: { select: { programs: true } } }
+  });
+
+  let teamWhere: any = {};
+  if (role === "ZONE_ADMIN" && fullUser?.zoneId) {
+    teamWhere = { event: { zoneId: fullUser.zoneId } };
+  } else if (fullUser?.eventId) {
+    teamWhere = { event: { parentId: fullUser.eventId } };
+  }
+
   const teams = await prisma.team.findMany({
-    where: { event: { parentId: session.user.eventId } },
+    where: teamWhere,
     include: {
       event: true,
-      manager: true,
       _count: {
         select: { candidates: true }
+      },
+      candidates: {
+        select: {
+          id: true,
+          _count: { select: { programs: true } }
+        }
       }
     },
     orderBy: { createdAt: 'desc' }
@@ -49,18 +75,20 @@ export default async function TeamsPage() {
           <Link href="/dashboard/events" className="empty-state-action">Go to Events &rarr;</Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)' }}>
-          <div>
-            <div data-tour="teams-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Create New Team</h3>
-              <TeamForm events={events} />
+        <div style={{ display: role === 'ZONE_ADMIN' ? 'block' : 'grid', gridTemplateColumns: role === 'ZONE_ADMIN' ? 'none' : '1fr 2fr', gap: 'var(--spacing-lg)' }}>
+          {role !== 'ZONE_ADMIN' && (
+            <div>
+              <div data-tour="teams-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
+                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Create New Team</h3>
+                <TeamForm events={events} />
+              </div>
             </div>
-          </div>
+          )}
           
           <div>
             <div data-tour="teams-list" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--spacing-md)' }}>All Teams</h3>
-              <TeamList teams={teams} />
+              <h3 style={{ marginBottom: 'var(--spacing-md)' }}>All Teams (Registration Status)</h3>
+              <TeamList teams={teams as any} role={role} />
             </div>
           </div>
         </div>

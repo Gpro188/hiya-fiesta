@@ -16,7 +16,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
     categoryStars: Record<string, any[]>,
     stats?: {
         totalPrograms: number,
-        publishedPrograms: number,
+        publisheCSWCgrams: number,
         pendingPrograms: number,
         totalCandidates: number,
         totalParticipants: number
@@ -93,7 +93,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
             }}>
                 {[
                     { label: 'Total Programs', value: data.stats.totalPrograms, icon: '📋', color: 'var(--primary)' },
-                    { label: 'Results Published', value: data.stats.publishedPrograms, icon: '✅', color: 'var(--success)' },
+                    { label: 'Results Published', value: data.stats.publisheCSWCgrams, icon: '✅', color: 'var(--success)' },
                     { label: 'Results Pending', value: data.stats.pendingPrograms, icon: '⏳', color: 'var(--warning)' },
                     { label: 'Total Candidates', value: data.stats.totalCandidates, icon: '👥', color: 'var(--secondary)' },
                     { label: 'Live Participants', value: data.stats.totalParticipants, icon: '🎭', color: 'var(--accent)' }
@@ -264,9 +264,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
                         <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                             {data.leaderboard.map(team => (
                                 <div key={team.id} className="glass-panel" style={{ padding: '15px', textAlign: 'center', borderTop: `4px solid ${team.flagColor}` }}>
-                                    {team.leaderPhoto && (
-                                        <img src={team.leaderPhoto} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 10px auto' }} alt="" />
-                                    )}
+                                    <div style={{ fontSize: '24px', marginBottom: '10px' }}>🚩</div>
                                     <div style={{ fontWeight: 700 }}>{team.name}</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{team.leaderName}</div>
                                 </div>
@@ -285,7 +283,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
                                 <div key={star.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px', padding: '15px', background: i === 0 ? 'rgba(252, 211, 77, 0.05)' : 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: i === 0 ? '1px solid #FCD34D' : '1px solid var(--border-color)' }}>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 900, color: i === 0 ? '#FCD34D' : 'var(--text-muted)' }}>#{i+1}</div>
                                     <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', border: `2px solid ${star.teamColor}` }}>
-                                        <img src={star.photo || 'https://via.placeholder.com/60'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-color)', fontSize: '24px' }}>⭐</div>
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{star.name}</div>
@@ -338,7 +336,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
                             }}>
                                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                     <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', border: `2px solid ${res.candidate?.team?.flagColor || res.team?.flagColor}` }}>
-                                        <img src={res.candidate?.photo || res.team?.leaderPhoto || 'https://via.placeholder.com/50'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-color)', fontSize: '20px' }}>🏆</div>
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: 700 }}>{res.candidate?.name || res.team?.name}</div>

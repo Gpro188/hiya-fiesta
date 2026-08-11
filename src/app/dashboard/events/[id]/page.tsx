@@ -11,7 +11,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 

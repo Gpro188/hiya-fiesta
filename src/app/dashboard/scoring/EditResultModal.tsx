@@ -5,12 +5,19 @@ import { updateResultMark } from "./actions";
 
 export default function EditResultModal({ result, onClose }: { result: any, onClose: () => void }) {
   const [marks, setMarks] = useState(result.marks.toString());
+  const [rank, setRank] = useState(result.rank?.toString() || "");
+  const [grade, setGrade] = useState(result.grade || "");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await updateResultMark(result.id, parseFloat(marks));
+    const res = await updateResultMark(
+      result.id, 
+      parseFloat(marks),
+      rank ? parseInt(rank) : null,
+      grade || null
+    );
     if (res.success) {
       onClose();
     } else {
@@ -40,6 +47,32 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
               required
               autoFocus
             />
+          </div>
+
+          <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+            <label className="form-label">Rank (Optional)</label>
+            <input 
+              type="number" 
+              className="form-input" 
+              value={rank}
+              onChange={(e) => setRank(e.target.value)}
+              min="1"
+              max="3"
+            />
+          </div>
+
+          <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+            <label className="form-label">Grade (Optional)</label>
+            <select
+              className="form-input"
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+            >
+              <option value="">None</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
           </div>
 
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>

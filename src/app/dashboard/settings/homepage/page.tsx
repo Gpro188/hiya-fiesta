@@ -8,8 +8,8 @@ export default async function HomepageSettingsPage() {
   const session = await getServerSession(authOptions);
   const user = session?.user;
   
-  if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
-    redirect("/login");
+  if (!user || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(user.role)) {
+    redirect("/dashboard");
   }
 
   const settings = user.eventId ? await getHomepageSettings(user.eventId) : null;

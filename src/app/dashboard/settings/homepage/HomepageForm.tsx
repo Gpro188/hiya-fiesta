@@ -14,6 +14,22 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
 
   const [committee, setCommittee] = useState<any[]>(initialData?.committeeMembers || []);
   const [gallery, setGallery] = useState<string[]>(initialData?.galleryImages || []);
+  
+  // New CMS Fields
+  const [tickerText, setTickerText] = useState(initialData?.tickerText || "");
+  const [heroSlides, setHeroSlides] = useState<any[]>(initialData?.heroSlides || []);
+  const [statsCounter, setStatsCounter] = useState(initialData?.statsCounter || {
+    show_students: true,
+    show_institutions: true,
+    show_events: true,
+    show_points: true
+  });
+  const [socialLinks, setSocialLinks] = useState(initialData?.socialLinks || {
+    instagram: "",
+    youtube: "",
+    facebook: "",
+    whatsapp_support: ""
+  });
 
   const addCommitteeMember = () => setCommittee([...committee, { name: "", role: "", imageUrl: "" }]);
   const updateCommittee = (index: number, field: string, value: string) => {
@@ -31,6 +47,14 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
   };
   const removeGallery = (index: number) => setGallery(gallery.filter((_, i) => i !== index));
 
+  const addHeroSlide = () => setHeroSlides([...heroSlides, { id: Date.now().toString(), image_url: "", title: "", subtitle: "", cta_text: "", cta_link: "", enable_countdown: false, target_date: "" }]);
+  const updateHeroSlide = (index: number, field: string, value: any) => {
+    const newSlides = [...heroSlides];
+    newSlides[index][field] = value;
+    setHeroSlides(newSlides);
+  };
+  const removeHeroSlide = (index: number) => setHeroSlides(heroSlides.filter((_, i) => i !== index));
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSubmitting(true);
@@ -42,6 +66,9 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
     // Append JSON data
     data.committeeMembers = JSON.stringify(committee);
     data.galleryImages = JSON.stringify(gallery);
+    data.heroSlides = JSON.stringify(heroSlides);
+    data.statsCounter = JSON.stringify(statsCounter);
+    data.socialLinks = JSON.stringify(socialLinks);
 
     const result = await saveHomepageSettings(data);
     
@@ -50,122 +77,128 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
       {message && (
         <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', color: 'var(--success)' }}>
           {message}
         </div>
       )}
+      
+      <input type="hidden" name="targetEventId" value={initialData?.targetEventId || ""} />
 
-      {/* Hero Section */}
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Hero Section</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+      {/* Global Ticker */}
+      <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }} open>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
+          Top Announcement Bar <span>▼</span>
+        </summary>
+        <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default' }}>
           <div className="form-group">
-            <label className="form-label">Hero Title</label>
-            <input type="text" name="heroTitle" defaultValue={initialData?.heroTitle || ""} className="form-input" placeholder="e.g. National Arts Fest 2026" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Hero Subtitle</label>
-            <input type="text" name="heroSubtitle" defaultValue={initialData?.heroSubtitle || ""} className="form-input" placeholder="e.g. Celebrating Creativity" />
+            <label className="form-label">Ticker Text (Scrolling Banner)</label>
+            <input 
+              type="text" 
+              name="tickerText" 
+              value={tickerText} 
+              onChange={e => setTickerText(e.target.value)} 
+              className="form-input" 
+              placeholder="e.g. Registration is now open! Deadline is..." 
+            />
           </div>
         </div>
-        <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-          <ImageUpload 
-            label="Hero Background Image" 
-            folder="homepage-hero" 
-            initialUrl={initialData?.heroBgUrl}
-            onUploadComplete={(url) => {
-              // Create a hidden input so the form submission picks it up
-              const input = document.createElement("input");
-              input.type = "hidden";
-              input.name = "heroBgUrl";
-              input.value = url;
-              document.forms[0].appendChild(input);
-            }} 
-          />
-          {/* Fallback hidden input in case they don't upload a new one */}
-          <input type="hidden" name="heroBgUrl" defaultValue={initialData?.heroBgUrl || ""} />
+      </details>
+
+      {/* Hero Carousel Section */}
+      <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }}>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
+          Hero Carousel & Countdown <span>▼</span>
+        </summary>
+        <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
+            <button type="button" onClick={addHeroSlide} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              + Add Slide
+            </button>
+          </div>
+          
+          {heroSlides.length === 0 ? (
+            <div style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              No slides added yet. Click <strong>+ Add Slide</strong> above.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              {heroSlides.map((slide, idx) => (
+                <div key={slide.id} style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color-strong)', borderRadius: 'var(--radius-md)', display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 'var(--spacing-md)' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <ImageUpload 
+                    label="Slide Image" 
+                    folder="homepage-hero" 
+                    initialUrl={slide.image_url}
+                    onUploadComplete={(url) => updateHeroSlide(idx, 'image_url', url)} 
+                  />
+                </div>
+                
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <input type="text" placeholder="Title" value={slide.title} onChange={e => updateHeroSlide(idx, 'title', e.target.value)} className="form-input" />
+                  <input type="text" placeholder="Subtitle" value={slide.subtitle} onChange={e => updateHeroSlide(idx, 'subtitle', e.target.value)} className="form-input" />
+                  
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" placeholder="CTA Button Text" value={slide.cta_text} onChange={e => updateHeroSlide(idx, 'cta_text', e.target.value)} className="form-input" style={{ flex: 1 }} />
+                    <input type="text" placeholder="CTA URL" value={slide.cta_link} onChange={e => updateHeroSlide(idx, 'cta_link', e.target.value)} className="form-input" style={{ flex: 1 }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={slide.enable_countdown} 
+                        onChange={e => updateHeroSlide(idx, 'enable_countdown', e.target.checked)} 
+                      />
+                      Enable Countdown Timer
+                    </label>
+                    {slide.enable_countdown && (
+                      <input 
+                        type="datetime-local" 
+                        value={slide.target_date} 
+                        onChange={e => updateHeroSlide(idx, 'target_date', e.target.value)} 
+                        className="form-input" 
+                        style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <button type="button" onClick={() => removeHeroSlide(idx)} className="btn btn-danger" style={{ padding: '0.5rem 0.875rem', fontSize: '0.85rem', height: 'fit-content' }}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        </div>
+      </details>
+
+      {/* Real-time Live Stats */}
+      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
+        <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Real-time Live Stats</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 'var(--spacing-md)' }}>
+          Toggle which animated counter cards appear on the homepage. Data is fetched automatically from the database.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+          {Object.entries(statsCounter).map(([key, value]) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <input 
+                type="checkbox" 
+                checked={value as boolean} 
+                onChange={e => setStatsCounter({ ...statsCounter, [key]: e.target.checked })} 
+              />
+              Show {key.replace('show_', '').charAt(0).toUpperCase() + key.replace('show_', '').slice(1)}
+            </label>
+          ))}
         </div>
       </div>
 
       {/* Theme Colors & Presets */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
         <h2 style={{ marginBottom: 'var(--spacing-xs)', fontSize: '1.25rem' }}>Theme Colors</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 'var(--spacing-md)' }}>
-          Select one of our curated theme presets or customize individual colors.
-        </p>
-
-        {/* Preset Theme Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
-          {[
-            {
-              name: "Clean Pearl (Light Mode)",
-              primary: "#4F46E5",
-              secondary: "#0284C7",
-              bg: "#F8FAFC",
-              desc: "Pure White & Crisp Blue/Indigo"
-            },
-            {
-              name: "Minimal Titanium (Light)",
-              primary: "#2563EB",
-              secondary: "#0D9488",
-              bg: "#FFFFFF",
-              desc: "Bright White & Emerald Slate"
-            },
-            {
-              name: "Royal Indigo (Dark)",
-              primary: "#6366F1",
-              secondary: "#0EA5E9",
-              bg: "#0F172A",
-              desc: "Deep Slate & Electric Violet"
-            },
-            {
-              name: "Cyber Emerald (Dark)",
-              primary: "#10B981",
-              secondary: "#06B6D4",
-              bg: "#064E3B",
-              desc: "Vibrant Green & Deep Teal"
-            },
-            {
-              name: "Gold & Crimson (Dark)",
-              primary: "#F59E0B",
-              secondary: "#EC4899",
-              bg: "#18181B",
-              desc: "Luxury Gold & Sunset Rose"
-            }
-          ].map((preset) => (
-            <div
-              key={preset.name}
-              onClick={() => {
-                setPrimaryColor(preset.primary);
-                setSecondaryColor(preset.secondary);
-                setBgColor(preset.bg);
-              }}
-              style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius-md)',
-                border: primaryColor === preset.primary && secondaryColor === preset.secondary && bgColor === preset.bg
-                  ? '2px solid var(--primary)'
-                  : '1px solid var(--border-color)',
-                background: 'var(--surface-color)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '0.5rem' }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: preset.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: preset.secondary, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: preset.bg, border: '1px solid #ffffff44', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
-              </div>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{preset.name}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{preset.desc}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Custom Color Pickers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)' }}>
           <div className="form-group">
             <label className="form-label">Primary Color</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -198,23 +231,8 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
           <input type="text" name="aboutTitle" defaultValue={initialData?.aboutTitle || "About The Fest"} className="form-input" />
         </div>
         <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-          <ImageUpload 
-            label="Pinned Button Logo" 
-            folder="homepage-assets" 
-            initialUrl={initialData?.pinnedButtonLogoUrl}
-            onUploadComplete={(url) => {
-              const input = document.createElement("input");
-              input.type = "hidden";
-              input.name = "pinnedButtonLogoUrl";
-              input.value = url;
-              document.forms[0].appendChild(input);
-            }} 
-          />
-          <input type="hidden" name="pinnedButtonLogoUrl" defaultValue={initialData?.pinnedButtonLogoUrl || ""} />
-        </div>
-        <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
           <label className="form-label">About Text</label>
-          <textarea name="aboutText" defaultValue={initialData?.aboutText || ""} className="form-input" rows={4} placeholder="Write a detailed description of the fest..."></textarea>
+          <textarea name="aboutText" defaultValue={initialData?.aboutText || ""} className="form-input" rows={4}></textarea>
         </div>
       </div>
 
@@ -223,173 +241,83 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Committee & Leaders Section</h2>
-            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Customize the section title and edit team members, roles, and profile photos.</p>
           </div>
           <button type="button" onClick={addCommitteeMember} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
             + Add Member
           </button>
         </div>
 
-        {/* Section Title Input */}
         <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
           <label className="form-label">Section Heading Title</label>
-          <input 
-            type="text" 
-            name="committeeTitle" 
-            defaultValue={initialData?.committeeTitle || "Program Committee"} 
-            className="form-input" 
-            placeholder="e.g. Program Committee, Group Leaders, Organizing Team" 
-          />
-          <span className="field-helper">This title will be displayed above the committee/leaders grid on your public fest homepage.</span>
+          <input type="text" name="committeeTitle" defaultValue={initialData?.committeeTitle || "Program Committee"} className="form-input" />
         </div>
 
-        {committee.length === 0 ? (
-          <div style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-            No committee members added yet. Click <strong>+ Add Member</strong> above to add organizers.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+          {committee.map((member, idx) => (
+            <div key={idx} style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color-strong)', borderRadius: 'var(--radius-md)', display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 2fr auto', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {member.imageUrl ? <img src={member.imageUrl} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>👤</span>}
+              </div>
+              <input type="text" placeholder="Name" value={member.name} onChange={e => updateCommittee(idx, 'name', e.target.value)} className="form-input" />
+              <input type="text" placeholder="Role" value={member.role} onChange={e => updateCommittee(idx, 'role', e.target.value)} className="form-input" />
+              <ImageUpload label="Profile Photo" folder="committee" initialUrl={member.imageUrl} onUploadComplete={(url) => updateCommittee(idx, 'imageUrl', url)} />
+              <button type="button" onClick={() => removeCommittee(idx)} className="btn btn-danger" style={{ padding: '0.5rem 0.875rem' }}>Remove</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }}>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
+          Image Gallery Marquee <span>▼</span>
+        </summary>
+        <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
+            <button type="button" onClick={addGalleryImage} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              + Add Image
+            </button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-            {committee.map((member, idx) => (
-              <div 
-                key={idx} 
-                style={{ 
-                  padding: 'var(--spacing-md)', 
-                  backgroundColor: 'var(--surface-color)', 
-                  border: '1px solid var(--border-color-strong)', 
-                  borderRadius: 'var(--radius-md)',
-                  display: 'grid', 
-                  gridTemplateColumns: 'auto 1fr 1fr 2fr auto', 
-                  gap: 'var(--spacing-md)', 
-                  alignItems: 'center' 
-                }}
-              >
-                {/* Avatar Preview */}
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--border-color)' }}>
-                  {member.imageUrl ? (
-                    <img src={member.imageUrl} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ fontSize: '1.5rem' }}>👤</span>
-                  )}
-                </div>
-
-                {/* Name */}
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>Name</label>
-                  <input type="text" placeholder="e.g. John Doe" value={member.name} onChange={e => updateCommittee(idx, 'name', e.target.value)} className="form-input" />
-                </div>
-
-                {/* Role */}
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '2px' }}>Role / Designation</label>
-                  <input type="text" placeholder="e.g. Chairman" value={member.role} onChange={e => updateCommittee(idx, 'role', e.target.value)} className="form-input" />
-                </div>
-
-                {/* Photo Upload */}
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <ImageUpload 
-                    label="Profile Photo" 
-                    folder="committee" 
-                    initialUrl={member.imageUrl}
-                    onUploadComplete={(url) => updateCommittee(idx, 'imageUrl', url)} 
-                  />
-                </div>
-
-                {/* Remove Action */}
-                <button 
-                  type="button" 
-                  onClick={() => removeCommittee(idx)} 
-                  className="btn btn-danger" 
-                  style={{ padding: '0.5rem 0.875rem', fontSize: '0.85rem' }}
-                >
-                  Remove
-                </button>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            {gallery.map((img, idx) => (
+              <div key={idx} style={{ position: 'relative', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
+                <ImageUpload 
+                  label={`Image ${idx + 1}`} 
+                  folder="gallery" 
+                  initialUrl={img}
+                  onUploadComplete={(url) => updateGallery(idx, url)} 
+                />
+                <button type="button" onClick={() => removeGallery(idx)} style={{ position: 'absolute', top: 4, right: 4, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer' }}>✕</button>
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Gallery Section */}
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Image Gallery</h2>
-        {gallery.map((url, idx) => (
-          <div key={idx} style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-              <ImageUpload 
-                label={`Gallery Image ${idx + 1}`} 
-                folder="gallery" 
-                initialUrl={url}
-                onUploadComplete={(uploadedUrl) => updateGallery(idx, uploadedUrl)} 
-              />
-            </div>
-            <button type="button" onClick={() => removeGallery(idx)} className="btn-secondary" style={{ backgroundColor: 'var(--error)' }}>Remove</button>
-          </div>
-        ))}
-        <button type="button" onClick={addGalleryImage} className="btn-secondary" style={{ marginTop: 'var(--spacing-sm)' }}>+ Add Image URL</button>
-      </div>
-
-      {/* Stats Section */}
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Statistics Overrides</h2>
-        <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Leave values empty to auto-calculate from database where possible.</span>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-          <div className="form-group">
-            <label className="form-label">Stat 1 (Candidates)</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <input type="text" name="stat1Label" defaultValue={initialData?.stat1Label || "Candidates"} className="form-input" placeholder="Label" />
-              <input type="text" name="stat1Value" defaultValue={initialData?.stat1Value || ""} className="form-input" placeholder="Value (e.g. 4k+)" />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Stat 2 (Institutions)</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <input type="text" name="stat2Label" defaultValue={initialData?.stat2Label || "Institutions"} className="form-input" placeholder="Label" />
-              <input type="text" name="stat2Value" defaultValue={initialData?.stat2Value || ""} className="form-input" placeholder="Value" />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Stat 3 (Programs)</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <input type="text" name="stat3Label" defaultValue={initialData?.stat3Label || "Programs"} className="form-input" placeholder="Label" />
-              <input type="text" name="stat3Value" defaultValue={initialData?.stat3Value || ""} className="form-input" placeholder="Value" />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Stat 4 (States)</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <input type="text" name="stat4Label" defaultValue={initialData?.stat4Label || "States"} className="form-input" placeholder="Label" />
-              <input type="text" name="stat4Value" defaultValue={initialData?.stat4Value || ""} className="form-input" placeholder="Value" />
-            </div>
-          </div>
         </div>
-      </div>
+      </details>
 
       {/* Social Links & Contact */}
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Social Links & Contact</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-          <div className="form-group">
-            <label className="form-label">Contact Email</label>
-            <input type="email" name="contactEmail" defaultValue={initialData?.contactEmail || ""} className="form-input" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact Phone</label>
-            <input type="text" name="contactPhone" defaultValue={initialData?.contactPhone || ""} className="form-input" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Facebook URL</label>
-            <input type="url" name="socialFacebook" defaultValue={initialData?.socialFacebook || ""} className="form-input" />
-          </div>
+      <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }}>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
+          Social Media Links <span>▼</span>
+        </summary>
+        <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
           <div className="form-group">
             <label className="form-label">Instagram URL</label>
-            <input type="url" name="socialInstagram" defaultValue={initialData?.socialInstagram || ""} className="form-input" />
+            <input type="url" className="form-input" value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="https://instagram.com/..." />
           </div>
           <div className="form-group">
             <label className="form-label">YouTube URL</label>
-            <input type="url" name="socialYoutube" defaultValue={initialData?.socialYoutube || ""} className="form-input" />
+            <input type="url" className="form-input" value={socialLinks.youtube} onChange={e => setSocialLinks({...socialLinks, youtube: e.target.value})} placeholder="https://youtube.com/..." />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Facebook URL</label>
+            <input type="url" className="form-input" value={socialLinks.facebook} onChange={e => setSocialLinks({...socialLinks, facebook: e.target.value})} placeholder="https://facebook.com/..." />
+          </div>
+          <div className="form-group">
+            <label className="form-label">WhatsApp Support Group/Number</label>
+            <input type="url" className="form-input" value={socialLinks.whatsapp_support} onChange={e => setSocialLinks({...socialLinks, whatsapp_support: e.target.value})} placeholder="https://wa.me/..." />
           </div>
         </div>
-      </div>
+      </details>
 
       <button type="submit" disabled={isSubmitting} className="btn-primary" style={{ width: '100%', padding: 'var(--spacing-md)', fontSize: '1.25rem', marginTop: 'var(--spacing-md)' }}>
         {isSubmitting ? "Saving..." : "Save Homepage Settings"}

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { updateSettings, updateEventDeadlines, resetSystem } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
-export default function SettingsForm({ initialSettings, events }: { initialSettings: any, events: any[] }) {
+export default function SettingsForm({ initialSettings, events, role }: { initialSettings: any, events: any[], role: string }) {
   const [festName, setFestName] = useState(initialSettings?.festName || "Arts Fest");
   const [festMoto, setFestMoto] = useState(initialSettings?.festMoto || "Celebrating Creativity");
   const [festLogo, setFestLogo] = useState(initialSettings?.festLogo || "");
@@ -17,6 +17,12 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
   const [assignmentStart, setAssignmentStart] = useState("");
   const [assignmentEnd, setAssignmentEnd] = useState("");
 
+  const [institutionRegistrationEndDate, setInstitutionRegistrationEndDate] = useState("");
+  const [zoneActiveStartTime, setZoneActiveStartTime] = useState("");
+  const [zoneActiveEndTime, setZoneActiveEndTime] = useState("");
+  const [stateConfirmEndDate, setStateConfirmEndDate] = useState("");
+  const [statusOverride, setStatusOverride] = useState("AUTO");
+
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -27,6 +33,12 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
       setRegistrationEnd(selectedEvent.registrationEnd ? new Date(selectedEvent.registrationEnd).toISOString().slice(0, 16) : "");
       setAssignmentStart(selectedEvent.assignmentStart ? new Date(selectedEvent.assignmentStart).toISOString().slice(0, 16) : "");
       setAssignmentEnd(selectedEvent.assignmentEnd ? new Date(selectedEvent.assignmentEnd).toISOString().slice(0, 16) : "");
+
+      setInstitutionRegistrationEndDate(selectedEvent.institutionRegistrationEndDate ? new Date(selectedEvent.institutionRegistrationEndDate).toISOString().slice(0, 16) : "");
+      setZoneActiveStartTime(selectedEvent.zoneActiveStartTime ? new Date(selectedEvent.zoneActiveStartTime).toISOString().slice(0, 16) : "");
+      setZoneActiveEndTime(selectedEvent.zoneActiveEndTime ? new Date(selectedEvent.zoneActiveEndTime).toISOString().slice(0, 16) : "");
+      setStateConfirmEndDate(selectedEvent.stateConfirmEndDate ? new Date(selectedEvent.stateConfirmEndDate).toISOString().slice(0, 16) : "");
+      setStatusOverride(selectedEvent.statusOverride || "AUTO");
     }
   }, [selectedEventId, events]);
 
@@ -35,12 +47,15 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
     setLoading(true);
     setStatus(null);
     
-    // Save global settings
-    const result = await updateSettings({ 
-      festName, 
-      festMoto, 
-      festLogo
-    });
+    // Save global settings (only if Admin)
+    let result = { success: true };
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      result = await updateSettings({ 
+        festName, 
+        festMoto, 
+        festLogo
+      });
+    }
 
     // Save event deadlines
     const deadlineResult = await updateEventDeadlines(selectedEventId, {
@@ -48,6 +63,11 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
       registrationEnd: registrationEnd || null,
       assignmentStart: assignmentStart || null,
       assignmentEnd: assignmentEnd || null,
+      institutionRegistrationEndDate: institutionRegistrationEndDate || null,
+      zoneActiveStartTime: zoneActiveStartTime || null,
+      zoneActiveEndTime: zoneActiveEndTime || null,
+      stateConfirmEndDate: stateConfirmEndDate || null,
+      statusOverride: statusOverride
     });
 
     if (result.success && deadlineResult.success) {
@@ -73,40 +93,45 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
         </div>
       )}
 
-      <div className="form-group">
-        <label className="form-label">Festival Name</label>
-        <input 
-          type="text" 
-          className="form-input" 
-          value={festName}
-          onChange={(e) => setFestName(e.target.value)}
-          placeholder="e.g. Hifz Fest 2024"
-          required
-        />
-        <span className="field-helper">Displayed across the dashboard, login page, and public-facing pages.</span>
-      </div>
+      {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+        <>
+          <div className="form-group">
+            <label className="form-label">Festival Name</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              value={festName}
+              onChange={(e) => setFestName(e.target.value)}
+              placeholder="e.g. Hifz Fest 2024"
+              required={role === "ADMIN" || role === "SUPER_ADMIN"}
+            />
+            <span className="field-helper">Displayed across the dashboard, login page, and public-facing pages.</span>
+          </div>
 
-      <div className="form-group">
-        <label className="form-label">Festival Motto / Slogan</label>
-        <input 
-          type="text" 
-          className="form-input" 
-          value={festMoto}
-          onChange={(e) => setFestMoto(e.target.value)}
-          placeholder="e.g. Celebrating Creativity"
-          required
-        />
-        <span className="field-helper">A short tagline shown below the festival name in the sidebar and login.</span>
-      </div>
-      
-      <ImageUpload 
-        label="Festival Logo" 
-        folder="logos" 
-        initialUrl={festLogo}
-        onUploadComplete={(url) => setFestLogo(url)} 
-      />
+          <div className="form-group">
+            <label className="form-label">Festival Motto / Slogan</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              value={festMoto}
+              onChange={(e) => setFestMoto(e.target.value)}
+              placeholder="e.g. Celebrating Creativity"
+              required={role === "ADMIN" || role === "SUPER_ADMIN"}
+            />
+            <span className="field-helper">A short tagline shown below the festival name in the sidebar and login.</span>
+          </div>
+          
+          <ImageUpload 
+            label="Festival Logo" 
+            folder="logos" 
+            initialUrl={festLogo}
+            onUploadComplete={(url) => setFestLogo(url)} 
+          />
 
-      <hr style={{ margin: 'var(--spacing-lg) 0', borderColor: 'var(--border-color)' }} />
+          <hr style={{ margin: 'var(--spacing-lg) 0', borderColor: 'var(--border-color)' }} />
+        </>
+      )}
+
       <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Event Timelines & Deadlines</h3>
 
       {events.length > 0 ? (
@@ -124,49 +149,116 @@ export default function SettingsForm({ initialSettings, events }: { initialSetti
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-            <div className="form-group">
-              <label className="form-label">Registration Start Time</label>
-              <input 
-                type="datetime-local" 
-                className="form-input" 
-                value={registrationStart}
-                onChange={(e) => setRegistrationStart(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Registration Deadline</label>
-              <input 
-                type="datetime-local" 
-                className="form-input" 
-                value={registrationEnd}
-                onChange={(e) => setRegistrationEnd(e.target.value)}
-              />
-            </div>
+          <div className="form-group" style={{ marginTop: 'var(--spacing-sm)' }}>
+            <label className="form-label">Visibility Status Override</label>
+            <select 
+              className="form-input"
+              value={statusOverride}
+              onChange={(e) => setStatusOverride(e.target.value)}
+              style={{ backgroundColor: statusOverride !== 'AUTO' ? '#fffbeb' : undefined, borderColor: statusOverride !== 'AUTO' ? '#f59e0b' : undefined }}
+            >
+              <option value="AUTO">AUTO (Depends on dates)</option>
+              <option value="HIDDEN">HIDDEN (Hide from public)</option>
+              <option value="PENDING">PENDING</option>
+              <option value="REGISTRATION">REGISTRATION OPEN</option>
+              <option value="LIVE">LIVE NOW</option>
+              <option value="COMPLETED">COMPLETED</option>
+            </select>
+            <p className="form-help">Force the visibility state of this event on the public homepage. "AUTO" uses the scheduled dates.</p>
           </div>
-          <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Managers cannot add new candidates outside this window.</span>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-            <div className="form-group">
-              <label className="form-label">Assignment Start Time</label>
-              <input 
-                type="datetime-local" 
-                className="form-input" 
-                value={assignmentStart}
-                onChange={(e) => setAssignmentStart(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Assignment Deadline</label>
-              <input 
-                type="datetime-local" 
-                className="form-input" 
-                value={assignmentEnd}
-                onChange={(e) => setAssignmentEnd(e.target.value)}
-              />
-            </div>
+          {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+                <div className="form-group">
+                  <label className="form-label">Registration Start Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={registrationStart}
+                    onChange={(e) => setRegistrationStart(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Registration Deadline</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={registrationEnd}
+                    onChange={(e) => setRegistrationEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Managers cannot add new candidates outside this window.</span>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                <div className="form-group">
+                  <label className="form-label">Assignment Start Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={assignmentStart}
+                    onChange={(e) => setAssignmentStart(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Assignment Deadline</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={assignmentEnd}
+                    onChange={(e) => setAssignmentEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Managers cannot assign programs outside this window.</span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                <div className="form-group">
+                  <label className="form-label">Zone Active Start Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={zoneActiveStartTime}
+                    onChange={(e) => setZoneActiveStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Zone Active End Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={zoneActiveEndTime}
+                    onChange={(e) => setZoneActiveEndTime(e.target.value)}
+                  />
+                </div>
+              </div>
+              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Period during which the zone portal is considered fully active.</span>
+
+              <div className="form-group">
+                <label className="form-label">State Confirm End Date</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={stateConfirmEndDate}
+                  onChange={(e) => setStateConfirmEndDate(e.target.value)}
+                />
+                <span className="field-helper">Deadline to confirm registrations to the state portal.</span>
+              </div>
+            </>
+          )}
+
+          <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+            <label className="form-label">Institution Registration End Date</label>
+            <input 
+              type="datetime-local" 
+              className="form-input" 
+              value={institutionRegistrationEndDate}
+              onChange={(e) => setInstitutionRegistrationEndDate(e.target.value)}
+              disabled={role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "ZONE_ADMIN"}
+            />
+            <span className="field-helper">Deadline for institutions to register candidates.</span>
           </div>
-          <span className="field-helper">Managers cannot assign programs outside this window.</span>
         </>
       ) : (
         <p style={{ color: 'var(--text-muted)' }}>No events created yet.</p>

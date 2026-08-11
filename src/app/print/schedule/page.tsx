@@ -21,7 +21,21 @@ export default async function PrintSchedulePage(props: {
 
   const settings = await getSettings(eventId);
 
-  const whereClause: any = eventId ? { eventId } : {};
+  let whereClause: any = {};
+  if (eventId) {
+    const activeEv = await prisma.event.findUnique({ where: { id: eventId } });
+    if (activeEv?.parentId) {
+      whereClause = {
+        OR: [
+          { eventId: eventId },
+          { eventId: activeEv.parentId }
+        ]
+      };
+    } else {
+      whereClause = { eventId };
+    }
+  }
+
   if (teamId) {
     whereClause.assignments = {
       some: {

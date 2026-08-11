@@ -14,7 +14,7 @@ const getCachedPublicEventData = unstable_cache(
       allPublishedResults,
       categories,
       totalPrograms,
-      publishedProgramsCount,
+      publisheCSWCgramsCount,
       totalCandidates,
       candidatesWithAssignments
     ] = await Promise.all([
@@ -23,7 +23,7 @@ const getCachedPublicEventData = unstable_cache(
         where: { program: { eventId }, isPublished: true },
         select: {
           id: true, points: true, rank: true, grade: true, updatedAt: true,
-          candidate: { select: { id: true, name: true, chestNumber: true, photo: true, team: { select: { id: true, name: true, flagColor: true } } } },
+          candidate: { select: { id: true, name: true, chestNumber: true, team: { select: { id: true, name: true, flagColor: true } } } },
           team: { select: { id: true, name: true, flagColor: true, leaderPhoto: true } },
           program: { select: { id: true, name: true } }
         },
@@ -42,8 +42,9 @@ const getCachedPublicEventData = unstable_cache(
         where: { program: { eventId }, isPublished: true },
         select: {
           id: true, points: true, candidateId: true, teamId: true,
-          candidate: { select: { id: true, name: true, photo: true, teamId: true, team: { select: { id: true, name: true, flagColor: true } }, category: { select: { id: true, name: true } } } },
-          team: { select: { id: true, name: true, flagColor: true } }
+          candidate: { select: { id: true, name: true, teamId: true, team: { select: { id: true, name: true, flagColor: true } }, category: { select: { id: true, name: true } } } },
+          team: { select: { id: true, name: true, flagColor: true } },
+          program: { select: { type: true } }
         }
       }),
 
@@ -108,9 +109,10 @@ const getCachedPublicEventData = unstable_cache(
     const leaderboard = Object.values(teamScores).sort((a, b) => b.points - a.points);
 
     // --- Individual Top 5 Stars (Overall) ---
-    const candidateScores: Record<string, { id: string, name: string, teamName: string, teamColor: string | null, points: number, categoryName: string, photo: string | null }> = {};
+    const candidateScores: Record<string, { id: string, name: string, teamName: string, teamColor: string | null, points: number, categoryName: string }> = {};
     allPublishedResults.forEach(res => {
       if (!res.candidate) return; // Only count individual stars
+      if (res.program?.type !== "INDIVIDUAL") return; // Do not count group or general programs towards Kalathilakam
       
       const candId = res.candidate.id;
       if (!candidateScores[candId]) {
@@ -120,7 +122,6 @@ const getCachedPublicEventData = unstable_cache(
           teamName: res.candidate.team.name,
           teamColor: res.candidate.team.flagColor,
           categoryName: res.candidate.category.name,
-          photo: res.candidate.photo,
           points: 0
         };
       }
@@ -144,8 +145,8 @@ const getCachedPublicEventData = unstable_cache(
 
     const stats = {
         totalPrograms,
-        publishedPrograms: publishedProgramsCount,
-        pendingPrograms: totalPrograms - publishedProgramsCount,
+        publisheCSWCgrams: publisheCSWCgramsCount,
+        pendingPrograms: totalPrograms - publisheCSWCgramsCount,
         totalCandidates,
         totalParticipants: candidatesWithAssignments.length
     };
@@ -173,27 +174,36 @@ export async function getPublicEventData(eventId: string) {
   }
 }
 
-const getCachedProgramResults = unstable_cache(
+const getCacheCSWCgramResults = unstable_cache(
   async (programId: string) => {
-    const [program, settings] = await Promise.all([
-      prisma.program.findUnique({
-        where: { id: programId },
-        include: {
-          category: true,
-          event: true,
-          mediaTemplate: true,
-          results: {
-            where: { isPublished: true },
-            include: {
-              candidate: { include: { team: true } },
-              team: true
+    const program = await prisma.program.findUnique({
+      where: { id: programId },
+      include: {
+        category: true,
+        event: true,
+        results: {
+          where: { isPublished: true },
+          include: {
+            candidate: {
+              include: {
+                team: true,
+                institution: { select: { name: true, place: true } }
+              }
             },
-            orderBy: { rank: 'asc' }
-          }
+            team: true
+          },
+          orderBy: { rank: 'asc' }
         }
-      }),
-      prisma.globalSetting.findUnique({ where: { id: "default" } })
-    ]);
+      }
+    });
+
+    if (!program) return { program: null, settings: null };
+
+    const settings = await prisma.globalSetting.findUnique({ 
+      where: { id: program.eventId } 
+    }) || await prisma.globalSetting.findUnique({ 
+      where: { id: "default" } 
+    });
 
     return { program, settings };
   },
@@ -203,7 +213,7 @@ const getCachedProgramResults = unstable_cache(
 
 export async function getProgramResults(programId: string) {
   try {
-    const data = await getCachedProgramResults(programId);
+    const data = await getCacheCSWCgramResults(programId);
     if (!data.program) return { success: false, error: "Program not found" };
     return { success: true, data };
   } catch (error) {

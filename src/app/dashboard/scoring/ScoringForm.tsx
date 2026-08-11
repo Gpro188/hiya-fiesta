@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { submitMarks } from "./actions";
 
 export default function ScoringForm({ events }: { events: any[] }) {
   const [eventId, setEventId] = useState(events[0]?.id || "");
-  const [programType, setProgramType] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [programId, setProgramId] = useState("");
   const [participantId, setParticipantId] = useState(""); 
@@ -19,42 +19,57 @@ export default function ScoringForm({ events }: { events: any[] }) {
   useEffect(() => {
     if (events.length > 0) {
       setEventId(events[0].id);
-      setProgramType("");
       setCategoryId("");
       setProgramId("");
       setParticipantId("");
     }
   }, [events]);
 
+  const searchParams = useSearchParams();
+  const urlProgramId = searchParams.get('programId');
+  const router = useRouter();
+  const pathname = usePathname();
+
   const selectedEvent = events.find(e => e.id === eventId);
   const allPrograms = selectedEvent?.programs || [];
-  
-  // Filter programs based on Type first
-  const typeFilteredPrograms = allPrograms.filter((p: any) => {
-    if (programType) return p.type === programType;
-    return true;
-  });
 
-  // Extract unique categories from type-filtered programs
+  // Auto-populate based on URL programId
+  useEffect(() => {
+    if (urlProgramId && allPrograms.length > 0) {
+      const p = allPrograms.find((p: any) => p.id === urlProgramId);
+      if (p) {
+        setCategoryId(p.categoryId || "general-cat");
+        setProgramId(p.id);
+        setParticipantId("");
+        
+        // Remove it from URL so we don't get stuck if user changes category manually
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.delete('programId');
+        router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
+      }
+    }
+  }, [urlProgramId, allPrograms, router, pathname, searchParams]);
+
+  // Extract unique categories from all programs
   const categoryMap = new Map();
-  typeFilteredPrograms.forEach((p: any) => {
+  allPrograms.forEach((p: any) => {
     if (p.category) {
       categoryMap.set(p.category.id, p.category.name);
-    } else {
-      categoryMap.set("general-cat", "General / No Category");
+    } else if (p.type === 'GENERAL') {
+      categoryMap.set("general-cat", "GENERAL");
     }
   });
   const categories = Array.from(categoryMap.entries()).map(([id, name]) => ({ id, name }));
 
-  // Final filtered programs for step 4
-  const programs = typeFilteredPrograms.filter((p: any) => {
-    if (categoryId === "general-cat") return !p.category;
+  // Final filtered programs for step 3
+  const programs = allPrograms.filter((p: any) => {
+    if (categoryId === "general-cat") return !p.category && p.type === 'GENERAL';
     if (categoryId) return p.category?.id === categoryId;
     return true;
   });
 
-  const selectedProgram = programs.find((p: any) => p.id === programId);
-  const isIndividual = selectedProgram?.type === "INDIVIDUAL";
+  const selecteCSWCgram = programs.find((p: any) => p.id === programId);
+  const isIndividual = selecteCSWCgram?.type === "INDIVIDUAL";
 
   // Cumulative Point Calculation
   const updateMarks = (newRank: string, newGrade: string) => {
@@ -63,15 +78,18 @@ export default function ScoringForm({ events }: { events: any[] }) {
 
     if (!newRank && !newGrade) return;
 
-    let pointsConfig = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3 };
-    if (selectedProgram?.type === "GENERAL") {
+    let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+    if (selecteCSWCgram?.type !== "INDIVIDUAL") {
+      pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+    }
+    if (selecteCSWCgram?.type === "GENERAL") {
       const eventMatrix = selectedEvent?.generalPointMatrix;
       if (eventMatrix?.generalPoints) {
         try { pointsConfig = JSON.parse(eventMatrix.generalPoints); } catch (e) {}
       }
-    } else if (selectedProgram?.category?.pointMatrix) {
-      const matrix = selectedProgram.category.pointMatrix;
-      const str = selectedProgram.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
+    } else if (selecteCSWCgram?.category?.pointMatrix) {
+      const matrix = selecteCSWCgram.category.pointMatrix;
+      const str = selecteCSWCgram.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
       if (str) {
         try { pointsConfig = JSON.parse(str); } catch (e) {}
       }
@@ -84,6 +102,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
 
     if (newGrade === "A") total += pointsConfig.gradeA || 0;
     else if (newGrade === "B") total += pointsConfig.gradeB || 0;
+    else if (newGrade === "C") total += pointsConfig.gradeC || 0;
 
     setMarks(total.toString());
   };
@@ -144,11 +163,11 @@ export default function ScoringForm({ events }: { events: any[] }) {
         </div>
       )}
       
-      {/* 5-Step Selection Flow */}
+      {/* 4-Step Selection Flow */}
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0 0 var(--spacing-sm) 0' }}>
-        Follow the 5 steps below to record a result: select the event, program type, category, specific program, and then the participant.
+        Follow the 4 steps below to record a result: select the event, category, specific program, and then the participant.
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr 1.2fr', gap: 'var(--spacing-sm)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 2fr 1.5fr', gap: 'var(--spacing-sm)' }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>1. EVENT</label>
           <select 
@@ -156,7 +175,6 @@ export default function ScoringForm({ events }: { events: any[] }) {
             value={eventId}
             onChange={(e) => {
               setEventId(e.target.value);
-              setProgramType("");
               setCategoryId("");
               setProgramId("");
               setParticipantId("");
@@ -169,28 +187,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>2. TYPE</label>
-          <select 
-            className="form-input" 
-            value={programType}
-            onChange={(e) => {
-              setProgramType(e.target.value);
-              setCategoryId("");
-              setProgramId("");
-              setParticipantId("");
-            }}
-            required
-            style={{ padding: '8px', fontSize: '0.85rem' }}
-          >
-            <option value="">-- Type --</option>
-            <option value="INDIVIDUAL">INDIVIDUAL</option>
-            <option value="GROUP">GROUP</option>
-            <option value="GENERAL">GENERAL</option>
-          </select>
-        </div>
-
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>3. CATEGORY</label>
+          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>2. CATEGORY</label>
           <select 
             className="form-input" 
             value={categoryId}
@@ -200,7 +197,6 @@ export default function ScoringForm({ events }: { events: any[] }) {
               setParticipantId("");
             }}
             required
-            disabled={!programType}
             style={{ padding: '8px', fontSize: '0.85rem' }}
           >
             <option value="">-- Cat --</option>
@@ -209,7 +205,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>4. PROGRAM</label>
+          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>3. PROGRAM</label>
           <select 
             className="form-input" 
             value={programId}
@@ -227,7 +223,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>5. PARTICIPANT</label>
+          <label className="form-label" style={{ fontSize: '0.65rem', fontWeight: 800 }}>4. PARTICIPANT</label>
           <select 
             className="form-input" 
             value={participantId}
@@ -238,7 +234,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
           >
             <option value="">-- Select --</option>
             {isIndividual ? (
-              selectedProgram?.assignments?.map((a: any) => (
+              selecteCSWCgram?.assignments?.map((a: any) => (
                 <option key={a.candidate.id} value={a.candidate.chestNumber}>
                   {a.candidate.chestNumber} - {a.candidate.name}
                 </option>
@@ -294,6 +290,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
             <option value="">-- No Grade --</option>
             <option value="A">A Grade</option>
             <option value="B">B Grade</option>
+            <option value="C">C Grade</option>
           </select>
         </div>
 
