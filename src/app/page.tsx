@@ -161,18 +161,18 @@ export default async function HomePage() {
       )}
 
       {/* Header */}
-      <header style={{ padding: '1rem 0', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--hero-glass-bg)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="home-header">
+        <div className="container home-header-container">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/logo.png" alt="Logo" style={{ width: '45px', height: '45px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Logo" className="header-logo" style={{ width: '45px', height: '45px', objectFit: 'contain' }} />
             <div>
-              <h1 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>{settings?.heroTitle || "CSWC Hiya Fiesta 2026"}</h1>
-              <div style={{ fontSize: '0.75rem', color: primaryColor, fontWeight: 600 }}>Council of Samastha Women's Colleges</div>
+              <h1 className="home-header-title">{settings?.heroTitle || "CSWC Hiya Fiesta 2026"}</h1>
+              <div className="home-header-subtitle" style={{ color: primaryColor }}>Council of Samastha Women's Colleges</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <Link href="/tv" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderColor: '#3b82f6', color: '#3b82f6' }}>
+            <Link href="/tv" className="btn btn-secondary header-tv-btn" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderColor: '#3b82f6', color: '#3b82f6' }}>
               📺 TV Broadcast
             </Link>
             <Link href="/login" className="btn btn-primary" style={{ padding: '0.4rem 1.25rem', fontSize: '0.85rem', backgroundColor: primaryColor, borderColor: primaryColor, color: 'white' }}>
@@ -433,7 +433,11 @@ export default async function HomePage() {
       <footer style={{ borderTop: '1px solid var(--border-color)', padding: '2rem 0', backgroundColor: 'var(--bg-color)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
         <div className="container">
           <p style={{ margin: '0 0 6px 0' }}>&copy; 2026 CSWC Hiya Fiesta • Council of Samastha Women's Colleges, Chelari</p>
-          <p style={{ margin: 0, fontSize: '0.75rem' }}>Official Centralized ArtsFest Platform</p>
+          <p style={{ margin: '0 0 1rem 0', fontSize: '0.75rem' }}>Official Centralized ArtsFest Platform</p>
+          
+          <Link href="/tv" className="footer-tv-btn">
+            📺 TV Broadcast
+          </Link>
         </div>
       </footer>
     </div>
