@@ -23,7 +23,7 @@ export default function HubClient({ events }: { events: any[] }) {
     <div className="hub-container" style={{ position: 'relative', overflow: 'hidden', paddingBottom: '50px' }}>
       {/* Slide Navigation Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>
+        <h2 className="hub-page-title">
           <span style={{ color: 'var(--primary)' }}>Live</span> Results
         </h2>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -47,7 +47,7 @@ export default function HubClient({ events }: { events: any[] }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
             <div>
               <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--primary)', fontWeight: 700 }}>Active Event</span>
-              <h1 style={{ fontSize: '3rem', margin: '5px 0 0 0', fontWeight: 900 }}>{currentEvent.name}</h1>
+              <h1 className="hub-event-title">{currentEvent.name}</h1>
             </div>
             <div style={{ display: 'flex', gap: '15px' }}>
               <Link href={`/search?eventId=${currentEvent.id}&type=program`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -156,9 +156,28 @@ export default function HubClient({ events }: { events: any[] }) {
           max-width: 1200px;
           margin: 0 auto;
         }
+        .hub-event-title {
+          font-size: 3rem;
+          margin: 5px 0 0 0;
+          font-weight: 900;
+          color: #f8fafc;
+        }
+        .hub-page-title {
+          font-size: 2rem;
+          font-weight: 800;
+          margin: 0;
+          color: #f8fafc;
+        }
         @media (max-width: 768px) {
           .mobile-grid-1 {
             grid-template-columns: 1fr !important;
+          }
+          .hub-event-title {
+            font-size: 1.75rem;
+            line-height: 1.1;
+          }
+          .hub-page-title {
+            font-size: 1.5rem;
           }
         }
       `}</style>
