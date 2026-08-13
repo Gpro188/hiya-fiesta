@@ -24,11 +24,12 @@ model User {
   zone             Zone?              @relation(fields: [zoneId], references: [id])
   assignedPrograms Program[]          @relation("ProgramJudges")
 
-  judgingEvents    Event[]            @relation("EventJudges")
+  judgingEvents Event[] @relation("EventJudges")
 
   @@index([eventId])
   @@index([zoneId])
   @@index([institutionId])
+  @@index([role])
 }
 
 model Zone {
@@ -118,15 +119,15 @@ model Event {
 }
 
 model Category {
-  id                String      @id @default(uuid())
+  id                String       @id @default(uuid())
   name              String
-  chestNumberOffset Int         @default(0)
+  chestNumberOffset Int          @default(0)
   eventId           String
   posterBgUrl       String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
   candidates        Candidate[]
-  event             Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   programs          Program[]
   pointMatrix       PointMatrix?
 
@@ -134,21 +135,21 @@ model Category {
 }
 
 model Team {
-  id                     String              @id @default(uuid())
+  id                     String             @id @default(uuid())
   name                   String
-  prefixCode             String              @unique
+  prefixCode             String             @unique
   eventId                String
   institutionId          String?
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
-  flagColor              String?             @default("#EC4899")
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  flagColor              String?            @default("#EC4899")
   leaderName             String?
   leaderPhoto            String?
-  isAssignmentsConfirmed Boolean             @default(false)
+  isAssignmentsConfirmed Boolean            @default(false)
   candidates             Candidate[]
   results                Result[]
-  institution            MasterInstitution?  @relation(fields: [institutionId], references: [id])
-  event                  Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  institution            MasterInstitution? @relation(fields: [institutionId], references: [id])
+  event                  Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@index([institutionId])
@@ -174,6 +175,8 @@ model Candidate {
   team             Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   programs         ProgramAssignment[]
   results          Result[]
+  stateQualificationStatus String      @default("NONE")
+  stateQualifications StateQualification[]
 
   @@index([categoryId])
   @@index([teamId])
@@ -202,6 +205,7 @@ model Program {
   results               Result[]
   judges                User[]              @relation("ProgramJudges")
   mediaTemplate         MediaTemplate?
+  stateQualifications   StateQualification[]
 
   @@index([eventId])
   @@index([categoryId])
@@ -244,22 +248,22 @@ model Result {
 }
 
 model GlobalSetting {
-  id                      String   @id @default("default")
-  festName                String   @default("CSWC Hiya Fiesta 2026")
-  festMoto                String   @default("She Can. She Will.")
-  festLogo                String?
-  updatedAt               DateTime @updatedAt
-  eventId                 String?  @unique
-  event                   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default("default")
+  festName  String   @default("CSWC Hiya Fiesta 2026")
+  festMoto  String   @default("She Can. She Will.")
+  festLogo  String?
+  updatedAt DateTime @updatedAt
+  eventId   String?  @unique
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
   // Poster Branding Fields
   posterBgUrl             String?
   posterLogoUrl           String?
   posterHeaderUrl         String?
   posterFooterUrl         String?
-  posterPrimaryColor      String?  @default("#1e293b")
-  posterSecondaryColor    String?  @default("#f97316")
-  posterTextColor         String?  @default("#1e293b")
+  posterPrimaryColor      String? @default("#1e293b")
+  posterSecondaryColor    String? @default("#f97316")
+  posterTextColor         String? @default("#1e293b")
   posterCongratulationUrl String?
 }
 
@@ -274,29 +278,29 @@ model PageVisit {
 }
 
 model HomepageSetting {
-  id               String   @id @default(uuid())
-  eventId          String   @unique
-  heroTitle        String?  @default("CSWC Hiya Fiesta 2026")
-  heroSubtitle     String?  @default("She Can. She Will.")
+  id               String  @id @default(uuid())
+  eventId          String  @unique
+  heroTitle        String? @default("CSWC Hiya Fiesta 2026")
+  heroSubtitle     String? @default("She Can. She Will.")
   heroBgUrl        String?
   aboutText        String?
-  aboutTitle       String?  @default("Council of Samastha Women's Colleges")
-  primaryColor     String?  @default("#EC4899")
-  secondaryColor   String?  @default("#3B82F6")
-  bgColor          String?  @default("#FFFFFF")
+  aboutTitle       String? @default("Council of Samastha Women's Colleges")
+  primaryColor     String? @default("#EC4899")
+  secondaryColor   String? @default("#3B82F6")
+  bgColor          String? @default("#FFFFFF")
   committeeMembers Json?
-  committeeTitle   String?  @default("Organizing Committee")
+  committeeTitle   String? @default("Organizing Committee")
   galleryImages    Json?
-  
-  // NEW HOMEPAGE FIELDS
-  tickerText       String?
-  heroSlides       Json?
-  statsCounter     Json?
-  socialLinks      Json?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // NEW HOMEPAGE FIELDS
+  tickerText   String?
+  heroSlides   Json?
+  statsCounter Json?
+  socialLinks  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model ContactMessage {
@@ -309,6 +313,7 @@ model ContactMessage {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+  @@index([email])
 }
 
 model PointMatrix {
@@ -332,4 +337,38 @@ model MediaTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+}
+
+model StateQualification {
+  id              String   @id @default(uuid())
+  programId       String   
+  stateProgramId  String?  
+  candidateId     String
+  originalRank    Int
+  status          String   @default("PENDING")
+  
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  program         Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([programId])
+  @@index([candidateId])
+}
+
+model SystemAuditLog {
+  id            String   @id @default(uuid())
+  userId        String
+  userName      String
+  action        String   
+  entityType    String   
+  entityId      String
+  oldValue      String?
+  newValue      String?
+  reason        String?
+  timestamp     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
 }

@@ -2,31 +2,33 @@
 
 /* ─── CSS Custom Properties (Theme Tokens) ─── */
 :root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary: #0ea5e9;
-  --accent: #f43f5e;
+  --primary: #800000; /* Deep Burgundy / Maroon */
+  --primary-hover: #5A0000;
+  --secondary: #D4AF37; /* Gold / Beige Accent */
+  --accent: #A52A2A; /* Lighter Burgundy/Brown */
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
 
-  --bg-color: #f9fafb;
-  --surface-color: #ffffff;
-  --surface-hover: #f2f4f7;
-  --border-color: #e4e7ec;
-  --border-color-strong: #d0d5dd;
+  --bg-color: #FAFAFA; /* Very light warm/neutral background */
+  --surface-color: #ffffff; /* Crisp white for cards */
+  --surface-hover: #F5F5F5;
+  --border-color: #E0E0E0; /* Subtle borders */
+  --border-color-strong: #BDBDBD;
 
-  --text-primary: #101828;
-  --text-secondary: #344054;
-  --text-muted: #667085;
+  --text-primary: #1A1A1A; /* Charcoal / dark text */
+  --text-secondary: #424242;
+  --text-muted: #757575;
 
-  --hero-glass-bg: rgba(255, 255, 255, 0.9);
-  --hero-orb-1: rgba(99, 102, 241, 0.2);
-  --hero-orb-2: rgba(139, 92, 246, 0.2);
-  --hero-orb-3: rgba(56, 189, 248, 0.1);
-  --hero-gradient-center: rgba(249, 250, 251, 1);
+  /* Restrict dark theme variables unless explicitly requested */
+  --hero-glass-bg: rgba(255, 255, 255, 0.95);
+  --hero-orb-1: rgba(128, 0, 0, 0.1);
+  --hero-orb-2: rgba(212, 175, 55, 0.15);
+  --hero-orb-3: rgba(165, 42, 42, 0.1);
+  --hero-gradient-center: rgba(250, 250, 250, 1);
+  
   --card-bg: rgba(255, 255, 255, 1);
-  --card-border-hover: rgba(99, 102, 241, 0.4);
+  --card-border-hover: rgba(128, 0, 0, 0.3);
 
   --font-sans: 'Inter', sans-serif;
   --font-heading: 'Outfit', sans-serif;
@@ -44,10 +46,10 @@
   --spacing-xl: 2rem;
   --spacing-xxl: 3rem;
 
-  --shadow-sm: 0px 1px 3px 0px rgba(16,24,40,0.1), 0px 1px 2px 0px rgba(16,24,40,0.06);
-  --shadow-md: 0px 4px 8px -2px rgba(16,24,40,0.1), 0px 2px 4px -2px rgba(16,24,40,0.06);
-  --shadow-lg: 0px 12px 16px -4px rgba(16,24,40,0.08), 0px 4px 6px -2px rgba(16,24,40,0.03);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-sm: 0px 1px 3px 0px rgba(26,26,26,0.08), 0px 1px 2px 0px rgba(26,26,26,0.04);
+  --shadow-md: 0px 4px 8px -2px rgba(26,26,26,0.08), 0px 2px 4px -2px rgba(26,26,26,0.04);
+  --shadow-lg: 0px 12px 16px -4px rgba(26,26,26,0.1), 0px 4px 6px -2px rgba(26,26,26,0.05);
+  --shadow-glow: 0 0 20px rgba(128, 0, 0, 0.15);
   --transition-fast: 0.15s ease-in-out;
   --transition-normal: 0.3s ease-in-out;
 
@@ -55,24 +57,25 @@
 }
 
 [data-theme='dark'] {
-  --bg-color: #111827;
-  --surface-color: #1d2939;
-  --surface-hover: #344054;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-strong: rgba(255, 255, 255, 0.15);
+  /* Minimal dark theme support (mainly for TV Broadcast/Hero) */
+  --bg-color: #1A1A1A;
+  --surface-color: #242424;
+  --surface-hover: #333333;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-color-strong: rgba(255, 255, 255, 0.2);
 
-  --text-primary: #f9fafb;
-  --text-secondary: #98a2b3;
-  --text-muted: #667085;
+  --text-primary: #FAFAFA;
+  --text-secondary: #E0E0E0;
+  --text-muted: #BDBDBD;
 
-  --hero-glass-bg: rgba(17, 24, 39, 0.85);
-  --hero-orb-1: rgba(99, 102, 241, 0.35);
-  --hero-orb-2: rgba(139, 92, 246, 0.35);
-  --hero-orb-3: rgba(56, 189, 248, 0.25);
-  --hero-gradient-center: rgba(17, 24, 39, 1);
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border-hover: rgba(99, 102, 241, 0.4);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
+  --hero-glass-bg: rgba(26, 26, 26, 0.85);
+  --hero-orb-1: rgba(128, 0, 0, 0.25);
+  --hero-orb-2: rgba(212, 175, 55, 0.15);
+  --hero-orb-3: rgba(165, 42, 42, 0.2);
+  --hero-gradient-center: rgba(26, 26, 26, 1);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border-hover: rgba(128, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(128, 0, 0, 0.3);
 
   color-scheme: dark;
 }
@@ -101,7 +104,29 @@ body {
   flex-direction: column;
 }
 
-h1, h2, h3, h4, h5, h6 {
+/* Responsive Typography using clamp() */
+h1 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  font-weight: 700;
+  font-size: clamp(1.625rem, 4vw, 3.25rem); /* 26px to 52px */
+}
+
+h2 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  font-weight: 600;
+  font-size: clamp(1.375rem, 3vw, 2.25rem); /* 22px to 36px */
+}
+
+h3 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  font-weight: 600;
+  font-size: clamp(1.125rem, 2vw, 1.625rem); /* 18px to 26px */
+}
+
+h4, h5, h6 {
   font-family: var(--font-heading);
   line-height: 1.2;
   font-weight: 600;
@@ -208,30 +233,31 @@ img, picture, video, canvas, svg {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: var(--primary);
   color: white;
-  box-shadow: 0 1px 3px rgba(99,102,241,0.4);
+  box-shadow: 0 1px 3px rgba(128,0,0,0.4);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-  box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(128,0,0,0.35);
   transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background-color: transparent;
-  border: 1px solid var(--border-color-strong);
-  color: var(--text-primary);
+  background-color: var(--surface-color);
+  border: 1px solid var(--primary);
+  color: var(--primary);
 }
 
 .btn-secondary:hover {
-  background-color: var(--surface-hover);
-  border-color: var(--text-muted);
+  background-color: rgba(128,0,0,0.05);
+  border-color: var(--primary-hover);
+  color: var(--primary-hover);
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: var(--success);
   color: white;
   box-shadow: 0 1px 3px rgba(16,185,129,0.4);
 }
@@ -242,13 +268,13 @@ img, picture, video, canvas, svg {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  background: var(--error);
   color: white;
 }
 
 .btn-danger:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(244,63,94,0.35);
+  box-shadow: 0 4px 12px rgba(239,68,68,0.35);
 }
 
 .btn-sm {
