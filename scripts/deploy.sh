@@ -27,8 +27,8 @@ npm run build
 
 # 6. Restart the app using PM2
 # NOTE: Make sure you started your app originally with PM2 like this:
-# pm2 start npm --name "cswc-fiesta" -- start
+# pm2 start npm --name "fiesta-app" -- start
 echo "[5/5] Restarting the server..."
-pm2 restart cswc-fiesta
+pm2 restart fiesta-app
 
 echo "Deployment complete at $(date)!"
