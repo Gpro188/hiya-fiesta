@@ -25,7 +25,7 @@ export default function GalleryMarquee({ images }: { images: string[] }) {
           zIndex: 2,
           pointerEvents: "none",
           background:
-            "linear-gradient(90deg, #FFF8FA 0%, transparent 10%, transparent 90%, #FFF8FA 100%)",
+            "linear-gradient(90deg, var(--ink) 0%, transparent 10%, transparent 90%, var(--ink) 100%)",
         }}
       />
       <div
@@ -37,7 +37,7 @@ export default function GalleryMarquee({ images }: { images: string[] }) {
             key={i}
             style={{
               flexShrink: 0,
-              width: 300,
+              width: "auto",
               height: 210,
               borderRadius: 14,
               overflow: "hidden",
@@ -48,7 +48,7 @@ export default function GalleryMarquee({ images }: { images: string[] }) {
               src={url}
               alt={`Gallery photo ${(i % images.length) + 1}`}
               loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "auto", height: "100%", objectFit: "contain", display: "block" }}
             />
             <div
               aria-hidden="true"
