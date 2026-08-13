@@ -160,13 +160,13 @@ export default function HubClient({ events }: { events: any[] }) {
           font-size: 3rem;
           margin: 5px 0 0 0;
           font-weight: 900;
-          color: #f8fafc;
+          color: #FAFAFA;
         }
         .hub-page-title {
           font-size: 2rem;
           font-weight: 800;
           margin: 0;
-          color: #f8fafc;
+          color: #FAFAFA;
         }
         @media (max-width: 768px) {
           .mobile-grid-1 {

@@ -31,5 +31,5 @@ export default function TourWrapper() {
   const steps = getTourSteps(pageId);
   if (steps.length === 0) return null;
 
-  return <OnboardingTour pageId={pageId} steps={steps} />;
+  return null;
 }

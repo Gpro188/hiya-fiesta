@@ -17,7 +17,7 @@ export default async function SuperAdminPage() {
   const res = await getSuperAdminData();
   if (!res.success || !res.data) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', color: 'white' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#241B1B', color: 'white' }}>
         <div style={{ textAlign: 'center' }}>
           <h2>Access Denied</h2>
           <p>{res.error || "You are not authorized to view this page."}</p>
@@ -28,7 +28,7 @@ export default async function SuperAdminPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top right, #1e1b4b, #0f172a)', padding: 'var(--spacing-xxl) 0' }}>
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top right, #400010, #241B1B)', padding: 'var(--spacing-xxl) 0' }}>
       <style>{`
         @media (max-width: 768px) {
           .sa-header { flex-direction: column !important; align-items: flex-start !important; }

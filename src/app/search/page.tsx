@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import SearchClient from "./SearchClient";
 import { getSettings } from "@/lib/settings";
+import PublicNav from "@/app/components/PublicNav";
+import PublicFooter from "@/app/components/PublicFooter";
 
 export default async function SearchPage(props: {
   searchParams: Promise<{ 
@@ -159,27 +161,11 @@ export default async function SearchPage(props: {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ padding: 'var(--spacing-md) 0', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(10px)' }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-              {settings.festLogo ? (
-                <img src={settings.festLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                  {festName.charAt(0)}
-                </div>
-              )}
-            </div>
-            <h1 style={{ fontSize: '1.2rem', margin: 0 }}>{festName}</h1>
-          </Link>
-          <Link href="/" style={{ color: 'var(--text-secondary)' }}>Back to Home</Link>
-        </div>
-      </header>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FFF8FA', fontFamily: 'Manrope, sans-serif' }}>
+      <PublicNav eventName={festName} showSearch={false} />
 
-      <main style={{ flex: 1, padding: 'var(--spacing-xl) 0' }}>
-        <div className="container" style={{ maxWidth: '900px' }}>
+      <main style={{ flex: 1, padding: '2.5rem 0' }}>
+        <div className="container" style={{ maxWidth: '960px' }}>
           <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Advanced Programme & Result Search</h2>
           
           <SearchClient 
@@ -266,7 +252,7 @@ export default async function SearchPage(props: {
                                         <div style={{ color: 'var(--success)', fontSize: '0.8rem', marginBottom: '4px' }}>
                                           {candidate.results.find((r: any) => r.programId === p.programId).grade ? `Grade ${candidate.results.find((r: any) => r.programId === p.programId).grade}` : ''}
                                         </div>
-                                        <Link href={`/results/${p.programId}`} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                                        <Link href={`/results/${p.programId}?eventId=${candidate.team?.eventId || ''}`} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
                                           View Poster
                                         </Link>
                                       </div>
@@ -292,7 +278,7 @@ export default async function SearchPage(props: {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
                     {programResults.map(program => (
                       <div key={program.id} className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-                        <Link href={`/results/${program.id}`} style={{ textDecoration: 'none' }}>
+                        <Link href={`/results/${program.id}?eventId=${eventId || program.eventId}`} style={{ textDecoration: 'none' }}>
                           <h3 style={{ color: 'var(--primary)', marginBottom: 'var(--spacing-xs)', cursor: 'pointer' }}>
                             {program.name} 
                             {program.category && (
@@ -365,7 +351,7 @@ export default async function SearchPage(props: {
                                         <td style={{ padding: '8px 4px', color: '#FCD34D', fontWeight: res.rank ? 'bold' : 'normal', textAlign: 'center', verticalAlign: 'top' }}>{res.rank || '-'}</td>
                                         <td style={{ padding: '8px 4px', color: 'var(--success)', fontWeight: res.grade ? 'bold' : 'normal', textAlign: 'center', verticalAlign: 'top' }}>{res.grade || '-'}</td>
                                         <td style={{ padding: '8px 0 8px 4px', textAlign: 'right', verticalAlign: 'top' }}>
-                                          <Link href={`/results/${program.id}`} style={{ 
+                                          <Link href={`/results/${program.id}?eventId=${res.candidate.team.eventId}`} style={{ 
                                             color: 'var(--primary)', 
                                             fontWeight: '600',
                                             textDecoration: 'none',
@@ -394,6 +380,7 @@ export default async function SearchPage(props: {
           </div>
         </div>
       </main>
+      <PublicFooter eventName={festName} />
     </div>
   );
 }

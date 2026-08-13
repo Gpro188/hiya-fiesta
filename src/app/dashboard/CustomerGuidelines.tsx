@@ -135,7 +135,7 @@ export default function CustomerGuidelines({ role }: { role: string }) {
               </div>
               <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
                 {/* Visual Simulation of Scratch Card */}
-                <div style={{ width: '120px', height: '80px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, #4f46e5, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', border: '2px dashed rgba(255,255,255,0.3)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
+                <div style={{ width: '120px', height: '80px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, #8E0033, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', border: '2px dashed rgba(255,255,255,0.3)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
                   Scratch Here!
                 </div>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '8px' }}>Auto-reveals once 40% is scratched.</span>

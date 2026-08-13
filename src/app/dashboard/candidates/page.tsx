@@ -87,7 +87,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
               prefixCode: safePrefixCode,
               eventId: zoneEvent.id,
               institutionId: fullUser.institutionId,
-              flagColor: '#6366F1',
+              flagColor: '#A5003A',
             }
           });
           console.log(`Auto-created team for institution ${institution.name} in event ${zoneEvent.name}`);

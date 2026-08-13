@@ -86,7 +86,7 @@ export default async function DashboardPage() {
           label: "Your Team",
           value: userTeam.name,
           icon: "🛡️",
-          accentStart: "#6366f1",
+          accentStart: "#A5003A",
           accentEnd: "#818cf8",
         },
         {
@@ -114,7 +114,7 @@ export default async function DashboardPage() {
           label: "Points Published",
           value: publishedPoints,
           icon: "🏆",
-          accentStart: "#8b5cf6",
+          accentStart: "#8E0033",
           accentEnd: "#a78bfa",
         },
         {
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
         label: "Total Events",
         value: eventsCount,
         icon: "🎭",
-        accentStart: "#6366f1",
+        accentStart: "#A5003A",
         accentEnd: "#818cf8",
         trend: "Active",
       },
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
         label: "Results Published",
         value: publishedResults,
         icon: "🏆",
-        accentStart: "#8b5cf6",
+        accentStart: "#8E0033",
         accentEnd: "#a78bfa",
         trend: "Live",
       },
@@ -267,7 +267,7 @@ export default async function DashboardPage() {
   if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role)) {
     quickLinks.push(
       { label: "Manage Teams", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
-      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#6366f1" },
+      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" },
       { label: "Manage Schedule", href: "/dashboard/schedule", icon: "📅", color: "#10b981" },
       { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
       { label: "Print All ID Cards", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
@@ -281,11 +281,11 @@ export default async function DashboardPage() {
   } else if (role === "MEDIA") {
     quickLinks.push(
       { label: "Poster Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
-      { label: "Live Hub", href: "/hub", icon: "📡", color: "#6366f1" }
+      { label: "Live Hub", href: "/hub", icon: "📡", color: "#A5003A" }
     );
   } else if (role === "JUDGE") {
     quickLinks.push(
-      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#6366f1" }
+      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" }
     );
   }
 
@@ -407,7 +407,7 @@ export default async function DashboardPage() {
                 width: "36px",
                 height: "36px",
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                background: "linear-gradient(135deg, #A5003A, #8E0033)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

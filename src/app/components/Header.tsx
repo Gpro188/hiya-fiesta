@@ -18,7 +18,7 @@ export default function Header() {
       <div className="container" style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src="/logo.png" alt="CSWC Fiesta Logo" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
+            <img src="/icon.png" alt="CSWC Fiesta Logo" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
             <div>
               <h1 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>CSWC Hiya Fiesta 2026</h1>
               <div style={{ fontSize: '0.68rem', color: '#ec4899', fontWeight: 600 }}>Council of Samastha Women's Colleges</div>

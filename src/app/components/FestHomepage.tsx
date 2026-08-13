@@ -53,7 +53,7 @@ export default function FestHomepage({ event, homepageSetting, globalSetting, ba
     return brightness > 140;
   })();
 
-  const textPrimary = isLightBg ? "#0f172a" : "#f8fafc";
+  const textPrimary = isLightBg ? "#241B1B" : "#FAFAFA";
   const textSecondary = isLightBg ? "#475569" : "#94a3b8";
   const cardBg = isLightBg ? "#ffffff" : "rgba(30, 41, 59, 0.5)";
   const cardBorder = isLightBg ? "#e2e8f0" : "rgba(255, 255, 255, 0.08)";

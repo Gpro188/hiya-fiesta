@@ -45,7 +45,131 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     ],
   });
 
-  if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
+  if (role === "SUPER_ADMIN") {
+    groups.push({
+      section: "STATE FEST CONTROL",
+      items: [
+        {
+          name: "State Advancements",
+          subtitle: "Zone List Conform",
+          icon: "⭐",
+          href: "/dashboard/promotions",
+          highlight: true,
+        },
+        {
+          name: "Schedule & Stages",
+          subtitle: "Assign venues & time slots",
+          icon: "📅",
+          href: "/dashboard/schedule",
+        },
+        {
+          name: "Jury Assign",
+          subtitle: "Global master list of judges",
+          icon: "⚖️",
+          href: "/dashboard/juries",
+        },
+        {
+          name: "Mark Entry",
+          subtitle: "State Fest Results",
+          icon: "🏆",
+          href: "/dashboard/scoring?session=state",
+        },
+        {
+          name: "Poster Branding",
+          subtitle: "State result posters",
+          icon: "🖼️",
+          href: "/dashboard/media?session=state",
+        },
+        {
+          name: "Reports & Print Hub",
+          subtitle: "All printables & schedules",
+          icon: "🖨️",
+          href: "/dashboard/reports",
+        },
+      ],
+    });
+
+    groups.push({
+      section: "ZONE FEST CONTROL",
+      items: [
+        {
+          name: "Master Students",
+          subtitle: "Upload & UID Directory",
+          icon: "👨‍🎓",
+          href: "/dashboard/super/students",
+          highlight: true,
+        },
+        {
+          name: "Master Institutions",
+          subtitle: "Upload & Zone mappings",
+          icon: "🏫",
+          href: "/dashboard/super/institutions",
+          highlight: true,
+        },
+        {
+          name: "Master Zones",
+          subtitle: "Manage 8 Regional Zones",
+          icon: "🗺️",
+          href: "/dashboard/super/zones",
+          highlight: true,
+        },
+        {
+          name: "User Manage",
+          subtitle: "Portal access & credentials",
+          icon: "👥",
+          href: "/dashboard/users",
+        },
+        {
+          name: "Events",
+          subtitle: "Manage zone events",
+          icon: "🎭",
+          href: "/dashboard/events",
+        },
+        {
+          name: "Teams",
+          subtitle: "Teams & flag colors",
+          icon: "🛡️",
+          href: "/dashboard/teams",
+        },
+        {
+          name: "Mark Entry (Zone)",
+          subtitle: "Override Zone Results",
+          icon: "🏆",
+          href: "/dashboard/scoring?session=zone",
+        },
+        {
+          name: "Poster Branding (Zone)",
+          subtitle: "Zone result posters",
+          icon: "🎨",
+          href: "/dashboard/media?session=zone",
+        },
+      ],
+    });
+
+    groups.push({
+      section: "SYSTEM SETTINGS",
+      items: [
+        {
+          name: "Homepage & Theme",
+          subtitle: "Colors, hero & public UI",
+          icon: "🎨",
+          href: "/dashboard/settings/homepage",
+        },
+        {
+          name: "Global Settings",
+          subtitle: "Config, audit & maintenance",
+          icon: "⚙️",
+          href: "/dashboard/settings",
+        },
+        {
+          name: "Programs",
+          subtitle: "Competition programs & rules",
+          icon: "📜",
+          href: "/dashboard/programs",
+        },
+      ],
+    });
+  } else if (role === "ADMIN") {
     groups.push({
       section: "Admin Setup",
       items: [
@@ -112,35 +236,6 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         },
       ],
     });
-
-    if (role === "SUPER_ADMIN") {
-      groups.push({
-        section: "Central Registry",
-        items: [
-          {
-            name: "Master Zones",
-            subtitle: "Manage 8 Regional Zones",
-            icon: "🗺️",
-            href: "/dashboard/super/zones",
-            highlight: true,
-          },
-          {
-            name: "Master Institutions",
-            subtitle: "80+ Colleges & Zone mappings",
-            icon: "🏫",
-            href: "/dashboard/super/institutions",
-            highlight: true,
-          },
-          {
-            name: "Master Students (UID)",
-            subtitle: "Central student UID directory",
-            icon: "👨‍🎓",
-            href: "/dashboard/super/students",
-            highlight: true,
-          },
-        ],
-      });
-    }
   }
 
   if (role === "ZONE_ADMIN") {
@@ -248,7 +343,7 @@ function roleColor(role: string) {
     case "SUPER_ADMIN":
       return "#f59e0b";
     case "ADMIN":
-      return "#6366f1";
+      return "#A5003A";
     case "JUDGE":
       return "#10b981";
     case "MEDIA":
@@ -300,7 +395,7 @@ export default function DashboardSidebar({
             }}
           >
             <img
-              src="/logo.png"
+              src="/icon.png"
               alt="CSWC Fiesta Logo"
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
@@ -418,13 +513,13 @@ export default function DashboardSidebar({
               width: "32px",
               height: "32px",
               borderRadius: "8px",
-              background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+              background: "linear-gradient(135deg, #A5003A, #8E0033)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <img src="/logo.png" alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+            <img src="/icon.png" alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
           </div>
           <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>
             {festName}

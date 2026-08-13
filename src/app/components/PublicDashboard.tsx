@@ -207,7 +207,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
                     <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Search Results ({filteredResults.length})</h3>
                     <div className="glass-panel" style={{ overflow: 'hidden' }}>
                         {filteredResults.length > 0 ? filteredResults.map((result, i) => (
-                             <Link key={i} href={`/results/${result.program.id}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', borderBottom: '1px solid var(--border-color)', color: 'inherit' }}>
+                             <Link key={i} href={`/results/${result.program.id}?eventId=${activeEventId}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', borderBottom: '1px solid var(--border-color)', color: 'inherit' }}>
                                 <div>
                                     <div style={{ fontWeight: 600 }}>{result.candidate?.name || result.team?.name}</div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{result.program.name} • {result.candidate?.chestNumber}</div>
@@ -325,7 +325,7 @@ export default function PublicDashboard({ initialEvents, initialActiveId }: { in
                     </h2>
                     <div className="glass-panel" style={{ overflow: 'hidden' }}>
                         {data.latestResults.map((res, i) => (
-                            <Link key={res.id} href={`/results/${res.program.id}`} style={{ 
+                            <Link key={res.id} href={`/results/${res.program.id}?eventId=${activeEventId}`} style={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center', 

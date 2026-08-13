@@ -32,10 +32,10 @@ export default function TVDisplayClient({
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   // Colors based on theme
-  const bg = theme === 'dark' ? '#090d16' : '#f8fafc';
+  const bg = theme === 'dark' ? '#090d16' : '#FAFAFA';
   const panelBg = theme === 'dark' ? '#0b1120' : '#ffffff';
   const borderCol = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-  const textPri = theme === 'dark' ? '#ffffff' : '#0f172a';
+  const textPri = theme === 'dark' ? '#ffffff' : '#241B1B';
   const textSec = theme === 'dark' ? '#94a3b8' : '#64748b';
   const gold = '#fbbf24';
   const silver = '#94a3b8';
@@ -85,7 +85,7 @@ export default function TVDisplayClient({
           <div style={{ fontSize: '0.85rem', color: textSec, letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 700 }}>
             Real-Time Institution Standings
           </div>
-          <div style={{ display: 'inline-block', color: theme === 'dark' ? '#38bdf8' : '#6366f1', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '1px' }}>
+          <div style={{ display: 'inline-block', color: theme === 'dark' ? '#38bdf8' : '#A5003A', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '1px' }}>
             CURRENT COMPETITION: <span style={{ color: textPri }}>AWAITING NEXT</span>
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function TVDisplayClient({
               <div style={{ textAlign: 'center', color: textSec, padding: '2rem' }}>No recent results.</div>
             ) : (
               recentWinners.map((res, idx) => (
-                <div key={res.id} style={{ display: 'flex', gap: '15px', padding: '1rem', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#f8fafc', borderRadius: '8px', border: `1px solid ${borderCol}` }}>
+                <div key={res.id} style={{ display: 'flex', gap: '15px', padding: '1rem', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#FAFAFA', borderRadius: '8px', border: `1px solid ${borderCol}` }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
                     {res.rank === 1 ? '🥇' : res.rank === 2 ? '🥈' : res.rank === 3 ? '🥉' : '🎖️'}
                   </div>

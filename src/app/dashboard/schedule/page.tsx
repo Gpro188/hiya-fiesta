@@ -31,12 +31,7 @@ export default async function SchedulePage(props: {
     if (role === "ZONE_ADMIN" && userZoneId) {
       eventWhere = { zoneId: userZoneId };
     } else if (userEventId) {
-      eventWhere = {
-        OR: [
-          { id: userEventId },
-          { parentId: userEventId }
-        ]
-      };
+      eventWhere = { id: userEventId };
     }
 
     const rawEvents = await prisma.event.findMany({

@@ -39,13 +39,39 @@ export default async function JuriesPage() {
       orderBy: { name: 'asc' }
     });
 
+    let stateEvent = null;
+    let statePrograms: any[] = [];
+    if (role === "SUPER_ADMIN") {
+      stateEvent = await prisma.event.findFirst({
+        where: { type: "STATE" },
+        include: {
+          selectedJudges: { select: { id: true, username: true, phone: true, place: true } }
+        }
+      });
+      if (stateEvent) {
+        statePrograms = await prisma.program.findMany({
+          where: { eventId: stateEvent.id },
+          include: {
+            judges: { select: { id: true, username: true } },
+            category: true
+          },
+          orderBy: { name: 'asc' }
+        });
+      }
+    }
+
     return (
       <div className="animate-fade-in">
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
           <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Jury Management</h1>
           <p className="page-description">Publish and manage the global master list of judges, and view payment reports by Zone.</p>
         </div>
-        <AdminJuryList judges={allJudges} zones={zones} />
+        <AdminJuryList 
+          judges={allJudges} 
+          zones={zones} 
+          stateEvent={stateEvent} 
+          statePrograms={statePrograms} 
+        />
       </div>
     );
   }

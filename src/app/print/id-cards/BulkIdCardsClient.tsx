@@ -11,7 +11,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
           <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>Found {candidates.length} approved candidates</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <PrintButton label="Print All Cards" color="#4F46E5" />
+          <PrintButton label="Print All Cards" color="#8E0033" />
           <button onClick={() => window.history.back()} style={{ padding: '8px 16px', backgroundColor: '#9ca3af', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.875rem' }}>
             ← Back
           </button>
@@ -42,7 +42,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
             {/* Header Design */}
             <div style={{ 
               height: '60px', 
-              backgroundColor: candidate.team.flagColor || '#4F46E5',
+              backgroundColor: candidate.team.flagColor || '#8E0033',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -96,7 +96,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
 
             {/* Candidate Name & Team Badge */}
             <div style={{ textAlign: 'center', padding: '0 15px 5px 15px' }}>
-              <h3 style={{ margin: '0 0 1px 0', fontSize: '1.5rem', fontWeight: 900, color: '#1e1b4b' }}>
+              <h3 style={{ margin: '0 0 1px 0', fontSize: '1.5rem', fontWeight: 900, color: '#400010' }}>
                 {candidate.chestNumber || '??'}
               </h3>
               <div style={{ margin: '0 0 5px 0', fontSize: '0.9rem', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase' }}>
@@ -106,7 +106,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
                 display: 'inline-block', 
                 padding: '2px 10px', 
                 backgroundColor: `${candidate.team.flagColor}10`, 
-                color: candidate.team.flagColor || '#4F46E5',
+                color: candidate.team.flagColor || '#8E0033',
                 borderRadius: '15px',
                 fontSize: '0.7rem',
                 fontWeight: 800,
@@ -121,11 +121,11 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
               <div style={{ display: 'flex', borderTop: '1px solid #f3f4f6', paddingTop: '10px', marginBottom: '10px' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.6rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Category</div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e1b4b' }}>{candidate.category.name}</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#400010' }}>{candidate.category.name}</div>
                 </div>
                 <div style={{ flex: 1, textAlign: 'right' }}>
                   <div style={{ fontSize: '0.6rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Event</div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e1b4b' }}>CSWC Hiya Fiesta 2026</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#400010' }}>CSWC Hiya Fiesta 2026</div>
                 </div>
               </div>
 
@@ -147,7 +147,7 @@ export default function BulkIdCardsClient({ candidates, settings }: { candidates
                     border: '1px solid #e5e7eb',
                     lineHeight: '1.1'
                   }}>
-                    <div style={{ fontWeight: 700, color: '#1e1b4b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontWeight: 700, color: '#400010', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {p.program.name}
                     </div>
                     {(p.scheduledTime || p.program.startTime) && (

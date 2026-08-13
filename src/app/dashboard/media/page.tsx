@@ -8,7 +8,10 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import Link from "next/link";
 
-export default async function MediaPage() {
+export default async function MediaPage(props: {
+  searchParams: Promise<{ session?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
 
   if (!session || !["ADMIN", "SUPER_ADMIN", "MEDIA"].includes(session.user.role)) {
@@ -38,7 +41,15 @@ export default async function MediaPage() {
   // Super Admin: load all events with their categories for per-event category branding
   let allEventsWithCategories: any[] = [];
   if (role === "SUPER_ADMIN") {
+    let superAdminWhere: any = {};
+    if (searchParams.session === "state") {
+      superAdminWhere = { type: "STATE" };
+    } else if (searchParams.session === "zone") {
+      superAdminWhere = { type: "ZONE" };
+    }
+
     allEventsWithCategories = await prisma.event.findMany({
+      where: superAdminWhere,
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
       include: {
         categories: { orderBy: { name: 'asc' } },
@@ -85,7 +96,7 @@ export default async function MediaPage() {
                               <div style={{ fontWeight: 600 }}>{program.name}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{program.category?.name}</div>
                           </div>
-                          <Link href={`/results/${program.id}`} className="btn btn-secondary" style={{ padding: '5px 12px', fontSize: '0.8rem' }}>
+                          <Link href={`/results/${program.id}?eventId=${eventId || program.eventId}`} className="btn btn-secondary" style={{ padding: '5px 12px', fontSize: '0.8rem' }}>
                               Open Generator
                           </Link>
                       </div>

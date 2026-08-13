@@ -67,7 +67,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </div>
               )}
               {team.isAssignmentsConfirmed ? (
-                <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#A5003A', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
                   🔵 Registration Confirmed & Locked
                 </div>
               ) : totalPrograms === 0 ? (

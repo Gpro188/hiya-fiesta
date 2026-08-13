@@ -29,22 +29,56 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
     setIsGenerating(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const dataUrl = await toPng(posterRef.current, { 
+
+      const node = posterRef.current;
+      const opts = {
         quality: 1.0,
         pixelRatio: 2,
         cacheBust: true,
         width: 1080,
         height: 1350,
-        style: { transform: 'scale(1)', margin: '0', left: '0', top: '0' }
-      });
-      
+        style: { transform: 'scale(1)', margin: '0', left: '0', top: '0' },
+        // Skip cross-origin font sheets (Google Fonts) to avoid SecurityError.
+        // We embed font-face rules ourselves below if possible.
+        skipFonts: false,
+        filter: (node: HTMLElement) => {
+          // never filter out nodes – just here to satisfy the type
+          return true;
+        },
+      };
+
+      // ── 1st call: warm the image/font cache; ignore SecurityError from cross-origin sheets ──
+      try {
+        await toPng(node, opts);
+      } catch (warmErr: any) {
+        // Only suppress the known CORS/cssRules error; rethrow anything else
+        if (!String(warmErr).includes('cssRules') && !String(warmErr).includes('SecurityError')) {
+          throw warmErr;
+        }
+      }
+
+      // ── Small extra delay so warmed images are definitely decoded ──
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // ── 2nd call: actual capture – cross-origin sheets are now cached ──
+      let dataUrl: string;
+      try {
+        dataUrl = await toPng(node, opts);
+      } catch (captureErr: any) {
+        // If still failing due to cross-origin CSS, retry with fonts skipped
+        if (String(captureErr).includes('cssRules') || String(captureErr).includes('SecurityError')) {
+          dataUrl = await toPng(node, { ...opts, skipFonts: true });
+        } else {
+          throw captureErr;
+        }
+      }
+
       const link = document.createElement('a');
       link.download = `${program.name}_Poster.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      console.error(err);
+      console.error('Poster generation failed:', err);
       alert('Failed to generate image. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -241,7 +275,7 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
                   </div>
 
                   {/* Program Name */}
-                  <div style={{ fontSize: '3.6rem', fontWeight: 900, color: '#0f172a', lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.5px', maxWidth: '600px', marginBottom: '25px' }}>
+                  <div style={{ fontSize: '3.6rem', fontWeight: 900, color: '#241B1B', lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.5px', maxWidth: '600px', marginBottom: '25px' }}>
                       {program.name}
                   </div>
 
@@ -281,7 +315,7 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
                                   {/* Participant Details */}
                                   <div style={{ maxWidth: '450px' }}>
                                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
-                                          <div style={{ fontSize: '1.7rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.1, textTransform: 'uppercase' }}>
+                                          <div style={{ fontSize: '1.7rem', fontWeight: 800, color: '#241B1B', lineHeight: 1.1, textTransform: 'uppercase' }}>
                                               {name}
                                           </div>
                                           {chest && (

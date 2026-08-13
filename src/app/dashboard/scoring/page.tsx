@@ -11,7 +11,7 @@ import PendingProgramsList from "./PendingProgramsList";
 import EventSwitcher from "@/app/components/EventSwitcher";
 
 export default async function ScoringPage(props: {
-  searchParams: Promise<{ eventId?: string }>;
+  searchParams: Promise<{ eventId?: string, session?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
@@ -22,12 +22,20 @@ export default async function ScoringPage(props: {
 
   // Scope events strictly to logged in Admin's main event and its sub-events
   const userEventId = session.user.eventId;
-  const eventWhere: any = userEventId ? {
+  let eventWhere: any = userEventId ? {
     OR: [
       { id: userEventId },
       { parentId: userEventId }
     ]
   } : {};
+
+  if (session.user.role === "SUPER_ADMIN") {
+    if (searchParams.session === "state") {
+      eventWhere = { type: "STATE" };
+    } else if (searchParams.session === "zone") {
+      eventWhere = { type: "ZONE" };
+    }
+  }
 
   const rawEvents = await prisma.event.findMany({
     where: eventWhere,

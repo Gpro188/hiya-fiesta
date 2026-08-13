@@ -15,37 +15,33 @@ export default async function PromotionsPage() {
 
   const eventWhere = session.user.eventId 
     ? (isZoneAdmin ? { id: session.user.eventId } : { parentId: session.user.eventId })
-    : undefined;
+    : { type: "ZONE" };
 
-  // Fetch Zone events
+  // Fetch Zone events (just the events themselves)
   const zoneEvents = await prisma.event.findMany({
     where: eventWhere,
-    include: {
-      programs: {
-        include: {
-          results: {
-            where: { isPublished: true, rank: { in: [1, 2, 3] } },
-            include: {
-              candidate: true,
-              team: true
-            },
-            orderBy: { rank: 'asc' }
-          }
-        }
-      }
-    }
+    orderBy: { name: 'asc' }
   });
 
-  // Fetch Master Event Programs to see who is already promoted
+  // Fetch Master Event Programs with all published results and assignments
   const masterEvent = await prisma.event.findFirst({
-    where: { parentId: null },
+    where: { type: "STATE" },
     include: {
       programs: {
         include: {
           assignments: {
             include: { candidate: true }
+          },
+          results: {
+            where: { isPublished: true, rank: { in: [1, 2, 3] } },
+            include: {
+              candidate: { include: { team: true } },
+              team: true
+            },
+            orderBy: { rank: 'asc' }
           }
-        }
+        },
+        orderBy: { name: 'asc' }
       }
     }
   });

@@ -43,6 +43,11 @@ export async function saveHomepageSettings(data: any) {
     await prisma.homepageSetting.upsert({
       where: { eventId },
       update: {
+        heroTitle: data.heroTitle,
+        heroSubtitle: data.heroSubtitle,
+        heroEyebrow: data.heroEyebrow,
+        heroBannerText: data.heroBannerText,
+        heroBgUrl: data.heroBgUrl,
         aboutTitle: data.aboutTitle,
         aboutText: data.aboutText,
         primaryColor: data.primaryColor,
@@ -58,6 +63,11 @@ export async function saveHomepageSettings(data: any) {
       },
       create: {
         eventId,
+        heroTitle: data.heroTitle,
+        heroSubtitle: data.heroSubtitle,
+        heroEyebrow: data.heroEyebrow,
+        heroBannerText: data.heroBannerText,
+        heroBgUrl: data.heroBgUrl,
         aboutTitle: data.aboutTitle,
         aboutText: data.aboutText,
         primaryColor: data.primaryColor,

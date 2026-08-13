@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { createJury, updateJury, deleteJury } from "./actions";
+import ZoneJurySelection from "./ZoneJurySelection";
 
-export default function AdminJuryList({ judges, zones }: { judges: any[], zones: any[] }) {
-  const [activeTab, setActiveTab] = useState<'list' | 'report'>('list');
+export default function AdminJuryList({ judges, zones, stateEvent, statePrograms }: { judges: any[], zones: any[], stateEvent?: any, statePrograms?: any[] }) {
+  const [activeTab, setActiveTab] = useState<'list' | 'assign' | 'report'>('list');
   const [filterZoneId, setFilterZoneId] = useState<string>('ALL');
   
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,6 +78,14 @@ export default function AdminJuryList({ judges, zones }: { judges: any[], zones:
         >
           Master Jury List
         </button>
+        {stateEvent && (
+          <button 
+            onClick={() => setActiveTab('assign')} 
+            className={`btn ${activeTab === 'assign' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            State Fest Assignment
+          </button>
+        )}
         <button 
           onClick={() => setActiveTab('report')} 
           className={`btn ${activeTab === 'report' ? 'btn-primary' : 'btn-secondary'}`}
@@ -84,6 +93,18 @@ export default function AdminJuryList({ judges, zones }: { judges: any[], zones:
           Jury Payment Report
         </button>
       </div>
+
+      {activeTab === 'assign' && stateEvent && (
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
+          <h3 style={{ marginBottom: 'var(--spacing-md)' }}>State Fest Jury Assignment</h3>
+          <ZoneJurySelection 
+            allJudges={judges} 
+            selectedJudges={stateEvent.selectedJudges || []} 
+            programs={statePrograms || []}
+            eventId={stateEvent.id} 
+          />
+        </div>
+      )}
 
       {activeTab === 'list' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)' }}>

@@ -175,14 +175,17 @@ export async function getPublicEventData(eventId: string) {
 }
 
 const getCacheCSWCgramResults = unstable_cache(
-  async (programId: string) => {
+  async (programId: string, eventId?: string) => {
     const program = await prisma.program.findUnique({
       where: { id: programId },
       include: {
         category: true,
         event: true,
         results: {
-          where: { isPublished: true },
+          where: { 
+            isPublished: true,
+            ...(eventId ? { OR: [{ team: { eventId } }, { candidate: { team: { eventId } } }] } : {})
+          },
           include: {
             candidate: {
               include: {
@@ -199,11 +202,22 @@ const getCacheCSWCgramResults = unstable_cache(
 
     if (!program) return { program: null, settings: null };
 
+    // Use provided eventId for settings if available, otherwise use program.eventId
+    const settingsEventId = eventId || program.eventId;
+    
     const settings = await prisma.globalSetting.findUnique({ 
-      where: { id: program.eventId } 
+      where: { id: settingsEventId } 
     }) || await prisma.globalSetting.findUnique({ 
       where: { id: "default" } 
     });
+
+    // If eventId was passed (meaning it's a zone result view), override the program's event name to match the zone
+    if (eventId && eventId !== program.eventId) {
+        const zoneEvent = await prisma.event.findUnique({ where: { id: eventId } });
+        if (zoneEvent) {
+            program.event.name = zoneEvent.name;
+        }
+    }
 
     return { program, settings };
   },
@@ -211,9 +225,9 @@ const getCacheCSWCgramResults = unstable_cache(
   { revalidate: 60, tags: ['results'] }
 );
 
-export async function getProgramResults(programId: string) {
+export async function getProgramResults(programId: string, eventId?: string) {
   try {
-    const data = await getCacheCSWCgramResults(programId);
+    const data = await getCacheCSWCgramResults(programId, eventId);
     if (!data.program) return { success: false, error: "Program not found" };
     return { success: true, data };
   } catch (error) {

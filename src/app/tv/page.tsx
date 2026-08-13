@@ -28,7 +28,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
 
   if (!eventObj) {
     return (
-      <div style={{ backgroundColor: '#0f172a', color: 'white', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ backgroundColor: '#241B1B', color: 'white', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <h2>No Active Festival Found for TV Broadcast</h2>
       </div>
     );

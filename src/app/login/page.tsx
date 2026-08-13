@@ -4,8 +4,6 @@ import { signIn } from "next-auth/react";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBranding } from "./branding";
-import OnboardingTour from "@/components/OnboardingTour";
-import { getTourSteps } from "@/lib/tourSteps";
 
 function LoginForm() {
   const router = useRouter();
@@ -63,7 +61,7 @@ function LoginForm() {
         style={{
           width: "45%",
           position: "relative",
-          background: "linear-gradient(145deg, #3730a3 0%, #4f46e5 40%, #6366f1 70%, #818cf8 100%)",
+          background: "linear-gradient(145deg, #5A0019 0%, #8E0033 40%, #A5003A 70%, #818cf8 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -123,7 +121,7 @@ function LoginForm() {
             }}
           >
             <img
-              src="/logo.png"
+              src="/icon.png"
               alt="Logo"
               style={{ width: "50px", height: "50px", objectFit: "contain" }}
             />
@@ -352,10 +350,6 @@ function LoginForm() {
           `
         }} />
       </div>
-
-      {!isSuperAdmin && (
-        <OnboardingTour pageId="login" steps={getTourSteps("login")} />
-      )}
     </div>
   );
 }

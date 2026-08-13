@@ -9,7 +9,7 @@ export default function EditTeamModal({ team, onClose }: { team: any, onClose: (
   const [prefixCode, setPrefixCode] = useState(team.prefixCode);
   const [leaderName, setLeaderName] = useState(team.leaderName || "");
   const [leaderPhoto, setLeaderPhoto] = useState(team.leaderPhoto || "");
-  const [flagColor, setFlagColor] = useState(team.flagColor || "#4F46E5");
+  const [flagColor, setFlagColor] = useState(team.flagColor || "#8E0033");
   const [managerUsername, setManagerUsername] = useState(team.manager?.username || "");
   const [managerPassword, setManagerPassword] = useState("");
   const [loading, setLoading] = useState(false);

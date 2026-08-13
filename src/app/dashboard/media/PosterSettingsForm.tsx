@@ -93,9 +93,9 @@ export default function PosterSettingsForm({ initialSettings, compact, zoneName 
           </div>
 
           {/* Background Art indicator */}
-          <div style={{ position: 'absolute', top: '360px', left: '600px', right: '40px', height: '850px', border: '3px dashed #3b82f6', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+          <div style={{ position: 'absolute', top: '360px', left: '600px', right: '40px', height: '850px', border: '3px dashed #A5003A', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
             <div style={{ textAlign: 'center' }}>
-              <h2 style={{ color: '#3b82f6', margin: '0 0 10px 0', fontSize: '28px' }}>ARTWORK AREA</h2>
+              <h2 style={{ color: '#A5003A', margin: '0 0 10px 0', fontSize: '28px' }}>ARTWORK AREA</h2>
               <p style={{ color: '#1d4ed8', fontSize: '16px' }}>Place your illustrations or photos here.</p>
             </div>
           </div>

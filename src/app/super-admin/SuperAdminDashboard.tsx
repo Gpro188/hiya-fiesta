@@ -131,7 +131,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
       
       {/* Analytics Overview Cards */}
       <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderLeft: '4px solid #6366f1', textAlign: 'center' }}>
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderLeft: '4px solid #A5003A', textAlign: 'center' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'white' }}>{data.totalVisits}</div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Total Page Views</div>
         </div>
@@ -253,7 +253,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
           marginBottom: 'var(--spacing-lg)', 
           padding: '12px 16px', 
           backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-          borderLeft: '4px solid #3b82f6',
+          borderLeft: '4px solid #A5003A',
           borderRadius: '4px',
           fontSize: '0.85rem',
           lineHeight: '1.5'

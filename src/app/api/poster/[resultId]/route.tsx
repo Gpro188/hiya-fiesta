@@ -33,7 +33,7 @@ export async function GET(request: Request, context: { params: Promise<{ resultI
 
     const textColor = settings?.posterTextColor || 'white';
     const primaryColor = settings?.posterPrimaryColor || '#FCD34D';
-    const secondaryColor = settings?.posterSecondaryColor || '#4F46E5';
+    const secondaryColor = settings?.posterSecondaryColor || '#8E0033';
 
     return new ImageResponse(
       (

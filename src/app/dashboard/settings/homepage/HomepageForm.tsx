@@ -8,7 +8,7 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   
-  const [primaryColor, setPrimaryColor] = useState(initialData?.primaryColor || "#6366F1");
+  const [primaryColor, setPrimaryColor] = useState(initialData?.primaryColor || "#A5003A");
   const [secondaryColor, setSecondaryColor] = useState(initialData?.secondaryColor || "#0EA5E9");
   const [bgColor, setBgColor] = useState(initialData?.bgColor || "#0F172A");
 
@@ -16,6 +16,7 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
   const [gallery, setGallery] = useState<string[]>(initialData?.galleryImages || []);
   
   // New CMS Fields
+  const [heroBgUrl, setHeroBgUrl] = useState(initialData?.heroBgUrl || "");
   const [tickerText, setTickerText] = useState(initialData?.tickerText || "");
   const [heroSlides, setHeroSlides] = useState<any[]>(initialData?.heroSlides || []);
   const [statsCounter, setStatsCounter] = useState(initialData?.statsCounter || {
@@ -63,7 +64,8 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
     
-    // Append JSON data
+    // Append extra state data
+    data.heroBgUrl = heroBgUrl;
     data.committeeMembers = JSON.stringify(committee);
     data.galleryImages = JSON.stringify(gallery);
     data.heroSlides = JSON.stringify(heroSlides);
@@ -86,8 +88,44 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
       
       <input type="hidden" name="targetEventId" value={initialData?.targetEventId || ""} />
 
-      {/* Global Ticker */}
+      {/* ── Hero Section ─────────────────────────────────── */}
       <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }} open>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
+          Hero Section (Banner) <span>▼</span>
+        </summary>
+        <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+          <div className="form-group">
+            <label className="form-label">Fest / Event Title</label>
+            <input type="text" name="heroTitle" defaultValue={initialData?.heroTitle || "CSWC Hiya Fiesta 2026"} className="form-input" placeholder="CSWC Hiya Fiesta 2026" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Hero Subtitle (one line tagline)</label>
+            <input type="text" name="heroSubtitle" defaultValue={initialData?.heroSubtitle || "Centralized Multi-Zone Arts Festival Platform"} className="form-input" placeholder="Centralized Multi-Zone Arts Festival Platform" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Eyebrow Badge Text</label>
+            <input type="text" name="heroEyebrow" defaultValue={initialData?.heroEyebrow || "STATE FINAL · LIVE NOW"} className="form-input" placeholder="STATE FINAL · LIVE NOW" />
+            <small style={{ color: 'var(--text-muted)' }}>The small blinking badge above the main title</small>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Banner / Ribbon Announcement Text</label>
+            <input type="text" name="heroBannerText" defaultValue={initialData?.heroBannerText || ""} className="form-input" placeholder="Registration now open! Results at cswchiyafiesta.in …" />
+            <small style={{ color: 'var(--text-muted)' }}>Scrolling pink ribbon below the hero (leave blank to hide)</small>
+          </div>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+            <label className="form-label">Hero Background Image</label>
+            <ImageUpload 
+              initialUrl={heroBgUrl} 
+              onUploadComplete={(url: string) => setHeroBgUrl(url)} 
+              folder="homepage" 
+            />
+            <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>Upload a high-quality background image for the hero banner</small>
+          </div>
+        </div>
+      </details>
+
+      {/* Global Ticker */}
+      <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }}>
         <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
           Top Announcement Bar <span>▼</span>
         </summary>

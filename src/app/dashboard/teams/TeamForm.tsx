@@ -15,7 +15,7 @@ export default function TeamForm({ events }: { events: EventType[] }) {
   
   const [leaderName, setLeaderName] = useState("");
   const [leaderPhoto, setLeaderPhoto] = useState("");
-  const [flagColor, setFlagColor] = useState("#4F46E5");
+  const [flagColor, setFlagColor] = useState("#8E0033");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +43,7 @@ export default function TeamForm({ events }: { events: EventType[] }) {
       setManagerPassword("");
       setLeaderName("");
       setLeaderPhoto("");
-      setFlagColor("#4F46E5");
+      setFlagColor("#8E0033");
     } else {
       setError(result.error || "Failed to create team");
     }
