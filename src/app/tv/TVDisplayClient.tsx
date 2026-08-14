@@ -238,7 +238,20 @@ export default function TVDisplayClient({
                       {res.program?.name} ({res.program?.category?.name})
                     </div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-                      {res.candidate?.team?.name || res.team?.name}
+                      {(() => {
+                        const isState = event.type === 'STATE';
+                        if (res.candidate) {
+                          const instName = res.candidate.team?.institution?.name || res.candidate.team?.name;
+                          const zoneName = res.candidate.team?.event?.name;
+                          if (isState && zoneName) return `${res.candidate.name} - ${instName} (${zoneName})`;
+                          return `${res.candidate.name} - ${instName}`;
+                        } else {
+                          const instName = res.team?.institution?.name || res.team?.name;
+                          const zoneName = res.team?.event?.name;
+                          if (isState && zoneName) return `${instName} (${zoneName})`;
+                          return instName;
+                        }
+                      })()}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

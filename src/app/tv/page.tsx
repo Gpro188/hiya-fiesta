@@ -34,6 +34,9 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
     );
   }
 
+  const isZone = !!eventObj.parentId;
+  const programsEventId = eventObj.parentId || eventObj.id;
+
   const [teams, results, recentWinners, totalStudents, totalPrograms, publishedProgramsCount] = await Promise.all([
     prisma.team.findMany({
       where: { eventId: eventObj.id },
@@ -45,22 +48,47 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       }
     }),
     prisma.result.findMany({
-      where: { program: { eventId: eventObj.id }, isPublished: true },
+      where: { 
+        isPublished: true,
+        OR: [
+          { team: { eventId: eventObj.id } },
+          { candidate: { team: { eventId: eventObj.id } } }
+        ]
+      },
       select: { points: true, teamId: true }
     }),
     prisma.result.findMany({
-      where: { program: { eventId: eventObj.id }, isPublished: true },
+      where: { 
+        isPublished: true,
+        OR: [
+          { team: { eventId: eventObj.id } },
+          { candidate: { team: { eventId: eventObj.id } } }
+        ]
+      },
       include: {
-        candidate: { include: { team: true } },
-        team: true,
+        candidate: { include: { team: { include: { institution: true, event: { select: { name: true } } } } } },
+        team: { include: { institution: true, event: { select: { name: true } } } },
         program: { include: { category: true } }
       },
       orderBy: { updatedAt: 'desc' },
       take: 5
     }),
     prisma.candidate.count({ where: { team: { eventId: eventObj.id } } }),
-    prisma.program.count({ where: { eventId: eventObj.id, type: { not: 'BREAK' } } }),
-    prisma.program.count({ where: { eventId: eventObj.id, results: { some: { isPublished: true } } } })
+    prisma.program.count({ where: { eventId: programsEventId, type: { not: 'BREAK' } } }),
+    prisma.program.count({ 
+      where: { 
+        eventId: programsEventId, 
+        results: { 
+          some: { 
+            isPublished: true,
+            OR: [
+              { team: { eventId: eventObj.id } },
+              { candidate: { team: { eventId: eventObj.id } } }
+            ]
+          } 
+        } 
+      } 
+    })
   ]);
 
   // Calculate Live Scores
