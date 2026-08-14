@@ -8,7 +8,7 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL || "file:./dev.db",
+        url: process.env.PG_DATABASE_URL || process.env.DATABASE_URL || "file:./dev.db",
       },
     },
   });
