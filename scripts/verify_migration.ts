@@ -48,8 +48,8 @@ async function main() {
   }
 
   // Count Implicit M2M tables
-  const sqliteEventJudges = await sqlite.$queryRaw\`SELECT count(*) as count FROM "_EventJudges"\`;
-  const pgEventJudges = await pg.$queryRaw\`SELECT count(*) as count FROM "_EventJudges"\`;
+  const sqliteEventJudges = await sqlite.$queryRaw`SELECT count(*) as count FROM "_EventJudges"`;
+  const pgEventJudges = await pg.$queryRaw`SELECT count(*) as count FROM "_EventJudges"`;
   const sqliteEjCount = Number((sqliteEventJudges as any)[0].count);
   const pgEjCount = Number((pgEventJudges as any)[0].count);
   const ejStatus = sqliteEjCount === pgEjCount ? 'PASS ✅' : 'FAIL ❌';
@@ -57,8 +57,8 @@ async function main() {
   markdown += `| _EventJudges | ${sqliteEjCount} | ${pgEjCount} | ${ejStatus} |\n`;
   console.log(`_EventJudges: SQLite=${sqliteEjCount}, Postgres=${pgEjCount} -> ${ejStatus}`);
 
-  const sqliteProgramJudges = await sqlite.$queryRaw\`SELECT count(*) as count FROM "_ProgramJudges"\`;
-  const pgProgramJudges = await pg.$queryRaw\`SELECT count(*) as count FROM "_ProgramJudges"\`;
+  const sqliteProgramJudges = await sqlite.$queryRaw`SELECT count(*) as count FROM "_ProgramJudges"`;
+  const pgProgramJudges = await pg.$queryRaw`SELECT count(*) as count FROM "_ProgramJudges"`;
   const sqlitePjCount = Number((sqliteProgramJudges as any)[0].count);
   const pgPjCount = Number((pgProgramJudges as any)[0].count);
   const pjStatus = sqlitePjCount === pgPjCount ? 'PASS ✅' : 'FAIL ❌';
