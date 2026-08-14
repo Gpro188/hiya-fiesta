@@ -2,7 +2,11 @@
 import { PrismaClient as SQLiteClient } from '@prisma/client';
 import { PrismaClient as PostgresClient } from '@prisma/client-postgres';
 
-const sqlite = new SQLiteClient();
+const sqlite = new SQLiteClient({
+  datasources: {
+    db: { url: 'file:../prisma/dev.db' }
+  }
+});
 const pg = new PostgresClient();
 
 async function main() {
@@ -20,9 +24,9 @@ async function main() {
   // Order of tables is critical to avoid foreign key constraint errors
   const tables = [
     { name: "Zone", get: sqlite.zone.findMany, set: pg.zone.createMany },
+    { name: "Event", get: sqlite.event.findMany, set: pg.event.createMany },
     { name: "GlobalSetting", get: sqlite.globalSetting.findMany, set: pg.globalSetting.createMany },
     { name: "HomepageSetting", get: sqlite.homepageSetting.findMany, set: pg.homepageSetting.createMany },
-    { name: "Event", get: sqlite.event.findMany, set: pg.event.createMany },
     { name: "Category", get: sqlite.category.findMany, set: pg.category.createMany },
     { name: "MasterInstitution", get: sqlite.masterInstitution.findMany, set: pg.masterInstitution.createMany },
     { name: "MasterStudent", get: sqlite.masterStudent.findMany, set: pg.masterStudent.createMany },

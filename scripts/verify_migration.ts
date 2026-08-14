@@ -3,7 +3,11 @@ import { PrismaClient as SQLiteClient } from '@prisma/client';
 import { PrismaClient as PostgresClient } from '@prisma/client-postgres';
 import fs from 'fs';
 
-const sqlite = new SQLiteClient();
+const sqlite = new SQLiteClient({
+  datasources: {
+    db: { url: 'file:../prisma/dev.db' }
+  }
+});
 const pg = new PostgresClient();
 
 async function main() {
