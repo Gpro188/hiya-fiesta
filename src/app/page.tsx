@@ -58,28 +58,6 @@ export default async function HomePage() {
           totalPoints: team.results.reduce((sum: number, r: any) => sum + r.points, 0)
         }));
 
-        const karTeamIndex = stateTeams.findIndex(t => t.name.toUpperCase().includes('KARNATAKA'));
-        if (karTeamIndex !== -1) {
-          const karZone = await prisma.event.findFirst({
-            where: { type: 'ZONE', name: { contains: 'KARNATAKA' } },
-            select: { id: true }
-          });
-          
-          if (karZone) {
-            const karPoints = await prisma.result.aggregate({
-              where: {
-                isPublished: true,
-                program: { eventId: karZone.id }
-              },
-              _sum: { points: true }
-            });
-            
-            if (karPoints._sum.points) {
-              stateTeams[karTeamIndex].totalPoints += karPoints._sum.points;
-            }
-          }
-        }
-
         stateTeams = stateTeams.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5);
       }
     }
