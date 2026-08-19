@@ -193,7 +193,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
             boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.05)'
           }}>
             {/* Desktop View Table */}
-            <div className="hidden sm:block">
+            <div className="winner-table-desktop">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead style={{ backgroundColor: '#FFF8FA', borderBottom: '1.5px solid #f2d9e6' }}>
                   <tr style={{ color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -246,7 +246,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
             </div>
 
             {/* Mobile View Cards */}
-            <div className="block sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+            <div className="winner-cards-mobile" style={{ flexDirection: 'column', gap: '0' }}>
               {[...winners, ...others].map((res: any, idx: number) => {
                 const rankGold = res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : res.rank === 3 ? '#D97706' : '#7a7480';
                 return (

@@ -242,11 +242,25 @@
   display: none !important;
 }
 
+/* Winner Board & Search Results responsive classes */
+.winner-table-desktop {
+  display: block;
+}
+.winner-cards-mobile {
+  display: none !important;
+}
+
 @media (max-width: 640px) {
   .desktop-podium-view {
     display: none !important;
   }
   .mobile-ribbon-view {
+    display: flex !important;
+  }
+  .winner-table-desktop {
+    display: none !important;
+  }
+  .winner-cards-mobile {
     display: flex !important;
   }
 }

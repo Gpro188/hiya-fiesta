@@ -431,7 +431,7 @@ export default async function SearchPage(props: {
                             {isPublished ? (
                               <div>
                                 {/* Desktop View: Table */}
-                                <div className="hidden sm:block" style={{ overflowX: 'auto', width: '100%' }}>
+                                <div className="winner-table-desktop" style={{ overflowX: 'auto', width: '100%' }}>
                                   <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                     <thead>
                                       <tr style={{ borderBottom: '1.5px solid #f2d9e6', color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -498,7 +498,7 @@ export default async function SearchPage(props: {
                                 </div>
 
                                 {/* Mobile View: Compact Cards */}
-                                <div className="block sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div className="winner-cards-mobile" style={{ flexDirection: 'column', gap: '8px' }}>
                                   {publishedResults.map((res: any) => {
                                     const rankGold = res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : res.rank === 3 ? '#D97706' : '#7a7480';
                                     return (
