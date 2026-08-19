@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/super-admin/'],
     },
-    sitemap: 'https://cswc-hiya-fiesta.vercel.app/sitemap.xml',
+    sitemap: 'https://hiyafiesta.online/sitemap.xml',
   };
 }
