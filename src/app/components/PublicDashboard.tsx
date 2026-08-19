@@ -54,6 +54,26 @@ export default function PublicDashboard({
     res.candidate?.chestNumber?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const [publishedIndex, setPublishedIndex] = useState(0);
+  const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
+
+  const publishedPrograms = (data as any).latestPublishedPrograms || [];
+
+  // Auto rotate through published results every 5 seconds with smooth fade out -> in
+  useEffect(() => {
+    if (publishedPrograms.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setFadeState('out');
+      setTimeout(() => {
+        setPublishedIndex(prev => (prev + 1) % publishedPrograms.length);
+        setFadeState('in');
+      }, 350); // 350ms fade out transition
+    }, 5000); // changes every 5 seconds
+
+    return () => clearInterval(timer);
+  }, [publishedPrograms.length]);
+
   const maxPoints = Math.max(...data.leaderboard.map(t => t.points), 1);
   const top1 = data.leaderboard[0];
   const top2 = data.leaderboard[1];
@@ -224,29 +244,26 @@ export default function PublicDashboard({
         </Link>
       </div>
 
-      {/* ── Just Published Result Animated Highlight Card ── */}
+      {/* ── Just Published Result Animated Highlight Card with Fade Transitions ── */}
       {(() => {
-        const programsList = (data as any).latestPublishedPrograms || [];
-        if (programsList.length === 0 && latestPublished) {
-          // fallback if only raw single latest result
-          programsList.push({
-            program: { id: latestPublished.program?.id, name: latestPublished.program?.name, categoryName: latestPublished.candidate?.category?.name },
-            winners: [{
-              rank: latestPublished.rank,
-              grade: latestPublished.grade,
-              name: latestPublished.candidate?.name || latestPublished.team?.name,
-              teamName: latestPublished.candidate?.team?.name || latestPublished.team?.name,
-              teamPrefix: (latestPublished.candidate?.team as any)?.prefixCode || (latestPublished.team as any)?.prefixCode,
-              points: latestPublished.points
-            }]
-          });
-        }
+        const programsList = publishedPrograms.length > 0 ? publishedPrograms : (latestPublished ? [{
+          program: { id: latestPublished.program?.id, name: latestPublished.program?.name, categoryName: latestPublished.candidate?.category?.name },
+          winners: [{
+            rank: latestPublished.rank,
+            grade: latestPublished.grade,
+            name: latestPublished.candidate?.name || latestPublished.team?.name,
+            teamName: latestPublished.candidate?.team?.name || latestPublished.team?.name,
+            teamPrefix: (latestPublished.candidate?.team as any)?.prefixCode || (latestPublished.team as any)?.prefixCode,
+            points: latestPublished.points
+          }]
+        }] : []);
 
         if (programsList.length === 0) return null;
 
+        const currentProg = programsList[publishedIndex % programsList.length];
+
         return (
           <div 
-            className="just-published-card-motion"
             style={{
               background: 'linear-gradient(135deg, #e6007e 0%, #a3005c 60%, #5b0033 100%)',
               borderRadius: '20px',
@@ -272,7 +289,16 @@ export default function PublicDashboard({
               }} 
             />
 
-            <div style={{ position: 'relative', zIndex: 1 }}>
+            {/* Smooth Fade Transition Container */}
+            <div 
+              style={{ 
+                position: 'relative', 
+                zIndex: 1,
+                opacity: fadeState === 'in' ? 1 : 0,
+                transform: fadeState === 'in' ? 'translateY(0) scale(1)' : 'translateY(4px) scale(0.99)',
+                transition: 'opacity 0.35s ease-in-out, transform 0.35s ease-in-out'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <span style={{
@@ -302,8 +328,8 @@ export default function PublicDashboard({
                     alignItems: 'center',
                     gap: '8px'
                   }}>
-                    {programsList[0].program.name}
-                    {programsList[0].program.categoryName && (
+                    {currentProg.program.name}
+                    {currentProg.program.categoryName && (
                       <span style={{
                         fontSize: '0.72rem',
                         color: '#FFFFFF',
@@ -313,31 +339,43 @@ export default function PublicDashboard({
                         fontWeight: 700,
                         fontFamily: "'Inter', sans-serif"
                       }}>
-                        {programsList[0].program.categoryName}
+                        {currentProg.program.categoryName}
                       </span>
                     )}
                   </h3>
                 </div>
 
-                <Link 
-                  href={`/results/${programsList[0].program.id}?eventId=${activeEventId}`}
-                  style={{
-                    color: '#e6007e',
-                    background: '#FFFFFF',
-                    fontSize: '0.8rem',
-                    fontWeight: 800,
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 16px',
-                    borderRadius: '10px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    transition: 'transform 0.15s ease'
-                  }}
-                >
-                  Winner Board →
-                </Link>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {programsList.length > 1 && (
+                    <span style={{ 
+                      fontSize: '0.72rem', 
+                      color: 'rgba(255,255,255,0.75)', 
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontWeight: 700
+                    }}>
+                      {(publishedIndex % programsList.length) + 1} / {programsList.length}
+                    </span>
+                  )}
+                  <Link 
+                    href={`/results/${currentProg.program.id}?eventId=${activeEventId}`}
+                    style={{
+                      color: '#e6007e',
+                      background: '#FFFFFF',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 16px',
+                      borderRadius: '10px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  >
+                    Winner Board →
+                  </Link>
+                </div>
               </div>
 
               {/* 3 Places Horizontal Cards / Strip */}
@@ -347,7 +385,7 @@ export default function PublicDashboard({
                 gap: '10px',
                 marginTop: '10px'
               }}>
-                {programsList[0].winners.slice(0, 3).map((w: any, idx: number) => {
+                {currentProg.winners.slice(0, 3).map((w: any, idx: number) => {
                   const rankNum = w.rank || (idx + 1);
                   const medal = rankNum === 1 ? '🥇 1st' : rankNum === 2 ? '🥈 2nd' : '🥉 3rd';
                   const rankBadgeBg = rankNum === 1 
