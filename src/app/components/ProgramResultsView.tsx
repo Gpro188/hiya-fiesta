@@ -189,62 +189,124 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
             overflow: 'hidden',
             boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.05)'
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-              <thead style={{ backgroundColor: '#FFF8FA', borderBottom: '1.5px solid #f2d9e6' }}>
-                <tr style={{ color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                  <th style={{ padding: '14px 16px' }}>Rank/Grade</th>
-                  <th style={{ padding: '14px 16px' }}>Participant</th>
-                  <th style={{ padding: '14px 16px' }}>Team</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'right' }}>Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...winners, ...others].map((res: any) => (
-                  <tr key={res.id} style={{ borderBottom: '1px solid #fbeff5' }}>
-                    <td style={{ padding: '14px 16px' }}>
+            {/* Desktop View Table */}
+            <div className="hidden sm:block">
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead style={{ backgroundColor: '#FFF8FA', borderBottom: '1.5px solid #f2d9e6' }}>
+                  <tr style={{ color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '14px 16px' }}>Rank/Grade</th>
+                    <th style={{ padding: '14px 16px' }}>Participant</th>
+                    <th style={{ padding: '14px 16px' }}>Team</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'right' }}>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...winners, ...others].map((res: any) => (
+                    <tr key={res.id} style={{ borderBottom: '1px solid #fbeff5' }}>
+                      <td style={{ padding: '14px 16px' }}>
+                          {res.rank ? (
+                              <span style={{ 
+                                  backgroundColor: res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : '#D97706',
+                                  color: '#FFFFFF', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, fontSize: '0.75rem'
+                              }}>
+                                  #{res.rank}
+                              </span>
+                          ) : res.grade ? (
+                              <span style={{ color: '#e6007e', fontWeight: 800 }}>Grade {res.grade}</span>
+                          ) : '-'}
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 800, color: '#1a1420' }}>
+                              {res.candidate?.name || res.team?.name}
+                          </div>
+                          {res.candidate?.chestNumber && (
+                            <div style={{ fontSize: '0.72rem', color: '#7a7480', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              Chest #{res.candidate.chestNumber}
+                            </div>
+                          )}
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                          <span style={{ color: '#332938', fontWeight: 600 }}>
+                             {res.candidate?.team?.name || res.team?.name || '-'}
+                          </span>
+                          {res.candidate?.institution?.name && (
+                             <div style={{ fontSize: '0.75rem', color: '#7a7480' }}>{res.candidate.institution.name}</div>
+                          )}
+                      </td>
+                      <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 900, color: '#e6007e', fontFamily: "'IBM Plex Mono', monospace", fontSize: '1rem' }}>
+                          {res.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 700 }}>pts</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View Cards */}
+            <div className="block sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+              {[...winners, ...others].map((res: any, idx: number) => {
+                const rankGold = res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : res.rank === 3 ? '#D97706' : '#7a7480';
+                return (
+                  <div 
+                    key={res.id} 
+                    style={{ 
+                      padding: '14px 16px', 
+                      borderBottom: idx < [...winners, ...others].length - 1 ? '1px solid #fbeff5' : 'none',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                      <div style={{ flexShrink: 0 }}>
                         {res.rank ? (
-                            <span style={{ 
-                                backgroundColor: res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : '#D97706',
-                                color: '#FFFFFF', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, fontSize: '0.75rem'
-                            }}>
-                                #{res.rank}
-                            </span>
+                          <span style={{ 
+                            backgroundColor: rankGold,
+                            color: '#FFFFFF', 
+                            padding: '4px 8px', 
+                            borderRadius: '6px', 
+                            fontWeight: 900, 
+                            fontSize: '0.75rem'
+                          }}>
+                            #{res.rank}
+                          </span>
                         ) : res.grade ? (
-                            <span style={{ color: '#e6007e', fontWeight: 800 }}>Grade {res.grade}</span>
-                        ) : '-'}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 800, color: '#1a1420' }}>
-                            {res.candidate?.name || res.team?.name}
+                          <span style={{ color: '#e6007e', fontWeight: 800, fontSize: '0.78rem' }}>Gr {res.grade}</span>
+                        ) : (
+                          <span style={{ color: '#a1a1aa' }}>-</span>
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: '#1a1420', fontSize: '0.92rem', wordBreak: 'break-word' }}>
+                          {res.candidate?.name || res.team?.name}
+                        </div>
+                        <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', wordBreak: 'break-word' }}>
+                          {res.candidate?.team?.name || res.team?.name || '-'}
                         </div>
                         {res.candidate?.chestNumber && (
-                          <div style={{ fontSize: '0.72rem', color: '#7a7480', fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <div style={{ fontSize: '0.7rem', color: '#a1a1aa', fontFamily: "'IBM Plex Mono', monospace" }}>
                             Chest #{res.candidate.chestNumber}
                           </div>
                         )}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                        <span style={{ color: '#332938', fontWeight: 600 }}>
-                           {res.candidate?.team?.name || res.team?.name || '-'}
-                        </span>
-                        {res.candidate?.institution?.name && (
-                           <div style={{ fontSize: '0.75rem', color: '#7a7480' }}>{res.candidate.institution.name}</div>
-                        )}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 900, color: '#e6007e', fontFamily: "'IBM Plex Mono', monospace", fontSize: '1rem' }}>
-                        {res.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 700 }}>pts</span>
-                    </td>
-                  </tr>
-                ))}
-                {results.length === 0 && (
-                   <tr>
-                     <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: '#7a7480' }}>
-                        No results published yet.
-                     </td>
-                   </tr>
-                )}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontWeight: 900, color: '#e6007e', fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.05rem' }}>
+                        {res.points} <span style={{ fontSize: '0.7rem', color: '#7a7480', fontWeight: 700 }}>pts</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {results.length === 0 && (
+              <div style={{ padding: '30px', textAlign: 'center', color: '#7a7480' }}>
+                No results published yet.
+              </div>
+            )}
           </div>
         </div>
 
