@@ -224,88 +224,211 @@ export default function PublicDashboard({
         </Link>
       </div>
 
-      {/* ── Just Published Result Highlight Banner ── */}
-      {latestPublished && (
-        <div style={{
-          background: '#111827',
-          borderRadius: '16px',
-          padding: '16px 24px',
-          color: '#FFFFFF',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '14px',
-          marginBottom: '28px',
-          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.25)',
-          border: '1px solid rgba(255,255,255,0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <span style={{
-              background: 'linear-gradient(135deg, #F59E0B, #D97706)',
-              color: '#111827',
-              fontSize: '0.7rem',
-              fontWeight: 900,
-              padding: '4px 10px',
-              borderRadius: '9999px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              ⚡ Just Published Result
-            </span>
+      {/* ── Just Published Result Animated Highlight Card ── */}
+      {(() => {
+        const programsList = (data as any).latestPublishedPrograms || [];
+        if (programsList.length === 0 && latestPublished) {
+          // fallback if only raw single latest result
+          programsList.push({
+            program: { id: latestPublished.program?.id, name: latestPublished.program?.name, categoryName: latestPublished.candidate?.category?.name },
+            winners: [{
+              rank: latestPublished.rank,
+              grade: latestPublished.grade,
+              name: latestPublished.candidate?.name || latestPublished.team?.name,
+              teamName: latestPublished.candidate?.team?.name || latestPublished.team?.name,
+              teamPrefix: (latestPublished.candidate?.team as any)?.prefixCode || (latestPublished.team as any)?.prefixCode,
+              points: latestPublished.points
+            }]
+          });
+        }
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#F8FAFC' }}>
-                {latestPublished.program?.name}
-              </span>
-              {latestPublished.candidate?.category?.name && (
-                <span style={{
-                  fontSize: '0.72rem',
-                  color: '#94A3B8',
-                  background: 'rgba(255,255,255,0.1)',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 700
-                }}>
-                  {latestPublished.candidate.category.name}
-                </span>
-              )}
-            </div>
+        if (programsList.length === 0) return null;
 
-            <div style={{ fontSize: '0.84rem', color: '#E2E8F0' }}>
-              {latestPublished.rank ? `${latestPublished.rank}${latestPublished.rank === 1 ? 'st' : latestPublished.rank === 2 ? 'nd' : 'rd'}: ` : ''}
-              <strong>{latestPublished.candidate?.name || latestPublished.team?.name}</strong>
-              {latestPublished.candidate?.team?.name && (
-                <span style={{ color: '#F43F5E', fontWeight: 700, marginLeft: '4px' }}>
-                  ({latestPublished.candidate.team.name})
-                </span>
-              )}
-            </div>
-          </div>
-
-          <Link 
-            href={`/results/${latestPublished.program.id}?eventId=${activeEventId}`}
+        return (
+          <div 
+            className="just-published-card-motion"
             style={{
+              background: 'linear-gradient(135deg, #e6007e 0%, #a3005c 60%, #5b0033 100%)',
+              borderRadius: '20px',
+              padding: '20px 22px',
               color: '#FFFFFF',
-              fontSize: '0.82rem',
-              fontWeight: 800,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              background: 'rgba(255,255,255,0.1)',
-              transition: 'background 0.2s'
+              marginBottom: '28px',
+              boxShadow: '0 12px 32px -4px rgba(230, 0, 126, 0.4), 0 0 16px rgba(255, 79, 163, 0.25)',
+              position: 'relative',
+              overflow: 'hidden',
+              border: '1.5px solid rgba(255, 255, 255, 0.22)'
             }}
           >
-            View Full Result →
-          </Link>
-        </div>
-      )}
+            {/* Shimmer Ambient Glow Overlay */}
+            <div 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'radial-gradient(ellipse at 80% 20%, rgba(255, 255, 255, 0.18) 0%, transparent 60%)',
+                pointerEvents: 'none'
+              }} 
+            />
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    background: '#FFFFFF',
+                    color: '#e6007e',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                    padding: '4px 12px',
+                    borderRadius: '9999px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}>
+                    ⚡ JUST PUBLISHED
+                  </span>
+
+                  <h3 style={{ 
+                    margin: 0, 
+                    fontSize: '1.15rem', 
+                    fontFamily: "'Fraunces', serif", 
+                    fontWeight: 800, 
+                    color: '#FFFFFF',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {programsList[0].program.name}
+                    {programsList[0].program.categoryName && (
+                      <span style={{
+                        fontSize: '0.72rem',
+                        color: '#FFFFFF',
+                        background: 'rgba(255, 255, 255, 0.25)',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        fontFamily: "'Inter', sans-serif"
+                      }}>
+                        {programsList[0].program.categoryName}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+
+                <Link 
+                  href={`/results/${programsList[0].program.id}?eventId=${activeEventId}`}
+                  style={{
+                    color: '#e6007e',
+                    background: '#FFFFFF',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 16px',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    transition: 'transform 0.15s ease'
+                  }}
+                >
+                  Winner Board →
+                </Link>
+              </div>
+
+              {/* 3 Places Horizontal Cards / Strip */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '10px',
+                marginTop: '10px'
+              }}>
+                {programsList[0].winners.slice(0, 3).map((w: any, idx: number) => {
+                  const rankNum = w.rank || (idx + 1);
+                  const medal = rankNum === 1 ? '🥇 1st' : rankNum === 2 ? '🥈 2nd' : '🥉 3rd';
+                  const rankBadgeBg = rankNum === 1 
+                    ? 'linear-gradient(135deg, #FDE68A, #F59E0B)' 
+                    : rankNum === 2 
+                    ? 'linear-gradient(135deg, #F1F5F9, #CBD5E1)' 
+                    : 'linear-gradient(135deg, #FFEDD5, #D97706)';
+                  
+                  // Short institution name
+                  const rawTeam = w.teamName || '';
+                  const shortTeam = rawTeam.length > 24 ? rawTeam.slice(0, 22) + '…' : rawTeam;
+
+                  return (
+                    <div 
+                      key={idx}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.14)',
+                        backdropFilter: 'blur(8px)',
+                        borderRadius: '12px',
+                        padding: '10px 14px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                    >
+                      <span style={{
+                        background: rankBadgeBg,
+                        color: '#1a1420',
+                        fontSize: '0.72rem',
+                        fontWeight: 900,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                      }}>
+                        {medal}
+                      </span>
+
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ 
+                          fontWeight: 800, 
+                          color: '#FFFFFF', 
+                          fontSize: '0.88rem', 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis' 
+                        }}>
+                          {w.name}
+                        </div>
+                        <div style={{ 
+                          fontSize: '0.72rem', 
+                          color: 'rgba(255, 255, 255, 0.82)', 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis' 
+                        }} title={rawTeam}>
+                          {w.teamPrefix ? `${w.teamPrefix} • ` : ''}{shortTeam}
+                        </div>
+                      </div>
+
+                      {w.points > 0 && (
+                        <div style={{ 
+                          fontSize: '0.82rem', 
+                          fontWeight: 900, 
+                          color: '#FDE68A', 
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          flexShrink: 0 
+                        }}>
+                          {w.points}p
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Sub Navigation Tabs ── */}
       <div style={{ 

@@ -18,7 +18,7 @@ const getCachedPublicEventData = unstable_cache(
       totalCandidates,
       candidatesWithAssignments
     ] = await Promise.all([
-      // 1. Get Latest Results
+      // 1. Get Latest Published Results (Top 30 to aggregate by programs)
       prisma.result.findMany({
         where: {
           OR: [
@@ -29,21 +29,21 @@ const getCachedPublicEventData = unstable_cache(
           isPublished: true
         },
         select: {
-          id: true, points: true, rank: true, grade: true, updatedAt: true,
+          id: true, points: true, rank: true, grade: true, updatedAt: true, programId: true,
           candidate: { 
             select: { 
               id: true, 
               name: true, 
               chestNumber: true, 
               category: { select: { id: true, name: true } },
-              team: { select: { id: true, name: true, flagColor: true } } 
+              team: { select: { id: true, name: true, prefixCode: true, flagColor: true } } 
             } 
           },
-          team: { select: { id: true, name: true, flagColor: true, leaderPhoto: true } },
-          program: { select: { id: true, name: true, category: { select: { id: true, name: true } } } }
+          team: { select: { id: true, name: true, prefixCode: true, flagColor: true, leaderPhoto: true } },
+          program: { select: { id: true, name: true, eventId: true, category: { select: { id: true, name: true } } } }
         },
         orderBy: { updatedAt: 'desc' },
-        take: 10
+        take: 30
       }),
 
       // 2. Get Teams
@@ -170,15 +170,62 @@ const getCachedPublicEventData = unstable_cache(
     });
 
     const stats = {
-        totalPrograms,
-        publisheCSWCgrams: publisheCSWCgramsCount,
-        pendingPrograms: totalPrograms - publisheCSWCgramsCount,
-        totalCandidates,
-        totalParticipants: candidatesWithAssignments.length
+      totalPrograms,
+      publisheCSWCgrams: publisheCSWCgramsCount,
+      pendingPrograms: totalPrograms - publisheCSWCgramsCount,
+      totalCandidates,
+      totalParticipants: candidatesWithAssignments.length
     };
 
+    // --- Group Latest Results by Program with Top 3 Winners ---
+    const programMap: Record<string, {
+      program: { id: string, name: string, categoryName?: string },
+      winners: Array<{
+        rank: number | null,
+        grade: string | null,
+        name: string,
+        teamName: string,
+        teamPrefix?: string,
+        points: number
+      }>
+    }> = {};
+
+    latestResults.forEach(res => {
+      if (!res.program) return;
+      const pid = res.program.id;
+      if (!programMap[pid]) {
+        programMap[pid] = {
+          program: {
+            id: pid,
+            name: res.program.name,
+            categoryName: res.program.category?.name || res.candidate?.category?.name
+          },
+          winners: []
+        };
+      }
+
+      const teamName = res.candidate?.team?.name || res.team?.name || '';
+      const teamPrefix = res.candidate?.team?.prefixCode || res.team?.prefixCode || '';
+      const candidateName = res.candidate?.name || '';
+
+      programMap[pid].winners.push({
+        rank: res.rank,
+        grade: res.grade,
+        name: candidateName || teamName,
+        teamName: teamName,
+        teamPrefix: teamPrefix,
+        points: res.points
+      });
+    });
+
+    const latestPublishedPrograms = Object.values(programMap).map(p => ({
+      ...p,
+      winners: p.winners.sort((a, b) => (a.rank || 99) - (b.rank || 99)).slice(0, 3)
+    })).slice(0, 5);
+
     return { 
-        latestResults, 
+        latestResults,
+        latestPublishedPrograms,
         leaderboard, 
         teams, 
         topStars, 
