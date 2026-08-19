@@ -145,70 +145,100 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
         )}
       </div>
 
-      <div className="mobile-grid-1" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xl)' }}>
-        <div style={{ flex: '1 1 500px', minWidth: 0 }}>
-          <h2 style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ color: '#FCD34D' }}>🏆</span> Winner Board
+      <div className="mobile-grid-1" style={{ display: 'flex', flexWrap: 'wrap', gap: '28px' }}>
+        <div style={{ flex: '1 1 540px', minWidth: 0 }}>
+          <h2 style={{ 
+            marginBottom: '16px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px',
+            fontFamily: "'Fraunces', serif",
+            fontWeight: 800,
+            fontSize: '1.4rem',
+            color: '#1a1420'
+          }}>
+            <span>🏆</span> Winner Board
           </h2>
-          <div className="glass-panel" style={{ padding: 'var(--spacing-xl)', display: 'flex', justifyContent: 'center', gap: 'var(--spacing-xl)', flexWrap: 'wrap' }}>
+          <div style={{ 
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            border: '1px solid #f2d9e6',
+            padding: '32px 20px', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: '18px', 
+            flexWrap: 'wrap',
+            boxShadow: '0 6px 24px -4px rgba(230, 0, 126, 0.07)'
+          }}>
              {rank2[0] && <WinnerDisplay result={rank2[0]} rank={2} />}
              {rank1[0] && <WinnerDisplay result={rank1[0]} rank={1} isMain />}
              {rank3[0] && <WinnerDisplay result={rank3[0]} rank={3} />}
              
              {winners.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                <div style={{ textAlign: 'center', color: '#7a7480', padding: '40px' }}>
                     No ranked winners recorded for this program yet.
                 </div>
              )}
           </div>
 
-          <div className="glass-panel" style={{ marginTop: 'var(--spacing-xl)', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                <tr>
-                  <th style={{ padding: '15px' }}>Rank/Grade</th>
-                  <th style={{ padding: '15px' }}>Participant</th>
-                  <th style={{ padding: '15px' }}>Team</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>Points</th>
+          <div style={{ 
+            marginTop: '24px', 
+            background: '#FFFFFF',
+            borderRadius: '18px',
+            border: '1px solid #f2d9e6',
+            overflow: 'hidden',
+            boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.05)'
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <thead style={{ backgroundColor: '#FFF8FA', borderBottom: '1.5px solid #f2d9e6' }}>
+                <tr style={{ color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '14px 16px' }}>Rank/Grade</th>
+                  <th style={{ padding: '14px 16px' }}>Participant</th>
+                  <th style={{ padding: '14px 16px' }}>Team</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'right' }}>Points</th>
                 </tr>
               </thead>
               <tbody>
                 {[...winners, ...others].map((res: any) => (
-                  <tr key={res.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '15px' }}>
+                  <tr key={res.id} style={{ borderBottom: '1px solid #fbeff5' }}>
+                    <td style={{ padding: '14px 16px' }}>
                         {res.rank ? (
                             <span style={{ 
-                                backgroundColor: res.rank === 1 ? '#FCD34D' : res.rank === 2 ? '#E2E8F0' : '#CD7F32',
-                                color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem'
+                                backgroundColor: res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : '#D97706',
+                                color: '#FFFFFF', padding: '3px 8px', borderRadius: '6px', fontWeight: 900, fontSize: '0.75rem'
                             }}>
-                                {res.rank === 1 ? '1ST' : res.rank === 2 ? '2ND' : '3RD'}
+                                #{res.rank}
                             </span>
                         ) : res.grade ? (
-                            <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>Grade {res.grade}</span>
+                            <span style={{ color: '#e6007e', fontWeight: 800 }}>Grade {res.grade}</span>
                         ) : '-'}
                     </td>
-                    <td style={{ padding: '15px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                             <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--surface-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
-                             <strong>{res.candidate?.name || res.team?.name}</strong>
+                    <td style={{ padding: '14px 16px' }}>
+                        <div style={{ fontWeight: 800, color: '#1a1420' }}>
+                            {res.candidate?.name || res.team?.name}
                         </div>
+                        {res.candidate?.chestNumber && (
+                          <div style={{ fontSize: '0.72rem', color: '#7a7480', fontFamily: "'IBM Plex Mono', monospace" }}>
+                            Chest #{res.candidate.chestNumber}
+                          </div>
+                        )}
                     </td>
-                    <td style={{ padding: '15px' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '14px 16px' }}>
+                        <span style={{ color: '#332938', fontWeight: 600 }}>
                            {res.candidate?.team?.name || res.team?.name || '-'}
                         </span>
                         {res.candidate?.institution?.name && (
-                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.candidate.institution.name}</div>
+                           <div style={{ fontSize: '0.75rem', color: '#7a7480' }}>{res.candidate.institution.name}</div>
                         )}
                     </td>
-                    <td style={{ padding: '15px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary)' }}>
-                        {res.points} pts
+                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 900, color: '#e6007e', fontFamily: "'IBM Plex Mono', monospace", fontSize: '1rem' }}>
+                        {res.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 700 }}>pts</span>
                     </td>
                   </tr>
                 ))}
                 {results.length === 0 && (
                    <tr>
-                     <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                     <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: '#7a7480' }}>
                         No results published yet.
                      </td>
                    </tr>
@@ -218,33 +248,35 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
           </div>
         </div>
 
-        <div style={{ flex: '1 1 300px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
-           <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-              <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Program Info</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+        <div style={{ flex: '1 1 300px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+           <div style={{ 
+             background: '#FFFFFF',
+             borderRadius: '18px',
+             border: '1px solid #f2d9e6',
+             padding: '24px 20px',
+             boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.05)'
+           }}>
+              <h3 style={{ margin: '0 0 16px 0', fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: '1.2rem', color: '#1a1420' }}>
+                Program Info
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Program Type</span>
-                      <strong>{program.type}</strong>
+                      <span style={{ color: '#7a7480' }}>Program Type</span>
+                      <strong style={{ color: '#1a1420' }}>{program.type}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Venue</span>
-                      <strong>{program.venue || '-'}</strong>
+                      <span style={{ color: '#7a7480' }}>Venue</span>
+                      <strong style={{ color: '#1a1420' }}>{program.venue || '-'}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Stage</span>
-                      <strong>{program.stageType}</strong>
+                      <span style={{ color: '#7a7480' }}>Stage</span>
+                      <strong style={{ color: '#1a1420' }}>{program.stageType}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Category</span>
-                      <strong>{program.category?.name || '-'}</strong>
+                      <span style={{ color: '#7a7480' }}>Category</span>
+                      <strong style={{ color: '#e6007e' }}>{program.category?.name || '-'}</strong>
                   </div>
               </div>
-           </div>
-           <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  This is a public result page. You can share this page link with participants and teams. 
-                  Use the "Download Result Poster" button to generate a beautiful winner announcement.
-              </p>
            </div>
         </div>
       </div>
@@ -349,62 +381,97 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
 function WinnerDisplay({ result, rank, isMain = false }: { result: any, rank: number, isMain?: boolean }) {
   const name = result?.candidate?.name || result?.team?.name || 'TBA';
   const points = result?.points || 0;
+  const chest = result?.candidate?.chestNumber;
+  const instName = result?.candidate?.institution?.name || result?.candidate?.team?.name;
   
-  const colors = {
-    1: 'var(--primary)',
-    2: 'var(--text-secondary)', 
-    3: 'var(--secondary)'
-  };
-  const color = colors[rank as keyof typeof colors];
+  const rankColor = rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : '#D97706';
+  const gradientBg = rank === 1 
+    ? 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' 
+    : rank === 2 
+    ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' 
+    : 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)';
 
   return (
     <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center',
-        transform: isMain ? 'scale(1.1)' : 'scale(1)',
-        marginTop: isMain ? '0' : '20px'
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center',
+      background: gradientBg,
+      borderRadius: '20px',
+      padding: isMain ? '28px 22px' : '22px 18px',
+      border: `2px solid ${rankColor}`,
+      boxShadow: isMain ? '0 10px 28px -4px rgba(245, 158, 11, 0.35)' : '0 6px 18px -4px rgba(0,0,0,0.08)',
+      transform: isMain ? 'scale(1.05)' : 'scale(1)',
+      minWidth: '200px',
+      maxWidth: '260px',
+      flex: 1,
+      textAlign: 'center'
     }}>
       <div style={{ 
-          width: isMain ? '100px' : '80px', 
-          height: isMain ? '100px' : '80px', 
-          borderRadius: '50%', 
-          backgroundColor: 'var(--surface-color)',
-          border: `3px solid ${color}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: isMain ? '3rem' : '2rem',
-          position: 'relative',
-          boxShadow: `0 10px 25px -5px ${color}40`
+        width: isMain ? '80px' : '68px', 
+        height: isMain ? '80px' : '68px', 
+        borderRadius: '50%', 
+        backgroundColor: '#FFFFFF',
+        border: `3px solid ${rankColor}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: isMain ? '2.2rem' : '1.8rem',
+        position: 'relative',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+        marginBottom: '14px'
       }}>
         {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
         <div style={{
-            position: 'absolute',
-            bottom: '-10px',
-            backgroundColor: color,
-            color: 'white',
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold',
-            fontSize: '0.8rem',
-            border: '2px solid var(--bg-color)'
+          position: 'absolute',
+          bottom: '-6px',
+          backgroundColor: rankColor,
+          color: '#FFFFFF',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 900,
+          fontSize: '0.75rem',
+          border: '2px solid #FFFFFF',
+          fontFamily: "'IBM Plex Mono', monospace"
         }}>
-            {rank}
+          #{rank}
         </div>
       </div>
-      <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: isMain ? '1.2rem' : '1rem' }}>{name}</div>
-          <div style={{ color: color, fontWeight: 600, fontSize: '0.9rem' }}>{points} pts</div>
-          {result?.candidate?.institution?.name && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '150px' }}>
-                {result.candidate.institution.name}
-            </div>
-          )}
+      
+      <div style={{ width: '100%' }}>
+        <div style={{ 
+          fontWeight: 900, 
+          fontSize: isMain ? '1.15rem' : '1.02rem', 
+          color: '#1a1420',
+          fontFamily: "'Fraunces', serif",
+          lineHeight: 1.25,
+          marginBottom: '4px'
+        }}>
+          {name}
+        </div>
+        {chest && (
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#7a7480', fontFamily: "'IBM Plex Mono', monospace" }}>
+            Chest #{chest}
+          </div>
+        )}
+        <div style={{ 
+          color: '#e6007e', 
+          fontWeight: 900, 
+          fontSize: '1.15rem', 
+          fontFamily: "'IBM Plex Mono', monospace",
+          marginTop: '6px'
+        }}>
+          {points} <span style={{ fontSize: '0.75rem', color: '#7a7480', fontWeight: 700 }}>PTS</span>
+        </div>
+        {instName && (
+          <div style={{ fontSize: '0.78rem', color: '#475569', marginTop: '6px', fontWeight: 600, lineHeight: 1.3 }}>
+            {instName}
+          </div>
+        )}
       </div>
     </div>
   );
