@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import PosterSettingsForm from "./PosterSettingsForm";
 import CategoryBrandingForm from "./CategoryBrandingForm";
 import SuperAdminMediaCenter from "./SuperAdminMediaCenter";
+import InteractivePosterStudio from "./InteractivePosterStudio";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import Link from "next/link";
@@ -75,37 +76,16 @@ export default async function MediaPage(props: {
           initialSettings={initialSettings}
         />
       ) : (
-        // Zone Admin / Media: standard view
-        <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 'var(--spacing-xl)', alignItems: 'start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
-              <div data-tour="media-poster">
-                  <PosterSettingsForm initialSettings={initialSettings} />
-              </div>
-              <div data-tour="media-category"><CategoryBrandingForm categories={categories} /></div>
+        // Zone Admin / Media: Interactive Poster Studio with Live Preview & Controls
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
+          <div data-tour="media-poster">
+            <InteractivePosterStudio 
+              initialSettings={initialSettings} 
+              categories={categories}
+            />
           </div>
-
-          <div data-tour="media-downloads" className="glass-panel" style={{ padding: 'var(--spacing-lg)', position: 'sticky', top: '20px' }}>
-              <h3 style={{ marginBottom: 'var(--spacing-md)' }}>🖼️ Template Download Center</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-lg)' }}>
-                  Quickly access program result boards to download "Clean Body" templates for your manual designs.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '700px', overflowY: 'auto', paddingRight: '10px' }}>
-                  {publishedPrograms.length > 0 ? publishedPrograms.map(program => (
-                      <div key={program.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                          <div>
-                              <div style={{ fontWeight: 600 }}>{program.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{program.category?.name}</div>
-                          </div>
-                          <Link href={`/results/${program.id}?eventId=${eventId || program.eventId}`} className="btn btn-secondary" style={{ padding: '5px 12px', fontSize: '0.8rem' }}>
-                              Open Generator
-                          </Link>
-                      </div>
-                  )) : (
-                      <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                          No published program results found.
-                      </div>
-                  )}
-              </div>
+          <div data-tour="media-category">
+            <CategoryBrandingForm categories={categories} />
           </div>
         </div>
       )}
