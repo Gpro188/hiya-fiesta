@@ -191,13 +191,14 @@ img, picture, video, canvas, svg {
 .dashboard-main {
   flex: 1;
   min-width: 0;
-  padding: var(--spacing-xl);
+  padding: 24px 28px;
   overflow-y: auto;
 }
 
 .dashboard-content {
-  max-width: 1280px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 /* ─── Cards ─── */
