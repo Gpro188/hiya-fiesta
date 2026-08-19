@@ -262,14 +262,14 @@ export default function InteractivePosterStudio({
               {activeBg ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
-                  src={activeBg} 
+                  src={activeBg.startsWith('data:') || activeBg.startsWith('blob:') || activeBg.startsWith('/') ? activeBg : `/api/proxy-image?url=${encodeURIComponent(activeBg)}`} 
                   alt="Poster Background"
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    width: '100%',
-                    height: '100%',
+                    width: '1080px',
+                    height: '1350px',
                     objectFit: 'cover',
                     zIndex: 0
                   }}
