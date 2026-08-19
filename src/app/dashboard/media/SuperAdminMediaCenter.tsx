@@ -28,9 +28,9 @@ export default function SuperAdminMediaCenter({
     : allSections[0];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "var(--spacing-xl)", alignItems: "start" }}>
+    <div className="superadmin-media-layout" style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr)", gap: "20px", alignItems: "start", width: "100%" }}>
       {/* Left: Event Selector */}
-      <div className="glass-panel" style={{ padding: "var(--spacing-md)", position: "sticky", top: "20px" }}>
+      <div className="glass-panel" style={{ padding: "16px", position: "sticky", top: "20px" }}>
         <h3 style={{ marginBottom: "var(--spacing-md)", fontSize: "1rem" }}>📋 Select Event</h3>
 
         {stateEvents.length > 0 && (

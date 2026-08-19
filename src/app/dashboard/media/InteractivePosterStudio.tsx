@@ -122,16 +122,16 @@ export default function InteractivePosterStudio({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '430px 1fr', gap: '24px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 390px) minmax(0, 1fr)', gap: '20px', alignItems: 'start', width: '100%' }}>
       
       {/* ── LEFT: LIVE POSTER PREVIEW ── */}
-      <div className="glass-panel" style={{ padding: '20px', position: 'sticky', top: '20px', borderRadius: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+      <div className="glass-panel" style={{ padding: '16px', position: 'sticky', top: '20px', borderRadius: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>🎨</span> Live Poster Preview
             </h3>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Using Real Fest Layout (A4 4:5)</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Layout (1080x1350)</span>
           </div>
 
           <button 
@@ -139,9 +139,9 @@ export default function InteractivePosterStudio({
             onClick={handleDownloadTestPoster}
             disabled={downloading}
             style={{
-              padding: '6px 14px',
+              padding: '5px 12px',
               borderRadius: '8px',
-              fontSize: '0.75rem',
+              fontSize: '0.72rem',
               fontWeight: 700,
               background: '#FFFFFF',
               color: '#e6007e',
@@ -150,29 +150,29 @@ export default function InteractivePosterStudio({
               boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '4px'
             }}
           >
-            <span>📥</span> {downloading ? "Rendering..." : "Download Test Poster"}
+            <span>📥</span> {downloading ? "Rendering..." : "Download Test"}
           </button>
         </div>
 
         {/* Category Switcher for Live Preview */}
         {categories.length > 0 && (
-          <div style={{ marginBottom: '14px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+          <div style={{ marginBottom: '12px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
             {categories.map(cat => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.id)}
                 style={{
-                  padding: '4px 10px',
+                  padding: '4px 8px',
                   borderRadius: '6px',
                   border: '1px solid',
                   borderColor: selectedCategoryId === cat.id ? '#e6007e' : 'var(--border-color)',
                   background: selectedCategoryId === cat.id ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
                   color: selectedCategoryId === cat.id ? '#e6007e' : 'var(--text-primary)',
-                  fontSize: '0.72rem',
+                  fontSize: '0.7rem',
                   fontWeight: selectedCategoryId === cat.id ? 800 : 500,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap'
@@ -184,15 +184,15 @@ export default function InteractivePosterStudio({
           </div>
         )}
 
-        {/* ── SCALED PREVIEW FRAME (1080x1350 scaled down to fit) ── */}
+        {/* ── SCALED PREVIEW FRAME (1080x1350 scaled down accurately to 358px) ── */}
         <div style={{
           width: '100%',
-          aspectRatio: '4 / 5',
+          height: '447px',
           backgroundColor: '#FFFFFF',
           borderRadius: '12px',
           overflow: 'hidden',
           position: 'relative',
-          boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
           border: '1px solid #f2d9e6'
         }}>
           {/* Inner 1080x1350 Virtual Canvas Container */}
@@ -205,7 +205,7 @@ export default function InteractivePosterStudio({
               top: 0,
               left: 0,
               transformOrigin: 'top left',
-              transform: 'scale(0.36)', // scaled for 390px display
+              transform: 'scale(0.331)', // 1080 * 0.331 = ~358px, 1350 * 0.331 = ~447px
               backgroundColor: '#FFFFFF',
               overflow: 'hidden',
               fontFamily: "'Outfit', 'Inter', sans-serif"
