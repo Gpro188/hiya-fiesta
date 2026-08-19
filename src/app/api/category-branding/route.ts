@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "categoryId required" }, { status: 400 });
     }
 
-    // Zone admins can only update their own event's categories
+    // Zone admins can only update their own event's categories, super admins can update all
     const userEventId = session.user.eventId;
-    if (userEventId) {
+    if (session.user.role !== "SUPER_ADMIN" && userEventId) {
       const cat = await prisma.category.findUnique({ where: { id: categoryId }, select: { eventId: true } });
       if (!cat || cat.eventId !== userEventId) {
         return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 });

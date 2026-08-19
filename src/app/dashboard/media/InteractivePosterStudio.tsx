@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { updatePosterSettings } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
@@ -15,13 +15,18 @@ export default function InteractivePosterStudio({
   zoneName?: string;
   isCompact?: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<'program' | 'category' | 'resultNo' | 'winners' | 'styles'>('program');
+  const [activeTab, setActiveTab] = useState<'program' | 'category' | 'resultNo' | 'winners' | 'visibility' | 'styles'>('program');
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
   // Selected Category for Live Preview & Category-Specific Background setting
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(categories[0]?.id || "");
+
+  // Category specific backgrounds map
+  const [categoryBgMap, setCategoryBgMap] = useState<Record<string, string>>(
+    categories.reduce((acc, cat) => ({ ...acc, [cat.id]: cat.posterBgUrl || "" }), {})
+  );
 
   // Main Configurable Layout & Typography State
   const [config, setConfig] = useState({
@@ -60,13 +65,14 @@ export default function InteractivePosterStudio({
     winnerItemGap: 36, // px gap between rows
     winnerNameSize: 26, // px
     winnerInstSize: 15, // px
+
+    // 5. Visibility Controls for Clean Design
+    showRankCircle: true,
+    showChestNumber: true,
+    showInstitutionName: true,
+    showPlace: true,
     showGrade: true,
   });
-
-  // Category specific backgrounds map
-  const [categoryBgMap, setCategoryBgMap] = useState<Record<string, string>>(
-    categories.reduce((acc, cat) => ({ ...acc, [cat.id]: cat.posterBgUrl || "" }), {})
-  );
 
   // Active Category & Background computation
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
@@ -81,6 +87,9 @@ export default function InteractivePosterStudio({
   ];
 
   const handleSaveCategoryBg = async (catId: string, url: string) => {
+    // Immediately update local state so preview renders instantly
+    setCategoryBgMap(prev => ({ ...prev, [catId]: url }));
+
     try {
       const res = await fetch("/api/category-branding", {
         method: "POST",
@@ -88,13 +97,11 @@ export default function InteractivePosterStudio({
         body: JSON.stringify({ categoryId: catId, posterBgUrl: url })
       });
       const data = await res.json();
-      if (data.success) {
-        setCategoryBgMap(prev => ({ ...prev, [catId]: url }));
-      } else {
-        alert("Error saving category background: " + data.error);
+      if (!data.success) {
+        alert("Notice: Failed to save category background to database: " + data.error);
       }
     } catch {
-      alert("Failed to save category background.");
+      alert("Failed to save category background to server.");
     }
   };
 
@@ -141,292 +148,318 @@ export default function InteractivePosterStudio({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 400px) minmax(0, 1fr)', gap: '20px', alignItems: 'start', width: '100%' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 400px) minmax(0, 1fr)', gap: '24px', alignItems: 'start', width: '100%' }}>
       
-      {/* ── LEFT COLUMN: LIVE POSTER PREVIEW ── */}
-      <div className="glass-panel" style={{ padding: '16px', position: 'sticky', top: '20px', borderRadius: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🎨</span> Live Poster Preview
-            </h3>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Canvas (1080x1350)</span>
-          </div>
+      {/* ── LEFT COLUMN: LIVE POSTER PREVIEW + UPLOAD UNDER PREVIEW ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        
+        {/* Live Preview Card */}
+        <div className="glass-panel" style={{ padding: '16px', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🎨</span> Live Poster Preview
+              </h3>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Canvas (1080x1350)</span>
+            </div>
 
-          <button 
-            type="button"
-            onClick={handleDownloadTestPoster}
-            disabled={downloading}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '8px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              background: '#FFFFFF',
-              color: '#e6007e',
-              border: '1.5px solid #f2d9e6',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <span>📥</span> {downloading ? "Rendering..." : "Download Test"}
-          </button>
-        </div>
-
-        {/* Category Switcher Tabs on top of preview */}
-        {categories.length > 0 && (
-          <div style={{ marginBottom: '12px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-            <button
+            <button 
               type="button"
-              onClick={() => setSelectedCategoryId("")}
+              onClick={handleDownloadTestPoster}
+              disabled={downloading}
               style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedCategoryId === "" ? '#e6007e' : 'var(--border-color)',
-                background: selectedCategoryId === "" ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
-                color: selectedCategoryId === "" ? '#e6007e' : 'var(--text-primary)',
-                fontSize: '0.7rem',
-                fontWeight: selectedCategoryId === "" ? 800 : 500,
+                padding: '5px 12px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                background: '#FFFFFF',
+                color: '#e6007e',
+                border: '1.5px solid #f2d9e6',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
             >
-              🌐 Default (All)
+              <span>📥</span> {downloading ? "Rendering..." : "Download Test"}
             </button>
-            {categories.map(cat => (
+          </div>
+
+          {/* Category Switcher Tabs on top of preview */}
+          {categories.length > 0 && (
+            <div style={{ marginBottom: '12px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setSelectedCategoryId(cat.id)}
+                onClick={() => setSelectedCategoryId("")}
                 style={{
                   padding: '4px 8px',
                   borderRadius: '6px',
                   border: '1px solid',
-                  borderColor: selectedCategoryId === cat.id ? '#e6007e' : 'var(--border-color)',
-                  background: selectedCategoryId === cat.id ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
-                  color: selectedCategoryId === cat.id ? '#e6007e' : 'var(--text-primary)',
+                  borderColor: selectedCategoryId === "" ? '#e6007e' : 'var(--border-color)',
+                  background: selectedCategoryId === "" ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
+                  color: selectedCategoryId === "" ? '#e6007e' : 'var(--text-primary)',
                   fontSize: '0.7rem',
-                  fontWeight: selectedCategoryId === cat.id ? 800 : 500,
+                  fontWeight: selectedCategoryId === "" ? 800 : 500,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap'
                 }}
               >
-                🏷️ {cat.name}
+                🌐 Default (All)
               </button>
-            ))}
-          </div>
-        )}
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: selectedCategoryId === cat.id ? '#e6007e' : 'var(--border-color)',
+                    background: selectedCategoryId === cat.id ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
+                    color: selectedCategoryId === cat.id ? '#e6007e' : 'var(--text-primary)',
+                    fontSize: '0.7rem',
+                    fontWeight: selectedCategoryId === cat.id ? 800 : 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  🏷️ {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {/* ── SCALED PREVIEW FRAME (1080x1350 scaled accurately to ~360px x 450px) ── */}
-        <div style={{
-          width: '100%',
-          height: '450px',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '12px',
-          overflow: 'hidden',
-          position: 'relative',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-          border: '1px solid #f2d9e6'
-        }}>
-          {/* Inner 1080x1350 Virtual Canvas Container */}
-          <div 
-            ref={posterRef}
-            style={{
-              width: '1080px',
-              height: '1350px',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              transformOrigin: 'top left',
-              transform: 'scale(0.3333)', // 1080 * 0.3333 = 360px, 1350 * 0.3333 = 450px
-              backgroundColor: '#FFFFFF',
-              overflow: 'hidden',
-              fontFamily: "'Outfit', 'Inter', sans-serif"
-            }}
-          >
-            {/* Background Image Layer (Full Bleed A4) */}
-            {activeBg && (
-              <img 
-                src={activeBg} 
-                alt="Poster Background"
-                style={{
+          {/* ── SCALED PREVIEW FRAME (1080x1350 scaled accurately to ~360px x 450px) ── */}
+          <div style={{
+            width: '100%',
+            height: '450px',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+            border: '1px solid #f2d9e6'
+          }}>
+            {/* Inner 1080x1350 Virtual Canvas Container */}
+            <div 
+              ref={posterRef}
+              style={{
+                width: '1080px',
+                height: '1350px',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                transformOrigin: 'top left',
+                transform: 'scale(0.3333)',
+                backgroundColor: '#FFFFFF',
+                overflow: 'hidden',
+                fontFamily: "'Outfit', 'Inter', sans-serif"
+              }}
+            >
+              {/* Background Image Layer (Full Bleed A4) */}
+              {activeBg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={activeBg} 
+                  alt="Poster Background"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    zIndex: 0
+                  }}
+                  crossOrigin="anonymous"
+                />
+              ) : (
+                <div style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  objectFit: 'cover',
+                  background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8',
+                  fontSize: '2rem',
+                  fontWeight: 800,
                   zIndex: 0
-                }}
-                crossOrigin="anonymous"
-              />
-            )}
+                }}>
+                  NO BACKGROUND UPLOADED
+                </div>
+              )}
 
-            {/* 1. Result Number */}
-            {config.showResultNo && (
+              {/* 1. Result Number */}
+              {config.showResultNo && (
+                <div style={{
+                  position: 'absolute',
+                  top: `${config.resultNoTop}%`,
+                  left: `${config.resultNoLeft}%`,
+                  fontSize: `${config.resultNoFontSize}px`,
+                  zIndex: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontStyle: 'italic', color: config.primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
+                  <span style={{ fontWeight: 800, color: config.secondaryColor }}>01</span>
+                </div>
+              )}
+
+              {/* 2. Program Name */}
               <div style={{
                 position: 'absolute',
-                top: `${config.resultNoTop}%`,
-                left: `${config.resultNoLeft}%`,
-                fontSize: `${config.resultNoFontSize}px`,
-                zIndex: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                <span style={{ fontStyle: 'italic', color: config.primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
-                <span style={{ fontWeight: 800, color: config.secondaryColor }}>01</span>
-              </div>
-            )}
-
-            {/* 2. Program Name */}
-            <div style={{
-              position: 'absolute',
-              top: `${config.programTop}%`,
-              left: `${config.programLeft}%`,
-              width: `${config.programWidth}%`,
-              fontSize: `${config.programFontSize}px`,
-              fontWeight: 900,
-              color: config.primaryColor,
-              lineHeight: 1.1,
-              textTransform: 'uppercase',
-              letterSpacing: '-0.5px',
-              textAlign: config.programAlign,
-              zIndex: 2
-            }}>
-              QAWWALI ARABIC
-            </div>
-
-            {/* 3. Category Badge */}
-            {config.showCategoryBadge && (
-              <div style={{
-                position: 'absolute',
-                top: `${config.categoryTop}%`,
-                left: `${config.categoryLeft}%`,
+                top: `${config.programTop}%`,
+                left: `${config.programLeft}%`,
+                width: `${config.programWidth}%`,
+                fontSize: `${config.programFontSize}px`,
+                fontWeight: 900,
+                color: config.primaryColor,
+                lineHeight: 1.1,
+                textTransform: 'uppercase',
+                letterSpacing: '-0.5px',
+                textAlign: config.programAlign,
                 zIndex: 2
               }}>
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  backgroundColor: config.secondaryColor,
-                  color: '#FFFFFF',
-                  padding: '6px 20px',
-                  borderRadius: '6px',
-                  fontWeight: 800,
-                  fontSize: `${config.categoryFontSize}px`,
-                  letterSpacing: '2px',
-                  textTransform: 'uppercase'
-                }}>
-                  {currentCategory?.name || 'SUPER SENIOR'}
-                </div>
+                QAWWALI ARABIC
               </div>
-            )}
 
-            {/* 4. Winners List */}
-            <div style={{
-              position: 'absolute',
-              top: `${config.winnersTop}%`,
-              left: `${config.winnersLeft}%`,
-              width: `${config.winnersWidth}%`,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: `${config.winnerItemGap}px`,
-              zIndex: 2
-            }}>
-              {sampleWinners.map((win, idx) => {
-                const rankColor = win.rank === 1 ? '#F59E0B' : win.rank === 2 ? '#94A3B8' : '#D97706';
-                const rankBadgeBg = win.rank === 1 ? '#FEF3C7' : win.rank === 2 ? '#F1F5F9' : '#FFEDD5';
+              {/* 3. Category Badge */}
+              {config.showCategoryBadge && (
+                <div style={{
+                  position: 'absolute',
+                  top: `${config.categoryTop}%`,
+                  left: `${config.categoryLeft}%`,
+                  zIndex: 2
+                }}>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    backgroundColor: config.secondaryColor,
+                    color: '#FFFFFF',
+                    padding: '6px 20px',
+                    borderRadius: '6px',
+                    fontWeight: 800,
+                    fontSize: `${config.categoryFontSize}px`,
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase'
+                  }}>
+                    {currentCategory?.name || 'SUPER SENIOR'}
+                  </div>
+                </div>
+              )}
 
-                return (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '18px' }}>
-                    {/* Rank Number Badge */}
-                    <div style={{
-                      width: '54px',
-                      height: '54px',
-                      borderRadius: '50%',
-                      backgroundColor: rankBadgeBg,
-                      border: `2.5px solid ${rankColor}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 900,
-                      fontSize: '1.4rem',
-                      color: config.textColor,
-                      flexShrink: 0
-                    }}>
-                      0{win.rank}
-                    </div>
+              {/* 4. Winners List */}
+              <div style={{
+                position: 'absolute',
+                top: `${config.winnersTop}%`,
+                left: `${config.winnersLeft}%`,
+                width: `${config.winnersWidth}%`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: `${config.winnerItemGap}px`,
+                zIndex: 2
+              }}>
+                {sampleWinners.map((win, idx) => {
+                  const rankColor = win.rank === 1 ? '#F59E0B' : win.rank === 2 ? '#94A3B8' : '#D97706';
+                  const rankBadgeBg = win.rank === 1 ? '#FEF3C7' : win.rank === 2 ? '#F1F5F9' : '#FFEDD5';
 
-                    {/* Candidate & Institution */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          fontSize: `${config.winnerNameSize}px`,
-                          fontWeight: 800,
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '18px' }}>
+                      {/* Rank Number Circle Badge */}
+                      {config.showRankCircle && (
+                        <div style={{
+                          width: '54px',
+                          height: '54px',
+                          borderRadius: '50%',
+                          backgroundColor: rankBadgeBg,
+                          border: `2.5px solid ${rankColor}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 900,
+                          fontSize: '1.4rem',
                           color: config.textColor,
-                          lineHeight: 1.1,
-                          textTransform: 'uppercase'
+                          flexShrink: 0
                         }}>
-                          {win.name}
-                        </span>
-                        <span style={{ fontSize: `${config.winnerNameSize * 0.8}px`, fontWeight: 700, color: '#64748B' }}>
-                          ({win.chest})
-                        </span>
-                      </div>
-                      <div style={{
-                        fontSize: `${config.winnerInstSize}px`,
-                        fontWeight: 600,
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        marginTop: '4px',
-                        lineHeight: 1.2
-                      }}>
-                        {win.inst}, {win.place}
-                      </div>
-                      {config.showGrade && (
-                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: config.secondaryColor, marginTop: '2px' }}>
-                          Grade {win.grade}
+                          0{win.rank}
                         </div>
                       )}
+
+                      {/* Candidate & Institution */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontSize: `${config.winnerNameSize}px`,
+                            fontWeight: 800,
+                            color: config.textColor,
+                            lineHeight: 1.1,
+                            textTransform: 'uppercase'
+                          }}>
+                            {win.name}
+                          </span>
+                          {config.showChestNumber && (
+                            <span style={{ fontSize: `${config.winnerNameSize * 0.8}px`, fontWeight: 700, color: '#64748B' }}>
+                              ({win.chest})
+                            </span>
+                          )}
+                        </div>
+
+                        {config.showInstitutionName && (
+                          <div style={{
+                            fontSize: `${config.winnerInstSize}px`,
+                            fontWeight: 600,
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            marginTop: '4px',
+                            lineHeight: 1.2
+                          }}>
+                            {win.inst}{config.showPlace && win.place ? `, ${win.place}` : ''}
+                          </div>
+                        )}
+
+                        {config.showGrade && (
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: config.secondaryColor, marginTop: '2px' }}>
+                            Grade {win.grade}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-
-      {/* ── RIGHT COLUMN: POSTER BACKGROUND & LIVE SLIDER CONTROLS ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        
-        {/* Background Uploader (Switches seamlessly between Default & Selected Category) */}
-        <div className="glass-panel" style={{ padding: '18px', borderRadius: '16px' }}>
+        {/* ── UPLOAD BACKGROUND SECTION (Directly Under Preview) ── */}
+        <div className="glass-panel" style={{ padding: '16px', borderRadius: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '1rem', color: '#1a1420' }}>
-              🖼️ {selectedCategoryId ? `${currentCategory?.name} Category Background` : `Default Poster Background (${zoneName || 'Global'})`}
-            </h3>
+            <h4 style={{ margin: 0, fontSize: '0.92rem', color: '#1a1420' }}>
+              🖼️ {selectedCategoryId ? `${currentCategory?.name} Background` : `Default (${zoneName || 'Global'}) Background`}
+            </h4>
             {selectedCategoryId && activeCategoryBg && (
-              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontWeight: 700 }}>
-                ✓ CATEGORY OVERRIDE ACTIVE
+              <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '8px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontWeight: 700 }}>
+                ✓ CATEGORY OVERRIDE
               </span>
             )}
           </div>
-          
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
+
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
             {selectedCategoryId 
-              ? `Upload a unique background artwork specifically for ${currentCategory?.name} category programs.`
-              : `Upload the default background artwork for all programs in ${zoneName || 'this festival'}.`}
+              ? `Upload unique background art for ${currentCategory?.name} category programs.`
+              : `Upload default background art for all programs in ${zoneName || 'this festival'}.`}
           </p>
 
           <ImageUpload
-            key={selectedCategoryId || "default-bg"}
-            label={selectedCategoryId ? `Upload ${currentCategory?.name} Poster Background` : `Upload ${zoneName || 'Default'} Poster Background`}
+            key={selectedCategoryId || "default-bg-uploader"}
+            label={selectedCategoryId ? `Upload ${currentCategory?.name} Background` : `Upload ${zoneName || 'Default'} Background`}
             folder="posters"
             initialUrl={selectedCategoryId ? activeCategoryBg : config.posterBgUrl}
             onUploadComplete={(url) => {
@@ -439,7 +472,13 @@ export default function InteractivePosterStudio({
           />
         </div>
 
-        {/* Live Area Adjustment Tabs */}
+      </div>
+
+
+      {/* ── RIGHT COLUMN: AREA ADJUSTMENTS, VISIBILITY & STYLES ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        
+        {/* Adjustment Tabs Strip */}
         <div className="glass-panel" style={{ padding: '18px', borderRadius: '16px' }}>
           <div style={{ display: 'flex', gap: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px', overflowX: 'auto' }}>
             {[
@@ -447,6 +486,7 @@ export default function InteractivePosterStudio({
               { id: 'category', label: '🏷️ Category' },
               { id: 'resultNo', label: '# Result No' },
               { id: 'winners', label: '🏆 Winners Box' },
+              { id: 'visibility', label: '👁️ Show / Hide' },
               { id: 'styles', label: '🎨 Colors & Align' }
             ].map(tab => (
               <button
@@ -673,7 +713,64 @@ export default function InteractivePosterStudio({
             </div>
           )}
 
-          {/* 5. Colors & Alignments */}
+          {/* 5. Visibility Controls (Hide Chest Number, Institution, Place, Grade) */}
+          {activeTab === 'visibility' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>👁️ Element Visibility Controls</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Toggle individual elements on or off to match pre-designed background layouts.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={config.showRankCircle} 
+                    onChange={(e) => setConfig({ ...config, showRankCircle: e.target.checked })} 
+                  />
+                  <span>Show Rank Badge Circle (01, 02, 03)</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={config.showChestNumber} 
+                    onChange={(e) => setConfig({ ...config, showChestNumber: e.target.checked })} 
+                  />
+                  <span>Show Chest Number beside name</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={config.showInstitutionName} 
+                    onChange={(e) => setConfig({ ...config, showInstitutionName: e.target.checked })} 
+                  />
+                  <span>Show Institution / Team Name</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={config.showPlace} 
+                    onChange={(e) => setConfig({ ...config, showPlace: e.target.checked })} 
+                  />
+                  <span>Show Place / Location (e.g. Kundotty)</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={config.showGrade} 
+                    onChange={(e) => setConfig({ ...config, showGrade: e.target.checked })} 
+                  />
+                  <span>Show Grade Text (e.g. Grade A+)</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* 6. Colors & Alignments */}
           {activeTab === 'styles' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>🎨 Colors & Typography</h4>
