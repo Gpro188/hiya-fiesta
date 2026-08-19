@@ -37,22 +37,23 @@ export default function PublicNav({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             textDecoration: "none",
             minWidth: 0,
+            flex: "1 1 auto",
           }}
         >
           <div
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: "10px",
+              width: 36,
+              height: 36,
+              borderRadius: "8px",
               background: "#FFFFFF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "4px",
-              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.25)",
+              padding: "3px",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.25)",
               flexShrink: 0,
             }}
           >
@@ -63,11 +64,11 @@ export default function PublicNav({
             />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <div
                 style={{
                   fontFamily: "'Fraunces', serif",
-                  fontSize: "1.05rem",
+                  fontSize: "0.95rem",
                   fontWeight: 700,
                   color: "#ffffff",
                   letterSpacing: "-0.01em",
@@ -84,12 +85,12 @@ export default function PublicNav({
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "4px",
-                  fontSize: "0.65rem",
+                  fontSize: "0.6rem",
                   fontWeight: 800,
                   background: "rgba(230, 0, 126, 0.2)",
                   color: "var(--gold-light, #ff8fc4)",
                   border: "1px solid rgba(255, 79, 163, 0.4)",
-                  padding: "2px 6px",
+                  padding: "1px 5px",
                   borderRadius: "9999px",
                   textTransform: "uppercase",
                   fontFamily: "'IBM Plex Mono', monospace",
@@ -98,8 +99,8 @@ export default function PublicNav({
               >
                 <span
                   style={{
-                    width: 6,
-                    height: 6,
+                    width: 5,
+                    height: 5,
                     borderRadius: "50%",
                     backgroundColor: "var(--gold, #ff4fa3)",
                     display: "inline-block",
@@ -110,15 +111,18 @@ export default function PublicNav({
               </span>
             </div>
             <div
+              className="public-nav-sub"
               style={{
                 fontFamily: "'Inter', sans-serif",
-                fontSize: "0.7rem",
+                fontSize: "0.65rem",
                 color: "var(--slate, #7a7480)",
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
-                marginTop: 2,
+                marginTop: 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
-              className="public-nav-sub"
             >
               Council of Samastha Women&apos;s Colleges
             </div>
@@ -126,28 +130,29 @@ export default function PublicNav({
         </Link>
 
         {(showSearch || showLogin) && (
-          <div className="public-nav-actions" style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+          <div className="public-nav-actions" style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
             {showSearch && (
               <Link
                 href="/search"
                 className="btn-header-search"
                 style={{
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: "0.82rem",
+                  fontSize: "0.75rem",
                   fontWeight: 600,
                   color: "#f2ead9",
                   backgroundColor: "rgba(255, 255, 255, 0.08)",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
                   borderRadius: "9999px",
-                  padding: "0.45rem 1rem",
+                  padding: "0.4rem 0.75rem",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "4px",
                   textDecoration: "none",
                   transition: "all 0.2s",
+                  whiteSpace: "nowrap",
                 }}
               >
-                🔍 Search
+                🔍 <span className="nav-search-text">Search</span>
               </Link>
             )}
             {showLogin && (
@@ -156,12 +161,12 @@ export default function PublicNav({
                 className="btn-header-login"
                 style={{
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: "0.82rem",
+                  fontSize: "0.75rem",
                   fontWeight: 700,
                   color: "#ffffff",
                   background: "var(--gold, #ff4fa3)",
                   borderRadius: "9999px",
-                  padding: "0.45rem 1.1rem",
+                  padding: "0.4rem 0.85rem",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -169,6 +174,7 @@ export default function PublicNav({
                   boxShadow: "0 4px 12px rgba(230, 0, 126, 0.35)",
                   transition: "transform 0.15s ease",
                   whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 Portal Login

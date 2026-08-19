@@ -1296,8 +1296,12 @@ footer.site-footer hr {
 }
 
 @media (max-width: 600px) {
-  .hf-nav-sub     { display: none; }
+  .hf-nav-sub, .public-nav-sub { display: none; }
   .hf-btn-ghost   { display: none; }
+
+  .nav-search-text { display: none; }
+  .btn-header-search { padding: 0.4rem 0.55rem !important; }
+  .btn-header-login { padding: 0.4rem 0.75rem !important; font-size: 0.72rem !important; }
 
   .hf-stats-grid  { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .hf-zone-grid   { grid-template-columns: 1fr; }
