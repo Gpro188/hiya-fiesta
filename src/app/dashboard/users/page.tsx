@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import UserActions from "./UserActions";
 import CreateUserForm from "./CreateUserForm";
+import UserListTable from "./UserListTable";
 import { redirect } from "next/navigation";
 
 export default async function UsersPage() {
@@ -13,8 +14,26 @@ export default async function UsersPage() {
   }
 
   const isZoneAdmin = session.user.role === "ZONE_ADMIN";
-  // Zone Admins only see users in their zone
-  const whereClause = isZoneAdmin ? { zoneId: (session.user as any).zoneId } : {};
+  
+  // Look up user directly to guarantee accurate zoneId
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { zoneId: true }
+  });
+  const currentZoneId = currentUser?.zoneId || (session.user as any).zoneId;
+
+  // Zone Admins strictly see ONLY Institution Managers belonging to their zone
+  const whereClause = isZoneAdmin && currentZoneId
+    ? {
+        role: { in: ["INSTITUTION_MANAGER", "MANAGER"] },
+        OR: [
+          { zoneId: currentZoneId },
+          { institution: { zoneId: currentZoneId } }
+        ]
+      }
+    : isZoneAdmin
+    ? { role: "NONE" } // Fallback empty if zoneId not linked
+    : {};
 
   const users = await prisma.user.findMany({
     where: whereClause,
@@ -25,8 +44,13 @@ export default async function UsersPage() {
     orderBy: { createdAt: 'desc' }
   });
 
-  const zones = await prisma.zone.findMany({ select: { id: true, name: true } });
-  const institutions = await prisma.masterInstitution.findMany({ select: { id: true, name: true, zoneId: true } });
+  const zones = isZoneAdmin && currentZoneId
+    ? await prisma.zone.findMany({ where: { id: currentZoneId }, select: { id: true, name: true } })
+    : await prisma.zone.findMany({ select: { id: true, name: true } });
+
+  const institutions = isZoneAdmin && currentZoneId
+    ? await prisma.masterInstitution.findMany({ where: { zoneId: currentZoneId }, select: { id: true, name: true, zoneId: true } })
+    : await prisma.masterInstitution.findMany({ select: { id: true, name: true, zoneId: true } });
 
   return (
     <div className="animate-fade-in">
@@ -45,50 +69,12 @@ export default async function UsersPage() {
         />
       </div>
 
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Assigned To</th>
-                <th>Created</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td style={{ fontWeight: 600 }}>{user.username}</td>
-                  <td>
-                    <span className={`badge ${
-                      user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? 'badge-error' : 
-                      user.role === 'ZONE_ADMIN' ? 'badge-brand' : 'badge-success'
-                    }`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td>
-                    {user.institution?.name || (user.zone ? `${user.zone.name} Zone` : null) || <span style={{ color: 'var(--text-muted)' }}>-</span>}
-                  </td>
-                  <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <UserActions userId={user.id} username={user.username} />
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '2rem' }}>
-                    No users found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <UserListTable 
+        users={users as any} 
+        zones={zones} 
+        institutions={institutions} 
+        isZoneAdmin={isZoneAdmin} 
+      />
     </div>
   );
 }

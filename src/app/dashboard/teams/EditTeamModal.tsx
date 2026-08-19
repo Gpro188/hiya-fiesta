@@ -63,7 +63,7 @@ export default function EditTeamModal({ team, onClose }: { team: any, onClose: (
 
           <div className="form-group">
             <ImageUpload 
-              label="Leader Photo (Optional)" 
+              label="Institution Logo / Team Crest (Optional)" 
               folder="teams" 
               initialUrl={leaderPhoto}
               onUploadComplete={(url) => setLeaderPhoto(url)} 

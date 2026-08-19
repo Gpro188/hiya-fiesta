@@ -1,37 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
 
 /* ─── CSS Custom Properties (Theme Tokens) ─── */
 :root {
-  --primary: #800000; /* Deep Burgundy / Maroon */
-  --primary-hover: #5A0000;
-  --secondary: #D4AF37; /* Gold / Beige Accent */
-  --accent: #A52A2A; /* Lighter Burgundy/Brown */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  --ink:        #12162a;   /* dark header/hero backgrounds */
+  --ink-soft:   #1c2140;
+  --bg:         #f3f4f9;   /* page background */
+  --surface:    #ffffff;   /* card background */
+  --text:       #1b1e2b;
+  --muted:      #6b7080;
+  --border:     #e5e6f0;
+  --gold:       #c8973f;   /* trophy/primary-CTA accent */
+  --gold-bright:#ecc884;
+  --gold-ink:   #4a3410;
+  --maroon:     #9c2b3c;   /* team color example */
+  --emerald:    #1e7a5b;   /* team color example / "live"/success state */
+  --indigo:     #4b4f9e;   /* admin/primary UI accent */
+  --indigo-soft:#eaebf8;
+  --violet:     #6a5fd3;
+  --rose:       #c94b6a;
+  --amber:      #c98a1c;
+  --live:       #d64545;   /* pending/error/live-dot */
+  --radius:     16px;
+  --shadow-sm:  0 1px 2px rgba(18,22,42,.06), 0 1px 1px rgba(18,22,42,.04);
+  --shadow-md:  0 8px 24px -8px rgba(18,22,42,.18);
+  --shadow-lg:  0 24px 60px -20px rgba(18,22,42,.35);
 
-  --bg-color: #FAFAFA; /* Very light warm/neutral background */
-  --surface-color: #ffffff; /* Crisp white for cards */
-  --surface-hover: #F5F5F5;
-  --border-color: #E0E0E0; /* Subtle borders */
-  --border-color-strong: #BDBDBD;
+  /* Semantic mappings */
+  --primary: var(--indigo);
+  --primary-hover: #3b3f82;
+  --primary-light: var(--indigo-soft);
+  --secondary: var(--gold);
+  --accent: var(--rose);
+  --success: var(--emerald);
+  --warning: var(--amber);
+  --error: var(--live);
 
-  --text-primary: #1A1A1A; /* Charcoal / dark text */
-  --text-secondary: #424242;
-  --text-muted: #757575;
+  --bg-color: var(--bg);
+  --surface-color: var(--surface);
+  --surface-hover: #fafbfe;
+  --border-color: var(--border);
+  --border-color-strong: #cbd0e2;
 
-  /* Restrict dark theme variables unless explicitly requested */
-  --hero-glass-bg: rgba(255, 255, 255, 0.95);
-  --hero-orb-1: rgba(128, 0, 0, 0.1);
-  --hero-orb-2: rgba(212, 175, 55, 0.15);
-  --hero-orb-3: rgba(165, 42, 42, 0.1);
-  --hero-gradient-center: rgba(250, 250, 250, 1);
-  
-  --card-bg: rgba(255, 255, 255, 1);
-  --card-border-hover: rgba(128, 0, 0, 0.3);
+  --text-primary: var(--text);
+  --text-secondary: #3b4054;
+  --text-muted: var(--muted);
 
-  --font-sans: 'Inter', sans-serif;
-  --font-heading: 'Outfit', sans-serif;
+  --font-serif: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  --font-sans: var(--font-inter), 'Inter', sans-serif;
+  --font-mono: var(--font-mono), 'JetBrains Mono', monospace;
+  --font-heading: var(--font-serif);
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -46,14 +63,22 @@
   --spacing-xl: 2rem;
   --spacing-xxl: 3rem;
 
-  --shadow-sm: 0px 1px 3px 0px rgba(26,26,26,0.08), 0px 1px 2px 0px rgba(26,26,26,0.04);
-  --shadow-md: 0px 4px 8px -2px rgba(26,26,26,0.08), 0px 2px 4px -2px rgba(26,26,26,0.04);
-  --shadow-lg: 0px 12px 16px -4px rgba(26,26,26,0.1), 0px 4px 6px -2px rgba(26,26,26,0.05);
-  --shadow-glow: 0 0 20px rgba(128, 0, 0, 0.15);
+  --shadow-glow: 0 0 24px rgba(200, 151, 63, 0.35);
   --transition-fast: 0.15s ease-in-out;
-  --transition-normal: 0.3s ease-in-out;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   color-scheme: light;
+}
+
+/* Numerals standard across all scores, stats, tables, counts */
+.mono-numeral, [data-mono-numeral] {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Heading font standard */
+.heading-serif, h1, h2, h3, .fest-heading {
+  font-family: var(--font-serif);
 }
 
 [data-theme='dark'] {

@@ -243,7 +243,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
       section: "Zone Management",
       items: [
         {
-          name: "Teams & Users",
+          name: "User Credentials",
+          subtitle: "Manage institution accounts",
+          icon: "👥",
+          href: "/dashboard/users",
+        },
+        {
+          name: "Teams & Institutions",
           subtitle: "Zone Institutions",
           icon: "🛡️",
           href: "/dashboard/teams",
@@ -388,9 +394,13 @@ export default function DashboardSidebar({
             style={{
               width: "42px",
               height: "42px",
+              borderRadius: "10px",
+              background: "#FFFFFF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "4px",
+              boxShadow: "0 1px 4px rgba(0, 0, 0, 0.12)",
               flexShrink: 0,
             }}
           >
@@ -510,16 +520,19 @@ export default function DashboardSidebar({
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
           <div
             style={{
-              width: "32px",
-              height: "32px",
+              width: "36px",
+              height: "36px",
               borderRadius: "8px",
-              background: "linear-gradient(135deg, #A5003A, #8E0033)",
+              background: "#FFFFFF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "3px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+              flexShrink: 0,
             }}
           >
-            <img src="/icon.png" alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+            <img src="/icon.png" alt="CSWC Fiesta Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
           <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>
             {festName}

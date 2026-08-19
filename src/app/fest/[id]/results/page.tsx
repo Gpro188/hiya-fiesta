@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import PublicDashboard from "../../../components/PublicDashboard";
 import VisitTracker from "../../../components/VisitTracker";
 import { getSettings, getHomepageSettings } from "@/lib/settings";
 import ThemeApplicator from "../../../components/ThemeApplicator";
+import PublicNav from "../../../components/PublicNav";
+import PublicFooter from "../../../components/PublicFooter";
+import "@/app/homepage.css";
 
 export const revalidate = 30; // Revalidate standings every 30 seconds
 
@@ -25,128 +27,89 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
     notFound();
   }
 
-  // Gather all related events for the dynamic tab switcher
-  const allEvents: any[] = [];
+  // For zone and specific event results pages, display its own name and keep it dedicated
+  const allEvents: any[] = [{ id: event.id, name: event.name }];
   let mainEventName = event.name;
 
-  if (event.parentId) {
-    // It's a sub-event, so include sibling sub-events
-    mainEventName = event.parent!.name;
-    event.parent!.subEvents.forEach(sub => {
-      allEvents.push({ id: sub.id, name: sub.name });
-    });
-  } else {
-    // It's a main event, so include all its sub-events
-    event.subEvents.forEach(sub => {
-      allEvents.push({ id: sub.id, name: sub.name });
-    });
-  }
-
-  // If the user landed on the main event page directly, default to showing the first sub-event instead of the empty main event
-  const initialActiveId = event.parentId ? event.id : (allEvents[0]?.id || event.id);
+  // Default active event is this event
+  const initialActiveId = event.id;
 
   const settings = await getSettings(event.id);
   const homepageSettings = await getHomepageSettings(event.id);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <ThemeApplicator 
-        primaryColor={homepageSettings?.primaryColor}
-        secondaryColor={homepageSettings?.secondaryColor}
-        bgColor={homepageSettings?.bgColor}
-      />
+    <div 
+      className="hf-root"
+      style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        background: '#ffffff',
+        fontFamily: "'Inter', sans-serif"
+      }}
+    >
       <VisitTracker eventId={event.id} />
 
-      {/* Header */}
-      <header style={{ 
-        padding: 'var(--spacing-md) 0', 
-        borderBottom: '1px solid var(--border-color)',
-        backgroundColor: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(10px)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              borderRadius: 'var(--radius-md)', 
-              background: settings.festLogo ? 'transparent' : 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              overflow: 'hidden'
-            }}>
-              {settings.festLogo ? (
-                <img src={settings.festLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              ) : (
-                mainEventName.charAt(0)
-              )}
-            </div>
-            <div>
-              <h1 style={{ fontSize: '1.5rem', margin: 0, letterSpacing: '-0.5px', color: 'white' }}>{mainEventName}</h1>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{settings.festMoto}</div>
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-            <Link href={`/search?eventId=${event.id}`} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
-              🔍 Search
-            </Link>
-            <Link href="/login" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
-              Login
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Modern Public Navigation */}
+      <PublicNav eventName={mainEventName} showSearch={true} showLogin={false} />
 
-      {/* Main Content */}
-      <main style={{ flex: 1, padding: 'var(--spacing-xl) 0' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-             <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'white' }}>{mainEventName}</h2>
-             <p style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>Live Results Dashboard</p>
-          </div>
-          
+      {/* ── Official Title Band with Motion & Banner ── */}
+      <div 
+        className="title-band"
+        style={{
+          background: homepageSettings?.heroBgUrl 
+            ? `linear-gradient(160deg, rgba(163, 0, 92, 0.88), rgba(26, 20, 32, 0.94)), url(${homepageSettings.heroBgUrl}) center/cover no-repeat`
+            : 'linear-gradient(160deg, var(--maroon-deep, #a3005c), var(--ink, #1a1420) 85%)',
+          color: '#ffffff',
+          textAlign: 'center',
+          padding: '54px 24px 44px',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: '1180px', margin: '0 auto' }}>
+          <span 
+            className="eyebrow" 
+            style={{ 
+              color: 'var(--gold-light, #ff8fc4)', 
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '12px',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              display: 'block'
+            }}
+          >
+            Official Results Portal
+          </span>
+          <h1 
+            style={{ 
+              fontFamily: "'Fraunces', serif",
+              fontSize: 'clamp(32px, 5.5vw, 54px)', 
+              fontWeight: 800, 
+              marginTop: '10px',
+              marginBottom: '4px',
+              letterSpacing: '-0.01em',
+              color: '#ffffff'
+            }}
+          >
+            {mainEventName}
+          </h1>
+          <p style={{ color: '#d8cdc2', margin: '8px 0 0', fontSize: '15px' }}>
+            Live Results Dashboard
+          </p>
+        </div>
+      </div>
+
+      {/* Main Dashboard Content */}
+      <main style={{ flex: 1, padding: '32px 0 3.5rem 0' }}>
+        <div className="wrap" style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px' }}>
           <PublicDashboard initialEvents={allEvents} initialActiveId={initialActiveId} />
         </div>
       </main>
 
-      {/* Brand Advertisement Footer */}
-      <footer style={{ 
-        padding: 'var(--spacing-xl) 0', 
-        borderTop: '1px solid var(--border-color)', 
-        backgroundColor: 'rgba(15, 23, 42, 0.4)',
-        textAlign: 'center', 
-        color: 'var(--text-muted)',
-        marginTop: 'var(--spacing-xxl)'
-      }}>
-        <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <p style={{ margin: 0 }}>&copy; 2026 {event.name} • Live Leaderboard Standings</p>
-          
-          {/* Brand Ad Link */}
-          <div className="glass-panel" style={{ 
-            padding: '12px 24px', 
-            borderRadius: 'var(--radius-md)', 
-            border: '1px solid rgba(79, 70, 229, 0.15)',
-            background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(6, 182, 212, 0.05))',
-            marginTop: '10px',
-            maxWidth: '550px'
-          }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>
-              ⚡ Powered by <strong>CSWC Hiya Fiesta_artsfest system</strong>.
-            </p>
-            <Link href="/" style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              Host your own arts fest on this system ➔
-            </Link>
-          </div>
-        </div>
-      </footer>
+      {/* Shared Branded Footer */}
+      <PublicFooter eventName={mainEventName} />
     </div>
   );
 }

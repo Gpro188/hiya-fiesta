@@ -11,6 +11,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1067.0",
     "@aws-sdk/s3-request-presigner": "^3.1067.0",
+    "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
     "firebase": "^12.13.0",
     "html-to-image": "^1.11.13",
@@ -23,7 +24,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@prisma/client": "^6.19.3",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",

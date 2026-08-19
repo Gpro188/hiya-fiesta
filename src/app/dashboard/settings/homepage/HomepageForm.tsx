@@ -4,7 +4,7 @@ import { useState } from "react";
 import { saveHomepageSettings } from "./actions";
 import ImageUpload from "../../../components/ImageUpload";
 
-export default function HomepageForm({ initialData }: { initialData: any }) {
+export default function HomepageForm({ initialData, targetEventId }: { initialData: any, targetEventId?: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   
@@ -86,7 +86,7 @@ export default function HomepageForm({ initialData }: { initialData: any }) {
         </div>
       )}
       
-      <input type="hidden" name="targetEventId" value={initialData?.targetEventId || ""} />
+      <input type="hidden" name="targetEventId" value={targetEventId || initialData?.targetEventId || ""} />
 
       {/* ── Hero Section ─────────────────────────────────── */}
       <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }} open>

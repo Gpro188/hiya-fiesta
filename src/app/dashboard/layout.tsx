@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { getSettings, getHomepageSettings } from "@/lib/settings";
 import DashboardSidebar from "./DashboardSidebar";
-import TourWrapper from "@/components/TourWrapper";
 import ThemeApplicator from "@/app/components/ThemeApplicator";
 
 export default async function DashboardLayout({
@@ -57,9 +56,6 @@ export default async function DashboardLayout({
           {children}
         </div>
       </main>
-
-      {/* Onboarding Tour - auto-detects page from URL */}
-      <TourWrapper />
     </div>
   );
 }

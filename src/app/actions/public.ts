@@ -23,9 +23,17 @@ const getCachedPublicEventData = unstable_cache(
         where: { program: { eventId }, isPublished: true },
         select: {
           id: true, points: true, rank: true, grade: true, updatedAt: true,
-          candidate: { select: { id: true, name: true, chestNumber: true, team: { select: { id: true, name: true, flagColor: true } } } },
+          candidate: { 
+            select: { 
+              id: true, 
+              name: true, 
+              chestNumber: true, 
+              category: { select: { id: true, name: true } },
+              team: { select: { id: true, name: true, flagColor: true } } 
+            } 
+          },
           team: { select: { id: true, name: true, flagColor: true, leaderPhoto: true } },
-          program: { select: { id: true, name: true } }
+          program: { select: { id: true, name: true, category: { select: { id: true, name: true } } } }
         },
         orderBy: { updatedAt: 'desc' },
         take: 10
@@ -80,30 +88,34 @@ const getCachedPublicEventData = unstable_cache(
       let teamId = null;
       let teamName = "";
       let teamFlag = null;
+      let teamLeaderPhoto = null;
 
       if (res.candidate) {
         teamId = res.candidate.team.id;
         teamName = res.candidate.team.name;
         teamFlag = res.candidate.team.flagColor;
+        const matchingTeam = teams.find(t => t.id === res.candidate?.team?.id);
+        teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
       } else if (res.team) {
         teamId = res.team.id;
         teamName = res.team.name;
         teamFlag = res.team.flagColor;
+        const matchingTeam = teams.find(t => t.id === res.team?.id);
+        teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
       }
 
-      if (teamId && teamScores[teamId]) {
+      if (teamId) {
+        if (!teamScores[teamId]) {
+          teamScores[teamId] = {
+            id: teamId,
+            name: teamName,
+            points: 0,
+            flagColor: teamFlag,
+            leaderName: null,
+            leaderPhoto: teamLeaderPhoto
+          };
+        }
         teamScores[teamId].points += res.points;
-      } else if (teamId) {
-         // Fallback if team wasn't in initial list for some reason
-         const matchingTeam = teams.find(t => t.id === teamId);
-         teamScores[teamId] = {
-           id: teamId,
-           name: teamName,
-           points: res.points,
-           flagColor: teamFlag,
-           leaderName: matchingTeam?.leaderName || null,
-           leaderPhoto: matchingTeam?.leaderPhoto || null
-         };
       }
     });
     const leaderboard = Object.values(teamScores).sort((a, b) => b.points - a.points);

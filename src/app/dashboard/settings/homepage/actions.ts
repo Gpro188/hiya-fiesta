@@ -9,7 +9,7 @@ export async function saveHomepageSettings(data: any) {
   try {
     const session = await getServerSession(authOptions);
     const user = session?.user;
-    if (!user || (!["SUPER_ADMIN", "ADMIN", "MANAGER", "INSTITUTION_MANAGER"].includes(user.role))) {
+    if (!user || (!["SUPER_ADMIN", "ADMIN", "ZONE_ADMIN", "MANAGER", "INSTITUTION_MANAGER"].includes(user.role))) {
       return { success: false, message: "Unauthorized" };
     }
 

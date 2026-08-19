@@ -51,21 +51,81 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
     setImporting(false);
   };
 
-  const handleExport = () => {
-    const exportData = programs.map(p => ({
-      "Program Code": p.programCode || "",
-      "Name": p.name,
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("ALL");
+
+  const handleExport = (exportCategory: string = selectedCategoryFilter, exportType: string = selectedTypeFilter) => {
+    // Filter programs based on selected criteria
+    let filtered = programs;
+    
+    // Filter by selected event
+    if (selectedEventId) {
+      filtered = filtered.filter(p => p.eventId === selectedEventId);
+    }
+    
+    // Filter by category / general
+    if (exportCategory === "GENERAL") {
+      filtered = filtered.filter(p => p.type === "GENERAL" || !p.categoryId);
+    } else if (exportCategory !== "ALL") {
+      filtered = filtered.filter(p => p.categoryId === exportCategory);
+    }
+
+    // Filter by type (INDIVIDUAL / GROUP / GENERAL)
+    if (exportType !== "ALL") {
+      filtered = filtered.filter(p => p.type === exportType);
+    }
+
+    const exportData = filtered.map((p, index) => ({
+      "Sl No": index + 1,
+      "Program Code": p.programCode || "-",
+      "Program Name": p.name,
       "Type": p.type,
-      "Category": p.category?.name || "General",
-      "Duration": p.duration,
-      "Candidate Limit": p.candidateLimitPerTeam,
-      "Event": p.event.name
+      "Stage Type": p.stageType ? (p.stageType === "ON_STAGE" ? "On Stage" : "Off Stage") : "On Stage",
+      "Category": p.type === "GENERAL" ? "General" : (p.category?.name || "General"),
+      "Duration (Mins)": p.duration || 10,
+      "Candidate Limit Per Team": p.candidateLimitPerTeam || 1,
+      "Venue": p.venue || "Not Assigned",
+      "Event": p.event?.name || selectedEvent?.name || "Fest",
+      "Total Registered Candidates": p._count?.assignments || 0,
+      "Assigned Judges": p.judges && p.judges.length > 0 ? p.judges.map((j: any) => j.username).join(", ") : "None",
+      "Description / Guidelines": p.description || "-",
+      "Evaluation Criteria": p.evaluationCriteria || "-"
     }));
 
+    if (exportData.length === 0) {
+      setError("No programs match the selected filter to export.");
+      return;
+    }
+
+    const catNameLabel = exportCategory === "ALL" 
+      ? "All_Categories" 
+      : (exportCategory === "GENERAL" ? "General" : (categories.find(c => c.id === exportCategory)?.name || "Filtered"));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-fit column widths
+    const colWidths = [
+      { wch: 6 },  // Sl No
+      { wch: 14 }, // Program Code
+      { wch: 30 }, // Program Name
+      { wch: 14 }, // Type
+      { wch: 12 }, // Stage Type
+      { wch: 16 }, // Category
+      { wch: 16 }, // Duration
+      { wch: 25 }, // Candidate Limit
+      { wch: 18 }, // Venue
+      { wch: 28 }, // Event
+      { wch: 26 }, // Total Candidates
+      { wch: 22 }, // Judges
+      { wch: 35 }, // Description
+      { wch: 35 }, // Criteria
+    ];
+    ws['!cols'] = colWidths;
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Programs");
-    XLSX.writeFile(wb, `Programs_${selectedEvent?.name || "Fest"}_${new Date().toLocaleDateString()}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Programs_Full_Details");
+    XLSX.writeFile(wb, `Programs_${selectedEvent?.name?.replace(/\s+/g, '_') || 'Event'}_${catNameLabel}_FullDetails.xlsx`);
+    setSuccess(`Downloaded ${exportData.length} programs with full details (${catNameLabel})!`);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +226,7 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
           <h3 style={{ margin: 0 }}>Bulk Excel Upload & Template</h3>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select target festival event, download template, and import all programs at once.</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
           {events.length === 1 && events[0].parentId === null ? (
             <button onClick={handlePushToZones} disabled={importing} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--success)' }}>
               🚀 Push Master Programs to All Zones
@@ -179,25 +239,101 @@ export default function ProgramBulkActions({ events, programs, categories }: { e
           <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             📥 Download Template
           </button>
-          <button onClick={handleExport} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-            📤 Export Excel
+          <button onClick={() => handleExport("ALL", "ALL")} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#059669', color: '#fff', border: 'none' }}>
+            📊 Export Excel
           </button>
+          <a 
+            href={`/print/programs?eventId=${selectedEventId}&categoryId=ALL`}
+            target="_blank"
+            className="btn btn-primary" 
+            style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--primary)', color: '#fff', textDecoration: 'none' }}
+          >
+            📄 Print / PDF
+          </a>
         </div>
       </div>
 
-      {/* Target Event Selection */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-        <label className="form-label" style={{ margin: 0, whiteSpace: 'nowrap', fontWeight: 600 }}>Target Event for Import:</label>
-        <select 
-          className="form-input" 
-          value={selectedEventId}
-          onChange={(e) => setSelectedEventId(e.target.value)}
-          style={{ maxWidth: '300px' }}
-        >
-          {events.map(ev => (
-            <option key={ev.id} value={ev.id}>{ev.name}</option>
+      {/* Target Event Selection and Category/General Filter Download Bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-md)', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label className="form-label" style={{ margin: 0, whiteSpace: 'nowrap', fontWeight: 700 }}>Target Event:</label>
+          <select 
+            className="form-input" 
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            style={{ maxWidth: '280px', padding: '4px 8px', fontSize: '0.875rem' }}
+          >
+            {events.map(ev => (
+              <option key={ev.id} value={ev.id}>{ev.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Quick Filter & Download Badges */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Quick Download by Category:</span>
+          
+          {/* All */}
+          <div style={{ display: 'inline-flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            <button
+              onClick={() => handleExport("ALL", "ALL")}
+              style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'var(--surface-color)', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+              title="Download all programs in Excel"
+            >
+              All (Excel)
+            </button>
+            <a
+              href={`/print/programs?eventId=${selectedEventId}&categoryId=ALL`}
+              target="_blank"
+              style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#F3F4F6', color: '#111827', textDecoration: 'none', borderLeft: '1px solid var(--border-color)', fontWeight: 600 }}
+              title="Print/PDF all programs"
+            >
+              PDF
+            </a>
+          </div>
+
+          {/* General */}
+          <div style={{ display: 'inline-flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid #F59E0B' }}>
+            <button
+              onClick={() => handleExport("GENERAL", "ALL")}
+              style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'rgba(232, 184, 75, 0.15)', color: '#B45309', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              title="Download General programs in Excel"
+            >
+              ⭐ General (Excel)
+            </button>
+            <a
+              href={`/print/programs?eventId=${selectedEventId}&categoryId=GENERAL`}
+              target="_blank"
+              style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#FEF3C7', color: '#B45309', textDecoration: 'none', borderLeft: '1px solid #F59E0B', fontWeight: 700 }}
+              title="Print/PDF General programs"
+            >
+              PDF
+            </a>
+          </div>
+
+          {/* Category loops */}
+          {categories
+            .filter(cat => cat.name.trim().toUpperCase() !== "GENERAL")
+            .map(cat => (
+            <div key={cat.id} style={{ display: 'inline-flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(225, 29, 90, 0.3)' }}>
+              <button
+                onClick={() => handleExport(cat.id, "ALL")}
+                style={{ fontSize: '0.75rem', padding: '4px 8px', background: 'rgba(225, 29, 90, 0.08)', color: 'var(--primary)', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                title={`Download ${cat.name} in Excel`}
+              >
+                🏷️ {cat.name} (Excel)
+              </button>
+              <a
+                href={`/print/programs?eventId=${selectedEventId}&categoryId=${cat.id}`}
+                target="_blank"
+                style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#FFF0F4', color: 'var(--primary)', textDecoration: 'none', borderLeft: '1px solid rgba(225, 29, 90, 0.3)', fontWeight: 700 }}
+                title={`Print/PDF ${cat.name}`}
+              >
+                PDF
+              </a>
+            </div>
           ))}
-        </select>
+        </div>
       </div>
 
       <div style={{ border: '2px dashed var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-lg)', textAlign: 'center', backgroundColor: 'var(--surface-color)' }}>

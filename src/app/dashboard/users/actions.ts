@@ -19,11 +19,20 @@ export async function editUser(userId: string, newUsername: string, newPasswordR
 
   try {
     const caller = await prisma.user.findUnique({ where: { id: session.user.id } });
-    const target = await prisma.user.findUnique({ where: { id: userId } });
+    const target = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: { institution: true }
+    });
     if (!target || !caller) return { success: false, error: "User not found" };
 
-    if (session.user.role === "ZONE_ADMIN" && target.zoneId !== caller.zoneId) {
-      return { success: false, error: "Unauthorized to modify this user" };
+    if (session.user.role === "ZONE_ADMIN") {
+      const targetZoneId = target.zoneId || target.institution?.zoneId;
+      if (targetZoneId !== caller.zoneId) {
+        return { success: false, error: "Unauthorized to modify users outside your zone" };
+      }
+      if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(target.role)) {
+        return { success: false, error: "Unauthorized to modify admin accounts" };
+      }
     }
 
     const exists = await prisma.user.findUnique({ where: { username: newUsername } });
@@ -59,11 +68,17 @@ export async function deleteUser(userId: string) {
 
   try {
     const caller = await prisma.user.findUnique({ where: { id: session.user.id } });
-    const target = await prisma.user.findUnique({ where: { id: userId } });
+    const target = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: { institution: true }
+    });
     if (!target || !caller) return { success: false, error: "User not found" };
 
-    if (session.user.role === "ZONE_ADMIN" && target.zoneId !== caller.zoneId) {
-      return { success: false, error: "Unauthorized to modify this user" };
+    if (session.user.role === "ZONE_ADMIN") {
+      const targetZoneId = target.zoneId || target.institution?.zoneId;
+      if (targetZoneId !== caller.zoneId) {
+        return { success: false, error: "Unauthorized to modify users outside your zone" };
+      }
     }
     
     // Prevent deleting admins

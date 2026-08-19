@@ -290,14 +290,21 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div 
+      className="animate-fade-in"
+      style={{
+        containerType: 'inline-size',
+        containerName: 'fest-admin',
+        overflowX: 'hidden'
+      }}
+    >
       {/* Page Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title">
+          <h1 className="page-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 700, margin: '0 0 4px 0' }}>
             {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "Team Dashboard" : "Management Overview"}
           </h1>
-          <p className="page-subtitle">
+          <p className="page-subtitle" style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>
             Welcome back, <strong>{username}</strong> · {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
@@ -305,20 +312,30 @@ export default async function DashboardPage() {
           <Link
             href="/hub"
             className="btn btn-success"
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "0.5rem",
+              background: 'var(--emerald)',
+              color: '#ffffff',
+              borderRadius: 'var(--radius-full)',
+              padding: '0.5rem 1.25rem',
+              fontWeight: 700,
+              fontSize: '0.85rem'
+            }}
           >
             <span>📡</span> Live Management Hub
           </Link>
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid with auto-fit reflow 6 -> 3 -> 2 -> 1 */}
       <div
         data-tour="dash-stats"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "1.25rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: "1rem",
           marginBottom: "2rem",
         }}
       >
@@ -326,65 +343,76 @@ export default async function DashboardPage() {
           <div
             key={i}
             className="stat-card"
-            style={
-              {
-                "--card-accent-start": stat.accentStart,
-                "--card-accent-end": stat.accentEnd,
-              } as React.CSSProperties
-            }
+            style={{
+              padding: '1.25rem 1rem',
+              borderRadius: 'var(--radius)',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderTop: `4px solid ${stat.accentStart}`,
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.875rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
               <div
                 style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "12px",
-                  background: `linear-gradient(135deg, ${stat.accentStart}22, ${stat.accentEnd}33)`,
-                  border: `1px solid ${stat.accentStart}33`,
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: `${stat.accentStart}15`,
+                  border: `1px solid ${stat.accentStart}30`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: "1.25rem",
+                  fontSize: "1.1rem",
                 }}
               >
                 {stat.icon}
               </div>
               {stat.trend && (
                 <span
-                  className="badge"
                   style={{
                     background: `${stat.accentStart}15`,
                     color: stat.accentStart,
-                    border: `1px solid ${stat.accentStart}25`,
-                    fontSize: "0.65rem",
+                    border: `1px solid ${stat.accentStart}30`,
+                    fontSize: "0.62rem",
+                    fontWeight: 800,
+                    padding: "2px 6px",
+                    borderRadius: "9999px",
+                    textTransform: "uppercase",
                   }}
                 >
                   {stat.trend}
                 </span>
               )}
             </div>
-            <div
-              style={{
-                fontSize: typeof stat.value === "string" && stat.value.length > 6 ? "1.25rem" : "2rem",
-                fontWeight: 800,
-                color: "var(--text-primary)",
-                lineHeight: 1,
-                marginBottom: "0.375rem",
-                fontFamily: "var(--font-outfit)",
-              }}
-            >
-              {stat.value}
-            </div>
-            <div
-              style={{
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              {stat.label}
+            <div>
+              <div
+                className="mono-numeral"
+                style={{
+                  fontSize: typeof stat.value === "string" && stat.value.length > 6 ? "1.2rem" : "1.85rem",
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                  lineHeight: 1.1,
+                  marginBottom: "0.3rem",
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                {stat.value}
+              </div>
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "var(--muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {stat.label}
+              </div>
             </div>
           </div>
         ))}

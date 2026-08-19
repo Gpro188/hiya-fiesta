@@ -35,6 +35,6 @@ echo ------------------------------------------
 echo  App will be available at: http://localhost:3001
 echo ------------------------------------------
 echo.
-call npm run dev -- -p 3001 --hostname localhost
+call npm run dev -- -p 3001 --hostname 0.0.0.0
 
 pause

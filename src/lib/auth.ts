@@ -34,7 +34,9 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           username: user.username,
           role: user.role,
-          eventId: user.eventId
+          eventId: user.eventId,
+          zoneId: user.zoneId,
+          institutionId: user.institutionId,
         };
       }
     })
@@ -46,6 +48,8 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.username = user.username;
         token.eventId = (user as any).eventId;
+        token.zoneId = (user as any).zoneId;
+        token.institutionId = (user as any).institutionId;
       }
       return token;
     },
@@ -55,6 +59,8 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.username = token.username as string;
         session.user.eventId = token.eventId as string | null;
+        (session.user as any).zoneId = token.zoneId as string | null;
+        (session.user as any).institutionId = token.institutionId as string | null;
       }
       return session;
     }

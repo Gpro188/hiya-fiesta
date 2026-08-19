@@ -71,7 +71,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
   };
 
   const handleSetDomain = async (eventId: string, currentDomain: string | null, name: string) => {
-    const newDomain = prompt(`Enter custom domain for "${name}" (e.g. www.mehfil26.com) or leave empty to remove:`, currentDomain || "");
+    const newDomain = prompt(`Enter custom domain for "${name}" (e.g. www.hiyafiesta.online) or leave empty to remove:`, currentDomain || "");
     if (newDomain === null) return; // User cancelled
     
     const domainTrim = newDomain.trim();
@@ -127,26 +127,126 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
-      
-      {/* Analytics Overview Cards */}
-      <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderLeft: '4px solid #A5003A', textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'white' }}>{data.totalVisits}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Total Page Views</div>
+    <div 
+      style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: 'var(--spacing-xl)',
+        containerType: 'inline-size',
+        containerName: 'super-admin',
+        overflowX: 'hidden'
+      }}
+    >
+      {/* Super Admin Top Header */}
+      <div 
+        style={{
+          background: 'var(--ink)',
+          padding: '1.25rem 1.5rem',
+          borderRadius: 'var(--radius)',
+          border: '1px solid rgba(229, 230, 240, 0.12)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "10px",
+              background: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "4px",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+              flexShrink: 0,
+            }}
+          >
+            <img src="/icon.png" alt="CSWC Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.4rem', color: '#FFFFFF', fontFamily: 'var(--font-serif)', fontWeight: 700 }}>
+              CSWC Hiya Fiesta · Super Admin
+            </h1>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--muted)' }}>
+              Tenant management, event provisioning, and global credential control
+            </p>
+          </div>
         </div>
-        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderLeft: '4px solid #10b981', textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'white' }}>{data.totalEvents}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Registered Fests</div>
+
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+            title="Notifications"
+          >
+            🔔
+          </button>
+          <a
+            href="/"
+            target="_blank"
+            className="btn btn-primary"
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.8rem', 
+              fontWeight: 700, 
+              background: 'linear-gradient(135deg, var(--gold-bright), var(--gold))', 
+              color: 'var(--gold-ink)', 
+              border: 'none',
+              borderRadius: 'var(--radius-full)',
+              textDecoration: 'none'
+            }}
+          >
+            📡 Live Dashboard
+          </a>
+        </div>
+      </div>
+      
+      {/* Analytics Overview Cards with auto-fit minmax */}
+      <div 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+          gap: 'var(--spacing-md)' 
+        }}
+      >
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderTop: '4px solid var(--indigo)', textAlign: 'center' }}>
+          <div className="mono-numeral" style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+            {data.totalVisits}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+            Total Page Views
+          </div>
+        </div>
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderTop: '4px solid var(--emerald)', textAlign: 'center' }}>
+          <div className="mono-numeral" style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+            {data.totalEvents}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+            Registered Fests
+          </div>
         </div>
       </div>
 
-      {/* Forms Section */}
-      <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 'var(--spacing-lg)' }}>
+      {/* Creation Row: Side by Side Forms */}
+      <div 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+          gap: 'var(--spacing-lg)' 
+        }}
+      >
         
-        {/* Fest Creation Form */}
-        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h2 style={{ color: 'white', fontSize: '1.25rem', marginBottom: 'var(--spacing-md)' }}>🎭 Register New Main Event</h2>
+        {/* Main Event Provisioning Form */}
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderTop: '3px solid var(--primary)' }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: 'var(--spacing-md)', fontFamily: 'var(--font-serif)' }}>
+            🎭 Add Main Event
+          </h2>
           <form onSubmit={handleCreateFest} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             {festMessage && (
               <div style={{ 
@@ -170,15 +270,17 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
                 required 
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={festLoading}>
-              {festLoading ? "Creating..." : "Add Main Event"}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', backgroundColor: 'var(--primary)' }} disabled={festLoading}>
+              {festLoading ? "Creating..." : "+ Add Main Event"}
             </button>
           </form>
         </div>
 
         {/* User Provisioning Form */}
-        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h2 style={{ color: 'white', fontSize: '1.25rem', marginBottom: 'var(--spacing-md)' }}>👤 Provision Scoped User</h2>
+        <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', borderTop: '3px solid var(--gold)' }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: 'var(--spacing-md)', fontFamily: 'var(--font-serif)' }}>
+            👤 Register Fest User
+          </h2>
           <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             {userMessage && (
               <div style={{ 
@@ -192,7 +294,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
               </div>
             )}
             
-            <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--spacing-sm)' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Username</label>
                 <input 
@@ -217,7 +319,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
               </div>
             </div>
 
-            <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 'var(--spacing-sm)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--spacing-sm)' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Role</label>
                 <select className="form-input" value={role} onChange={(e) => setRole(e.target.value as any)}>
@@ -237,7 +339,7 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
               </div>
             </div>
 
-            <button type="submit" className="btn btn-secondary" style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)' }} disabled={userLoading}>
+            <button type="submit" className="btn btn-secondary" style={{ width: '100%', borderColor: 'var(--gold)', color: 'var(--gold-ink)' }} disabled={userLoading}>
               {userLoading ? "Registering..." : "Register Fest User"}
             </button>
           </form>
@@ -245,27 +347,30 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
 
       </div>
 
+      {/* Instructional Callout Box */}
+      <div 
+        style={{
+          background: 'var(--indigo-soft)',
+          borderLeft: '4px solid var(--indigo)',
+          borderRadius: 'var(--radius-md)',
+          padding: '1rem 1.25rem',
+        }}
+      >
+        <h3 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', fontWeight: 700, color: 'var(--indigo)' }}>
+          📘 How custom domains work
+        </h3>
+        <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.6 }}>
+          <li>Enter your custom domain (e.g. <code>fest.example.com</code>) by clicking <em>Set Custom Domain</em> on any fest.</li>
+          <li>Point your domain's CNAME DNS record to your Vercel or production server URL.</li>
+          <li>The platform will automatically route incoming traffic directly to that event's public live dashboard.</li>
+        </ol>
+      </div>
+
       {/* Events Table Listing */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ color: 'white', fontSize: '1.5rem', marginBottom: 'var(--spacing-md)' }}>🎭 Running Main Events Breakdown</h2>
-        
-        <div style={{ 
-          marginBottom: 'var(--spacing-lg)', 
-          padding: '12px 16px', 
-          backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-          borderLeft: '4px solid #A5003A',
-          borderRadius: '4px',
-          fontSize: '0.85rem',
-          lineHeight: '1.5'
-        }}>
-          <strong style={{ color: '#60a5fa', display: 'block', marginBottom: '4px' }}>ℹ️ How Custom Domains Work</strong>
-          <ol style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-secondary)' }}>
-            <li>First, go to your <strong>Vercel Dashboard</strong> ({`->`} Settings {`->`} Domains).</li>
-            <li>Add your domain there to get the <strong>DNS Records (A Record or CNAME)</strong>.</li>
-            <li>Add those records to your domain provider (e.g., GoDaddy). Wait for Vercel to verify it (✅).</li>
-            <li>Finally, click <strong>Set Domain</strong> below and type exactly what you added to Vercel.</li>
-          </ol>
-        </div>
+        <h2 style={{ fontSize: '1.4rem', marginBottom: 'var(--spacing-md)', fontFamily: 'var(--font-serif)' }}>
+          🎭 Registered Fests & Tenants
+        </h2>
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
