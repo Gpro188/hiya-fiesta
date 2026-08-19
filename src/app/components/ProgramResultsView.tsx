@@ -4,10 +4,13 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { toPng } from "html-to-image";
 
-export default function ProgramResultsView({ program, settings, userRole }: { program: any, settings: any, userRole?: string }) {
+export default function ProgramResultsView({ program, settings, userRole, eventId }: { program: any, settings: any, userRole?: string, eventId?: string }) {
   const isAuthorizedMedia = userRole === 'ADMIN' || userRole === 'MEDIA';
   const [isGenerating, setIsGenerating] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
+
+  const backUrl = eventId ? `/fest/${eventId}` : `/fest/${program.eventId}`;
+  const backLabel = eventId ? `← Back to ${program.event?.name || 'Zone'}` : '← Back';
 
   const results = program.results || [];
   const winners = results.filter((r: any) => r.rank && r.rank <= 3).sort((a: any, b: any) => a.rank - b.rank);
@@ -113,8 +116,8 @@ export default function ProgramResultsView({ program, settings, userRole }: { pr
     <div className="animate-fade-in" style={{ paddingBottom: 'var(--spacing-xl)' }}>
       <div style={{ marginBottom: 'var(--spacing-xl)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
-          <Link href="/" style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
-            ← Back to Dashboard
+          <Link href={backUrl} style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}>
+            {backLabel}
           </Link>
           <h1 style={{ marginTop: 'var(--spacing-sm)' }}>{program.name} Results</h1>
           <p style={{ color: 'var(--text-secondary)' }}>{program.event.name} • {program.category?.name || 'General'}</p>

@@ -20,7 +20,14 @@ const getCachedPublicEventData = unstable_cache(
     ] = await Promise.all([
       // 1. Get Latest Results
       prisma.result.findMany({
-        where: { program: { eventId }, isPublished: true },
+        where: {
+          OR: [
+            { program: { eventId } },
+            { candidate: { team: { eventId } } },
+            { team: { eventId } }
+          ],
+          isPublished: true
+        },
         select: {
           id: true, points: true, rank: true, grade: true, updatedAt: true,
           candidate: { 
@@ -47,7 +54,14 @@ const getCachedPublicEventData = unstable_cache(
 
       // 3. Get All Published Results for Leaderboard
       prisma.result.findMany({
-        where: { program: { eventId }, isPublished: true },
+        where: {
+          OR: [
+            { program: { eventId } },
+            { candidate: { team: { eventId } } },
+            { team: { eventId } }
+          ],
+          isPublished: true
+        },
         select: {
           id: true, points: true, candidateId: true, teamId: true,
           candidate: { select: { id: true, name: true, teamId: true, team: { select: { id: true, name: true, flagColor: true } }, category: { select: { id: true, name: true } } } },

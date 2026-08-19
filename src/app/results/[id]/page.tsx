@@ -47,7 +47,7 @@ export default async function ProgramResultsPage({
 
       <main style={{ flex: 1, padding: "2.5rem 0" }}>
         <div className="container">
-          <ProgramResultsView program={program} settings={settings} userRole={userRole} />
+          <ProgramResultsView program={program} settings={settings} userRole={userRole} eventId={eventId} />
         </div>
       </main>
 
