@@ -25,21 +25,39 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://hiyafiesta.online"),
+  metadataBase: new URL("https://hiyafiesta.online"),
   title: {
     template: "%s | CSWC Hiya Fiesta 2026",
-    default: "CSWC Hiya Fiesta 2026 | Council of Samastha Women's Colleges",
+    default: "CSWC Hiya Fiesta 2026 | Fadhila, Fadheela & General Arts Fest Results",
   },
   description:
-    "Official Centralized ArtsFest Platform for Council of Samastha Women's Colleges (CSWC Hiya Fiesta 2026).",
+    "Official Arts Fest Results & Live Standings Platform for Council of Samastha Women's Colleges (CSWC Hiya Fiesta 2026). Live winner boards, points table, and result posters for Fadhila, Fadheela, and General category fest events across all zones and state.",
   applicationName: "CSWC Hiya Fiesta 2026",
   keywords: [
+    "hiya fiesta",
+    "hiya fiesta 2026",
+    "fadhila fest",
+    "fadheela fest",
+    "fadhila fadheela fest",
+    "fadhila artsfest",
+    "fadheela artsfest",
+    "cswc fest",
+    "cswc artsfest",
     "cswc",
     "cswc hiya fiesta",
-    "hiya fiesta 2026",
     "samastha womens colleges",
-    "artsfest system",
+    "kerala arts fest results",
+    "karnataka zone artsfest",
+    "kasaragod zone artsfest",
+    "kannur zone artsfest",
+    "kozhikode zone artsfest",
+    "malappuram zone artsfest",
+    "palakkad zone artsfest",
+    "thrissur zone artsfest",
   ],
+  alternates: {
+    canonical: "https://hiyafiesta.online",
+  },
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
@@ -48,16 +66,16 @@ export const metadata: Metadata = {
   openGraph: {
     title: {
       template: "%s | CSWC Hiya Fiesta 2026",
-      default: "CSWC Hiya Fiesta 2026",
+      default: "CSWC Hiya Fiesta 2026 | Fadhila, Fadheela & General Arts Fest",
     },
     description:
-      "Centralized Multi-Zone Festival Platform for CSWC Women's Colleges",
+      "Live Result Board, Points Table & Poster Download for CSWC Hiya Fiesta 2026 - Council of Samastha Women's Colleges (Fadhila & Fadheela ArtsFest).",
     type: "website",
-    url: "https://cswc-hiya-fiesta.vercel.app/",
+    url: "https://hiyafiesta.online",
     siteName: "CSWC Hiya Fiesta 2026",
     images: [
       {
-        url: "/logo.png",
+        url: "/icon.png",
         width: 800,
         height: 600,
         alt: "CSWC Hiya Fiesta Logo",
@@ -78,8 +96,20 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "CSWC Hiya Fiesta",
-    url: "https://cswc-hiya-fiesta.vercel.app/",
+    name: "CSWC Hiya Fiesta 2026",
+    alternateName: [
+      "Hiya Fiesta",
+      "Fadhila Fest",
+      "Fadheela Fest",
+      "Fadhila Fadheela Fest",
+      "CSWC Fest",
+      "CSWC Artsfest",
+      "Fadhil Artsfest",
+      "Fadheela Artsfest",
+    ],
+    url: "https://hiyafiesta.online",
+    description:
+      "Official live result portal for Council of Samastha Women's Colleges Arts Fest (CSWC Hiya Fiesta 2026).",
   };
 
   return (
