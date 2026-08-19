@@ -857,8 +857,20 @@ img, picture, video, canvas, svg {
   .mobile-only { display: block !important; }
 }
 
-/* ─── Public Nav Mobile Layout Fixes ─── */
+/* ─── Winner Table / Cards Responsive Switcher ─── */
+.winner-table-desktop {
+  display: block;
+}
+.winner-cards-mobile {
+  display: none !important;
+}
 @media (max-width: 640px) {
+  .winner-table-desktop {
+    display: none !important;
+  }
+  .winner-cards-mobile {
+    display: flex !important;
+  }
   .public-nav-sub {
     display: none !important;
   }
