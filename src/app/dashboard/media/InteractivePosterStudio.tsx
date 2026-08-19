@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { updatePosterSettings } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
@@ -20,7 +20,7 @@ export default function InteractivePosterStudio({
   const [downloading, setDownloading] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
-  // Selected Category for Preview
+  // Selected Category for Live Preview & Category-Specific Background setting
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(categories[0]?.id || "");
 
   // Main Configurable Layout & Typography State
@@ -68,9 +68,10 @@ export default function InteractivePosterStudio({
     categories.reduce((acc, cat) => ({ ...acc, [cat.id]: cat.posterBgUrl || "" }), {})
   );
 
-  // Get active background for the live preview
+  // Active Category & Background computation
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
-  const activeBg = categoryBgMap[selectedCategoryId] || config.posterBgUrl || "";
+  const activeCategoryBg = selectedCategoryId ? categoryBgMap[selectedCategoryId] : "";
+  const activeBg = activeCategoryBg || config.posterBgUrl || "";
 
   // Test Winner Sample Data for Live Preview
   const sampleWinners = [
@@ -79,7 +80,25 @@ export default function InteractivePosterStudio({
     { rank: 3, name: "AYISHA RIDHA K", chest: "112", inst: "SAJIPA USTHAD WOMEN'S SHAREEATH", place: "BANTWAL", grade: "B+" }
   ];
 
-  const handleSave = async () => {
+  const handleSaveCategoryBg = async (catId: string, url: string) => {
+    try {
+      const res = await fetch("/api/category-branding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: catId, posterBgUrl: url })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCategoryBgMap(prev => ({ ...prev, [catId]: url }));
+      } else {
+        alert("Error saving category background: " + data.error);
+      }
+    } catch {
+      alert("Failed to save category background.");
+    }
+  };
+
+  const handleSaveAll = async () => {
     setLoading(true);
     try {
       const res = await updatePosterSettings({
@@ -91,7 +110,7 @@ export default function InteractivePosterStudio({
       });
 
       if (res.success) {
-        alert("Poster Studio settings saved successfully!");
+        alert("All Poster Studio settings saved successfully!");
       } else {
         alert("Error: " + res.error);
       }
@@ -111,7 +130,7 @@ export default function InteractivePosterStudio({
         cacheBust: true
       });
       const link = document.createElement("a");
-      link.download = `Test_Poster_${currentCategory?.name || 'General'}_Preview.png`;
+      link.download = `Poster_${zoneName || 'Fest'}_${currentCategory?.name || 'General'}_Preview.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -122,16 +141,16 @@ export default function InteractivePosterStudio({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 390px) minmax(0, 1fr)', gap: '20px', alignItems: 'start', width: '100%' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 400px) minmax(0, 1fr)', gap: '20px', alignItems: 'start', width: '100%' }}>
       
-      {/* ── LEFT: LIVE POSTER PREVIEW ── */}
+      {/* ── LEFT COLUMN: LIVE POSTER PREVIEW ── */}
       <div className="glass-panel" style={{ padding: '16px', position: 'sticky', top: '20px', borderRadius: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>🎨</span> Live Poster Preview
             </h3>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Layout (1080x1350)</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Canvas (1080x1350)</span>
           </div>
 
           <button 
@@ -157,9 +176,27 @@ export default function InteractivePosterStudio({
           </button>
         </div>
 
-        {/* Category Switcher for Live Preview */}
+        {/* Category Switcher Tabs on top of preview */}
         {categories.length > 0 && (
           <div style={{ marginBottom: '12px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryId("")}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: selectedCategoryId === "" ? '#e6007e' : 'var(--border-color)',
+                background: selectedCategoryId === "" ? 'rgba(230, 0, 126, 0.1)' : 'transparent',
+                color: selectedCategoryId === "" ? '#e6007e' : 'var(--text-primary)',
+                fontSize: '0.7rem',
+                fontWeight: selectedCategoryId === "" ? 800 : 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              🌐 Default (All)
+            </button>
             {categories.map(cat => (
               <button
                 key={cat.id}
@@ -184,10 +221,10 @@ export default function InteractivePosterStudio({
           </div>
         )}
 
-        {/* ── SCALED PREVIEW FRAME (1080x1350 scaled down accurately to 358px) ── */}
+        {/* ── SCALED PREVIEW FRAME (1080x1350 scaled accurately to ~360px x 450px) ── */}
         <div style={{
           width: '100%',
-          height: '447px',
+          height: '450px',
           backgroundColor: '#FFFFFF',
           borderRadius: '12px',
           overflow: 'hidden',
@@ -205,13 +242,13 @@ export default function InteractivePosterStudio({
               top: 0,
               left: 0,
               transformOrigin: 'top left',
-              transform: 'scale(0.331)', // 1080 * 0.331 = ~358px, 1350 * 0.331 = ~447px
+              transform: 'scale(0.3333)', // 1080 * 0.3333 = 360px, 1350 * 0.3333 = 450px
               backgroundColor: '#FFFFFF',
               overflow: 'hidden',
               fontFamily: "'Outfit', 'Inter', sans-serif"
             }}
           >
-            {/* Background Image Layer */}
+            {/* Background Image Layer (Full Bleed A4) */}
             {activeBg && (
               <img 
                 src={activeBg} 
@@ -221,7 +258,7 @@ export default function InteractivePosterStudio({
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: '1350px',
+                  height: '100%',
                   objectFit: 'cover',
                   zIndex: 0
                 }}
@@ -365,30 +402,48 @@ export default function InteractivePosterStudio({
       </div>
 
 
-      {/* ── RIGHT: CONTROLS & ADJUSTMENT TABS ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── RIGHT COLUMN: POSTER BACKGROUND & LIVE SLIDER CONTROLS ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
-        {/* Background Uploader Box */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem' }}>
-            Official Poster Background (A4 Portrait Art)
-          </h3>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 14px 0' }}>
-            Upload your high-res background art for <strong>{zoneName || 'Global Poster Default'}</strong>.
+        {/* Background Uploader (Switches seamlessly between Default & Selected Category) */}
+        <div className="glass-panel" style={{ padding: '18px', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#1a1420' }}>
+              🖼️ {selectedCategoryId ? `${currentCategory?.name} Category Background` : `Default Poster Background (${zoneName || 'Global'})`}
+            </h3>
+            {selectedCategoryId && activeCategoryBg && (
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontWeight: 700 }}>
+                ✓ CATEGORY OVERRIDE ACTIVE
+              </span>
+            )}
+          </div>
+          
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
+            {selectedCategoryId 
+              ? `Upload a unique background artwork specifically for ${currentCategory?.name} category programs.`
+              : `Upload the default background artwork for all programs in ${zoneName || 'this festival'}.`}
           </p>
+
           <ImageUpload
-            label="Upload Poster Background (A4 / 4:5 Portrait)"
+            key={selectedCategoryId || "default-bg"}
+            label={selectedCategoryId ? `Upload ${currentCategory?.name} Poster Background` : `Upload ${zoneName || 'Default'} Poster Background`}
             folder="posters"
-            initialUrl={config.posterBgUrl}
-            onUploadComplete={(url) => setConfig({ ...config, posterBgUrl: url })}
+            initialUrl={selectedCategoryId ? activeCategoryBg : config.posterBgUrl}
+            onUploadComplete={(url) => {
+              if (selectedCategoryId) {
+                handleSaveCategoryBg(selectedCategoryId, url);
+              } else {
+                setConfig(prev => ({ ...prev, posterBgUrl: url }));
+              }
+            }}
           />
         </div>
 
-        {/* Adjustment Tabs Strip */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px', overflowX: 'auto' }}>
+        {/* Live Area Adjustment Tabs */}
+        <div className="glass-panel" style={{ padding: '18px', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px', overflowX: 'auto' }}>
             {[
-              { id: 'program', label: 'T  Program Name' },
+              { id: 'program', label: 'T Program Name' },
               { id: 'category', label: '🏷️ Category' },
               { id: 'resultNo', label: '# Result No' },
               { id: 'winners', label: '🏆 Winners Box' },
@@ -399,13 +454,13 @@ export default function InteractivePosterStudio({
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 style={{
-                  padding: '8px 14px',
+                  padding: '7px 14px',
                   borderRadius: '8px',
                   border: 'none',
                   background: activeTab === tab.id ? '#e6007e' : 'rgba(255,255,255,0.06)',
                   color: activeTab === tab.id ? '#FFFFFF' : 'var(--text-primary)',
                   fontWeight: 700,
-                  fontSize: '0.82rem',
+                  fontSize: '0.8rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   transition: 'all 0.15s ease'
@@ -418,11 +473,11 @@ export default function InteractivePosterStudio({
 
           {/* 1. Program Name Adjustments */}
           {activeTab === 'program' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <h4 style={{ margin: 0, color: 'var(--primary)' }}>T  Program Name Position & Size</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>T Program Name Position & Size</h4>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Top Spacing (Y)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.programTop}%</span>
                 </div>
@@ -434,7 +489,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Left Spacing (X)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.programLeft}%</span>
                 </div>
@@ -446,7 +501,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Box Max Width (Text Wrap)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.programWidth}%</span>
                 </div>
@@ -458,7 +513,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Font Size</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.programFontSize}px</span>
                 </div>
@@ -473,11 +528,11 @@ export default function InteractivePosterStudio({
 
           {/* 2. Category Badge Adjustments */}
           {activeTab === 'category' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <h4 style={{ margin: 0, color: 'var(--primary)' }}>🏷️ Category Badge Position & Size</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>🏷️ Category Badge Position & Size</h4>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Top Spacing (Y)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.categoryTop}%</span>
                 </div>
@@ -489,7 +544,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Left Spacing (X)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.categoryLeft}%</span>
                 </div>
@@ -501,7 +556,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Badge Text Font Size</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.categoryFontSize}px</span>
                 </div>
@@ -512,7 +567,7 @@ export default function InteractivePosterStudio({
                 />
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 <input 
                   type="checkbox" 
                   checked={config.showCategoryBadge} 
@@ -525,11 +580,11 @@ export default function InteractivePosterStudio({
 
           {/* 3. Result No Subheading */}
           {activeTab === 'resultNo' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <h4 style={{ margin: 0, color: 'var(--primary)' }}># Result No Subheading</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}># Result No Subheading</h4>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Top Spacing (Y)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.resultNoTop}%</span>
                 </div>
@@ -541,7 +596,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Left Spacing (X)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.resultNoLeft}%</span>
                 </div>
@@ -552,7 +607,7 @@ export default function InteractivePosterStudio({
                 />
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 <input 
                   type="checkbox" 
                   checked={config.showResultNo} 
@@ -565,11 +620,11 @@ export default function InteractivePosterStudio({
 
           {/* 4. Winners Box Adjustments */}
           {activeTab === 'winners' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <h4 style={{ margin: 0, color: 'var(--primary)' }}>🏆 Winners List Box &amp; Spacing</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>🏆 Winners List Box & Spacing</h4>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Top Starting Position (Y)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.winnersTop}%</span>
                 </div>
@@ -581,7 +636,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Left Spacing (X)</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.winnersLeft}%</span>
                 </div>
@@ -593,7 +648,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Winner Row Gap</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.winnerItemGap}px</span>
                 </div>
@@ -605,7 +660,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
                   <span>Participant Name Font Size</span>
                   <span style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{config.winnerNameSize}px</span>
                 </div>
@@ -620,12 +675,12 @@ export default function InteractivePosterStudio({
 
           {/* 5. Colors & Alignments */}
           {activeTab === 'styles' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <h4 style={{ margin: 0, color: 'var(--primary)' }}>🎨 Colors &amp; Typography</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.9rem' }}>🎨 Colors & Typography</h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Program Heading Color</label>
+                  <label className="form-label" style={{ fontSize: '0.78rem' }}>Program Heading Color</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                     <input 
                       type="color" value={config.primaryColor} 
@@ -640,7 +695,7 @@ export default function InteractivePosterStudio({
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Badge &amp; Accent Color</label>
+                  <label className="form-label" style={{ fontSize: '0.78rem' }}>Badge & Accent Color</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                     <input 
                       type="color" value={config.secondaryColor} 
@@ -656,7 +711,7 @@ export default function InteractivePosterStudio({
               </div>
 
               <div>
-                <label className="form-label" style={{ fontSize: '0.8rem' }}>Winner Participant Text Color</label>
+                <label className="form-label" style={{ fontSize: '0.78rem' }}>Winner Participant Text Color</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                   <input 
                     type="color" value={config.textColor} 
@@ -673,10 +728,10 @@ export default function InteractivePosterStudio({
           )}
 
           {/* Save Button */}
-          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1.5px solid var(--border-color)' }}>
+          <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1.5px solid var(--border-color)' }}>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={handleSaveAll}
               disabled={loading}
               className="btn btn-primary"
               style={{ width: '100%', padding: '12px', fontSize: '0.92rem', fontWeight: 800 }}

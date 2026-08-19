@@ -126,8 +126,8 @@ export default function SuperAdminMediaCenter({
             </div>
           </div>
 
-          {/* Interactive Poster Studio for Selected Event */}
-          <div data-tour="media-poster">
+          {/* Interactive Poster Studio with Live Preview, Integrated Category Backgrounds, and Area Sliders */}
+          <div data-tour="media-poster" style={{ width: "100%" }}>
             <InteractivePosterStudio
               key={selectedEvent.id}
               initialSettings={{ targetEventId: selectedEvent.id, ...(selectedEvent.globalSetting || {}) }}
@@ -135,61 +135,6 @@ export default function SuperAdminMediaCenter({
               zoneName={selectedEvent.name}
             />
           </div>
-
-          {/* Category-specific backgrounds for this event */}
-          {selectedEvent.categories && selectedEvent.categories.length > 0 ? (
-            <div className="glass-panel" style={{ padding: "var(--spacing-lg)" }}>
-              <h3 style={{ marginBottom: "8px" }}>📂 Category Backgrounds</h3>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "var(--spacing-md)" }}>
-                Set a <strong>different poster background</strong> for each category in <strong>{selectedEvent.name}</strong>.
-                Category backgrounds override the event default above.
-              </p>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: "16px"
-              }}>
-                {selectedEvent.categories.map((cat: any) => (
-                  <div key={cat.id} style={{
-                    padding: "16px",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-color)",
-                    backgroundColor: "rgba(255,255,255,0.02)"
-                  }}>
-                    <div style={{
-                      fontWeight: 700,
-                      fontSize: "1rem",
-                      color: "var(--primary)",
-                      marginBottom: "12px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px"
-                    }}>
-                      <span>🏷️</span> {cat.name}
-                      {cat.posterBgUrl && (
-                        <span style={{
-                          marginLeft: "auto",
-                          fontSize: "0.65rem",
-                          padding: "2px 6px",
-                          borderRadius: "10px",
-                          backgroundColor: "rgba(16,185,129,0.1)",
-                          color: "var(--success)",
-                          border: "1px solid rgba(16,185,129,0.2)"
-                        }}>
-                          ✓ BG SET
-                        </span>
-                      )}
-                    </div>
-                    <SingleCategoryUpload category={cat} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="glass-panel" style={{ padding: "var(--spacing-lg)", textAlign: "center", color: "var(--text-muted)" }}>
-              No categories found for this event.
-            </div>
-          )}
         </div>
       ) : (
         <div className="glass-panel" style={{ padding: "var(--spacing-xl)", textAlign: "center", color: "var(--text-muted)" }}>
