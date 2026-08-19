@@ -290,6 +290,19 @@ const getCacheCSWCgramResults = unstable_cache(
         if (zoneEvent) {
             program.event.name = zoneEvent.name;
         }
+
+        // Check if there is a zone-specific category with matching name that has a posterBgUrl
+        if (program.category?.name) {
+            const zoneCategory = await prisma.category.findFirst({
+                where: {
+                    eventId: eventId,
+                    name: { equals: program.category.name, mode: 'insensitive' }
+                }
+            });
+            if (zoneCategory?.posterBgUrl) {
+                program.category.posterBgUrl = zoneCategory.posterBgUrl;
+            }
+        }
     }
 
     return { program, settings };
