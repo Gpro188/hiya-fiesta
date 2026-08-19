@@ -66,6 +66,7 @@ export default function PublicNav({
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <div
+                className="public-nav-title"
                 style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "0.95rem",

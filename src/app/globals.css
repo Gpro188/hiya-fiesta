@@ -856,3 +856,26 @@ img, picture, video, canvas, svg {
 @media (max-width: 768px) {
   .mobile-only { display: block !important; }
 }
+
+/* ─── Public Nav Mobile Layout Fixes ─── */
+@media (max-width: 640px) {
+  .public-nav-sub {
+    display: none !important;
+  }
+  .nav-search-text {
+    display: none !important;
+  }
+  .btn-header-search {
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.75rem !important;
+  }
+  .btn-header-login {
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.72rem !important;
+    letter-spacing: -0.01em !important;
+  }
+  .public-nav-title {
+    font-size: 0.88rem !important;
+    max-width: 140px !important;
+  }
+}
