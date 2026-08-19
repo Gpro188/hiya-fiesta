@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import PosterSettingsForm from "./PosterSettingsForm";
+import InteractivePosterStudio from "./InteractivePosterStudio";
 import ImageUpload from "../../components/ImageUpload";
 
 export default function SuperAdminMediaCenter({
@@ -125,17 +126,12 @@ export default function SuperAdminMediaCenter({
             </div>
           </div>
 
-          {/* Global Poster BG for this event */}
-          <div className="glass-panel" style={{ padding: "var(--spacing-lg)" }}>
-            <h3 style={{ marginBottom: "8px" }}>🖼️ Default Poster Background</h3>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "var(--spacing-md)" }}>
-              This will be the default background for all result posters in <strong>{selectedEvent.name}</strong>.
-              Individual category backgrounds below will override this.
-            </p>
-            <PosterSettingsForm
+          {/* Interactive Poster Studio for Selected Event */}
+          <div data-tour="media-poster">
+            <InteractivePosterStudio
               key={selectedEvent.id}
               initialSettings={{ targetEventId: selectedEvent.id, ...(selectedEvent.globalSetting || {}) }}
-              compact={true}
+              categories={selectedEvent.categories || []}
               zoneName={selectedEvent.name}
             />
           </div>
