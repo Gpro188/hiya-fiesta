@@ -205,6 +205,113 @@ export async function submitMarks(data: {
   }
 }
 
+// BATCH PROGRAM SCORING: Submit marks, places, and grades for all candidates/teams in a program in one click
+export async function batchSubmitProgramMarks(data: {
+  eventId: string;
+  programId: string;
+  publishImmediately?: boolean;
+  entries: Array<{
+    candidateId?: string;
+    teamId?: string;
+    marks: number;
+    rank?: number | null;
+    grade?: string | null;
+    points?: number;
+  }>;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const program = await prisma.program.findUnique({
+      where: { id: data.programId },
+      include: { category: { include: { pointMatrix: true } } }
+    });
+
+    if (!program) return { success: false, error: "Program not found" };
+
+    let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+    if (program.type !== "INDIVIDUAL") {
+      pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+    }
+    if (program.category?.pointMatrix) {
+      const matrix = program.category.pointMatrix;
+      const str = program.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
+      if (str) {
+        try { pointsConfig = JSON.parse(str); } catch (e) {}
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const entry of data.entries) {
+        // Compute combined points if rank or grade provided
+        let calcPoints = entry.points ?? 0;
+        if (entry.rank || entry.grade) {
+          calcPoints = 0;
+          if (entry.rank === 1) calcPoints += pointsConfig.rank1 || 0;
+          else if (entry.rank === 2) calcPoints += pointsConfig.rank2 || 0;
+          else if (entry.rank === 3) calcPoints += pointsConfig.rank3 || 0;
+
+          if (entry.grade === "A") calcPoints += pointsConfig.gradeA || 0;
+          else if (entry.grade === "B") calcPoints += pointsConfig.gradeB || 0;
+          else if (entry.grade === "C") calcPoints += pointsConfig.gradeC || 0;
+        }
+
+        if (entry.candidateId) {
+          await tx.result.upsert({
+            where: { candidateId_programId: { candidateId: entry.candidateId, programId: data.programId } },
+            update: {
+              marks: entry.marks,
+              rank: entry.rank || null,
+              grade: entry.grade || null,
+              points: calcPoints,
+              isPublished: data.publishImmediately ?? false
+            },
+            create: {
+              candidateId: entry.candidateId,
+              programId: data.programId,
+              marks: entry.marks,
+              rank: entry.rank || null,
+              grade: entry.grade || null,
+              points: calcPoints,
+              isPublished: data.publishImmediately ?? false
+            }
+          });
+        } else if (entry.teamId) {
+          await tx.result.upsert({
+            where: { teamId_programId: { teamId: entry.teamId, programId: data.programId } },
+            update: {
+              marks: entry.marks,
+              rank: entry.rank || null,
+              grade: entry.grade || null,
+              points: calcPoints,
+              isPublished: data.publishImmediately ?? false
+            },
+            create: {
+              teamId: entry.teamId,
+              programId: data.programId,
+              marks: entry.marks,
+              rank: entry.rank || null,
+              grade: entry.grade || null,
+              points: calcPoints,
+              isPublished: data.publishImmediately ?? false
+            }
+          });
+        }
+      }
+    });
+
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Batch submission failed:", error);
+    return { success: false, error: error.message || "Failed to save batch results" };
+  }
+}
+
 export async function togglePublishResult(id: string, isPublished: boolean) {
   try {
     const session = await getServerSession(authOptions);

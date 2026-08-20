@@ -99,6 +99,24 @@ export default async function ScoringPage(props: {
         select: {
           id: true,
           name: true,
+          pointMatrix: true,
+        }
+      },
+      results: {
+        where: {
+          OR: [
+            { team: { eventId: activeEventId } },
+            { candidate: { team: { eventId: activeEventId } } }
+          ]
+        },
+        select: {
+          id: true,
+          marks: true,
+          rank: true,
+          grade: true,
+          points: true,
+          candidateId: true,
+          teamId: true
         }
       },
       assignments: {
@@ -111,7 +129,14 @@ export default async function ScoringPage(props: {
             select: {
               id: true,
               name: true,
-              chestNumber: true
+              chestNumber: true,
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  flagColor: true
+                }
+              }
             }
           }
         }
