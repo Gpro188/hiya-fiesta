@@ -357,13 +357,7 @@ export default async function HomePage() {
           </div>
           <div className="gallery-viewport">
             <div className="gallery-track">
-              {(galleryTiles.length > 0 ? [...galleryTiles, ...galleryTiles] : [
-                { bg: "linear-gradient(155deg,#7a1f3d,#4e1327)", cap: "Inaugural Ceremony" },
-                { bg: "linear-gradient(155deg,#c9a227,#8a6d16)", cap: "Certificate Distribution" },
-                { bg: "linear-gradient(155deg,#1f6d5a,#123f34)", cap: "Faculty Address" },
-                { bg: "linear-gradient(155deg,#4e1327,#1c1420)", cap: "Opening Session" },
-                { bg: "linear-gradient(155deg,#8a6d16,#c9a227)", cap: "Group Recognition" },
-                { bg: "linear-gradient(155deg,#3a2e3d,#1c1420)", cap: "Chelari Campus" },
+              {(galleryTiles.length > 0 ? [...galleryTiles, ...galleryTiles, ...galleryTiles] : [
                 { bg: "linear-gradient(155deg,#7a1f3d,#4e1327)", cap: "Inaugural Ceremony" },
                 { bg: "linear-gradient(155deg,#c9a227,#8a6d16)", cap: "Certificate Distribution" },
                 { bg: "linear-gradient(155deg,#1f6d5a,#123f34)", cap: "Faculty Address" },
@@ -376,7 +370,7 @@ export default async function HomePage() {
                     <div className="tile" key={idx}>
                       <img 
                         src={item} 
-                        alt={`Hiya Fiesta Moment ${idx + 1}`} 
+                        alt={`Hiya Fiesta Moment ${(idx % (galleryTiles.length || 1)) + 1}`} 
                         className="tile-img" 
                         loading="lazy"
                       />
