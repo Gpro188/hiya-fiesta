@@ -21,6 +21,8 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
   const whereClause: any = { isApproved: true };
   if (searchParams.teamId) {
     whereClause.teamId = searchParams.teamId;
+  } else if (eventId) {
+    whereClause.team = { eventId };
   }
 
   const candidates = await prisma.candidate.findMany({

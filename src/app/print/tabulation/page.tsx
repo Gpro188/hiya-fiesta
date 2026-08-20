@@ -33,6 +33,13 @@ export default async function PrintTabulationPage(props: {
     include: { 
       category: true,
       assignments: {
+        where: eventId ? {
+          candidate: {
+            team: {
+              eventId: eventId
+            }
+          }
+        } : undefined,
         include: {
           candidate: {
             include: { team: true }

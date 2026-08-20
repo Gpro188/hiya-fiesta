@@ -144,18 +144,43 @@ export async function confirmTeamRegistration(teamId: string) {
 
         const offset = cat.chestNumberOffset || 0;
 
-        // Find max sequence number currently approved in THIS category across ALL teams
+        // Determine zone abbreviation from team's event if available
+        let zonePrefix = "";
+        if (team.eventId) {
+          const ev = await tx.event.findUnique({
+            where: { id: team.eventId },
+            include: { zone: true }
+          });
+          if (ev?.zone?.code) {
+            zonePrefix = ev.zone.code.toUpperCase();
+          } else if (ev?.name) {
+            const cleanName = ev.name.replace(/zone/i, '').trim().toUpperCase();
+            zonePrefix = cleanName.substring(0, 2);
+          }
+        }
+
+        // Base prefix: Zone code (e.g. KS, KN, KL) + Category (FL, FD, TN, AL) or Category prefix
+        const finalPrefix = zonePrefix ? `${zonePrefix}${prefixCode}` : prefixCode;
+
+        // Query all existing chest numbers starting with this finalPrefix across the database
         const existingCandidates = await tx.candidate.findMany({
-          where: { categoryId: cat.id, isApproved: true, chestNumber: { not: null } },
+          where: { chestNumber: { startsWith: finalPrefix } },
           select: { chestNumber: true }
         });
+
+        const usedNumbers = new Set<string>();
+        const allUsedChestNums = await tx.candidate.findMany({
+          where: { chestNumber: { not: null } },
+          select: { chestNumber: true }
+        });
+        allUsedChestNums.forEach(c => { if (c.chestNumber) usedNumbers.add(c.chestNumber.toUpperCase()); });
 
         let nextSequence = 1;
         if (existingCandidates.length > 0) {
           const sequences = existingCandidates
             .map(c => c.chestNumber!)
             .map(cn => {
-               const numPart = parseInt(cn.replace(prefixCode, ''), 10);
+               const numPart = parseInt(cn.replace(finalPrefix, ''), 10);
                return numPart - offset;
             })
             .filter(n => !isNaN(n));
@@ -168,11 +193,17 @@ export async function confirmTeamRegistration(teamId: string) {
         // Sort candidates alphabetically by name for deterministic ordering
         candidates.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Assign chest numbers
+        // Assign chest numbers ensuring no collisions with any existing record
         for (let i = 0; i < candidates.length; i++) {
-          const finalNum = offset + nextSequence + i;
-          const formattedNum = finalNum.toString().padStart(4, '0');
-          const newChestNumber = `${prefixCode}${formattedNum}`;
+          let assignedNum = offset + nextSequence + i;
+          let newChestNumber = `${finalPrefix}${assignedNum.toString().padStart(4, '0')}`;
+
+          // If by any chance this exists anywhere in DB, increment until unique
+          while (usedNumbers.has(newChestNumber.toUpperCase())) {
+            assignedNum++;
+            newChestNumber = `${finalPrefix}${assignedNum.toString().padStart(4, '0')}`;
+          }
+          usedNumbers.add(newChestNumber.toUpperCase());
 
           await tx.candidate.update({
             where: { id: candidates[i].id },

@@ -284,12 +284,12 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && fullUser?.eventId && (
               <GenerateChestNumbersButton eventId={fullUser.eventId} />
             )}
-            <a href="/print/candidates" target="_blank" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
+            <a href={`/print/candidates?${fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''}${filterTeamId ? `&teamId=${filterTeamId}` : ''}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
               Print List
             </a>
             <a 
               data-tour="candidates-idcards"
-              href={`/print/id-cards?${["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? `teamId=${userTeamId}` : (filterTeamId ? `teamId=${filterTeamId}` : '')}${filterCategoryId ? `&categoryId=${filterCategoryId}` : ''}`} 
+              href={`/print/id-cards?${["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? `teamId=${userTeamId}` : (filterTeamId ? `teamId=${filterTeamId}` : (fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''))}${filterCategoryId ? `&categoryId=${filterCategoryId}` : ''}`} 
               target="_blank" 
               className="btn btn-primary" 
               style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', backgroundColor: 'var(--primary)', color: 'white' }}
