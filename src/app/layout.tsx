@@ -59,9 +59,15 @@ export const metadata: Metadata = {
     canonical: "https://hiyafiesta.online",
   },
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/logo.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: ["/favicon.ico", "/icon.png"],
+    apple: [
+      { url: "/icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   openGraph: {
     title: {
@@ -75,7 +81,7 @@ export const metadata: Metadata = {
     siteName: "CSWC Hiya Fiesta 2026",
     images: [
       {
-        url: "/icon.png",
+        url: "https://hiyafiesta.online/logo.png",
         width: 800,
         height: 600,
         alt: "CSWC Hiya Fiesta Logo",
@@ -108,6 +114,8 @@ export default function RootLayout({
       "Fadheela Artsfest",
     ],
     url: "https://hiyafiesta.online",
+    logo: "https://hiyafiesta.online/icon.png",
+    image: "https://hiyafiesta.online/icon.png",
     description:
       "Official live result portal for Council of Samastha Women's Colleges Arts Fest (CSWC Hiya Fiesta 2026).",
   };
@@ -119,6 +127,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
+        <link rel="apple-touch-icon" href="/icon.png" />
+        <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
