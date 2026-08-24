@@ -40,10 +40,14 @@ export default async function BulkIdCardsPage({ searchParams }: { searchParams: 
   const candidates = await prisma.candidate.findMany({
     where: whereClause,
     include: {
-      team: true,
+      team: {
+        include: { event: true }
+      },
+      institution: true,
       category: true,
       programs: {
-        include: { program: true }
+        include: { program: true },
+        orderBy: { program: { name: 'asc' } }
       }
     },
     orderBy: { name: 'asc' }
