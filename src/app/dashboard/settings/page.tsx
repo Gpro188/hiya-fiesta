@@ -92,13 +92,13 @@ export default async function SettingsPage() {
             Configure festival-wide settings, audit program assignments, and manage data maintenance operations.
           </p>
         </div>
-        {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
+        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
           <a 
             href="/dashboard/settings/homepage" 
             className="btn btn-primary" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
           >
-            <span>🎨</span> {role === "ZONE_ADMIN" ? "Zone Banner & Portal Settings" : "Homepage & Theme Settings"}
+            <span>🎨</span> Homepage & Theme Settings
           </a>
         )}
       </div>

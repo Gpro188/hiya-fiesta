@@ -286,7 +286,7 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         },
         {
           name: "Zone Settings",
-          subtitle: "Registration Dates & Banner",
+          subtitle: "Registration Dates & Config",
           icon: "⚙️",
           href: "/dashboard/settings",
         },
