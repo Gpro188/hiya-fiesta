@@ -201,3 +201,158 @@ export async function shiftSchedule(eventId: string, venue: string, minutes: num
     return { success: false, error: "Failed to shift schedule" };
   }
 }
+
+export async function publishMasterScheduleToAllZones(sourceEventId?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    let masterEvent: any = null;
+    if (sourceEventId && sourceEventId !== "default") {
+      masterEvent = await prisma.event.findUnique({
+        where: { id: sourceEventId },
+        include: { programs: { include: { category: true } }, categories: true }
+      });
+    }
+
+    if (!masterEvent) {
+      masterEvent = await prisma.event.findFirst({
+        where: { OR: [{ parentId: null }, { type: "STATE" }] },
+        include: { programs: { include: { category: true } }, categories: true }
+      });
+    }
+
+    if (!masterEvent) {
+      return { success: false, error: "Master Event not found." };
+    }
+
+    if (masterEvent.programs.length === 0) {
+      return { success: false, error: "No programs in Master Schedule to publish." };
+    }
+
+    const zones = await prisma.event.findMany({
+      where: {
+        OR: [
+          { parentId: masterEvent.id },
+          { type: "ZONE" }
+        ],
+        NOT: { id: masterEvent.id }
+      },
+      include: {
+        categories: true,
+        programs: {
+          include: { assignments: true }
+        }
+      }
+    });
+
+    if (zones.length === 0) {
+      return { success: false, error: "No Zone Events found to receive the Master Schedule." };
+    }
+
+    let totalSynced = 0;
+
+    for (const zone of zones) {
+      // Build category mapping
+      const zoneCatMap = new Map<string, string>();
+      for (const cat of zone.categories) {
+        zoneCatMap.set(cat.name.trim().toUpperCase(), cat.id);
+      }
+
+      // Ensure all master categories exist in zone
+      for (const mCat of masterEvent.categories) {
+        const key = mCat.name.trim().toUpperCase();
+        if (!zoneCatMap.has(key)) {
+          const newCat = await prisma.category.create({
+            data: {
+              name: mCat.name,
+              chestNumberOffset: mCat.chestNumberOffset,
+              eventId: zone.id
+            }
+          });
+          zoneCatMap.set(key, newCat.id);
+        }
+      }
+
+      for (const mProg of masterEvent.programs) {
+        const mCatName = mProg.category?.name?.trim().toUpperCase();
+        const targetCatId = mCatName ? zoneCatMap.get(mCatName) : null;
+
+        // Try to match existing program in zone by programCode, or by name and category
+        const existingProg = zone.programs.find(p => {
+          if (mProg.programCode && p.programCode) {
+            return p.programCode.trim().toLowerCase() === mProg.programCode.trim().toLowerCase();
+          }
+          return p.name.trim().toLowerCase() === mProg.name.trim().toLowerCase();
+        });
+
+        if (existingProg) {
+          // Update zone program with master schedule attributes
+          await prisma.program.update({
+            where: { id: existingProg.id },
+            data: {
+              venue: mProg.venue,
+              startTime: mProg.startTime,
+              duration: mProg.duration,
+              stageType: mProg.stageType,
+              type: mProg.type,
+              programCode: mProg.programCode || existingProg.programCode,
+              categoryId: targetCatId || existingProg.categoryId,
+            }
+          });
+
+          // If program has startTime and assignments, sync candidate slots
+          if (mProg.startTime && existingProg.assignments && existingProg.assignments.length > 0) {
+            const baseTime = new Date(mProg.startTime);
+            const duration = mProg.duration || 10;
+            const updates = existingProg.assignments.map((assignment: any, index: number) => {
+              let slotNumber, scheduledTime;
+              if (mProg.type === "INDIVIDUAL") {
+                slotNumber = index + 1;
+                scheduledTime = new Date(baseTime.getTime() + (index * duration * 60000));
+              } else {
+                slotNumber = 1;
+                scheduledTime = baseTime;
+              }
+              return prisma.programAssignment.update({
+                where: { id: assignment.id },
+                data: { slotNumber, scheduledTime }
+              });
+            });
+            await prisma.$transaction(updates);
+          }
+          totalSynced++;
+        } else {
+          // Create new program in zone with master schedule attributes
+          await prisma.program.create({
+            data: {
+              programCode: mProg.programCode,
+              name: mProg.name,
+              type: mProg.type,
+              categoryId: targetCatId,
+              eventId: zone.id,
+              venue: mProg.venue,
+              startTime: mProg.startTime,
+              duration: mProg.duration,
+              stageType: mProg.stageType,
+              candidateLimitPerTeam: mProg.candidateLimitPerTeam,
+              description: mProg.description,
+              evaluationCriteria: mProg.evaluationCriteria
+            }
+          });
+          totalSynced++;
+        }
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/programs");
+    return { success: true, count: totalSynced, zoneCount: zones.length };
+  } catch (error: any) {
+    console.error("Failed to publish master schedule:", error);
+    return { success: false, error: error.message || "Failed to publish master schedule." };
+  }
+}
+

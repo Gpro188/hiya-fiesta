@@ -125,6 +125,7 @@ export default async function SchedulePage(props: {
             initialPrograms={programs as any} 
             eventId={activeEventId || "default"} 
             allJudges={zoneJudges}
+            isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
           />
         </div>
       </div>

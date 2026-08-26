@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateProgramSchedule, autoCalculateCandidateSlots, addBreak, autoGenerateSchedule, shiftSchedule } from "./actions";
+import { updateProgramSchedule, autoCalculateCandidateSlots, addBreak, autoGenerateSchedule, shiftSchedule, publishMasterScheduleToAllZones } from "./actions";
 import { importScheduleFromExcel, checkSchedulingConflicts } from "./importActions";
 
-export default function AdminScheduler({ initialPrograms, eventId, allJudges = [] }: { initialPrograms: any[], eventId: string, allJudges?: any[] }) {
+export default function AdminScheduler({ 
+  initialPrograms, 
+  eventId, 
+  allJudges = [],
+  isSuperAdmin = false 
+}: { 
+  initialPrograms: any[], 
+  eventId: string, 
+  allJudges?: any[],
+  isSuperAdmin?: boolean 
+}) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
@@ -105,6 +115,25 @@ export default function AdminScheduler({ initialPrograms, eventId, allJudges = [
     }
   };
 
+  const handlePublishMasterSchedule = async () => {
+    if (!confirm("This will publish this Master Schedule (Venues, Timings, Stage Types & Durations) to all Zone Festivals as their default schedule. Existing programs in zones will be updated with these timings. Proceed?")) return;
+    
+    setLoadingId("publish-master");
+    try {
+      const res = await publishMasterScheduleToAllZones(eventId);
+      if (res.success) {
+        alert(`✅ Master Schedule successfully published to ${res.zoneCount} Zone Festivals (${res.count} programs synced)!`);
+        window.location.reload();
+      } else {
+        alert("Failed to publish master schedule: " + (res.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error: " + (err.message || "Failed to publish master schedule"));
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   // Extract unique venues
   const allVenues = new Set([...localVenues, ...programs.map(p => p.venue).filter(Boolean)]);
   
@@ -144,8 +173,8 @@ export default function AdminScheduler({ initialPrograms, eventId, allJudges = [
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
       
       {/* Top Controls */}
-      <div className="glass-panel" style={{ padding: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1 }}>
+      <div className="glass-panel" style={{ padding: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div style={{ flex: '1 1 320px' }}>
           <h3 style={{ margin: '0 0 var(--spacing-sm) 0', fontSize: '1rem' }}>Venue Management</h3>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input 
@@ -159,7 +188,17 @@ export default function AdminScheduler({ initialPrograms, eventId, allJudges = [
             <button className="btn btn-secondary" onClick={handleAddVenue}>Add Venue</button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {isSuperAdmin && (
+            <button 
+              className="btn btn-primary" 
+              style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#ffffff', fontWeight: 600 }}
+              onClick={handlePublishMasterSchedule} 
+              disabled={loadingId !== null}
+            >
+              {loadingId === "publish-master" ? "Publishing..." : "📢 Publish Master Schedule to All Zones"}
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleAutoGenerate} disabled={loadingId !== null}>
             {loadingId === "auto-gen" ? "..." : "🤖 Auto-Generate Schedule"}
           </button>

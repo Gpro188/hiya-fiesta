@@ -4,9 +4,26 @@ import { useState } from "react";
 import { createJury, updateJury, deleteJury } from "./actions";
 import ZoneJurySelection from "./ZoneJurySelection";
 
-export default function AdminJuryList({ judges, zones, stateEvent, statePrograms }: { judges: any[], zones: any[], stateEvent?: any, statePrograms?: any[] }) {
+export default function AdminJuryList({ 
+  judges, 
+  zones, 
+  events = [], 
+  stateEvent, 
+  statePrograms 
+}: { 
+  judges: any[], 
+  zones: any[], 
+  events?: any[], 
+  stateEvent?: any, 
+  statePrograms?: any[] 
+}) {
   const [activeTab, setActiveTab] = useState<'list' | 'assign' | 'report'>('list');
   const [filterZoneId, setFilterZoneId] = useState<string>('ALL');
+  const [selectedEventId, setSelectedEventId] = useState<string>(
+    stateEvent?.id || (events && events[0]?.id) || ""
+  );
+  
+  const activeAssignEvent = events.find(e => e.id === selectedEventId) || stateEvent || (events && events[0]);
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -71,19 +88,19 @@ export default function AdminJuryList({ judges, zones, stateEvent, statePrograms
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '10px', marginBottom: 'var(--spacing-lg)' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setActiveTab('list')} 
           className={`btn ${activeTab === 'list' ? 'btn-primary' : 'btn-secondary'}`}
         >
           Master Jury List
         </button>
-        {stateEvent && (
+        {((events && events.length > 0) || stateEvent) && (
           <button 
             onClick={() => setActiveTab('assign')} 
             className={`btn ${activeTab === 'assign' ? 'btn-primary' : 'btn-secondary'}`}
           >
-            State Fest Assignment
+            Assign Judges to Zone & State Fests
           </button>
         )}
         <button 
@@ -94,14 +111,40 @@ export default function AdminJuryList({ judges, zones, stateEvent, statePrograms
         </button>
       </div>
 
-      {activeTab === 'assign' && stateEvent && (
+      {activeTab === 'assign' && activeAssignEvent && (
         <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h3 style={{ marginBottom: 'var(--spacing-md)' }}>State Fest Jury Assignment</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Festival Jury Selection & Program Assignment</h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                Select a festival/zone below to allocate master judges and assign them to specific competition programs.
+              </p>
+            </div>
+            {events && events.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Select Festival:</label>
+                <select 
+                  className="form-input" 
+                  value={selectedEventId} 
+                  onChange={e => setSelectedEventId(e.target.value)}
+                  style={{ minWidth: '240px', fontWeight: 500 }}
+                >
+                  {events.map(ev => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.type === "STATE" || !ev.parentId ? "🏛️ " : "📍 "}
+                      {ev.name} {ev.zone?.name ? `(${ev.zone.name})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <ZoneJurySelection 
+            key={activeAssignEvent.id}
             allJudges={judges} 
-            selectedJudges={stateEvent.selectedJudges || []} 
-            programs={statePrograms || []}
-            eventId={stateEvent.id} 
+            selectedJudges={activeAssignEvent.selectedJudges || []} 
+            programs={activeAssignEvent.programs || []}
+            eventId={activeAssignEvent.id} 
           />
         </div>
       )}

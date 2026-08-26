@@ -38,7 +38,7 @@ export async function createJury(data: { username: string, password?: string, ph
 
 export async function toggleJurySelection(eventId: string, juryId: string, isSelected: boolean) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ZONE_ADMIN") {
+  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
     return { success: false, error: "Unauthorized" };
   }
 
@@ -116,7 +116,7 @@ export async function deleteJury(id: string) {
 
 export async function assignJudgesToProgram(programId: string, judgeIds: string[]) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ZONE_ADMIN") return { success: false, error: "Unauthorized" };
+  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) return { success: false, error: "Unauthorized" };
 
   try {
     await prisma.program.update({
