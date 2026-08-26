@@ -28,8 +28,22 @@ export default async function DashboardPage() {
     select: { institutionId: true, eventId: true, zoneId: true } 
   });
 
-  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
+  // Zone specific metrics
+  let zoneData: {
+    confirmedTeamsCount: number;
+    totalTeamsCount: number;
+    pendingTeams: any[];
+    scheduledProgramsCount: number;
+    totalProgramsCount: number;
+    unscheduledPrograms: any[];
+    juryAssignedProgramsCount: number;
+    missingJuryPrograms: any[];
+    publishedResultsCount: number;
+    pendingResultsCount: number;
+    unscoredProgramsCount: number;
+  } | null = null;
 
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
     if (fullUser?.institutionId) {
       userTeam = await prisma.team.findFirst({
         where: fullUser.eventId 
@@ -39,6 +53,7 @@ export default async function DashboardPage() {
           id: true,
           name: true,
           eventId: true,
+          isAssignmentsConfirmed: true,
           event: { select: { name: true, zone: { select: { name: true } } } },
         },
       });
@@ -76,7 +91,8 @@ export default async function DashboardPage() {
         include: { 
           category: { select: { name: true } },
           assignments: { where: { candidate: { teamId } } } 
-        }
+        },
+        orderBy: { name: 'asc' }
       });
       
       pendingPrograms = allPrograms.filter(p => p.assignments.length < p.candidateLimitPerTeam);
@@ -88,6 +104,7 @@ export default async function DashboardPage() {
           icon: "🛡️",
           accentStart: "#A5003A",
           accentEnd: "#818cf8",
+          trend: userTeam.isAssignmentsConfirmed ? "Confirmed" : "In Progress",
         },
         {
           label: "Candidates",
@@ -95,6 +112,7 @@ export default async function DashboardPage() {
           icon: "👤",
           accentStart: "#ec4899",
           accentEnd: "#f472b6",
+          trend: "Roster",
         },
         {
           label: "Approved",
@@ -102,6 +120,7 @@ export default async function DashboardPage() {
           icon: "✅",
           accentStart: "#10b981",
           accentEnd: "#34d399",
+          trend: approvedCandidatesCount === candidatesCount && candidatesCount > 0 ? "All Approved" : "Pending",
         },
         {
           label: "Program Entries",
@@ -109,6 +128,7 @@ export default async function DashboardPage() {
           icon: "📜",
           accentStart: "#f59e0b",
           accentEnd: "#fbbf24",
+          trend: `${pendingPrograms.length} Pending`,
         },
         {
           label: "Points Published",
@@ -116,6 +136,7 @@ export default async function DashboardPage() {
           icon: "🏆",
           accentStart: "#8E0033",
           accentEnd: "#a78bfa",
+          trend: "Live",
         },
         {
           label: "Total Points",
@@ -123,31 +144,157 @@ export default async function DashboardPage() {
           icon: "✨",
           accentStart: "#e11d48",
           accentEnd: "#fb7185",
+          trend: "Overall",
         },
       ];
     }
+  } else if (role === "ZONE_ADMIN") {
+    const zoneEventId = fullUser?.eventId || eventId;
+    const eventFilter = zoneEventId ? { id: zoneEventId } : undefined;
+    const teamFilter = zoneEventId ? { eventId: zoneEventId } : undefined;
+
+    const [
+      zoneTeams,
+      zonePrograms,
+      participantsCount,
+      publishedResults,
+      pendingResults,
+    ] = await Promise.all([
+      prisma.team.findMany({
+        where: teamFilter,
+        select: {
+          id: true,
+          name: true,
+          prefixCode: true,
+          isAssignmentsConfirmed: true,
+          _count: { select: { candidates: true } },
+          candidates: {
+            select: {
+              _count: { select: { programs: true } }
+            }
+          }
+        },
+        orderBy: { name: 'asc' }
+      }),
+      prisma.program.findMany({
+        where: zoneEventId ? { eventId: zoneEventId } : undefined,
+        select: {
+          id: true,
+          name: true,
+          programCode: true,
+          venue: true,
+          startTime: true,
+          _count: {
+            select: {
+              assignments: true,
+              judges: true,
+              results: true
+            }
+          },
+          results: {
+            select: { isPublished: true }
+          }
+        },
+        orderBy: { name: 'asc' }
+      }),
+      prisma.candidate.count({
+        where: {
+          team: teamFilter,
+          programs: { some: {} },
+        },
+      }),
+      prisma.result.count({
+        where: {
+          isPublished: true,
+          program: zoneEventId ? { eventId: zoneEventId } : undefined
+        },
+      }),
+      prisma.result.count({
+        where: {
+          isPublished: false,
+          program: zoneEventId ? { eventId: zoneEventId } : undefined
+        },
+      }),
+    ]);
+
+    const confirmedTeams = zoneTeams.filter(t => t.isAssignmentsConfirmed);
+    const pendingTeams = zoneTeams.filter(t => !t.isAssignmentsConfirmed);
+    const scheduledPrograms = zonePrograms.filter(p => p.venue || p.startTime);
+    const unscheduledPrograms = zonePrograms.filter(p => !p.venue && !p.startTime);
+    const juryAssignedPrograms = zonePrograms.filter(p => p._count.judges > 0);
+    const missingJuryPrograms = zonePrograms.filter(p => p._count.judges === 0);
+    const scoredPrograms = zonePrograms.filter(p => p._count.results > 0);
+    const unscoredPrograms = zonePrograms.filter(p => p._count.results === 0);
+
+    zoneData = {
+      confirmedTeamsCount: confirmedTeams.length,
+      totalTeamsCount: zoneTeams.length,
+      pendingTeams,
+      scheduledProgramsCount: scheduledPrograms.length,
+      totalProgramsCount: zonePrograms.length,
+      unscheduledPrograms,
+      juryAssignedProgramsCount: juryAssignedPrograms.length,
+      missingJuryPrograms,
+      publishedResultsCount: publishedResults,
+      pendingResultsCount: pendingResults,
+      unscoredProgramsCount: unscoredPrograms.length,
+    };
+
+    stats = [
+      {
+        label: "Zone Institutions",
+        value: `${confirmedTeams.length} / ${zoneTeams.length}`,
+        icon: "🛡️",
+        accentStart: confirmedTeams.length === zoneTeams.length && zoneTeams.length > 0 ? "#10b981" : "#f59e0b",
+        accentEnd: "#34d399",
+        trend: `${pendingTeams.length} Pending Confirm`,
+      },
+      {
+        label: "Stages & Schedule",
+        value: `${scheduledPrograms.length} / ${zonePrograms.length}`,
+        icon: "📅",
+        accentStart: scheduledPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "#10b981" : "#0ea5e9",
+        accentEnd: "#38bdf8",
+        trend: `${unscheduledPrograms.length} Unscheduled`,
+      },
+      {
+        label: "Jury Assignments",
+        value: `${juryAssignedPrograms.length} / ${zonePrograms.length}`,
+        icon: "⚖️",
+        accentStart: juryAssignedPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "#10b981" : "#8E0033",
+        accentEnd: "#a78bfa",
+        trend: `${missingJuryPrograms.length} Missing Jury`,
+      },
+      {
+        label: "Active Participants",
+        value: participantsCount,
+        icon: "👤",
+        accentStart: "#ec4899",
+        accentEnd: "#f472b6",
+        trend: "Enrolled",
+      },
+      {
+        label: "Results Published",
+        value: publishedResults,
+        icon: "🏆",
+        accentStart: "#10b981",
+        accentEnd: "#34d399",
+        trend: "Live",
+      },
+      {
+        label: "Results Pending",
+        value: pendingResults,
+        icon: "⏳",
+        accentStart: "#ef4444",
+        accentEnd: "#f87171",
+        trend: "Awaiting",
+      },
+    ];
   } else {
     let eventFilter: any = eventId ? { id: eventId } : undefined;
     let teamFilter: any = eventId ? { eventId } : undefined;
-    
-    // Default program and result filters for ADMIN/SUPER_ADMIN
     let programFilter: any = eventId ? { eventId } : undefined;
     let resultFilter: any = eventId ? { program: { eventId } } : {};
-    
-    if (role === "ZONE_ADMIN" && fullUser?.eventId) {
-      const zoneEventId = fullUser.eventId;
-      eventFilter = { id: zoneEventId };
-      teamFilter = { eventId: zoneEventId };
-      programFilter = {
-        assignments: { some: { candidate: { team: { eventId: zoneEventId } } } }
-      };
-      resultFilter = {
-        OR: [
-          { team: { eventId: zoneEventId } },
-          { candidate: { team: { eventId: zoneEventId } } }
-        ]
-      };
-    }
 
     const [
       eventsCount,
@@ -264,7 +411,15 @@ export default async function DashboardPage() {
   }
 
   const quickLinks: { label: string; href: string; icon: string; color: string }[] = [];
-  if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role)) {
+  if (role === "ZONE_ADMIN") {
+    quickLinks.push(
+      { label: "Confirm Team Lists", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
+      { label: "Scheduling & Stages", href: "/dashboard/schedule", icon: "📅", color: "#0ea5e9" },
+      { label: "Assign Juries", href: "/dashboard/juries", icon: "⚖️", color: "#8E0033" },
+      { label: "Rapid Mark Entry", href: "/dashboard/scoring", icon: "🏆", color: "#10b981" },
+      { label: "Print All ID Cards", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
+    );
+  } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
     quickLinks.push(
       { label: "Manage Teams", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
       { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" },
@@ -274,9 +429,9 @@ export default async function DashboardPage() {
     );
   } else if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam) {
     quickLinks.push(
-      { label: "Register Candidates", href: "/dashboard/candidates", icon: "👤", color: "#ec4899" },
-      { label: "View Assignments", href: "/dashboard/assignments", icon: "📜", color: "#f59e0b" },
-      { label: "Print Schedule", href: "/dashboard/schedule", icon: "🖨️", color: "#10b981" }
+      { label: "1. Register Candidates", href: "/dashboard/candidates", icon: "👤", color: "#ec4899" },
+      { label: "2. Program Allocations", href: "/dashboard/assignments", icon: "📜", color: "#f59e0b" },
+      { label: "3. Print Schedule & IDs", href: "/dashboard/reports", icon: "🖨️", color: "#10b981" }
     );
   } else if (role === "MEDIA") {
     quickLinks.push(
@@ -302,34 +457,70 @@ export default async function DashboardPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
         <div>
           <h1 className="page-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 700, margin: '0 0 4px 0' }}>
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "Team Dashboard" : "Management Overview"}
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "Institution Portal Dashboard" : (role === "ZONE_ADMIN" ? "Zone Admin Control Hub" : "Management Overview")}
           </h1>
           <p className="page-subtitle" style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>
             Welcome back, <strong>{username}</strong> · {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
+        
+        {/* Only show Live Hub button for Super Admin / Admin / Media. Replace with quick workflow action for Zone & Institution */}
         <div data-tour="dash-hub-btn" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <Link
-            href="/hub"
-            className="btn btn-success"
-            style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "0.5rem",
-              background: 'var(--emerald)',
-              color: '#ffffff',
-              borderRadius: 'var(--radius-full)',
-              padding: '0.5rem 1.25rem',
-              fontWeight: 700,
-              fontSize: '0.85rem'
-            }}
-          >
-            <span>📡</span> Live Management Hub
-          </Link>
+          {role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA" ? (
+            <Link
+              href="/hub"
+              className="btn btn-success"
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.5rem",
+                background: 'var(--emerald)',
+                color: '#ffffff',
+                borderRadius: 'var(--radius-full)',
+                padding: '0.5rem 1.25rem',
+                fontWeight: 700,
+                fontSize: '0.85rem'
+              }}
+            >
+              <span>📡</span> Live Management Hub
+            </Link>
+          ) : role === "ZONE_ADMIN" ? (
+            <Link
+              href="/dashboard/scoring"
+              className="btn btn-primary"
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.5rem",
+                borderRadius: 'var(--radius-full)',
+                padding: '0.5rem 1.25rem',
+                fontWeight: 700,
+                fontSize: '0.85rem'
+              }}
+            >
+              <span>🏆</span> Results & Mark Entry
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/assignments"
+              className="btn btn-primary"
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.5rem",
+                borderRadius: 'var(--radius-full)',
+                padding: '0.5rem 1.25rem',
+                fontWeight: 700,
+                fontSize: '0.85rem'
+              }}
+            >
+              <span>📜</span> Program Allocations
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* Stats Grid with auto-fit reflow 6 -> 3 -> 2 -> 1 */}
+      {/* Stats Grid with auto-fit reflow */}
       <div
         data-tour="dash-stats"
         style={{
@@ -417,6 +608,149 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ========================================================================= */}
+      {/* 🚀 ZONE ADMIN: STEP-BY-STEP FEST LIFECYCLE WORKFLOW & STATUS */}
+      {/* ========================================================================= */}
+      {role === "ZONE_ADMIN" && zoneData && (
+        <div style={{ marginBottom: "2rem" }}>
+          <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span>🎯</span> Zone Festival Execution Steps & Status
+              </h2>
+              <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                Follow these continuous stages to organize and execute your zone arts festival.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
+            {/* Step 1: Confirm Institution Lists */}
+            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.pendingTeams.length === 0 ? "#10b981" : "#f59e0b"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 1</span>
+                <span className="badge" style={{ backgroundColor: zoneData.pendingTeams.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: zoneData.pendingTeams.length === 0 ? "#10b981" : "#d97706", fontWeight: 700 }}>
+                  {zoneData.pendingTeams.length === 0 ? "✅ Confirmed" : `⚠️ ${zoneData.pendingTeams.length} Pending`}
+                </span>
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>1. Confirm Institution Lists</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 1rem 0", lineHeight: 1.5 }}>
+                Verify submitted candidate allocations and generate official chest numbers.
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                  {zoneData.confirmedTeamsCount} of {zoneData.totalTeamsCount} Confirmed
+                </span>
+                <Link href="/dashboard/teams" className="btn btn-sm btn-secondary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>
+                  Review & Confirm →
+                </Link>
+              </div>
+            </div>
+
+            {/* Step 2: Scheduling & Stages */}
+            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.unscheduledPrograms.length === 0 ? "#10b981" : "#0ea5e9"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 2</span>
+                <span className="badge" style={{ backgroundColor: zoneData.unscheduledPrograms.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(14,165,233,0.15)", color: zoneData.unscheduledPrograms.length === 0 ? "#10b981" : "#0284c7", fontWeight: 700 }}>
+                  {zoneData.unscheduledPrograms.length === 0 ? "✅ All Scheduled" : `📅 ${zoneData.unscheduledPrograms.length} Remaining`}
+                </span>
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>2. Scheduling & Stages</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 1rem 0", lineHeight: 1.5 }}>
+                Allocate stages, venues, dates and time slots for all competition programs.
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                  {zoneData.scheduledProgramsCount} of {zoneData.totalProgramsCount} Scheduled
+                </span>
+                <Link href="/dashboard/schedule" className="btn btn-sm btn-secondary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>
+                  Manage Schedule →
+                </Link>
+              </div>
+            </div>
+
+            {/* Step 3: Jury / Judge Assignment */}
+            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.missingJuryPrograms.length === 0 ? "#10b981" : "#8E0033"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 3</span>
+                <span className="badge" style={{ backgroundColor: zoneData.missingJuryPrograms.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(142,0,51,0.15)", color: zoneData.missingJuryPrograms.length === 0 ? "#10b981" : "#8E0033", fontWeight: 700 }}>
+                  {zoneData.missingJuryPrograms.length === 0 ? "✅ All Assigned" : `⚖️ ${zoneData.missingJuryPrograms.length} Missing`}
+                </span>
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>3. Jury Assignment</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 1rem 0", lineHeight: 1.5 }}>
+                Assign certified judges to stage and off-stage competition programs.
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                  {zoneData.juryAssignedProgramsCount} of {zoneData.totalProgramsCount} Assigned
+                </span>
+                <Link href="/dashboard/juries" className="btn btn-sm btn-secondary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>
+                  Assign Juries →
+                </Link>
+              </div>
+            </div>
+
+            {/* Step 4: Mark Entry Status & Scoring */}
+            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.unscoredProgramsCount === 0 ? "#10b981" : "#A5003A"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 4</span>
+                <span className="badge" style={{ backgroundColor: "rgba(165,0,58,0.15)", color: "#A5003A", fontWeight: 700 }}>
+                  {zoneData.publishedResultsCount} Published
+                </span>
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>4. Results & Mark Entry</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 1rem 0", lineHeight: 1.5 }}>
+                Record marks, calculate automatic points, assign places, and publish results.
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                  {zoneData.pendingResultsCount > 0 ? `⏳ ${zoneData.pendingResultsCount} Drafts` : `${zoneData.unscoredProgramsCount} Awaiting Entry`}
+                </span>
+                <Link href="/dashboard/scoring" className="btn btn-sm btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>
+                  Enter Scores →
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending List Audit Diagnostics for Zone Admin */}
+          {zoneData.pendingTeams.length > 0 && (
+            <div className="glass-panel" style={{ marginTop: "1.25rem", padding: "1.25rem", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#d97706", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>⚠️</span> Pending Institution Confirmations ({zoneData.pendingTeams.length})
+                </h4>
+                <Link href="/dashboard/teams" className="btn btn-sm btn-secondary" style={{ fontSize: "0.75rem" }}>
+                  Go to Teams Management →
+                </Link>
+              </div>
+              <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                The following institutions have registered candidates or programs that require Zone Admin verification to generate Chest Numbers:
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                {zoneData.pendingTeams.map((team: any) => (
+                  <span
+                    key={team.id}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      backgroundColor: "rgba(245,158,11,0.1)",
+                      border: "1px solid rgba(245,158,11,0.25)",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--text-primary)"
+                    }}
+                  >
+                    🏢 {team.name} ({team._count.candidates} candidates)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Info + Quick Actions Row */}
       <div
@@ -515,10 +849,10 @@ export default async function DashboardPage() {
             >
               🔗
             </div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Manager Resources</h3>
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Candidate Photo Hosting</h3>
           </div>
           <p style={{ color: "var(--text-secondary)", marginBottom: "1rem", fontSize: "0.8rem", lineHeight: 1.5 }}>
-            External tools for candidate photo hosting:
+            External tools for hosting student candidate photos:
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <a
@@ -543,25 +877,71 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* 📝 INSTITUTION MANAGER: STEP-BY-STEP WORKFLOW & REGISTRATION GUIDE */}
+      {/* ========================================================================= */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam && (
         <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginBottom: "2rem", borderLeft: "4px solid #10b981" }}>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981" }}>
-            <span>📝</span> Registration Guide
-          </h3>
-          <ol style={{ paddingLeft: "1.2rem", margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            <li style={{ paddingBottom: "0.5rem" }}>
-              <strong>Step 1:</strong> Go to the <strong>Students List</strong> and add candidates by typing their Name or UID.
-            </li>
-            <li style={{ paddingBottom: "0.5rem" }}>
-              <strong>Step 2:</strong> Go to <strong>View Assignments</strong> and assign programs to the students you just added.
-            </li>
-            <li style={{ paddingBottom: "0.5rem" }}>
-              <strong>Step 3:</strong> Once you have finished assigning all programs, contact your <strong>Zone Admin</strong> to confirm your registration. <em>(This will officially generate their Chest Numbers)</em>.
-            </li>
-            <li>
-              <strong>Step 4:</strong> After confirmation, go to <strong>Print Schedule</strong> to print individual student schedules and your total institution schedule.
-            </li>
-          </ol>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981" }}>
+              <span>📝</span> Institution Registration & Assignment Steps
+            </h3>
+            <span className="badge" style={{ backgroundColor: userTeam.isAssignmentsConfirmed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: userTeam.isAssignmentsConfirmed ? "#10b981" : "#d97706", fontWeight: 700 }}>
+              {userTeam.isAssignmentsConfirmed ? "✅ Zone Confirmed & Locked" : "⏳ In Progress (Awaiting Zone Confirmation)"}
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1rem" }}>
+            {/* Step 1 */}
+            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 1</div>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Register Students</h4>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
+                Add your participating candidates by searching their Name or UID.
+              </p>
+              <Link href="/dashboard/candidates" className="btn btn-sm btn-secondary" style={{ width: "100%", textAlign: "center" }}>
+                Student Roster →
+              </Link>
+            </div>
+
+            {/* Step 2 */}
+            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 2</div>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Program Allocations</h4>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
+                Enroll registered students into their competition categories.
+              </p>
+              <Link href="/dashboard/assignments" className="btn btn-sm btn-primary" style={{ width: "100%", textAlign: "center" }}>
+                Assign Programs →
+              </Link>
+            </div>
+
+            {/* Step 3 */}
+            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 3</div>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Zone Confirmation</h4>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
+                {userTeam.isAssignmentsConfirmed 
+                  ? "Chest numbers are officially generated and active." 
+                  : "Contact your Zone Admin once all allocations are finished."}
+              </p>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: userTeam.isAssignmentsConfirmed ? "#10b981" : "#f59e0b" }}>
+                {userTeam.isAssignmentsConfirmed ? "✅ Confirmed" : "⏳ Pending Zone Admin"}
+              </span>
+            </div>
+
+            {/* Step 4 */}
+            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 4</div>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Print ID & Schedules</h4>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
+                Print official candidate ID cards and institution event timetable.
+              </p>
+              <Link href="/dashboard/reports" className="btn btn-sm btn-secondary" style={{ width: "100%", textAlign: "center" }}>
+                Reports & Print Hub →
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 
@@ -571,7 +951,7 @@ export default async function DashboardPage() {
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && pendingPrograms.length > 0 && (
         <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginTop: "2rem" }}>
           <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ color: "var(--warning)" }}>⚠️</span> Pending Program Assignments
+            <span style={{ color: "var(--warning)" }}>⚠️</span> Pending Program Assignments ({pendingPrograms.length})
           </h3>
           <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
             You have not reached the candidate limit for the following programs. Please assign candidates before the deadline.

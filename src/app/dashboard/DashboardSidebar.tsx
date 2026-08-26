@@ -25,24 +25,29 @@ interface NavItem {
 function getNavItems(role: string): { section: string; items: NavItem[] }[] {
   const groups: { section: string; items: NavItem[] }[] = [];
 
-  // Always shown
+  const overviewItems: NavItem[] = [
+    {
+      name: "Dashboard",
+      subtitle: "Overview & quick stats",
+      icon: "📊",
+      href: "/dashboard",
+    },
+  ];
+
+  // Only show Live Hub for Super Admin, Admin, and Media (removed from Zone Admin & Institution portals)
+  if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA") {
+    overviewItems.push({
+      name: "Live Hub",
+      subtitle: "Real-time public standings",
+      icon: "📡",
+      href: "/hub",
+      highlight: true,
+    });
+  }
+
   groups.push({
     section: "Overview",
-    items: [
-      {
-        name: "Dashboard",
-        subtitle: "Overview & quick stats",
-        icon: "📊",
-        href: "/dashboard",
-      },
-      {
-        name: "Live Hub",
-        subtitle: "Real-time public standings",
-        icon: "📡",
-        href: "/hub",
-        highlight: true,
-      },
-    ],
+    items: overviewItems,
   });
 
   if (role === "SUPER_ADMIN") {
@@ -243,22 +248,11 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
       section: "Zone Management",
       items: [
         {
-          name: "User Credentials",
-          subtitle: "Manage institution accounts",
-          icon: "👥",
-          href: "/dashboard/users",
-        },
-        {
           name: "Teams & Institutions",
-          subtitle: "Zone Institutions",
+          subtitle: "Confirm List & Chest Nos",
           icon: "🛡️",
           href: "/dashboard/teams",
-        },
-        {
-          name: "Jury Selection",
-          subtitle: "Assign judges to programs",
-          icon: "⚖️",
-          href: "/dashboard/juries",
+          highlight: true,
         },
         {
           name: "Scheduling & Stages",
@@ -267,10 +261,10 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/schedule",
         },
         {
-          name: "Reports & Print Hub",
-          subtitle: "All printables & schedules",
-          icon: "🖨️",
-          href: "/dashboard/reports",
+          name: "Jury Selection",
+          subtitle: "Assign judges to programs",
+          icon: "⚖️",
+          href: "/dashboard/juries",
         },
         {
           name: "Results & Scoring",
@@ -279,8 +273,20 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/scoring",
         },
         {
+          name: "Reports & Print Hub",
+          subtitle: "All printables & ID cards",
+          icon: "🖨️",
+          href: "/dashboard/reports",
+        },
+        {
+          name: "User Credentials",
+          subtitle: "Manage institution accounts",
+          icon: "👥",
+          href: "/dashboard/users",
+        },
+        {
           name: "Zone Settings",
-          subtitle: "Registration Dates",
+          subtitle: "Registration Dates & Banner",
           icon: "⚙️",
           href: "/dashboard/settings",
         },

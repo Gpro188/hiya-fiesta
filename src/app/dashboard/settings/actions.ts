@@ -113,8 +113,8 @@ export async function updateEventDeadlines(eventId: string, data: {
 export async function exportAllData() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return { success: false, error: "Unauthorized" };
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized: Super Admin access required" };
     }
 
     const { eventId } = session.user;
@@ -153,8 +153,8 @@ export async function exportAllData() {
 export async function resetSystem() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return { success: false, error: "Unauthorized" };
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized: Super Admin access required" };
     }
 
     const { eventId } = session.user;

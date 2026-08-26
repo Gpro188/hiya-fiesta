@@ -114,10 +114,12 @@ export default async function SettingsPage() {
           <PendingList programs={programs as any} teams={teams as any} />
         </div>
 
-        <div data-tour="settings-maintenance" className="glass-panel" style={{ padding: 'var(--spacing-lg)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem', color: 'var(--error)' }}>Data Management & Maintenance</h2>
-          <MaintenanceActions />
-        </div>
+        {role === "SUPER_ADMIN" && (
+          <div data-tour="settings-maintenance" className="glass-panel" style={{ padding: 'var(--spacing-lg)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem', color: 'var(--error)' }}>Data Management & Maintenance (Super Admin)</h2>
+            <MaintenanceActions />
+          </div>
+        )}
       </div>
     </div>
   );

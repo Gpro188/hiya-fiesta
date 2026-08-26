@@ -92,7 +92,7 @@ function ProgramItem({
   );
 }
 
-export default function CandidateIdCard({ candidate }: CandidateIdCardProps) {
+export default function CandidateIdCard({ candidate, settings, eventName }: CandidateIdCardProps) {
   const photoSrc = candidate.photo || candidate.photoUrl;
   const teamName = candidate.institution?.name || candidate.team?.name || "INSTITUTION";
   const categoryName = candidate.category?.name || "FADHILA";
@@ -100,6 +100,7 @@ export default function CandidateIdCard({ candidate }: CandidateIdCardProps) {
   const allPrograms = candidate.programs || [];
   const list = allPrograms.slice(0, 5);
   const count = list.length;
+  const eventTitle = eventName || candidate.team?.event?.name || settings?.festName || "HIYA FIESTA 2026";
 
   return (
     <div
@@ -110,7 +111,7 @@ export default function CandidateIdCard({ candidate }: CandidateIdCardProps) {
         position: "relative",
         borderRadius: "18px",
         overflow: "hidden",
-        backgroundImage: "url('/HIya ID blank.png')",
+        backgroundImage: "url('/hiya-id-blank.png'), url('/HIya%20ID%20blank.png'), url('/HIya ID blank.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -346,9 +347,13 @@ export default function CandidateIdCard({ candidate }: CandidateIdCardProps) {
               lineHeight: 1.15,
               marginTop: "2px",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "115px",
             }}
+            title={eventTitle}
           >
-            PROGRAM ZONE
+            {eventTitle}
           </div>
         </div>
       </div>
