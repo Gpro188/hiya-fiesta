@@ -3,40 +3,58 @@ import { prisma } from "./prisma";
 export async function getSettings(eventId?: string | null) {
   try {
     if (eventId) {
-      let settings = await prisma.globalSetting.findUnique({
-        where: { eventId }
-      });
-      if (!settings) {
-        const event = await prisma.event.findUnique({
-          where: { id: eventId }
-        });
-        if (!event) {
-          return { 
-            id: eventId, 
-            festName: "CSWC Hiya Fiesta 2026", 
-            festMoto: "Council of Samastha Women's Colleges", 
-            festLogo: null,
-            posterPrimaryColor: "#1e293b" 
-          } as any;
+      const existing = await prisma.globalSetting.findFirst({
+        where: {
+          OR: [
+            { eventId: eventId },
+            { id: eventId }
+          ]
         }
-        settings = await prisma.globalSetting.create({
-          data: {
-            id: eventId, // explicitly set id so it doesn't default to "default"
-            eventId,
-            festName: event.name || "CSWC Hiya Fiesta 2026",
-            festMoto: "Council of Samastha Women's Colleges"
-          }
-        });
+      });
+      if (existing) return existing;
+
+      const event = await prisma.event.findUnique({
+        where: { id: eventId }
+      });
+
+      if (!event) {
+        return { 
+          id: eventId, 
+          festName: "CSWC Hiya Fiesta 2026", 
+          festMoto: "Council of Samastha Women's Colleges", 
+          festLogo: null,
+          posterPrimaryColor: "#1e293b" 
+        } as any;
       }
-      return settings;
+
+      return await prisma.globalSetting.upsert({
+        where: { id: eventId },
+        update: {
+          eventId: eventId,
+          festName: event.name || "CSWC Hiya Fiesta 2026"
+        },
+        create: {
+          id: eventId,
+          eventId: eventId,
+          festName: event.name || "CSWC Hiya Fiesta 2026",
+          festMoto: "Council of Samastha Women's Colleges"
+        }
+      });
     }
+
+    const defaultSetting = await prisma.globalSetting.findFirst({
+      where: {
+        OR: [
+          { id: "default" },
+          { eventId: null }
+        ]
+      }
+    });
+    if (defaultSetting) return defaultSetting;
 
     return await prisma.globalSetting.upsert({
       where: { id: "default" },
-      update: {
-        festName: "CSWC Hiya Fiesta 2026",
-        festMoto: "Council of Samastha Women's Colleges"
-      },
+      update: {},
       create: { 
         id: "default", 
         festName: "CSWC Hiya Fiesta 2026",
@@ -46,7 +64,7 @@ export async function getSettings(eventId?: string | null) {
   } catch (e) {
     console.error("getSettings failed:", e);
     return { 
-      id: "default", 
+      id: eventId || "default", 
       festName: "CSWC Hiya Fiesta 2026", 
       festMoto: "Council of Samastha Women's Colleges", 
       festLogo: null,
@@ -72,7 +90,7 @@ export async function getFestBranding(eventId?: string | null) {
 
 export async function getHomepageSettings(eventId: string) {
   try {
-    let settings = await prisma.homepageSetting.findUnique({
+    let settings = await prisma.homepageSetting.findFirst({
       where: { eventId }
     });
 
@@ -80,8 +98,10 @@ export async function getHomepageSettings(eventId: string) {
       const eventExists = await prisma.event.findUnique({ where: { id: eventId } });
       if (!eventExists) return null;
 
-      settings = await prisma.homepageSetting.create({
-        data: {
+      settings = await prisma.homepageSetting.upsert({
+        where: { eventId },
+        update: {},
+        create: {
           eventId,
           heroTitle: "CSWC Hiya Fiesta 2026",
           heroSubtitle: "A Celebration of Innovation and Creativity",
