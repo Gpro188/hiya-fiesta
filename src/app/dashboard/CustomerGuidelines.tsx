@@ -3,23 +3,61 @@
 import { useState } from "react";
 
 export default function CustomerGuidelines({ role }: { role: string }) {
+  const isZoneAdmin = role === "ZONE_ADMIN";
+  const isInstitutionManager = ["MANAGER", "INSTITUTION_MANAGER"].includes(role);
+  const isSuperAdmin = ["ADMIN", "SUPER_ADMIN"].includes(role);
+
   const [activeTab, setActiveTab] = useState<string>("setup");
 
-  const tabs = [
-    { id: "setup", label: ["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "🚀 Getting Started" : "🚀 Getting Started", icon: "⚙️" },
-    { id: "scratch", label: "Interactive Scratch Cards", icon: "🃏" },
-    { id: "cards", label: "Participant ID Cards", icon: "💳" },
-    { id: "sorting", label: "Team Priority Sorting", icon: "📊" },
-    { id: "poster", label: "Poster Customizer", icon: "🎨" }
-  ];
+  const getTabs = () => {
+    if (isZoneAdmin) {
+      return [
+        { id: "setup", label: "🚀 Zone Fest Workflow", icon: "📋" },
+        { id: "schedule", label: "📅 Schedule & Local Changes", icon: "⏱️" },
+        { id: "print", label: "🖨️ Reports & Print Hub", icon: "📄" },
+        { id: "juries", label: "⚖️ Jury Selection & Juries", icon: "👥" },
+        { id: "scratch", label: "🃏 Code Letters & Scratch Cards", icon: "🎲" },
+      ];
+    } else if (isInstitutionManager) {
+      return [
+        { id: "setup", label: "🚀 Manager Workflow", icon: "⚙️" },
+        { id: "cards", label: "💳 Participant ID Cards", icon: "🪪" },
+        { id: "schedule", label: "📅 Timetable & Programs", icon: "🗓️" },
+        { id: "print", label: "🖨️ Printables & Reports", icon: "📄" },
+      ];
+    } else {
+      // Super Admin
+      return [
+        { id: "setup", label: "🚀 Festival Overview", icon: "⚙️" },
+        { id: "schedule", label: "📅 Master Schedule Sync", icon: "📢" },
+        { id: "print", label: "🖨️ Print Hub & Central Reports", icon: "📄" },
+        { id: "scratch", label: "🃏 Anonymous Scratch Cards", icon: "🎲" },
+        { id: "poster", label: "🎨 Poster Customizer", icon: "🖼️" },
+      ];
+    }
+  };
+
+  const tabs = getTabs();
+
+  const getHeaderTitle = () => {
+    if (isZoneAdmin) return "Zonal Admin Operational Guideline";
+    if (isInstitutionManager) return "Institution Manager Guideline";
+    return "Master Festival Administration Guideline";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (isZoneAdmin) return "Comprehensive operational guide on zone workflows, master schedule inheritance, local modifications, and print options.";
+    if (isInstitutionManager) return "Instructions on candidate registration, program enrollment, ID card generation, and schedule viewing.";
+    return "Instructions on system-wide configuration, master schedule publishing, global jury allocation, and data management.";
+  };
 
   return (
     <div data-tour="dash-guidelines" className="glass-panel animate-fade-in" style={{ padding: 'var(--spacing-lg)', border: '1px solid var(--border-color)', marginTop: 'var(--spacing-lg)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--spacing-md)', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <div style={{ fontSize: '1.5rem' }}>📖</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: 'var(--spacing-md)', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <div style={{ fontSize: '1.75rem' }}>📖</div>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>Customer Control Guideline</h2>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Learn how to manage and leverage your premium ArtsFest suite features effectively.</p>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{getHeaderTitle()}</h2>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{getHeaderSubtitle()}</p>
         </div>
       </div>
 
@@ -43,8 +81,8 @@ export default function CustomerGuidelines({ role }: { role: string }) {
               padding: '8px 16px',
               borderRadius: 'var(--radius-md)',
               border: activeTab === tab.id ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
-              background: activeTab === tab.id ? 'linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(59, 130, 246, 0.15))' : 'rgba(255,255,255,0.02)',
-              color: activeTab === tab.id ? 'white' : 'var(--text-secondary)',
+              background: activeTab === tab.id ? 'linear-gradient(135deg, rgba(163, 0, 92, 0.15), rgba(59, 130, 246, 0.15))' : 'rgba(255,255,255,0.02)',
+              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
               cursor: 'pointer',
               fontWeight: activeTab === tab.id ? 600 : 400,
               fontSize: '0.85rem',
@@ -60,165 +98,260 @@ export default function CustomerGuidelines({ role }: { role: string }) {
 
       {/* Tab Contents */}
       <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+        
+        {/* ======================= TAB: SETUP (WORKFLOW) ======================= */}
         {activeTab === "setup" && (
           <div className="animate-fade-in">
-            <h3 style={{ color: 'var(--text-primary)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "🚀 Getting Started as Team Manager" : "🚀 Quick-Start Dashboard Setup"}
-            </h3>
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? (
-              <p>
-                As a Team Manager, you are in charge of registering your candidates, assigning them to programs, and printing ID cards and schedules. Follow this simple guide to get set up:
-              </p>
+            {isZoneAdmin ? (
+              <div>
+                <h3 style={{ color: 'var(--text-primary)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📋 Complete Zone Festival Progression
+                </h3>
+                <p>
+                  As a <strong>Zonal Admin</strong>, you coordinate all participating institutions, schedules, venues, and live scoring in your zone. Follow this standard step-by-step workflow:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', marginTop: '12px' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>1. Verify Teams & Chest Numbers</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      Navigate to <strong>Teams & Institutions</strong> to confirm institution rosters, ensure all candidate enrollments are finalized, and verify chest number allocations.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>2. Review & Adjust Festival Schedule</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      The <strong>Master Schedule is already published by Super Admin</strong> as default. Open <strong>Scheduling & Stages</strong> to review timings and make local adjustments if required.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>3. Jury Panel & Program Mapping</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      Check <strong>Jury Selection</strong> to view judges assigned by Super Admin or select additional judges from the global master list for your zone's programs.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>4. Stage Manager & Print Sheets</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      Open <strong>Reports & Print Hub</strong> to generate stage manager call sheets, valuation sheets, tabulation formats, and print all participant ID badges in bulk.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>5. Rapid Live Scoring & Results</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      Use <strong>Results & Scoring</strong> to enter judge scores during live competitions, calculate ranks/grades automatically, and publish results to the live zone portal.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>6. Institution Credentials</div>
+                    <div style={{ fontSize: '0.825rem' }}>
+                      Use <strong>User Credentials</strong> to generate and share login accounts for the colleges and institutions belonging to your zone.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : isInstitutionManager ? (
+              <div>
+                <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🚀 Institution Manager Workflow</h3>
+                <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <li><strong>Register Candidates:</strong> Navigate to <strong>Candidates</strong> tab and register your students.</li>
+                  <li><strong>Assign Programs:</strong> Go to <strong>Program Assignments</strong> and enroll candidates up to the team limit.</li>
+                  <li><strong>Print ID Cards:</strong> Download and print official participant credentials in bulk.</li>
+                  <li><strong>Track Schedule:</strong> View program time slots and venues assigned for your college.</li>
+                </ol>
+              </div>
             ) : (
-              <p>
-                Setting up your festival is structured logically to prevent configuration conflicts. Follow this progression to get your tenant system up and running with confidence:
-              </p>
-            )}
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? (
-              <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Register Candidates:</strong> Navigate to the <strong>Candidates</strong> tab and register your team's contestants. Be sure to select the correct age group category for each contestant.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Assign Programs:</strong> Go to the <strong>Program Assignments</strong> section to enroll your candidates into specific stage or off-stage programs. Candidate limits per team are enforced.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Generate ID Cards:</strong> In the <strong>Candidates</strong> list, click the <strong>Bulk ID Cards</strong> button to print passes and credentials in bulk for all of your team's contestants.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Print Schedule:</strong> Go to the <strong>Print Team Schedule</strong> section to print a custom, neat overview of when and where your team's candidates are competing.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>View Live Standings:</strong> Check the public standings pages or the <strong>Live Hub</strong> to see announced results and overall team points in real time.
-                </li>
-              </ol>
-            ) : (
-              <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Configure Divisions & Settings:</strong> Go to <strong>Settings</strong> to customize your festival name, motto, logo, and registration deadlines.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Define Participating Teams:</strong> In the <strong>Teams</strong> section, add teams and associate prefix codes (e.g., TM1, TM2) and flag colors. This enables automated point accumulation.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Build Categories & Programs:</strong> Register categories (e.g., Sub-Junior, Junior) and add individual or group programs (Stage or Off-Stage).
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Onboard Candidates:</strong> As Team Managers upload candidates, review and approve them in the <strong>Candidates Approval</strong> dashboard.
-                </li>
-                <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>Rapid Marks Entry:</strong> Use the <strong>Results & Scoring</strong> interface during the live events to enter scores, assign ranks/grades, and calculate points instantly.
-                </li>
-              </ol>
+              <div>
+                <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🚀 Master Festival Setup Progression</h3>
+                <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <li><strong>Master Programs & Categories:</strong> Configure competition items, durations, and criteria.</li>
+                  <li><strong>Publish Master Schedule:</strong> Set default stages/timings and push to all zones via <code>/dashboard/schedule</code>.</li>
+                  <li><strong>Master Jury Directory:</strong> Register judges and assign them to Zone and State fests.</li>
+                  <li><strong>Supervise Zone Progress:</strong> Monitor registrations, score entries, and state promotions.</li>
+                </ol>
+              </div>
             )}
           </div>
         )}
 
+        {/* ======================= TAB: SCHEDULE & LOCAL CHANGES ======================= */}
+        {activeTab === "schedule" && (
+          <div className="animate-fade-in">
+            <h3 style={{ color: 'var(--text-primary)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              ⏱️ Festival Schedule: Master Inheritance & Local Customization
+            </h3>
+            
+            <div style={{ padding: '12px 16px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '16px' }}>
+              <div style={{ fontWeight: 700, color: '#60a5fa', marginBottom: '4px' }}>📌 Master Schedule Synchronization Rule:</div>
+              <div style={{ fontSize: '0.85rem' }}>
+                The <strong>Super Admin publishes the official Master Schedule</strong> (Program order, default venues, start times, durations, and stage types). This Master Schedule automatically becomes the default timeline for your Zone Fest.
+              </div>
+            </div>
+
+            <h4 style={{ color: 'var(--text-primary)', margin: '14px 0 8px 0', fontSize: '1rem' }}>✏️ What can you modify as a Zonal Admin?</h4>
+            <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>
+                <strong>Stage / Venue Names:</strong> You can add local venues (e.g. <em>Stage 1 - Main Auditorium, Stage 2 - Seminar Hall</em>) and reassign programs to match your actual festival venue layout.
+              </li>
+              <li>
+                <strong>Adjust Start Times & Durations:</strong> If an event starts earlier or later, modify the start time or duration directly in the schedule card.
+              </li>
+              <li>
+                <strong>Handle Live Delays (Advance / Delay 15m):</strong> Use the one-click <strong>Delay 15m</strong> or <strong>Advance 15m</strong> buttons on any stage to shift all upcoming programs automatically when live stage delays occur.
+              </li>
+              <li>
+                <strong>Add Breaks (+ Add Break):</strong> Insert lunch breaks, tea breaks, or prayer intervals into any venue timeline without disrupting program slots.
+              </li>
+              <li>
+                <strong>Individual Candidate Slots:</strong> Candidate slot numbers and sequential times are computed automatically based on the program start time and duration.
+              </li>
+            </ul>
+
+            <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: 'var(--radius-md)', fontSize: '0.825rem' }}>
+              💡 <strong>Note:</strong> Changes made by Zone Admins in their Zone Dashboard only apply locally to their Zone Fest and will not affect the Master Schedule or other zones.
+            </div>
+          </div>
+        )}
+
+        {/* ======================= TAB: PRINT HUB & REPORTS ======================= */}
+        {activeTab === "print" && (
+          <div className="animate-fade-in">
+            <h3 style={{ color: 'var(--text-primary)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🖨️ Reports & Print Hub: All Printables for Zone Operations
+            </h3>
+            <p>
+              The system provides dedicated, high-contrast, print-optimized document formats for offline festival coordination and live stage management:
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginTop: '12px' }}>
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>🎭 Stage Manager Sheets</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Sequential candidate lists grouped by program, venue, and slot number. Includes chest numbers, institution names, and check-in boxes for stage coordinators.
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>⚖️ Judge Valuation & Mark Sheets</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Printable score recording sheets for jury members with criteria breakdown (e.g. Melody, Rhythm, Presentation) and signature lines for verification.
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>📊 Tabulation & Final Result Sheets</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Comprehensive multi-judge mark tabulation matrices with calculated total marks, computed grades (A/B/C), and final ranks (1st/2nd/3rd).
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>💳 Participant ID Cards & Badges</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Bulk ID badge generator featuring candidate photo, chest number, category, institution flag, barcode, and enrolled program list.
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>📍 Venue-wise Complete Schedule</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Complete festival timetable formatted for venue notice boards, displaying program codes, names, categories, and exact start times.
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>🏛️ Institution Master Rosters</div>
+                <div style={{ fontSize: '0.825rem' }}>
+                  Complete team-wise reports listing all registered candidates and their assignments for team managers and college principals.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================= TAB: JURIES (ZONE ADMIN SPECIFIC) ======================= */}
+        {activeTab === "juries" && (
+          <div className="animate-fade-in">
+            <h3 style={{ color: 'var(--text-primary)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              👥 Jury Selection & Program Assignment
+            </h3>
+            <p>
+              Judges can be allocated both centrally by the Super Admin and managed locally by the Zonal Admin:
+            </p>
+            <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>
+                <strong>Master Jury Directory:</strong> Browse the global list of qualified judges published by the Super Admin in <strong>Jury Selection</strong>.
+              </li>
+              <li>
+                <strong>Select Zone Juries:</strong> Toggle the <em>Select for Zone</em> switch to add master judges to your zone festival panel.
+              </li>
+              <li>
+                <strong>Assign to Programs:</strong> Under the <em>Assign to Programs</em> tab, select judges for specific on-stage and off-stage competition items.
+              </li>
+              <li>
+                <strong>Judge Score Entry Access:</strong> Assigned judges will receive their programs automatically on their scoring sheets and judge evaluation interfaces.
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {/* ======================= TAB: SCRATCH CARDS ======================= */}
         {activeTab === "scratch" && (
           <div className="animate-fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🃏 Interactive Scratch Cards</h3>
-              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary)', color: 'var(--text-primary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>NEW FEATURE</span>
+              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🃏 Anonymous Code Letters & Scratch Cards</h3>
+              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>CONFIDENTIALITY</span>
             </div>
             <p>
-              To guarantee absolute, unbiased evaluations, judges should grade performance based on anonymous <strong>Code Letters</strong> (e.g. A, B, C) instead of chest numbers or candidate names. Our system introduces a virtual scratch card game to pick letters!
+              To guarantee 100% impartial and fair evaluations, judges evaluate performances using secret <strong>Code Letters (A, B, C...)</strong> rather than student names or chest numbers.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
-              <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)' }}>
-                <h4 style={{ color: 'var(--text-primary)', margin: '0 0 10px 0', fontSize: '0.95rem' }}>⚙️ How to use:</h4>
-                <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <li>Go to <strong>Programs</strong> and assign candidate slots.</li>
-                  <li>Click on the <strong>Interactive Scratch Cards</strong> tool.</li>
-                  <li>Open the scratch screen on a tablet, mouse, or touch device.</li>
-                  <li>Let contestants scratch the virtual card directly to reveal their anonymous code.</li>
-                </ul>
-              </div>
-              <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-                {/* Visual Simulation of Scratch Card */}
-                <div style={{ width: '120px', height: '80px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, #8E0033, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', border: '2px dashed rgba(255,255,255,0.3)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
-                  Scratch Here!
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '8px' }}>Auto-reveals once 40% is scratched.</span>
-              </div>
+            <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', marginTop: '12px' }}>
+              <h4 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0', fontSize: '0.95rem' }}>⚙️ How to use the Interactive Scratch Tool:</h4>
+              <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <li>Stage managers can open the scratch screen on a tablet or mobile screen before each event starts.</li>
+                <li>Each contestant scratches their virtual card to reveal their secret stage performance letter.</li>
+                <li>The system securely pairs the code letter with the candidate's chest number in the backend for automatic result computation.</li>
+              </ul>
             </div>
           </div>
         )}
 
+        {/* ======================= TAB: CARDS (MANAGER) ======================= */}
         {activeTab === "cards" && (
           <div className="animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>💳 Participant ID Cards</h3>
-              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary)', color: 'var(--text-primary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>NEW FEATURE</span>
-            </div>
+            <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>💳 Participant ID Cards</h3>
             <p>
-              Print beautiful, professional identity cards/passes for contestants directly from the system, formatted automatically for fast laminating.
+              Print identity cards and event passes for contestants directly from the system, formatted automatically for fast laminating.
             </p>
-            <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', marginTop: '15px' }}>
-              <h4 style={{ color: 'var(--text-primary)', margin: '0 0 10px 0', fontSize: '0.95rem' }}>⚙️ Printing Procedure:</h4>
-              <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>Navigate to the <strong>Print ID Cards</strong> panel from the sidebar (or Candidates list).</li>
-                <li>Filter by division, category, or specific teams to narrow down the printing list.</li>
-                <li>Review the individual cards, which display the contestant photo, chest number, category, team flag color, and assigned programs.</li>
-                <li>Press <kbd style={{ background: '#334155', color: 'var(--text-primary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>Ctrl + P</kbd> to launch print mode (custom stylesheets optimize layout to fit multiple badges per sheet).</li>
-              </ul>
-            </div>
+            <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>Go to <strong>Candidates</strong> and click <strong>Bulk ID Cards</strong>.</li>
+              <li>Cards include contestant photo, chest number, category, team flag, and enrolled programs.</li>
+              <li>Press <kbd style={{ background: '#334155', color: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>Ctrl + P</kbd> to launch print mode (custom stylesheets fit multiple badges per sheet).</li>
+            </ul>
           </div>
         )}
 
-        {activeTab === "sorting" && (
-          <div className="animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>📊 Team Priority Sorting</h3>
-              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary)', color: 'var(--text-primary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>NEW FEATURE</span>
-            </div>
-            <p>
-              To encourage balanced competition and ensure minor or weaker teams receive motivation, the system includes a proprietary sorting algorithm that identifies programs where weaker teams have scored high points.
-            </p>
-            <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', marginTop: '15px' }}>
-              <h4 style={{ color: 'var(--text-primary)', margin: '0 0 10px 0', fontSize: '0.95rem' }}>⚙️ How it works:</h4>
-              <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>The system tracks cumulative team scores across all published results.</li>
-                <li>When displaying standings, it highlights programs where the bottom-ranked teams succeeded.</li>
-                <li>This gives festival leaders strategic guidance on which results to announce first during ceremonies to keep the audience and teams motivated.</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
+        {/* ======================= TAB: POSTER (SUPER ADMIN) ======================= */}
         {activeTab === "poster" && (
           <div className="animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🎨 Poster Customizer</h3>
-              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--primary)', color: 'var(--text-primary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>NEW FEATURE</span>
-            </div>
+            <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>🎨 Result Poster Branding</h3>
             <p>
-              Design result announcement images and posters visually to share directly on social channels or print.
+              Design result announcement images and posters visually to share on social channels or print.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
-              <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)' }}>
-                <h4 style={{ color: 'var(--text-primary)', margin: '0 0 10px 0', fontSize: '0.95rem' }}>⚙️ How to use:</h4>
-                <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <li>Go to <strong>Media Branding</strong> in the sidebar.</li>
-                  <li>Upload a custom banner background, logo, or congrats graphic.</li>
-                  <li>Set your brand colors (Primary, Secondary, Text) matching your school or sponsor.</li>
-                  <li>Preview the dynamic result poster template generated with real candidate details and ranks.</li>
-                </ul>
-              </div>
-              <div style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border-color)', padding: '15px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.75rem', textAlign: 'center' }}>
-                  <div style={{ fontWeight: 800, color: '#f59e0b', fontSize: '0.9rem' }}>CONGRATULATIONS</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>Oppana (Girls) Junior Results</div>
-                  <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'var(--surface-hover)' }}>
-                    <span>Rank 1: Fathima</span>
-                    <span style={{ color: '#10b981' }}>Grade A</span>
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '6px' }}>Dynamic image rendering with `html-to-image`</span>
-              </div>
-            </div>
+            <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>Navigate to <strong>Poster Branding</strong> in the sidebar.</li>
+              <li>Upload custom festival background posters, sponsor logos, and congratulations banners.</li>
+              <li>Results generated by judges will automatically overlay winner details, photos, points, and grades.</li>
+            </ul>
           </div>
         )}
+
       </div>
     </div>
   );
 }
+
