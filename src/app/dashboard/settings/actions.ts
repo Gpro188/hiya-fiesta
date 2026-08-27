@@ -182,19 +182,27 @@ export async function resetSystem() {
   }
 }
 
-export async function importData(data: any) {
+export async function restoreStepWipe() {
   try {
     const session = await getServerSession(authOptions);
     if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
-      return { success: false, error: "Unauthorized: Super Admin access required" };
+      return { success: false, error: "Unauthorized" };
+    }
+    return await resetSystem();
+  } catch (error: any) {
+    return { success: false, error: error.message || "Wipe failed" };
+  }
+}
+
+export async function restoreStepZonesAndInstitutions(zones: any[] = [], institutions: any[] = [], students: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
     }
 
-    // Wipe previous data
-    await resetSystem();
-
-    // 1. Restore Zones
-    if (data.zones && data.zones.length > 0) {
-      for (const z of data.zones) {
+    if (zones && zones.length > 0) {
+      for (const z of zones) {
         await prisma.zone.upsert({
           where: { id: z.id },
           update: { name: z.name, code: z.code },
@@ -203,38 +211,59 @@ export async function importData(data: any) {
       }
     }
 
-    // 2. Restore Institutions
-    if (data.institutions && data.institutions.length > 0) {
-      for (const inst of data.institutions) {
+    if (institutions && institutions.length > 0) {
+      for (const inst of institutions) {
+        // Ensure zone exists
+        if (inst.zoneId) {
+          const zoneExists = await prisma.zone.findUnique({ where: { id: inst.zoneId } });
+          if (!zoneExists) {
+            await prisma.zone.create({
+              data: { id: inst.zoneId, name: `Zone ${inst.zoneId.slice(0, 4)}`, code: inst.zoneId.slice(0, 4).toUpperCase() }
+            });
+          }
+        }
         await prisma.masterInstitution.upsert({
           where: { id: inst.id },
-          update: { name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password },
-          create: { id: inst.id, name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password }
+          update: { name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password || "123" },
+          create: { id: inst.id, name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password || "123" }
         });
       }
     }
 
-    // 3. Restore Students
-    if (data.students && data.students.length > 0) {
-      for (const s of data.students) {
+    if (students && students.length > 0) {
+      for (const s of students) {
+        if (!s.uid) continue;
         await prisma.masterStudent.upsert({
           where: { uid: s.uid },
-          update: { name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream },
-          create: { id: s.id, uid: s.uid, name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream }
+          update: { name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream || "FADHILA" },
+          create: { id: s.id, uid: s.uid, name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream || "FADHILA" }
         });
       }
     }
 
-    // 4. Restore Events & Categories
-    if (data.events && data.events.length > 0) {
-      for (const event of data.events) {
+    return { success: true };
+  } catch (error: any) {
+    console.error("Step 2 failed:", error);
+    return { success: false, error: error.message || "Failed restoring zones & institutions" };
+  }
+}
+
+export async function restoreStepEventsAndCategories(events: any[] = [], users: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (events && events.length > 0) {
+      for (const event of events) {
         await prisma.event.create({
           data: {
             id: event.id,
             name: event.name,
             type: event.type || "ZONE",
-            zoneId: event.zoneId,
-            parentId: event.parentId,
+            zoneId: event.zoneId || null,
+            parentId: event.parentId || null,
             startDate: event.startDate ? new Date(event.startDate) : null,
             endDate: event.endDate ? new Date(event.endDate) : null,
             registrationStart: event.registrationStart ? new Date(event.registrationStart) : null,
@@ -245,8 +274,8 @@ export async function importData(data: any) {
               create: (event.categories || []).map((c: any) => ({
                 id: c.id,
                 name: c.name,
-                chestNumberOffset: c.chestNumberOffset,
-                posterBgUrl: c.posterBgUrl
+                chestNumberOffset: c.chestNumberOffset || 0,
+                posterBgUrl: c.posterBgUrl || null
               }))
             }
           }
@@ -254,30 +283,66 @@ export async function importData(data: any) {
       }
     }
 
-    // 5. Restore Users (Judges, Managers, Zone Admins)
-    if (data.users && data.users.length > 0) {
-      for (const u of data.users) {
+    if (users && users.length > 0) {
+      for (const u of users) {
         await prisma.user.upsert({
           where: { id: u.id },
           update: { username: u.username, role: u.role, phone: u.phone, place: u.place, zoneId: u.zoneId, institutionId: u.institutionId, eventId: u.eventId },
-          create: { id: u.id, username: u.username, password: u.password, role: u.role, phone: u.phone, place: u.place, zoneId: u.zoneId, institutionId: u.institutionId, eventId: u.eventId }
+          create: { id: u.id, username: u.username, password: u.password || "123", role: u.role, phone: u.phone, place: u.place, zoneId: u.zoneId, institutionId: u.institutionId, eventId: u.eventId }
         });
       }
     }
 
-    // 6. Restore Teams
-    if (data.teams && data.teams.length > 0) {
-      await prisma.team.createMany({ data: data.teams });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Step 3 failed:", error);
+    return { success: false, error: error.message || "Failed restoring events & categories" };
+  }
+}
+
+export async function restoreStepTeamsAndPrograms(teams: any[] = [], programs: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
     }
 
-    // 7. Restore Programs
-    if (data.programs && data.programs.length > 0) {
-      for (const prog of data.programs) {
-        const { judges, ...progData } = prog;
+    if (teams && teams.length > 0) {
+      for (const t of teams) {
+        await prisma.team.create({
+          data: {
+            id: t.id,
+            name: t.name,
+            prefixCode: t.prefixCode,
+            eventId: t.eventId,
+            institutionId: t.institutionId || null,
+            flagColor: t.flagColor || "#EC4899",
+            leaderName: t.leaderName || null,
+            leaderPhoto: t.leaderPhoto || null,
+            isAssignmentsConfirmed: t.isAssignmentsConfirmed || false
+          }
+        });
+      }
+    }
+
+    if (programs && programs.length > 0) {
+      for (const p of programs) {
+        const { judges, ...pData } = p;
         await prisma.program.create({
           data: {
-            ...progData,
-            startTime: progData.startTime ? new Date(progData.startTime) : null,
+            id: pData.id,
+            name: pData.name,
+            programCode: pData.programCode || null,
+            type: pData.type || "INDIVIDUAL",
+            categoryId: pData.categoryId || null,
+            eventId: pData.eventId,
+            venue: pData.venue || null,
+            startTime: pData.startTime ? new Date(pData.startTime) : null,
+            duration: pData.duration || 10,
+            stageType: pData.stageType || "ON_STAGE",
+            candidateLimitPerTeam: pData.candidateLimitPerTeam || 1,
+            description: pData.description || null,
+            evaluationCriteria: pData.evaluationCriteria || null,
             judges: judges && judges.length > 0 ? {
               connect: judges.map((j: any) => ({ id: j.id }))
             } : undefined
@@ -286,29 +351,103 @@ export async function importData(data: any) {
       }
     }
 
-    // 8. Restore Candidates
-    if (data.candidates && data.candidates.length > 0) {
-      await prisma.candidate.createMany({ data: data.candidates });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Step 4 failed:", error);
+    return { success: false, error: error.message || "Failed restoring teams & programs" };
+  }
+}
+
+export async function restoreStepCandidates(candidates: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
     }
 
-    // 9. Restore Program Assignments
-    if (data.programAssignments && data.programAssignments.length > 0) {
-      await prisma.programAssignment.createMany({
-        data: data.programAssignments.map((pa: any) => ({
-          ...pa,
-          scheduledTime: pa.scheduledTime ? new Date(pa.scheduledTime) : null
-        }))
-      });
+    if (candidates && candidates.length > 0) {
+      for (const c of candidates) {
+        await prisma.candidate.create({
+          data: {
+            id: c.id,
+            name: c.name,
+            uid: c.uid || null,
+            chestNumber: c.chestNumber || null,
+            photoUrl: c.photoUrl || null,
+            photo: c.photo || null,
+            categoryId: c.categoryId,
+            teamId: c.teamId,
+            institutionId: c.institutionId || null,
+            isApproved: c.isApproved ?? true,
+            isStateQualified: c.isStateQualified ?? false,
+            stateQualificationStatus: c.stateQualificationStatus || "NONE"
+          }
+        });
+      }
     }
 
-    // 10. Restore Results
-    if (data.results && data.results.length > 0) {
-      await prisma.result.createMany({ data: data.results });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Step 5 failed:", error);
+    return { success: false, error: error.message || "Failed restoring candidates" };
+  }
+}
+
+export async function restoreStepAssignmentsAndResults(assignments: any[] = [], results: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
     }
 
-    // 11. Restore Settings
-    if (data.globalSettings && data.globalSettings.length > 0) {
-      for (const gs of data.globalSettings) {
+    if (assignments && assignments.length > 0) {
+      for (const a of assignments) {
+        await prisma.programAssignment.create({
+          data: {
+            id: a.id,
+            candidateId: a.candidateId,
+            programId: a.programId,
+            slotNumber: a.slotNumber || null,
+            scheduledTime: a.scheduledTime ? new Date(a.scheduledTime) : null
+          }
+        });
+      }
+    }
+
+    if (results && results.length > 0) {
+      for (const r of results) {
+        await prisma.result.create({
+          data: {
+            id: r.id,
+            candidateId: r.candidateId || null,
+            teamId: r.teamId || null,
+            programId: r.programId,
+            marks: r.marks || 0,
+            rank: r.rank || null,
+            grade: r.grade || null,
+            points: r.points || 0,
+            isPublished: r.isPublished ?? true
+          }
+        });
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Step 6 failed:", error);
+    return { success: false, error: error.message || "Failed restoring assignments & results" };
+  }
+}
+
+export async function restoreStepFinalize(globalSettings: any[] = [], homepageSettings: any[] = []) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (globalSettings && globalSettings.length > 0) {
+      for (const gs of globalSettings) {
         await prisma.globalSetting.upsert({
           where: { id: gs.id },
           update: gs,
@@ -317,11 +456,22 @@ export async function importData(data: any) {
       }
     }
 
+    if (homepageSettings && homepageSettings.length > 0) {
+      for (const hs of homepageSettings) {
+        await prisma.homepageSetting.upsert({
+          where: { eventId: hs.eventId },
+          update: hs,
+          create: hs
+        });
+      }
+    }
+
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
     return { success: true };
   } catch (error: any) {
-    console.error("Import failed:", error);
-    return { success: false, error: error.message || "Import failed. File might be corrupted." };
+    console.error("Step 7 finalize failed:", error);
+    return { success: false, error: error.message || "Failed finalizing restore" };
   }
 }
 
