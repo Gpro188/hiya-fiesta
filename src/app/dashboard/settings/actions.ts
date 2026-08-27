@@ -201,42 +201,59 @@ export async function restoreStepZonesAndInstitutions(zones: any[] = [], institu
       return { success: false, error: "Unauthorized" };
     }
 
+    // 1. Bulk insert Zones
     if (zones && zones.length > 0) {
-      for (const z of zones) {
-        await prisma.zone.upsert({
-          where: { id: z.id },
-          update: { name: z.name, code: z.code },
-          create: { id: z.id, name: z.name, code: z.code }
-        });
-      }
+      await prisma.zone.createMany({
+        data: zones.map(z => ({ id: z.id, name: z.name, code: z.code })),
+        skipDuplicates: true
+      });
     }
 
+    // 2. Bulk insert Institutions
     if (institutions && institutions.length > 0) {
-      for (const inst of institutions) {
-        // Ensure zone exists
-        if (inst.zoneId) {
-          const zoneExists = await prisma.zone.findUnique({ where: { id: inst.zoneId } });
-          if (!zoneExists) {
-            await prisma.zone.create({
-              data: { id: inst.zoneId, name: `Zone ${inst.zoneId.slice(0, 4)}`, code: inst.zoneId.slice(0, 4).toUpperCase() }
-            });
-          }
-        }
-        await prisma.masterInstitution.upsert({
-          where: { id: inst.id },
-          update: { name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password || "123" },
-          create: { id: inst.id, name: inst.name, code: inst.code, zoneId: inst.zoneId, district: inst.district, stream: inst.stream, password: inst.password || "123" }
-        });
+      // Ensure missing zones exist
+      const existingZones = await prisma.zone.findMany({ select: { id: true } });
+      const existingZoneIds = new Set(existingZones.map(z => z.id));
+      const missingZones = institutions
+        .filter(inst => inst.zoneId && !existingZoneIds.has(inst.zoneId))
+        .map(inst => ({ id: inst.zoneId, name: `Zone ${inst.zoneId.slice(0, 4)}`, code: inst.zoneId.slice(0, 4).toUpperCase() }));
+
+      if (missingZones.length > 0) {
+        await prisma.zone.createMany({ data: missingZones, skipDuplicates: true });
       }
+
+      await prisma.masterInstitution.createMany({
+        data: institutions.map(inst => ({
+          id: inst.id,
+          name: inst.name,
+          code: inst.code,
+          zoneId: inst.zoneId,
+          district: inst.district || null,
+          stream: inst.stream || null,
+          password: inst.password || "123"
+        })),
+        skipDuplicates: true
+      });
     }
 
+    // 3. Fast Bulk insert Students in 1,000 chunks
     if (students && students.length > 0) {
-      for (const s of students) {
-        if (!s.uid) continue;
-        await prisma.masterStudent.upsert({
-          where: { uid: s.uid },
-          update: { name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream || "FADHILA" },
-          create: { id: s.id, uid: s.uid, name: s.name, institutionId: s.institutionId, district: s.district, phone: s.phone, stream: s.stream || "FADHILA" }
+      const validStudents = students
+        .filter(s => !!s.uid)
+        .map(s => ({
+          id: s.id,
+          uid: s.uid.trim().toUpperCase(),
+          name: s.name.trim(),
+          institutionId: s.institutionId,
+          district: s.district || null,
+          phone: s.phone || null,
+          stream: (s.stream || "FADHILA").trim().toUpperCase()
+        }));
+
+      for (let i = 0; i < validStudents.length; i += 1000) {
+        await prisma.masterStudent.createMany({
+          data: validStudents.slice(i, i + 1000),
+          skipDuplicates: true
         });
       }
     }
@@ -284,13 +301,20 @@ export async function restoreStepEventsAndCategories(events: any[] = [], users: 
     }
 
     if (users && users.length > 0) {
-      for (const u of users) {
-        await prisma.user.upsert({
-          where: { id: u.id },
-          update: { username: u.username, role: u.role, phone: u.phone, place: u.place, zoneId: u.zoneId, institutionId: u.institutionId, eventId: u.eventId },
-          create: { id: u.id, username: u.username, password: u.password || "123", role: u.role, phone: u.phone, place: u.place, zoneId: u.zoneId, institutionId: u.institutionId, eventId: u.eventId }
-        });
-      }
+      await prisma.user.createMany({
+        data: users.map(u => ({
+          id: u.id,
+          username: u.username,
+          password: u.password || "123",
+          role: u.role,
+          phone: u.phone || null,
+          place: u.place || null,
+          zoneId: u.zoneId || null,
+          institutionId: u.institutionId || null,
+          eventId: u.eventId || null
+        })),
+        skipDuplicates: true
+      });
     }
 
     return { success: true };
@@ -308,46 +332,54 @@ export async function restoreStepTeamsAndPrograms(teams: any[] = [], programs: a
     }
 
     if (teams && teams.length > 0) {
-      for (const t of teams) {
-        await prisma.team.create({
-          data: {
-            id: t.id,
-            name: t.name,
-            prefixCode: t.prefixCode,
-            eventId: t.eventId,
-            institutionId: t.institutionId || null,
-            flagColor: t.flagColor || "#EC4899",
-            leaderName: t.leaderName || null,
-            leaderPhoto: t.leaderPhoto || null,
-            isAssignmentsConfirmed: t.isAssignmentsConfirmed || false
-          }
-        });
-      }
+      await prisma.team.createMany({
+        data: teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          prefixCode: t.prefixCode,
+          eventId: t.eventId,
+          institutionId: t.institutionId || null,
+          flagColor: t.flagColor || "#EC4899",
+          leaderName: t.leaderName || null,
+          leaderPhoto: t.leaderPhoto || null,
+          isAssignmentsConfirmed: t.isAssignmentsConfirmed || false
+        })),
+        skipDuplicates: true
+      });
     }
 
     if (programs && programs.length > 0) {
+      const programRows = programs.map(p => ({
+        id: p.id,
+        name: p.name,
+        programCode: p.programCode || null,
+        type: p.type || "INDIVIDUAL",
+        categoryId: p.categoryId || null,
+        eventId: p.eventId,
+        venue: p.venue || null,
+        startTime: p.startTime ? new Date(p.startTime) : null,
+        duration: p.duration || 10,
+        stageType: p.stageType || "ON_STAGE",
+        candidateLimitPerTeam: p.candidateLimitPerTeam || 1,
+        description: p.description || null,
+        evaluationCriteria: p.evaluationCriteria || null
+      }));
+
+      await prisma.program.createMany({
+        data: programRows,
+        skipDuplicates: true
+      });
+
+      // Connect judges
       for (const p of programs) {
-        const { judges, ...pData } = p;
-        await prisma.program.create({
-          data: {
-            id: pData.id,
-            name: pData.name,
-            programCode: pData.programCode || null,
-            type: pData.type || "INDIVIDUAL",
-            categoryId: pData.categoryId || null,
-            eventId: pData.eventId,
-            venue: pData.venue || null,
-            startTime: pData.startTime ? new Date(pData.startTime) : null,
-            duration: pData.duration || 10,
-            stageType: pData.stageType || "ON_STAGE",
-            candidateLimitPerTeam: pData.candidateLimitPerTeam || 1,
-            description: pData.description || null,
-            evaluationCriteria: pData.evaluationCriteria || null,
-            judges: judges && judges.length > 0 ? {
-              connect: judges.map((j: any) => ({ id: j.id }))
-            } : undefined
-          }
-        });
+        if (p.judges && p.judges.length > 0) {
+          await prisma.program.update({
+            where: { id: p.id },
+            data: {
+              judges: { connect: p.judges.map((j: any) => ({ id: j.id })) }
+            }
+          }).catch(() => {});
+        }
       }
     }
 
@@ -366,22 +398,25 @@ export async function restoreStepCandidates(candidates: any[] = []) {
     }
 
     if (candidates && candidates.length > 0) {
-      for (const c of candidates) {
-        await prisma.candidate.create({
-          data: {
-            id: c.id,
-            name: c.name,
-            uid: c.uid || null,
-            chestNumber: c.chestNumber || null,
-            photoUrl: c.photoUrl || null,
-            photo: c.photo || null,
-            categoryId: c.categoryId,
-            teamId: c.teamId,
-            institutionId: c.institutionId || null,
-            isApproved: c.isApproved ?? true,
-            isStateQualified: c.isStateQualified ?? false,
-            stateQualificationStatus: c.stateQualificationStatus || "NONE"
-          }
+      const candidateRows = candidates.map(c => ({
+        id: c.id,
+        name: c.name,
+        uid: c.uid || null,
+        chestNumber: c.chestNumber || null,
+        photoUrl: c.photoUrl || null,
+        photo: c.photo || null,
+        categoryId: c.categoryId,
+        teamId: c.teamId,
+        institutionId: c.institutionId || null,
+        isApproved: c.isApproved ?? true,
+        isStateQualified: c.isStateQualified ?? false,
+        stateQualificationStatus: c.stateQualificationStatus || "NONE"
+      }));
+
+      for (let i = 0; i < candidateRows.length; i += 1000) {
+        await prisma.candidate.createMany({
+          data: candidateRows.slice(i, i + 1000),
+          skipDuplicates: true
         });
       }
     }
@@ -401,33 +436,39 @@ export async function restoreStepAssignmentsAndResults(assignments: any[] = [], 
     }
 
     if (assignments && assignments.length > 0) {
-      for (const a of assignments) {
-        await prisma.programAssignment.create({
-          data: {
-            id: a.id,
-            candidateId: a.candidateId,
-            programId: a.programId,
-            slotNumber: a.slotNumber || null,
-            scheduledTime: a.scheduledTime ? new Date(a.scheduledTime) : null
-          }
+      const assignmentRows = assignments.map(a => ({
+        id: a.id,
+        candidateId: a.candidateId,
+        programId: a.programId,
+        slotNumber: a.slotNumber || null,
+        scheduledTime: a.scheduledTime ? new Date(a.scheduledTime) : null
+      }));
+
+      for (let i = 0; i < assignmentRows.length; i += 1000) {
+        await prisma.programAssignment.createMany({
+          data: assignmentRows.slice(i, i + 1000),
+          skipDuplicates: true
         });
       }
     }
 
     if (results && results.length > 0) {
-      for (const r of results) {
-        await prisma.result.create({
-          data: {
-            id: r.id,
-            candidateId: r.candidateId || null,
-            teamId: r.teamId || null,
-            programId: r.programId,
-            marks: r.marks || 0,
-            rank: r.rank || null,
-            grade: r.grade || null,
-            points: r.points || 0,
-            isPublished: r.isPublished ?? true
-          }
+      const resultRows = results.map(r => ({
+        id: r.id,
+        candidateId: r.candidateId || null,
+        teamId: r.teamId || null,
+        programId: r.programId,
+        marks: r.marks || 0,
+        rank: r.rank || null,
+        grade: r.grade || null,
+        points: r.points || 0,
+        isPublished: r.isPublished ?? true
+      }));
+
+      for (let i = 0; i < resultRows.length; i += 1000) {
+        await prisma.result.createMany({
+          data: resultRows.slice(i, i + 1000),
+          skipDuplicates: true
         });
       }
     }
