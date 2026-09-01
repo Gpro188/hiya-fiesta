@@ -381,35 +381,16 @@ export default function HomepageForm({ initialData, targetEventId }: { initialDa
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
-                      Title / Caption
+                      Photo Title / Caption
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Inaugural Session / Stage 1"
+                      placeholder="e.g. Stage Performance / Special Moment"
                       value={img.title || ""}
                       onChange={(e) => updateGallery(idx, "title", e.target.value)}
                       className="form-input"
                       style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
                     />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
-                      Category
-                    </label>
-                    <select
-                      value={img.category || "Stage"}
-                      onChange={(e) => updateGallery(idx, "category", e.target.value)}
-                      className="form-input"
-                      style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-                    >
-                      <option value="Stage">🎭 Stage Competitions</option>
-                      <option value="Off-Stage">🎨 Off-Stage Events</option>
-                      <option value="Ceremony">🏆 Ceremonies & Awards</option>
-                      <option value="Campus">🏛️ Campus & Moments</option>
-                      <option value="Volunteers">🦺 Organizing Crew</option>
-                      <option value="General">✨ General Highlights</option>
-                    </select>
                   </div>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', marginTop: '4px', fontWeight: 600, color: img.isHighlighted ? 'var(--primary)' : 'var(--text-secondary)' }}>
@@ -419,7 +400,7 @@ export default function HomepageForm({ initialData, targetEventId }: { initialDa
                       onChange={(e) => updateGallery(idx, "isHighlighted", e.target.checked)}
                       style={{ cursor: 'pointer' }}
                     />
-                    <span>⭐ Show in Homepage Scrolling Strip</span>
+                    <span>⭐ Feature in Highlights & Homepage Strip</span>
                   </label>
                 </div>
               </div>
