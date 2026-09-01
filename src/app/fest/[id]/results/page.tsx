@@ -6,6 +6,7 @@ import { getSettings, getHomepageSettings } from "@/lib/settings";
 import ThemeApplicator from "../../../components/ThemeApplicator";
 import PublicNav from "../../../components/PublicNav";
 import PublicFooter from "../../../components/PublicFooter";
+import FestCountdownView from "../../../components/FestCountdownView";
 import "@/app/homepage.css";
 
 export const revalidate = 30; // Revalidate standings every 30 seconds
@@ -19,7 +20,8 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
       parent: {
         include: { subEvents: true }
       },
-      subEvents: true
+      subEvents: true,
+      zone: true,
     }
   });
 
@@ -36,6 +38,37 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
 
   const settings = await getSettings(event.id);
   const homepageSettings = await getHomepageSettings(event.id);
+
+  // Check if festival has started or is live/completed
+  const now = new Date();
+  const startTarget = event.startDate || event.zoneActiveStartTime;
+  const isExplicitLive = event.statusOverride === "LIVE";
+  const isExplicitCompleted = event.statusOverride === "COMPLETED";
+  
+  const isStarted =
+    isExplicitLive ||
+    isExplicitCompleted ||
+    (event.statusOverride === "AUTO" && startTarget && now >= startTarget);
+
+  let preFestData = null;
+  if (!isStarted && startTarget) {
+    const [teamsCount, candidatesCount, programsList] = await Promise.all([
+      prisma.team.count({ where: { eventId: event.id } }),
+      prisma.candidate.count({ where: { team: { eventId: event.id } } }),
+      prisma.program.findMany({
+        where: { eventId: event.id },
+        include: { category: { select: { name: true } } },
+        orderBy: [{ startTime: "asc" }, { name: "asc" }],
+      }),
+    ]);
+
+    preFestData = {
+      teamsCount,
+      candidatesCount,
+      programsCount: programsList.length,
+      programsList,
+    };
+  }
 
   return (
     <div 
@@ -80,7 +113,7 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
               display: 'block'
             }}
           >
-            Official Results Portal
+            {isStarted ? "Official Results Portal" : "Festival Scheduled & Upcoming"}
           </span>
           <h1 
             style={{ 
@@ -96,7 +129,7 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
             {mainEventName}
           </h1>
           <p style={{ color: '#d8cdc2', margin: '8px 0 0', fontSize: '15px' }}>
-            Live Results Dashboard
+            {isStarted ? "Live Results Dashboard" : "Festival Schedule & Countdown"}
           </p>
         </div>
       </div>
@@ -104,7 +137,20 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
       {/* Main Dashboard Content */}
       <main style={{ flex: 1, padding: '32px 0 3.5rem 0' }}>
         <div className="wrap" style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px' }}>
-          <PublicDashboard initialEvents={allEvents} initialActiveId={initialActiveId} />
+          {!isStarted && startTarget && preFestData ? (
+            <FestCountdownView
+              eventName={mainEventName}
+              festName={homepageSettings?.heroTitle || settings.festName}
+              festMoto={homepageSettings?.heroSubtitle || settings.festMoto}
+              startDate={startTarget}
+              teamsCount={preFestData.teamsCount}
+              candidatesCount={preFestData.candidatesCount}
+              programsCount={preFestData.programsCount}
+              programsList={preFestData.programsList as any}
+            />
+          ) : (
+            <PublicDashboard initialEvents={allEvents} initialActiveId={initialActiveId} />
+          )}
         </div>
       </main>
 

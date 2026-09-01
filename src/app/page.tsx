@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import VisitTracker from "./components/VisitTracker";
-import { getHomepageSettings } from "@/lib/settings";
+import { getSettings, getHomepageSettings } from "@/lib/settings";
 import HomeMarquee from "./components/HomeMarquee";
+import ZoneStatusGrid from "./components/ZoneStatusGrid";
 import { StatCard } from "./components/HomeStatCard";
 import GalleryMarquee from "./components/GalleryMarquee";
 import "./homepage.css";
@@ -81,6 +82,8 @@ export default async function HomePage() {
         registrationEnd: true,
         startDate: true,
         endDate: true,
+        zoneActiveStartTime: true,
+        zoneActiveEndTime: true,
         statusOverride: true,
         zone: { select: { name: true, code: true } },
         _count: { select: { teams: true, programs: true } }
@@ -112,7 +115,7 @@ export default async function HomePage() {
   
   let heroSlides: any[] = [];
   let statsCounter = { show_students: true, show_institutions: true, show_events: true, show_points: true };
-  let galleryImages: string[] = [];
+  let rawGalleryImages: any[] = [];
   let socialLinks: any = {};
   let committeeMembers: any[] = [];
   let committeeTitle = settings?.committeeTitle || "Program Committee";
@@ -120,16 +123,38 @@ export default async function HomePage() {
   try {
     if (settings?.heroSlides && typeof settings.heroSlides === 'object') heroSlides = settings.heroSlides;
     if (settings?.statsCounter && typeof settings.statsCounter === 'object') statsCounter = settings.statsCounter;
-    if (settings?.galleryImages && typeof settings.galleryImages === 'object') galleryImages = settings.galleryImages;
+    if (settings?.galleryImages && typeof settings.galleryImages === 'object') {
+      rawGalleryImages = Array.isArray(settings.galleryImages) ? settings.galleryImages : [];
+    }
     if (settings?.socialLinks && typeof settings.socialLinks === 'object') socialLinks = settings.socialLinks;
     if (settings?.committeeMembers && typeof settings.committeeMembers === 'object') committeeMembers = settings.committeeMembers;
   } catch(e) {}
+
+  // Parse structured gallery items
+  const allGalleryItems = rawGalleryImages.map((g: any) => {
+    if (typeof g === 'string') {
+      return { url: g, title: 'Hiya Fiesta Moments', category: 'General', isHighlighted: true };
+    }
+    return {
+      url: g?.url || '',
+      title: g?.title || 'Hiya Fiesta Moments',
+      category: g?.category || 'Highlights',
+      isHighlighted: g?.isHighlighted !== false,
+    };
+  }).filter((g: any) => Boolean(g.url));
+
+  // ONLY highlighted images show in mainpage scrolling marquee!
+  const highlightedItems = allGalleryItems.filter((g: any) => g.isHighlighted !== false);
+  const galleryTiles = highlightedItems.length > 0 ? highlightedItems : allGalleryItems;
 
   // ── Compute per-zone badge data (shared between marquee + zone grid) ──
   const now = new Date();
   const zonesWithStatus = zoneEvents.map(ev => {
     let badgeText = "PENDING";
     let badgeClass = "hf-badge-pending";
+
+    const festStart = ev.startDate || ev.zoneActiveStartTime;
+    const festEnd = ev.endDate || ev.zoneActiveEndTime;
 
     if (ev.statusOverride && ev.statusOverride !== 'AUTO') {
       switch(ev.statusOverride) {
@@ -139,20 +164,20 @@ export default async function HomePage() {
         case 'PENDING':    badgeText = "PENDING";      badgeClass = "hf-badge-pending";      break;
       }
     } else {
-      if (ev.endDate && now > ev.endDate) {
+      if (festEnd && now > festEnd) {
         badgeText = "COMPLETED"; badgeClass = "hf-badge-completed";
-      } else if (ev.startDate && now >= ev.startDate) {
+      } else if (festStart && now >= festStart) {
         badgeText = "LIVE NOW"; badgeClass = "hf-badge-live";
       } else if (ev.registrationStart && ev.registrationEnd &&
                  now >= ev.registrationStart && now <= ev.registrationEnd) {
         badgeText = "REGISTRATION"; badgeClass = "hf-badge-registration";
+      } else if (festStart && now < festStart) {
+        badgeText = "STARTS SOON"; badgeClass = "hf-badge-pending";
       }
     }
 
     return { ...ev, badgeText, badgeClass };
   });
-
-  const galleryTiles: string[] = galleryImages.length > 0 ? galleryImages : [];
 
   return (
     <div className="hf-root">
@@ -171,6 +196,9 @@ export default async function HomePage() {
             </div>
           </Link>
           <div className="nav-actions">
+            <Link className="btn btn-ghost" href="/gallery">
+              🖼️ Gallery
+            </Link>
             <Link className="btn btn-ghost btn-tv-broadcast" href="/tv">
               ▣ TV Broadcast
             </Link>
@@ -217,9 +245,9 @@ export default async function HomePage() {
                 View Zone Status
               </a>
             )}
-            <a className="btn btn-ghost" href="#gallery">
+            <Link className="btn btn-ghost" href="/gallery">
               Browse Gallery
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -328,62 +356,53 @@ export default async function HomePage() {
       <section id="zones" style={{ background: 'var(--card)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
         <div className="wrap">
           <div className="section-head">
-            <span className="eyebrow">Live Tracking</span>
+            <span className="eyebrow">Live Tracking & Timelines</span>
             <div className="finial"></div>
-            <h2>Zone Status</h2>
+            <h2>Zone Status & Schedules</h2>
           </div>
-          <div className="zone-grid">
-            {zonesWithStatus.map(ev => (
-              <Link className="zone-card" href={`/fest/${ev.id}/results`} key={ev.id}>
-                <span className="go">→</span>
-                <h3>{ev.name}</h3>
-                <span className="zone-status-tag">
-                  <span className={`status-dot ${ev.badgeText === 'LIVE NOW' ? 'live' : ev.badgeText === 'COMPLETED' ? 'done' : 'pending'}`}></span>
-                  {ev.badgeText}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <ZoneStatusGrid zones={zonesWithStatus as any} />
         </div>
       </section>
 
       {/* ── EVENT GALLERY ───────────────────────────────────────── */}
       <section id="gallery">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: 'left', marginBottom: '26px' }}>
-            <span className="eyebrow">Moments</span>
-            <div className="finial left"></div>
-            <h2>Event Gallery</h2>
+          <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '26px' }}>
+            <div style={{ textAlign: 'left' }}>
+              <span className="eyebrow">Moments & Highlights</span>
+              <div className="finial left"></div>
+              <h2>Event Gallery</h2>
+            </div>
+            <Link href="/gallery" className="btn btn-ghost" style={{ fontSize: '0.88rem', padding: '8px 18px', borderRadius: '30px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <span>View Full Gallery ({allGalleryItems.length})</span>
+              <span style={{ fontSize: '1.1rem' }}>→</span>
+            </Link>
           </div>
           <div className="gallery-viewport">
             <div className="gallery-track">
               {(galleryTiles.length > 0 ? [...galleryTiles, ...galleryTiles, ...galleryTiles] : [
-                { bg: "linear-gradient(155deg,#7a1f3d,#4e1327)", cap: "Inaugural Ceremony" },
-                { bg: "linear-gradient(155deg,#c9a227,#8a6d16)", cap: "Certificate Distribution" },
-                { bg: "linear-gradient(155deg,#1f6d5a,#123f34)", cap: "Faculty Address" },
-                { bg: "linear-gradient(155deg,#4e1327,#1c1420)", cap: "Opening Session" },
-                { bg: "linear-gradient(155deg,#8a6d16,#c9a227)", cap: "Group Recognition" },
-                { bg: "linear-gradient(155deg,#3a2e3d,#1c1420)", cap: "Chelari Campus" }
-              ]).map((item, idx) => {
-                if (typeof item === 'string') {
-                  return (
-                    <div className="tile" key={idx}>
-                      <img 
-                        src={item} 
-                        alt={`Hiya Fiesta Moment ${(idx % (galleryTiles.length || 1)) + 1}`} 
-                        className="tile-img" 
-                        loading="lazy"
-                      />
-                      <div className="tile-cam">▣</div>
-                      <div className="cap">Hiya Fiesta Moments</div>
-                    </div>
-                  );
-                }
+                { url: "/placeholder-gallery.jpg", title: "Inaugural Ceremony", category: "Ceremony" },
+                { url: "/placeholder-gallery.jpg", title: "Stage Performance", category: "Stage" },
+                { url: "/placeholder-gallery.jpg", title: "Certificate Distribution", category: "Awards" },
+              ]).map((item: any, idx: number) => {
+                const imgUrl = typeof item === 'string' ? item : item.url;
+                const title = typeof item === 'string' ? 'Hiya Fiesta Moment' : (item.title || 'Hiya Fiesta Moment');
+                const cat = typeof item === 'string' ? 'Highlight' : (item.category || 'Highlight');
+
                 return (
-                  <div className="tile" key={idx} style={{ background: item.bg }}>
-                    <div className="tile-cam">▣</div>
-                    <div className="cap">{item.cap}</div>
-                  </div>
+                  <Link href="/gallery" className="tile" key={idx}>
+                    <img 
+                      src={imgUrl} 
+                      alt={`${title} ${(idx % (galleryTiles.length || 1)) + 1}`} 
+                      className="tile-img" 
+                      loading="lazy"
+                    />
+                    {cat && <div className="tile-badge">{cat}</div>}
+                    <div className="cap">
+                      <span>{title}</span>
+                      <span style={{ fontSize: "11px", opacity: 0.9 }}>View Gallery ↗</span>
+                    </div>
+                  </Link>
                 );
               })}
             </div>

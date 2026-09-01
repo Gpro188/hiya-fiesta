@@ -712,22 +712,22 @@ section {
   transform: translateX(4px);
 }
 
-/* ---------- gallery modern seamless infinite loop ---------- */
+/* ---------- gallery modern seamless infinite loop (Frameless Edge-to-Edge) ---------- */
 .gallery-viewport {
   overflow: hidden;
   width: 100%;
-  padding: 16px 0 32px;
+  padding: 16px 0 28px;
   position: relative;
-  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
 }
 
 .gallery-track {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   width: max-content;
   align-items: center;
-  animation: galleryAutoScroll 34s linear infinite;
+  animation: galleryAutoScroll 38s linear infinite;
   will-change: transform;
 }
 
@@ -745,80 +745,93 @@ section {
 }
 
 .tile {
-  height: 420px;
-  width: auto;
-  min-width: 260px;
-  border-radius: 20px;
+  height: 320px;
+  width: 440px;
+  max-width: 85vw;
+  border-radius: 18px;
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  padding: 18px;
+  display: block;
+  padding: 0;
   color: #fff;
-  background: linear-gradient(135deg, #2b1122 0%, #160814 100%);
-  box-shadow: 0 12px 30px -8px rgba(230, 0, 126, 0.25);
-  border: 1.5px solid rgba(255, 79, 163, 0.25);
+  background: #1e1520;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease, border-color 0.35s ease;
   flex-shrink: 0;
+  cursor: pointer;
+  text-decoration: none;
 }
 .tile:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 24px 50px -10px rgba(230, 0, 126, 0.5);
-  border-color: var(--gold-light);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 45px rgba(230, 0, 126, 0.35);
+  border-color: rgba(230, 0, 126, 0.5);
   z-index: 5;
 }
 .tile-img {
   height: 100%;
-  width: auto;
-  max-width: none;
-  object-fit: contain;
+  width: 100%;
+  object-fit: cover;
   display: block;
-  border-radius: 14px;
-  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 18px;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .tile:hover .tile-img {
-  transform: scale(1.02);
+  transform: scale(1.06);
 }
 .tile .cap {
-  position: relative;
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
   z-index: 3;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(26, 20, 32, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(15, 10, 18, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.tile:hover .cap {
+  background: rgba(142, 0, 51, 0.88);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-2px);
 }
 .tile::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 60%, rgba(20, 10, 18, 0.85) 100%);
+  background: linear-gradient(180deg, transparent 40%, rgba(10, 5, 12, 0.6) 80%, rgba(10, 5, 12, 0.9) 100%);
   z-index: 2;
   pointer-events: none;
 }
-.tile-cam {
+.tile-badge {
   position: absolute;
   top: 14px;
-  right: 14px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(230, 0, 126, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  left: 14px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(142, 0, 51, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: #fff;
   z-index: 3;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* Subtle background glow behind each gallery image instead of empty blackness */

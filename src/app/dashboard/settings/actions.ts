@@ -84,6 +84,8 @@ export async function updateEventDeadlines(eventId: string, data: {
     }
 
     const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+    const startDateVal = data.zoneActiveStartTime ? new Date(data.zoneActiveStartTime) : null;
+    const endDateVal = data.zoneActiveEndTime ? new Date(data.zoneActiveEndTime) : null;
 
     await prisma.event.update({
       where: { id: eventId },
@@ -93,8 +95,10 @@ export async function updateEventDeadlines(eventId: string, data: {
           registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
           assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
           assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
-          zoneActiveStartTime: data.zoneActiveStartTime ? new Date(data.zoneActiveStartTime) : null,
-          zoneActiveEndTime: data.zoneActiveEndTime ? new Date(data.zoneActiveEndTime) : null,
+          startDate: startDateVal,
+          endDate: endDateVal,
+          zoneActiveStartTime: startDateVal,
+          zoneActiveEndTime: endDateVal,
           stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
         } : {}),
         institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
@@ -102,7 +106,10 @@ export async function updateEventDeadlines(eventId: string, data: {
       }
     });
 
+    revalidatePath("/");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/events");
     return { success: true };
   } catch (error) {
     console.error("Failed to update event deadlines:", error);

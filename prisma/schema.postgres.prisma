@@ -42,6 +42,7 @@ model Zone {
   events       Event[]
   institutions MasterInstitution[]
   users        User[]
+  volunteers   Volunteer[]
 }
 
 model MasterInstitution {
@@ -115,6 +116,7 @@ model Event {
   users                          User[]
   selectedJudges                 User[]           @relation("EventJudges")
   generalPointMatrix             PointMatrix?     @relation("EventGeneralPointMatrix")
+  volunteers                     Volunteer[]
 
   @@index([zoneId])
 }
@@ -374,4 +376,26 @@ model SystemAuditLog {
 
   @@index([entityType, entityId])
   @@index([action])
+}
+
+model Volunteer {
+  id          String   @id @default(uuid())
+  volunteerNo String?  @unique
+  name        String
+  phone       String
+  address     String
+  photo       String?
+  roleTitle   String?  @default("VOLUNTEER")
+  dutyArea    String?
+  bloodGroup  String?
+  zoneId      String?
+  eventId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  zone        Zone?    @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([zoneId])
+  @@index([eventId])
 }

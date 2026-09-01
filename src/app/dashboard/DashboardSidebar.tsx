@@ -148,6 +148,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "🎨",
           href: "/dashboard/media?session=zone",
         },
+        {
+          name: "Volunteers",
+          subtitle: "Team & ID cards",
+          icon: "🦺",
+          href: "/dashboard/volunteers",
+          highlight: true,
+        },
       ],
     });
 
@@ -239,6 +246,12 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "🖼️",
           href: "/dashboard/media",
         },
+        {
+          name: "Volunteers",
+          subtitle: "Team & ID cards",
+          icon: "🦺",
+          href: "/dashboard/volunteers",
+        },
       ],
     });
   }
@@ -283,6 +296,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "Manage institution accounts",
           icon: "👥",
           href: "/dashboard/users",
+        },
+        {
+          name: "Volunteers",
+          subtitle: "Zone volunteers & ID cards",
+          icon: "🦺",
+          href: "/dashboard/volunteers",
+          highlight: true,
         },
         {
           name: "Zone Settings",

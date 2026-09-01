@@ -87,6 +87,12 @@ export default async function ReportsPage(props: {
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--primary)' }}>Stage Manager Sheet</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Assign code letters and verify candidate photos before performance.</p>
           </a>
+
+          <a href={`/print/off-stage-invigilation?eventId=${activeEventId}${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid #8E0033' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
+            <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Off-Stage Invigilation Sheets</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print category-wise institution exam sheets with blank invigilator details and candidate sign boxes.</p>
+          </a>
         </div>
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Judging & Tabulation (Blind Judging)</h3>
@@ -114,8 +120,14 @@ export default async function ReportsPage(props: {
           
           <a href={`/print/id-cards?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🆔</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Bulk ID Cards</h4>
+            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Candidate ID Cards</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print ID cards for all approved candidates across all teams</p>
+          </a>
+
+          <a href={`/print/volunteer-id-cards${role === 'ZONE_ADMIN' && userZoneId ? `?zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--primary)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🦺</div>
+            <h4 style={{ margin: '0 0 5px 0', color: 'var(--primary)' }}>Volunteer ID Cards</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official ID cards for all registered festival volunteers</p>
           </a>
         </div>
       </div>
@@ -138,11 +150,17 @@ export default async function ReportsPage(props: {
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
           <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Institution Print Hub</h1>
           <p className="page-description">
-            Access printable documents and ID cards for your institution.
+            Access printable documents, off-stage invigilation sheets, and ID cards for your institution.
           </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
+          <a href={`/print/off-stage-invigilation?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
+            <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Off-Stage Invigilation Sheets</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official category-separated sheets for external invigilators with candidate details & signature records.</p>
+          </a>
+
           <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Team Schedule</h4>

@@ -13,7 +13,23 @@ export default function HomepageForm({ initialData, targetEventId }: { initialDa
   const [bgColor, setBgColor] = useState(initialData?.bgColor || "#0F172A");
 
   const [committee, setCommittee] = useState<any[]>(initialData?.committeeMembers || []);
-  const [gallery, setGallery] = useState<string[]>(initialData?.galleryImages || []);
+  
+  // Normalize gallery images to structured objects
+  const [gallery, setGallery] = useState<Array<{ url: string; title: string; category: string; isHighlighted: boolean }>>(() => {
+    const raw = initialData?.galleryImages || [];
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item: any) => {
+      if (typeof item === "string") {
+        return { url: item, title: "", category: "Stage", isHighlighted: true };
+      }
+      return {
+        url: item?.url || "",
+        title: item?.title || "",
+        category: item?.category || "Stage",
+        isHighlighted: item?.isHighlighted !== false,
+      };
+    });
+  });
   
   // New CMS Fields
   const [heroBgUrl, setHeroBgUrl] = useState(initialData?.heroBgUrl || "");
@@ -40,10 +56,12 @@ export default function HomepageForm({ initialData, targetEventId }: { initialDa
   };
   const removeCommittee = (index: number) => setCommittee(committee.filter((_, i) => i !== index));
 
-  const addGalleryImage = () => setGallery([...gallery, ""]);
-  const updateGallery = (index: number, value: string) => {
+  const addGalleryImage = () =>
+    setGallery([...gallery, { url: "", title: "", category: "Stage", isHighlighted: true }]);
+  
+  const updateGallery = (index: number, field: string, value: any) => {
     const newGallery = [...gallery];
-    newGallery[index] = value;
+    newGallery[index] = { ...newGallery[index], [field]: value };
     setGallery(newGallery);
   };
   const removeGallery = (index: number) => setGallery(gallery.filter((_, i) => i !== index));
@@ -306,26 +324,104 @@ export default function HomepageForm({ initialData, targetEventId }: { initialDa
       </div>
 
       <details className="glass-panel" style={{ padding: 'var(--spacing-md)', cursor: 'pointer' }}>
-        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between' }}>
-          Image Gallery Marquee <span>▼</span>
+        <summary style={{ fontSize: '1.25rem', fontWeight: 600, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span>Festival Media & Photo Gallery</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '10px', fontWeight: 400 }}>
+              ({gallery.length} Photos · {gallery.filter(g => g.isHighlighted).length} Highlighted on Homepage)
+            </span>
+          </div>
+          <span>▼</span>
         </summary>
         <div style={{ marginTop: 'var(--spacing-md)', cursor: 'default' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Manage all photos in the official gallery. Toggle <strong>Highlight on Homepage</strong> to display select photos in the homepage auto-scrolling strip.
+            </p>
             <button type="button" onClick={addGalleryImage} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
               + Add Image
             </button>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
             {gallery.map((img, idx) => (
-              <div key={idx} style={{ position: 'relative', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
+              <div key={idx} style={{ position: 'relative', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated, rgba(255,255,255,0.03))' }}>
+                <button
+                  type="button"
+                  onClick={() => removeGallery(idx)}
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 26,
+                    height: 26,
+                    cursor: 'pointer',
+                    zIndex: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                  }}
+                  title="Remove Photo"
+                >
+                  ✕
+                </button>
+
                 <ImageUpload 
-                  label={`Image ${idx + 1}`} 
+                  label={`Photo ${idx + 1}`} 
                   folder="gallery" 
-                  initialUrl={img}
-                  onUploadComplete={(url) => updateGallery(idx, url)} 
+                  initialUrl={img.url}
+                  onUploadComplete={(url) => updateGallery(idx, "url", url)} 
                 />
-                <button type="button" onClick={() => removeGallery(idx)} style={{ position: 'absolute', top: 4, right: 4, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer' }}>✕</button>
+
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                      Title / Caption
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Inaugural Session / Stage 1"
+                      value={img.title || ""}
+                      onChange={(e) => updateGallery(idx, "title", e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                      Category
+                    </label>
+                    <select
+                      value={img.category || "Stage"}
+                      onChange={(e) => updateGallery(idx, "category", e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
+                    >
+                      <option value="Stage">🎭 Stage Competitions</option>
+                      <option value="Off-Stage">🎨 Off-Stage Events</option>
+                      <option value="Ceremony">🏆 Ceremonies & Awards</option>
+                      <option value="Campus">🏛️ Campus & Moments</option>
+                      <option value="Volunteers">🦺 Organizing Crew</option>
+                      <option value="General">✨ General Highlights</option>
+                    </select>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', marginTop: '4px', fontWeight: 600, color: img.isHighlighted ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={img.isHighlighted !== false}
+                      onChange={(e) => updateGallery(idx, "isHighlighted", e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span>⭐ Show in Homepage Scrolling Strip</span>
+                  </label>
+                </div>
               </div>
             ))}
           </div>

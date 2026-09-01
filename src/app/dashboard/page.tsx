@@ -416,16 +416,18 @@ export default async function DashboardPage() {
       { label: "Confirm Team Lists", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
       { label: "Scheduling & Stages", href: "/dashboard/schedule", icon: "📅", color: "#0ea5e9" },
       { label: "Assign Juries", href: "/dashboard/juries", icon: "⚖️", color: "#8E0033" },
+      { label: "Volunteers & IDs", href: "/dashboard/volunteers", icon: "🦺", color: "#8E0033" },
       { label: "Rapid Mark Entry", href: "/dashboard/scoring", icon: "🏆", color: "#10b981" },
-      { label: "Print All ID Cards", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
+      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
     );
   } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
     quickLinks.push(
       { label: "Manage Teams", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
+      { label: "Volunteers Hub", href: "/dashboard/volunteers", icon: "🦺", color: "#8E0033" },
       { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" },
       { label: "Manage Schedule", href: "/dashboard/schedule", icon: "📅", color: "#10b981" },
       { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
-      { label: "Print All ID Cards", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
+      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
     );
   } else if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam) {
     quickLinks.push(

@@ -215,7 +215,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                 <div className="form-group">
-                  <label className="form-label">Zone Active Start Time</label>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Fest / Zone Start Time (Live Countdown Target)</label>
                   <input 
                     type="datetime-local" 
                     className="form-input" 
@@ -224,7 +224,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Zone Active End Time</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Fest / Zone End Time</label>
                   <input 
                     type="datetime-local" 
                     className="form-input" 
@@ -233,7 +233,9 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                   />
                 </div>
               </div>
-              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Period during which the zone portal is considered fully active.</span>
+              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>
+                Used for the live countdown timer on the homepage and zone pages before the festival competitions begin.
+              </span>
 
               <div className="form-group">
                 <label className="form-label">State Confirm End Date</label>
