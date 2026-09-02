@@ -95,17 +95,41 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
           stream: (row["Stream"] || row["stream"] || "FADHILA").toString().trim(),
         }));
 
-        const result = await bulkImportStudents(mapped);
-        if (result.success) {
-          if (result.skippedCount && result.skippedCount > 0) {
-            setSkippedReport(result.skippedRecords || []);
-            setSuccess(`✅ Processed ${result.count} of ${result.totalInExcel} students. ⚠️ ${result.skippedCount} student(s) were NOT added.`);
-          } else {
-            setSuccess(`✅ Successfully imported all ${result.count} student UIDs!`);
-            setTimeout(() => window.location.reload(), 1500);
+        const CHUNK_SIZE = 300;
+        let totalImported = 0;
+        let allSkipped: any[] = [];
+
+        for (let i = 0; i < mapped.length; i += CHUNK_SIZE) {
+          const chunk = mapped.slice(i, i + CHUNK_SIZE);
+          const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+          const totalChunks = Math.ceil(mapped.length / CHUNK_SIZE);
+
+          setSuccess(`⏳ Uploading batch ${chunkNumber} of ${totalChunks} (${Math.round((i / mapped.length) * 100)}%)...`);
+
+          const result = await bulkImportStudents(chunk);
+          if (!result.success) {
+            setError(result.error || `Failed on batch ${chunkNumber}`);
+            setImporting(false);
+            return;
           }
+
+          totalImported += result.count || 0;
+          if (result.skippedRecords && result.skippedRecords.length > 0) {
+            // Adjust row numbers according to original position
+            const adjustedSkipped = result.skippedRecords.map((r: any) => ({
+              ...r,
+              rowNumber: i + r.rowNumber
+            }));
+            allSkipped.push(...adjustedSkipped);
+          }
+        }
+
+        if (allSkipped.length > 0) {
+          setSkippedReport(allSkipped);
+          setSuccess(`✅ Finished! Processed ${totalImported} of ${mapped.length} students. ⚠️ ${allSkipped.length} student(s) were NOT added.`);
         } else {
-          setError(result.error || "Failed to import students.");
+          setSuccess(`✅ Successfully imported all ${totalImported} student UIDs!`);
+          setTimeout(() => window.location.reload(), 1500);
         }
       } catch (err) {
         console.error(err);
@@ -629,8 +653,8 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
 
       {/* Add Student Modal */}
       {showAddModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.75rem', borderRadius: '16px', backgroundColor: '#1e293b', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Add New Master Student</h3>
             <form onSubmit={handleAddSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               
@@ -683,8 +707,8 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
 
       {/* Edit Student Modal */}
       {editingStudent && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '550px', padding: '1.75rem', borderRadius: '16px', backgroundColor: '#1e293b', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Edit Student Details</h3>
             <form onSubmit={handleEditSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               
