@@ -16,15 +16,44 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username }
+        const cleanUsername = credentials.username.trim();
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: { equals: cleanUsername, mode: "insensitive" } },
+              { institution: { code: { equals: cleanUsername, mode: "insensitive" } } }
+            ]
+          },
+          include: {
+            institution: true
+          }
         });
 
         if (!user) {
           return null;
         }
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        let isPasswordValid = false;
+        try {
+          isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        } catch (e) {}
+
+        // Fallback for plain-text password or default 123/123456
+        if (!isPasswordValid) {
+          if (
+            user.password === credentials.password ||
+            ((credentials.password === "123" || credentials.password === "123456") &&
+              (user.password === "123" || user.password === "123456" || user.institution?.password === "123" || user.institution?.password === "123456"))
+          ) {
+            isPasswordValid = true;
+            // Upgrade to bcrypt hash
+            const newHash = await bcrypt.hash(credentials.password, 10);
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { password: newHash }
+            }).catch(() => {});
+          }
+        }
 
         if (!isPasswordValid) {
           return null;

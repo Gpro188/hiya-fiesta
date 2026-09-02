@@ -49,7 +49,14 @@ const getCachedPublicEventData = unstable_cache(
       // 2. Get Teams
       prisma.team.findMany({
         where: { eventId },
-        select: { id: true, name: true, flagColor: true, leaderName: true, leaderPhoto: true }
+        select: {
+          id: true,
+          name: true,
+          flagColor: true,
+          leaderName: true,
+          leaderPhoto: true,
+          institution: { select: { logoUrl: true, name: true, code: true } }
+        }
       }),
 
       // 3. Get All Published Results for Leaderboard
@@ -64,8 +71,8 @@ const getCachedPublicEventData = unstable_cache(
         },
         select: {
           id: true, points: true, candidateId: true, teamId: true,
-          candidate: { select: { id: true, name: true, teamId: true, team: { select: { id: true, name: true, flagColor: true } }, category: { select: { id: true, name: true } } } },
-          team: { select: { id: true, name: true, flagColor: true } },
+          candidate: { select: { id: true, name: true, teamId: true, team: { select: { id: true, name: true, flagColor: true, institution: { select: { logoUrl: true } } } }, category: { select: { id: true, name: true } } } },
+          team: { select: { id: true, name: true, flagColor: true, institution: { select: { logoUrl: true } } } },
           program: { select: { type: true } }
         }
       }),
@@ -84,7 +91,7 @@ const getCachedPublicEventData = unstable_cache(
     ]);
 
     // --- Team Leaderboard ---
-    const teamScores: Record<string, { id: string, name: string, points: number, flagColor: string | null, leaderName: string | null, leaderPhoto: string | null }> = {};
+    const teamScores: Record<string, { id: string, name: string, points: number, flagColor: string | null, leaderName: string | null, leaderPhoto: string | null, logoUrl: string | null }> = {};
     
     // Initialize all teams in scores to handle teams with 0 points
     teams.forEach(t => {
@@ -94,27 +101,29 @@ const getCachedPublicEventData = unstable_cache(
         points: 0,
         flagColor: t.flagColor,
         leaderName: t.leaderName,
-        leaderPhoto: t.leaderPhoto
+        leaderPhoto: t.leaderPhoto,
+        logoUrl: t.institution?.logoUrl || null
       };
     });
 
     allPublishedResults.forEach(res => {
-      let teamId = null;
-      let teamName = "";
-      let teamFlag = null;
-      let teamLeaderPhoto = null;
+      let teamId: string | null = null;
+      let teamName: string = "Unknown Team";
+      let teamFlag: string | null = null;
+      let teamLeaderPhoto: string | null = null;
+      let matchingTeam: any = null;
 
       if (res.candidate) {
         teamId = res.candidate.team.id;
         teamName = res.candidate.team.name;
         teamFlag = res.candidate.team.flagColor;
-        const matchingTeam = teams.find(t => t.id === res.candidate?.team?.id);
+        matchingTeam = teams.find(t => t.id === res.candidate?.team?.id);
         teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
       } else if (res.team) {
         teamId = res.team.id;
         teamName = res.team.name;
         teamFlag = res.team.flagColor;
-        const matchingTeam = teams.find(t => t.id === res.team?.id);
+        matchingTeam = teams.find(t => t.id === res.team?.id);
         teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
       }
 
@@ -126,7 +135,8 @@ const getCachedPublicEventData = unstable_cache(
             points: 0,
             flagColor: teamFlag,
             leaderName: null,
-            leaderPhoto: teamLeaderPhoto
+            leaderPhoto: teamLeaderPhoto,
+            logoUrl: matchingTeam?.institution?.logoUrl || null
           };
         }
         teamScores[teamId].points += res.points;

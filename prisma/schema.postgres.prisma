@@ -48,10 +48,11 @@ model Zone {
 model MasterInstitution {
   id            String          @id @default(uuid())
   code          String          @unique
-  password      String          @default("123")
+  password      String          @default("123456")
   affiliationNo String?
   name          String
   place         String?
+  logoUrl       String?
   zoneId        String
   district      String?
   stream        String?

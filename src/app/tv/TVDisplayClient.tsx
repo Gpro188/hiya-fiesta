@@ -146,6 +146,11 @@ export default function TVDisplayClient({
               {top3[1] && (
                 <div style={{ flex: 1, backgroundColor: theme === 'dark' ? 'rgba(30,41,59,0.5)' : '#f1f5f9', border: `1px solid ${borderCol}`, borderRadius: '12px', padding: '1.5rem 1rem', textAlign: 'center', position: 'relative' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: silver, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', margin: '-30px auto 10px auto', border: `4px solid ${panelBg}` }}>2</div>
+                  {top3[1].logoUrl ? (
+                    <img src={top3[1].logoUrl} alt={top3[1].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  ) : (
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[1].flagColor || silver, margin: '0 auto 6px auto' }} />
+                  )}
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[1].name}</div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[1].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
@@ -157,6 +162,11 @@ export default function TVDisplayClient({
               {top3[0] && (
                 <div style={{ flex: 1.2, backgroundColor: theme === 'dark' ? 'rgba(251,191,36,0.05)' : '#fffbeb', border: `1px solid ${gold}`, borderRadius: '12px', padding: '2rem 1rem', textAlign: 'center', position: 'relative', boxShadow: theme === 'dark' ? `0 0 30px rgba(251,191,36,0.1)` : `0 10px 30px rgba(251,191,36,0.2)` }}>
                   <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: gold, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.5rem', margin: '-40px auto 10px auto', border: `4px solid ${panelBg}` }}>1</div>
+                  {top3[0].logoUrl ? (
+                    <img src={top3[0].logoUrl} alt={top3[0].name} style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  ) : (
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: top3[0].flagColor || gold, margin: '0 auto 6px auto' }} />
+                  )}
                   <div style={{ fontSize: '0.9rem', fontWeight: 800, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[0].name}</div>
                   <div style={{ fontSize: '2.5rem', fontWeight: 900, color: gold, margin: '10px 0 0 0' }}>{top3[0].points}</div>
                   <div style={{ fontSize: '0.75rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
@@ -169,6 +179,11 @@ export default function TVDisplayClient({
               {top3[2] && (
                 <div style={{ flex: 1, backgroundColor: theme === 'dark' ? 'rgba(30,41,59,0.5)' : '#f1f5f9', border: `1px solid ${borderCol}`, borderRadius: '12px', padding: '1.5rem 1rem', textAlign: 'center', position: 'relative' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: bronze, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', margin: '-30px auto 10px auto', border: `4px solid ${panelBg}` }}>3</div>
+                  {top3[2].logoUrl ? (
+                    <img src={top3[2].logoUrl} alt={top3[2].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  ) : (
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[2].flagColor || bronze, margin: '0 auto 6px auto' }} />
+                  )}
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[2].name}</div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[2].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
@@ -198,7 +213,14 @@ export default function TVDisplayClient({
                 {rest.map((t, idx) => (
                   <tr key={t.id} style={{ borderBottom: `1px solid ${borderCol}` }}>
                     <td style={{ padding: '0.85rem 1rem', color: textSec }}>#{idx + 4}</td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>{t.name}</td>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {t.logoUrl ? (
+                        <img src={t.logoUrl} alt={t.name} style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px' }} />
+                      ) : (
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.flagColor || '#ec4899', display: 'inline-block' }}></span>
+                      )}
+                      <span>{t.name}</span>
+                    </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: textSec }}>{t.prefixCode}</td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 800, color: '#38bdf8', fontSize: '0.9rem' }}>{t.points}</td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>{t.gold}</td>

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getSettings, getHomepageSettings } from "@/lib/settings";
 import DashboardSidebar from "./DashboardSidebar";
 import ThemeApplicator from "@/app/components/ThemeApplicator";
+import InstitutionOnboardingModal from "@/components/InstitutionOnboardingModal";
+import bcrypt from "bcrypt";
 
 export default async function DashboardLayout({
   children,
@@ -33,6 +35,17 @@ export default async function DashboardLayout({
     displayName = userFull.zone.name + " Zone";
   }
 
+  let isDefaultPassword = false;
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && userFull?.password) {
+    try {
+      const match123 = await bcrypt.compare("123", userFull.password);
+      const match123456 = await bcrypt.compare("123456", userFull.password);
+      isDefaultPassword = match123 || match123456 || userFull.password === "123" || userFull.password === "123456";
+    } catch (e) {
+      isDefaultPassword = userFull.password === "123" || userFull.password === "123456";
+    }
+  }
+
   const homepageSettings = session.user.eventId ? await getHomepageSettings(session.user.eventId) : null;
 
   return (
@@ -52,6 +65,13 @@ export default async function DashboardLayout({
 
       {/* Main Content */}
       <main className="dashboard-main">
+        {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && (
+          <InstitutionOnboardingModal 
+            institutionName={userFull?.institution?.name || displayName}
+            initialLogoUrl={userFull?.institution?.logoUrl}
+            isDefaultPassword={isDefaultPassword}
+          />
+        )}
         <div className="dashboard-content">
           {children}
         </div>

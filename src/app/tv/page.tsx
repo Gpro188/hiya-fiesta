@@ -41,6 +41,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
     prisma.team.findMany({
       where: { eventId: eventObj.id },
       include: {
+        institution: { select: { logoUrl: true } },
         results: {
           where: { isPublished: true },
           select: { points: true, rank: true }
@@ -103,11 +104,12 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       name: t.name,
       prefixCode: t.prefixCode,
       flagColor: t.flagColor || '#ec4899',
+      logoUrl: t.institution?.logoUrl || null,
       points: totalPoints,
       gold: goldCount,
       silver: silverCount,
       bronze: bronzeCount,
-      change: 0, // Hardcoded to 0 for now as we don't store historical points
+      change: 0,
       changeType: 'up'
     };
   }).sort((a, b) => b.points - a.points);

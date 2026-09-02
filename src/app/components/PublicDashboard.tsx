@@ -641,7 +641,13 @@ export default function PublicDashboard({
                               marginBottom: '8px',
                               overflow: 'visible'
                             }}>
-                              {top2.leaderPhoto ? (
+                              {top2.logoUrl ? (
+                                <img 
+                                  src={top2.logoUrl} 
+                                  alt={top2.name} 
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'contain', backgroundColor: '#ffffff', padding: '3px' }} 
+                                />
+                              ) : top2.leaderPhoto ? (
                                 <img 
                                   src={top2.leaderPhoto} 
                                   alt={top2.name} 
@@ -718,7 +724,13 @@ export default function PublicDashboard({
                               marginBottom: '8px',
                               overflow: 'visible'
                             }}>
-                              {top1.leaderPhoto ? (
+                              {top1.logoUrl ? (
+                                <img 
+                                  src={top1.logoUrl} 
+                                  alt={top1.name} 
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'contain', backgroundColor: '#ffffff', padding: '4px' }} 
+                                />
+                              ) : top1.leaderPhoto ? (
                                 <img 
                                   src={top1.leaderPhoto} 
                                   alt={top1.name} 
@@ -797,7 +809,13 @@ export default function PublicDashboard({
                               marginBottom: '8px',
                               overflow: 'visible'
                             }}>
-                              {top3.leaderPhoto ? (
+                              {top3.logoUrl ? (
+                                <img 
+                                  src={top3.logoUrl} 
+                                  alt={top3.name} 
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'contain', backgroundColor: '#ffffff', padding: '3px' }} 
+                                />
+                              ) : top3.leaderPhoto ? (
                                 <img 
                                   src={top3.leaderPhoto} 
                                   alt={top3.name} 
@@ -1082,6 +1100,22 @@ export default function PublicDashboard({
                               }}>
                                 #{rank}
                               </span>
+                              {team.logoUrl && (
+                                <img 
+                                  src={team.logoUrl} 
+                                  alt="" 
+                                  style={{ 
+                                    width: '26px', 
+                                    height: '26px', 
+                                    borderRadius: '50%', 
+                                    objectFit: 'contain', 
+                                    backgroundColor: '#ffffff', 
+                                    border: '1px solid #e2e8f0', 
+                                    padding: '2px',
+                                    flexShrink: 0 
+                                  }} 
+                                />
+                              )}
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ 
                                   fontWeight: 800, 

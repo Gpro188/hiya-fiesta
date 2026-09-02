@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import CustomerGuidelines from "./CustomerGuidelines";
+import InstitutionOnboardingModal from "@/components/InstitutionOnboardingModal";
+import InstitutionProfileButton from "@/components/InstitutionProfileButton";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -42,6 +44,15 @@ export default async function DashboardPage() {
     pendingResultsCount: number;
     unscoredProgramsCount: number;
   } | null = null;
+
+  // Institution Profile details
+  let institutionInfo: any = null;
+  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && fullUser?.institutionId) {
+    institutionInfo = await prisma.masterInstitution.findUnique({
+      where: { id: fullUser.institutionId },
+      select: { id: true, name: true, code: true, logoUrl: true }
+    });
+  }
 
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
     if (fullUser?.institutionId) {
@@ -503,24 +514,42 @@ export default async function DashboardPage() {
               <span>🏆</span> Results & Mark Entry
             </Link>
           ) : (
-            <Link
-              href="/dashboard/assignments"
-              className="btn btn-primary"
-              style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "0.5rem",
-                borderRadius: 'var(--radius-full)',
-                padding: '0.5rem 1.25rem',
-                fontWeight: 700,
-                fontSize: '0.85rem'
-              }}
-            >
-              <span>📜</span> Program Allocations
-            </Link>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              {institutionInfo && (
+                <InstitutionProfileButton
+                  institutionName={institutionInfo.name}
+                  institutionCode={institutionInfo.code}
+                  logoUrl={institutionInfo.logoUrl}
+                />
+              )}
+              <Link
+                href="/dashboard/assignments"
+                className="btn btn-primary"
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "0.5rem",
+                  borderRadius: 'var(--radius-full)',
+                  padding: '0.5rem 1.25rem',
+                  fontWeight: 700,
+                  fontSize: '0.85rem'
+                }}
+              >
+                <span>📜</span> Program Allocations
+              </Link>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Institution First-Login / Profile Onboarding Modal */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && institutionInfo && (
+        <InstitutionOnboardingModal
+          institutionName={institutionInfo.name}
+          institutionCode={institutionInfo.code}
+          initialLogoUrl={institutionInfo.logoUrl}
+        />
+      )}
 
       {/* Stats Grid with auto-fit reflow */}
       <div

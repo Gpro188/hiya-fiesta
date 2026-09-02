@@ -45,7 +45,7 @@ export async function bulkImportInstitutions(institutionsData: Array<{
 
       if (!matchedZoneId) continue;
 
-      const instPassword = item.password || "123";
+      const instPassword = item.password || "123456";
       const hashedPassword = await bcrypt.hash(instPassword, 10);
 
       const institution = await prisma.masterInstitution.upsert({
@@ -101,6 +101,35 @@ export async function bulkImportInstitutions(institutionsData: Array<{
   }
 }
 
+export async function resetAllInstitutionsToDefaultPassword() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const defaultPassword = "123456";
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+    // Update all MasterInstitution password field to 123456
+    await prisma.masterInstitution.updateMany({
+      data: { password: defaultPassword }
+    });
+
+    // Update all User accounts associated with institutions to hashed 123456
+    await prisma.user.updateMany({
+      where: { role: { in: ["INSTITUTION_MANAGER", "MANAGER"] } },
+      data: { password: hashedPassword }
+    });
+
+    revalidatePath("/dashboard/super/institutions");
+    return { success: true, message: "All institution passwords have been reset to 123456" };
+  } catch (error: any) {
+    console.error("Failed to reset institution passwords:", error);
+    return { success: false, error: error.message || "Failed to reset passwords" };
+  }
+}
+
 export async function updateInstitution(id: string, data: {
   code: string;
   name: string;
@@ -110,6 +139,7 @@ export async function updateInstitution(id: string, data: {
   district?: string;
   stream?: string;
   password?: string;
+  logoUrl?: string;
 }) {
   try {
     const session = await getServerSession(authOptions);
@@ -117,7 +147,7 @@ export async function updateInstitution(id: string, data: {
       return { success: false, error: "Unauthorized" };
     }
 
-    const inst = await prisma.masterInstitution.update({
+    await prisma.masterInstitution.update({
       where: { id },
       data: {
         code: data.code.trim().toUpperCase(),
@@ -127,6 +157,7 @@ export async function updateInstitution(id: string, data: {
         zoneId: data.zoneId,
         district: data.district || null,
         stream: data.stream || null,
+        logoUrl: data.logoUrl !== undefined ? data.logoUrl : undefined,
         password: data.password || undefined
       }
     });
