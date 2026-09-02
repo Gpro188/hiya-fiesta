@@ -171,52 +171,53 @@ export async function deleteCandidate(id: string) {
   }
 }
 
-export async function approveCandidate(id: string, prefixCode: string) {
+export async function approveCandidate(id: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") return { success: false, error: "Unauthorized" };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
 
-    const candidate = await prisma.candidate.findUnique({ where: { id } });
-    if (!candidate || candidate.isApproved) return { success: false, error: "Candidate already approved or not found" };
+    const candidate = await prisma.candidate.findUnique({ 
+      where: { id },
+      include: { team: true, category: true }
+    });
+    if (!candidate) return { success: false, error: "Candidate not found" };
+    if (candidate.isApproved && candidate.chestNumber) return { success: true };
 
     await prisma.$transaction(async (tx) => {
-      const cat = await tx.category.findUnique({ where: { id: candidate.categoryId } });
-      const offset = cat?.chestNumberOffset || 0;
+      const baseOffset = (candidate.category?.chestNumberOffset && candidate.category.chestNumberOffset > 0)
+        ? candidate.category.chestNumberOffset
+        : 100;
 
       const existingCandidates = await tx.candidate.findMany({
-        where: { teamId: candidate.teamId, categoryId: candidate.categoryId, isApproved: true, chestNumber: { not: null } },
-        select: { chestNumber: true }
+        where: {
+          categoryId: candidate.categoryId,
+          chestNumber: { not: null },
+          team: { eventId: candidate.team.eventId }
+        },
+        select: { id: true, chestNumber: true }
       });
 
-      let nextSequence = 1;
-      
-      if (existingCandidates.length > 0) {
-        const sequences = existingCandidates
-          .map(c => c.chestNumber!)
-          .map(cn => {
-             const isNum = !isNaN(parseInt(prefixCode)) && /^\d+$/.test(prefixCode);
-             if (isNum) {
-               return parseInt(cn, 10) - parseInt(prefixCode, 10) - offset;
-             }
-             const numPart = parseInt(cn.replace(prefixCode, ''), 10);
-             return numPart - offset + 1;
-          })
-          .filter(n => !isNaN(n));
-          
-        if (sequences.length > 0) {
-          nextSequence = Math.max(...sequences) + 1;
-        }
-      }
+      const existingNumbers = existingCandidates
+        .filter(c => c.id !== candidate.id)
+        .map(c => parseInt(c.chestNumber!, 10))
+        .filter(n => !isNaN(n) && n >= baseOffset);
 
-      const isNumericPrefix = !isNaN(parseInt(prefixCode)) && /^\d+$/.test(prefixCode);
-      let newChestNumber = "";
+      let nextNum = existingNumbers.length > 0 
+        ? Math.max(...existingNumbers) + 1 
+        : baseOffset + 1;
 
-      if (isNumericPrefix) {
-        newChestNumber = (parseInt(prefixCode, 10) + offset + nextSequence).toString();
-      } else {
-        const finalNum = offset + nextSequence - 1;
-        const formattedNum = finalNum.toString().padStart(2, '0');
-        newChestNumber = `${prefixCode}${formattedNum}`;
+      const allUsed = await tx.candidate.findMany({
+        where: { chestNumber: { not: null } },
+        select: { chestNumber: true }
+      });
+      const usedSet = new Set(allUsed.map(c => c.chestNumber!).filter(Boolean));
+
+      let newChestNumber = nextNum.toString();
+      while (usedSet.has(newChestNumber)) {
+        nextNum++;
+        newChestNumber = nextNum.toString();
       }
 
       await tx.candidate.update({
@@ -229,11 +230,13 @@ export async function approveCandidate(id: string, prefixCode: string) {
     });
 
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/assignments");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to approve candidate:", error);
     if (error.code === 'P2002') {
-      return { success: false, error: "Approval failed: Chest number collision. Please check prefix codes and category offsets." };
+      return { success: false, error: "Approval failed: Chest number collision. Please try again." };
     }
     return { success: false, error: error.message || "Failed to approve candidate" };
   }
@@ -283,30 +286,61 @@ export async function generateChestNumbers(eventId: string) {
       orderBy: { name: 'asc' }
     });
 
+    const allUsed = await prisma.candidate.findMany({
+      where: { chestNumber: { not: null }, team: { NOT: { eventId } } },
+      select: { chestNumber: true }
+    });
+    const globalUsedNumbers = new Set<string>(
+      allUsed.map(c => c.chestNumber!).filter(Boolean)
+    );
+
     let totalUpdated = 0;
 
-    for (const cat of categories) {
-      let counter = cat.chestNumberOffset || 100;
-      
-      const candidates = await prisma.candidate.findMany({
-        where: { categoryId: cat.id, isApproved: true },
-        orderBy: [
-          { team: { name: 'asc' } },
-          { name: 'asc' }
-        ]
-      });
+    await prisma.$transaction(async (tx) => {
+      for (const cat of categories) {
+        const baseOffset = (cat.chestNumberOffset && cat.chestNumberOffset > 0)
+          ? cat.chestNumberOffset
+          : 100;
+        let counter = baseOffset;
 
-      for (const cand of candidates) {
-        counter++;
-        await prisma.candidate.update({
-          where: { id: cand.id },
-          data: { chestNumber: counter.toString() }
+        // Group by team and then name so each institution's students have consecutive near numbers
+        const candidates = await tx.candidate.findMany({
+          where: { 
+            categoryId: cat.id, 
+            team: { eventId },
+            programs: { some: {} } // candidates with assigned programs
+          },
+          include: { team: true },
+          orderBy: [
+            { team: { name: 'asc' } },
+            { name: 'asc' }
+          ]
         });
-        totalUpdated++;
+
+        for (const cand of candidates) {
+          counter++;
+          let newChest = counter.toString();
+          while (globalUsedNumbers.has(newChest)) {
+            counter++;
+            newChest = counter.toString();
+          }
+          globalUsedNumbers.add(newChest);
+
+          await tx.candidate.update({
+            where: { id: cand.id },
+            data: { 
+              chestNumber: newChest,
+              isApproved: true
+            }
+          });
+          totalUpdated++;
+        }
       }
-    }
+    });
 
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/assignments");
     return { success: true, count: totalUpdated };
   } catch (error: any) {
     console.error("Failed to generate chest numbers:", error);

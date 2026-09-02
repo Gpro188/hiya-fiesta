@@ -110,8 +110,11 @@ export default function CandidateForm({
         </div>
       )}
       {success && (
-        <div style={{ color: 'var(--success)', marginBottom: 'var(--spacing-sm)', padding: 'var(--spacing-xs)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)' }}>
-          Candidate added successfully!
+        <div style={{ color: 'var(--success)', marginBottom: 'var(--spacing-sm)', padding: 'var(--spacing-xs) var(--spacing-sm)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Candidate added successfully!</span>
+          <a href="/dashboard/assignments" className="btn btn-primary" style={{ padding: '2px 8px', fontSize: '0.75rem', textDecoration: 'none' }}>
+            Assign Programs &rarr;
+          </a>
         </div>
       )}
       

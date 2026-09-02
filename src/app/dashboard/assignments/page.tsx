@@ -5,25 +5,28 @@ import { prisma } from "@/lib/prisma";
 import AssignmentForm from "./AssignmentForm";
 import Link from "next/link";
 
-export default async function AssignmentsPage({ searchParams }: { searchParams: { candidateId?: string } }) {
+export default async function AssignmentsPage(props: { searchParams: Promise<{ candidateId?: string, teamId?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
 
-  if (!session || (!["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && session.user.role !== "ADMIN")) {
+  if (!session || (!["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role))) {
     redirect("/dashboard");
   }
 
-  let teamId = null;
+  let teamId: string | null = searchParams.teamId || null;
   let isAssignmentOpen = true;
   let assignmentStatusMessage = "";
   let isAssignmentsConfirmed = false;
   let zoneEventId: string | null = null;
   let parentEventId: string | null = null;
+  let availableTeams: Array<{ id: string, name: string }> = [];
+
+  const fullUser = await prisma.user.findUnique({ 
+    where: { id: session.user.id }, 
+    select: { institutionId: true, eventId: true, zoneId: true } 
+  });
 
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
-    const fullUser = await prisma.user.findUnique({ 
-      where: { id: session.user.id }, 
-      select: { institutionId: true, eventId: true } 
-    });
     if (!fullUser?.institutionId) return <div>You are not assigned to any institution.</div>;
 
     // Find team via institution → zone → zone event (same logic as candidates page)
@@ -40,9 +43,24 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
       if (zoneEvent) {
         zoneEventId = zoneEvent.id;
         parentEventId = zoneEvent.parentId;
-        const team = await prisma.team.findFirst({
+        let team = await prisma.team.findFirst({
           where: { institutionId: fullUser.institutionId, eventId: zoneEvent.id }
         });
+
+        if (!team && institution) {
+          const teamCode = institution.code || `INST${fullUser.institutionId.slice(0, 6).toUpperCase()}`;
+          const safePrefixCode = `${teamCode}-${zoneEvent.id.slice(0, 4)}`;
+          team = await prisma.team.create({
+            data: {
+              name: institution.name,
+              prefixCode: safePrefixCode,
+              eventId: zoneEvent.id,
+              institutionId: fullUser.institutionId,
+              flagColor: '#A5003A',
+            }
+          });
+        }
+
         if (team) {
           teamId = team.id;
           isAssignmentsConfirmed = team.isAssignmentsConfirmed;
@@ -60,18 +78,50 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
         }
       }
     }
-  } else if (session.user.eventId) {
-    zoneEventId = session.user.eventId;
-    const ev = await prisma.event.findUnique({ where: { id: zoneEventId } });
-    if (ev) parentEventId = ev.parentId;
+  } else {
+    // Admin / Zone Admin / Super Admin
+    if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
+      const zoneEvent = await prisma.event.findFirst({
+        where: { type: 'ZONE', zoneId: fullUser.zoneId, NOT: { parentId: null } }
+      });
+      if (zoneEvent) {
+        zoneEventId = zoneEvent.id;
+        parentEventId = zoneEvent.parentId;
+      }
+      availableTeams = await prisma.team.findMany({
+        where: { event: { zoneId: fullUser.zoneId } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' }
+      });
+    } else if (fullUser?.eventId) {
+      zoneEventId = fullUser.eventId;
+      const ev = await prisma.event.findUnique({ where: { id: zoneEventId } });
+      if (ev) parentEventId = ev.parentId;
+      availableTeams = await prisma.team.findMany({
+        where: { OR: [{ eventId: zoneEventId }, { event: { parentId: zoneEventId } }] },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' }
+      });
+    }
+
+    if (!teamId && availableTeams.length > 0) {
+      teamId = availableTeams[0].id;
+    }
+
+    if (teamId) {
+      const currentTeam = await prisma.team.findUnique({ where: { id: teamId } });
+      if (currentTeam) {
+        isAssignmentsConfirmed = currentTeam.isAssignmentsConfirmed;
+      }
+    }
   }
 
-  // Candidates scoped to team (for institution managers) or event (for admins)
+  // Candidates scoped to team
   const whereClause: any = {};
   if (teamId) {
     whereClause.teamId = teamId;
-  } else if (session.user.eventId) {
-    whereClause.team = { eventId: session.user.eventId };
+  } else if (zoneEventId) {
+    whereClause.team = { eventId: zoneEventId };
   }
 
   const candidates = await prisma.candidate.findMany({
@@ -101,7 +151,8 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
           }
         }
       }
-    }
+    },
+    orderBy: { name: 'asc' }
   });
 
   const eventIdsToSearch = [zoneEventId, parentEventId, session.user.eventId].filter(Boolean) as string[];
@@ -110,19 +161,20 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
     include: { 
       event: true,
       category: true
-    }
+    },
+    orderBy: { name: 'asc' }
   });
 
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
         <div>
           <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Program Assignments</h1>
           <p className="page-description">
-            Enroll approved candidates into competition programs. Category limits and eligibility rules are enforced automatically.
+            Assign registered candidates to competition programs. Category limits and eligibility rules are enforced automatically.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <a 
             href="/program_manual.pdf" 
             target="_blank" 
@@ -154,6 +206,24 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
+      {availableTeams.length > 1 && ["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
+        <div className="glass-panel" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+          <label style={{ fontSize: '0.875rem', fontWeight: 600, marginRight: '10px' }}>Select Institution / Team:</label>
+          <select 
+            className="form-input" 
+            style={{ maxWidth: '350px', display: 'inline-block' }}
+            defaultValue={teamId || ""}
+            onChange={(e) => {
+              window.location.href = `/dashboard/assignments?teamId=${e.target.value}`;
+            }}
+          >
+            {availableTeams.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {(() => {
         const totalCandidates = candidates.length;
         const assignedCandidates = candidates.filter(c => c.programs.length > 0).length;
@@ -175,7 +245,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
             <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Total Candidates</div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Total Registered Students</div>
               <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{totalCandidates}</div>
             </div>
             <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
@@ -197,14 +267,10 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
       {candidates.length === 0 ? (
         <div className="glass-panel empty-state-guidance">
           <p style={{ color: 'var(--warning)', marginBottom: 'var(--spacing-sm)', fontWeight: 600 }}>
-            No approved candidates found.
+            No registered students found.
           </p>
-          <p>Candidates must be registered and approved by the Admin before program assignments can be made.</p>
-          {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? (
-            <Link href="/dashboard/candidates" className="empty-state-action">Go to Candidates &rarr;</Link>
-          ) : (
-            <Link href="/dashboard/candidates" className="empty-state-action">Review Candidates &rarr;</Link>
-          )}
+          <p>Please add students to your institution roster first before making program assignments.</p>
+          <Link href="/dashboard/candidates" className="empty-state-action">Go to Student Roster &rarr;</Link>
         </div>
       ) : (
         <div data-tour="assignments-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>

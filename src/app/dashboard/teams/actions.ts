@@ -105,26 +105,46 @@ export async function confirmTeamRegistration(teamId: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    const team = await prisma.team.findUnique({ 
+      where: { id: teamId },
+      include: { event: true } 
+    });
     if (!team) return { success: false, error: "Team not found" };
 
     let totalApproved = 0;
 
     await prisma.$transaction(async (tx) => {
-      // Find all candidates for this team that are NOT approved yet, BUT have at least one program assigned
+      // Find all candidates for this team that have at least one program assigned
       const candidatesToApprove = await tx.candidate.findMany({
         where: {
           teamId,
-          isApproved: false,
           programs: {
             some: {} // At least one program assigned
           }
+        },
+        include: {
+          category: true
         }
       });
 
-      if (candidatesToApprove.length === 0) return;
+      if (candidatesToApprove.length === 0) {
+        await tx.team.update({
+          where: { id: teamId },
+          data: { isAssignmentsConfirmed: true }
+        });
+        return;
+      }
 
-      // Group by category to generate chest numbers sequentially per category
+      // Query all used chest numbers globally to avoid collisions
+      const allUsed = await tx.candidate.findMany({
+        where: { chestNumber: { not: null } },
+        select: { id: true, chestNumber: true }
+      });
+      const globalUsedNumbers = new Set<string>(
+        allUsed.map(c => c.chestNumber!).filter(Boolean)
+      );
+
+      // Group candidates by category
       const groupedByCategory = candidatesToApprove.reduce((acc, candidate) => {
         if (!acc[candidate.categoryId]) acc[candidate.categoryId] = [];
         acc[candidate.categoryId].push(candidate);
@@ -135,90 +155,72 @@ export async function confirmTeamRegistration(teamId: string) {
         const cat = await tx.category.findUnique({ where: { id: categoryId } });
         if (!cat) continue;
 
-        let prefixCode = "CH";
-        const catNameUpper = cat.name.toUpperCase();
-        if (catNameUpper.includes("FADHILA")) prefixCode = "FL";
-        else if (catNameUpper.includes("FADHEELA")) prefixCode = "FD";
-        else if (catNameUpper.includes("THANVIYYA")) prefixCode = "TN";
-        else if (catNameUpper.includes("ALIA") || catNameUpper.includes("AALIA")) prefixCode = "AL";
+        // Base offset (e.g., 100 for Fadhila, 200 for Fadheela, 300 for General)
+        const baseOffset = (cat.chestNumberOffset && cat.chestNumberOffset > 0)
+          ? cat.chestNumberOffset
+          : 100;
 
-        const offset = cat.chestNumberOffset || 0;
-
-        // Determine zone abbreviation from team's event if available
-        let zonePrefix = "";
-        if (team.eventId) {
-          const ev = await tx.event.findUnique({
-            where: { id: team.eventId },
-            include: { zone: true }
-          });
-          if (ev?.zone?.code) {
-            zonePrefix = ev.zone.code.toUpperCase();
-          } else if (ev?.name) {
-            const cleanName = ev.name.replace(/zone/i, '').trim().toUpperCase();
-            zonePrefix = cleanName.substring(0, 2);
-          }
-        }
-
-        // Base prefix: Zone code (e.g. KS, KN, KL) + Category (FL, FD, TN, AL) or Category prefix
-        const finalPrefix = zonePrefix ? `${zonePrefix}${prefixCode}` : prefixCode;
-
-        // Query all existing chest numbers starting with this finalPrefix across the database
-        const existingCandidates = await tx.candidate.findMany({
-          where: { chestNumber: { startsWith: finalPrefix } },
-          select: { chestNumber: true }
+        // Find existing assigned numeric chest numbers in this category within the same event
+        const existingCategoryCandidates = await tx.candidate.findMany({
+          where: {
+            categoryId,
+            chestNumber: { not: null },
+            team: { eventId: team.eventId }
+          },
+          select: { id: true, chestNumber: true }
         });
 
-        const usedNumbers = new Set<string>();
-        const allUsedChestNums = await tx.candidate.findMany({
-          where: { chestNumber: { not: null } },
-          select: { chestNumber: true }
-        });
-        allUsedChestNums.forEach(c => { if (c.chestNumber) usedNumbers.add(c.chestNumber.toUpperCase()); });
+        // Filter out candidates currently being processed
+        const currentCandidateIds = new Set(candidates.map(c => c.id));
+        const existingNumbers = existingCategoryCandidates
+          .filter(c => !currentCandidateIds.has(c.id))
+          .map(c => parseInt(c.chestNumber!, 10))
+          .filter(n => !isNaN(n) && n >= baseOffset);
 
-        let nextSequence = 1;
-        if (existingCandidates.length > 0) {
-          const sequences = existingCandidates
-            .map(c => c.chestNumber!)
-            .map(cn => {
-               const numPart = parseInt(cn.replace(finalPrefix, ''), 10);
-               return numPart - offset;
-            })
-            .filter(n => !isNaN(n));
-            
-          if (sequences.length > 0) {
-            nextSequence = Math.max(...sequences) + 1;
-          }
-        }
+        let nextNum = existingNumbers.length > 0
+          ? Math.max(...existingNumbers) + 1
+          : baseOffset + 1; // e.g. 101, 201, 301
 
-        // Sort candidates alphabetically by name for deterministic ordering
+        // Sort candidates within this institution alphabetically by name for deterministic order
         candidates.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Assign chest numbers ensuring no collisions with any existing record
-        for (let i = 0; i < candidates.length; i++) {
-          let assignedNum = offset + nextSequence + i;
-          let newChestNumber = `${finalPrefix}${assignedNum.toString().padStart(4, '0')}`;
-
-          // If by any chance this exists anywhere in DB, increment until unique
-          while (usedNumbers.has(newChestNumber.toUpperCase())) {
-            assignedNum++;
-            newChestNumber = `${finalPrefix}${assignedNum.toString().padStart(4, '0')}`;
+        // Assign consecutive numbers one by one: 301, 302, 303... or 340, 341, 342...
+        for (const candidate of candidates) {
+          if (candidate.chestNumber && !isNaN(parseInt(candidate.chestNumber, 10)) && candidate.isApproved) {
+            totalApproved++;
+            continue;
           }
-          usedNumbers.add(newChestNumber.toUpperCase());
+
+          let candidateChestNumber = nextNum.toString();
+          while (globalUsedNumbers.has(candidateChestNumber)) {
+            nextNum++;
+            candidateChestNumber = nextNum.toString();
+          }
+
+          globalUsedNumbers.add(candidateChestNumber);
+          nextNum++;
 
           await tx.candidate.update({
-            where: { id: candidates[i].id },
+            where: { id: candidate.id },
             data: {
               isApproved: true,
-              chestNumber: newChestNumber
+              chestNumber: candidateChestNumber
             }
           });
           totalApproved++;
         }
       }
+
+      // Mark the team assignments confirmed
+      await tx.team.update({
+        where: { id: teamId },
+        data: { isAssignmentsConfirmed: true }
+      });
     });
 
     revalidatePath("/dashboard/teams");
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
     return { success: true, count: totalApproved };
   } catch (error: any) {
     console.error("Failed to confirm team registration:", error);
@@ -229,15 +231,20 @@ export async function confirmTeamRegistration(teamId: string) {
   }
 }
 
-
-
 export async function unlockTeamAssignments(teamId: string) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await prisma.team.update({
       where: { id: teamId },
       data: { isAssignmentsConfirmed: false }
     });
     revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/candidates");
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to unlock assignments" };

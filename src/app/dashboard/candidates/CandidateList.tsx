@@ -71,15 +71,17 @@ export default function CandidateList({ candidates, role, categories }: { candid
                     {candidate.chestNumber}
                   </span>
                 ) : (
-                  <span style={{ color: 'var(--warning)', fontSize: '0.875rem' }}>Pending Approval</span>
+                  <span style={{ color: 'var(--warning)', fontSize: '0.8rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                    Pending Zone Approval
+                  </span>
                 )}
               </td>
               <td style={{ padding: 'var(--spacing-sm)' }}>{candidate._count.programs}</td>
-              <td style={{ padding: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)' }}>
-                {role === "ADMIN" && !candidate.isApproved && (
+              <td style={{ padding: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && !candidate.isApproved && (
                   <button 
                     onClick={async () => {
-                      const result = await approveCandidate(candidate.id, candidate.team.prefixCode);
+                      const result = await approveCandidate(candidate.id);
                       if (!result.success) {
                         alert(result.error || "Failed to approve candidate");
                       }
@@ -91,7 +93,7 @@ export default function CandidateList({ candidates, role, categories }: { candid
                   </button>
                 )}
 
-                {role === "ADMIN" && candidate.isApproved && (
+                {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && candidate.isApproved && (
                   <span 
                     style={{ 
                       display: 'inline-flex', 
@@ -108,7 +110,7 @@ export default function CandidateList({ candidates, role, categories }: { candid
                   </span>
                 )}
                 
-                {["MANAGER", "INSTITUTION_MANAGER", "ADMIN"].includes(role) && (
+                {["MANAGER", "INSTITUTION_MANAGER", "ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
                   <a 
                     href={`/dashboard/assignments?candidateId=${candidate.id}`}
                     className="btn btn-secondary"
