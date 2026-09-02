@@ -787,7 +787,7 @@ export default async function DashboardPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "1fr",
           gap: "1.25rem",
           marginBottom: "2rem",
         }}
@@ -861,50 +861,6 @@ export default async function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Manager Resources */}
-        <div className="glass-panel" style={{ padding: "var(--spacing-lg)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1rem",
-              }}
-            >
-              🔗
-            </div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Candidate Photo Hosting</h3>
-          </div>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "1rem", fontSize: "0.8rem", lineHeight: 1.5 }}>
-            External tools for hosting student candidate photos:
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <a
-              href="https://imgbb.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-secondary"
-              style={{ justifyContent: "flex-start", gap: "0.5rem" }}
-            >
-              <span>🚀</span> ImgBB <span style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>(Recommended)</span>
-            </a>
-            <a
-              href="https://postimages.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-secondary"
-              style={{ justifyContent: "flex-start", gap: "0.5rem" }}
-            >
-              <span>🖼️</span> PostImages
-            </a>
-          </div>
         </div>
       </div>
 

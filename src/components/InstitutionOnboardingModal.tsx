@@ -34,17 +34,20 @@ export default function InstitutionOnboardingModal({
       return;
     }
 
-    // Auto open on first login if not dismissed and (logo missing or default password is true)
+    // Auto open on login if not dismissed for this session and (logo missing or default password is true)
     const storageKey = institutionCode ? `cswc_inst_profile_dismissed_${institutionCode}` : "cswc_inst_profile_dismissed";
-    const dismissed = localStorage.getItem(storageKey);
-    if (!dismissed && (!initialLogoUrl || isDefaultPassword)) {
+    const sessionDismissed = sessionStorage.getItem(storageKey);
+    const permanentDismissed = localStorage.getItem(storageKey);
+
+    if (!sessionDismissed && !permanentDismissed && (!initialLogoUrl || isDefaultPassword)) {
       setIsOpen(true);
     }
   }, [isOpenExternal, institutionCode, initialLogoUrl, isDefaultPassword]);
 
   const handleClose = () => {
+    // Only dismiss for current browser session when skipped
     const storageKey = institutionCode ? `cswc_inst_profile_dismissed_${institutionCode}` : "cswc_inst_profile_dismissed";
-    localStorage.setItem(storageKey, "true");
+    sessionStorage.setItem(storageKey, "true");
     setIsOpen(false);
     if (onCloseExternal) onCloseExternal();
   };
@@ -73,8 +76,10 @@ export default function InstitutionOnboardingModal({
       setStatus({ type: "success", message: res.message || "Saved successfully!" });
       const storageKey = institutionCode ? `cswc_inst_profile_dismissed_${institutionCode}` : "cswc_inst_profile_dismissed";
       localStorage.setItem(storageKey, "true");
+      sessionStorage.removeItem(storageKey);
       setTimeout(() => {
-        handleClose();
+        setIsOpen(false);
+        if (onCloseExternal) onCloseExternal();
         window.location.reload();
       }, 1000);
     } else {

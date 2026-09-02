@@ -230,6 +230,8 @@ function LoginForm() {
                 </span>
                 <input
                   id="username"
+                  name="username"
+                  autoComplete="username"
                   type="text"
                   className="form-input"
                   style={{ paddingLeft: "2.5rem" }}
@@ -261,6 +263,8 @@ function LoginForm() {
                 </span>
                 <input
                   id="password"
+                  name="password"
+                  autoComplete="current-password"
                   type={showPassword ? "text" : "password"}
                   className="form-input"
                   style={{ paddingLeft: "2.5rem", paddingRight: "2.5rem" }}
