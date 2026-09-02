@@ -161,16 +161,54 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
     setEditLoading(false);
   };
 
+  // Search and Filters
+  const [search, setSearch] = useState("");
+  const [selectedZone, setSelectedZone] = useState("ALL");
+  const [selectedStream, setSelectedStream] = useState("ALL");
+
+  // Calculate stream & category counts
+  const streamCounts = institutions.reduce((acc: Record<string, number>, inst) => {
+    const s = (inst.stream || "FADHILA").trim().toUpperCase();
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+
+  const zoneCounts = institutions.reduce((acc: Record<string, number>, inst) => {
+    const zName = inst.zone?.name || "Unassigned";
+    acc[zName] = (acc[zName] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Filtered institutions
+  const filteredInstitutions = institutions.filter((inst) => {
+    const matchesSearch =
+      inst.name?.toLowerCase().includes(search.toLowerCase()) ||
+      inst.code?.toLowerCase().includes(search.toLowerCase()) ||
+      inst.place?.toLowerCase().includes(search.toLowerCase()) ||
+      inst.district?.toLowerCase().includes(search.toLowerCase()) ||
+      (inst.affiliationNo && inst.affiliationNo.toLowerCase().includes(search.toLowerCase()));
+
+    const matchesZone =
+      selectedZone === "ALL" ||
+      (selectedZone === "UNASSIGNED" ? !inst.zone : inst.zone?.id === selectedZone || inst.zone?.name === selectedZone);
+
+    const matchesStream =
+      selectedStream === "ALL" ||
+      (inst.stream || "FADHILA").trim().toUpperCase() === selectedStream.toUpperCase();
+
+    return matchesSearch && matchesZone && matchesStream;
+  });
+
   return (
     <div>
       {/* Upload Box */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0 }}>Upload Master Institution Excel</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload CSV/Excel containing Code, Affiliation No, College Name, District, and Stream.</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
               ➕ Add Single Institution
             </button>
@@ -209,36 +247,184 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
         {success && <div style={{ marginTop: '10px', color: 'var(--success)' }}>✅ {success}</div>}
       </div>
 
-      {/* Directory Table */}
+      {/* Stream & Category Breakdown Summary Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: 'var(--spacing-lg)' }}>
+        <div 
+          onClick={() => { setSelectedStream("ALL"); setSelectedZone("ALL"); }}
+          className="glass-panel" 
+          style={{ 
+            padding: '16px 20px', 
+            borderRadius: '14px', 
+            cursor: 'pointer',
+            border: selectedStream === "ALL" && selectedZone === "ALL" ? '2px solid #8E0033' : '1px solid var(--border-color)',
+            backgroundColor: selectedStream === "ALL" && selectedZone === "ALL" ? 'rgba(142, 0, 51, 0.05)' : 'var(--surface-color)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+            Total Colleges
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#8E0033', marginTop: '4px' }}>
+            {institutions.length}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Across {zones.length} Regional Zones
+          </div>
+        </div>
+
+        {Object.entries(streamCounts).map(([streamName, count]) => (
+          <div 
+            key={streamName}
+            onClick={() => setSelectedStream(selectedStream === streamName ? "ALL" : streamName)}
+            className="glass-panel" 
+            style={{ 
+              padding: '16px 20px', 
+              borderRadius: '14px', 
+              cursor: 'pointer',
+              border: selectedStream === streamName ? '2px solid #0284c7' : '1px solid var(--border-color)',
+              backgroundColor: selectedStream === streamName ? 'rgba(2, 132, 199, 0.08)' : 'var(--surface-color)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+              📚 {streamName}
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284c7', marginTop: '4px' }}>
+              {count} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>colleges</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {Math.round((count / (institutions.length || 1)) * 100)}% of total network
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Directory Table with Zone and Stream Filters */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Registered Institutions ({institutions.length})</h3>
-        {institutions.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No institutions registered yet. Upload the Excel file above.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🏛️</span> Registered Institutions ({filteredInstitutions.length}
+              {filteredInstitutions.length !== institutions.length && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  filtered from {institutions.length}
+                </span>
+              )})
+            </h3>
+          </div>
+
+          {/* Filter Bar */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Zone Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Zone:</span>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', minWidth: '160px' }}
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+              >
+                <option value="ALL">All Zones ({institutions.length})</option>
+                {zones.map((z) => {
+                  const zCount = zoneCounts[z.name] || 0;
+                  return (
+                    <option key={z.id} value={z.id}>
+                      {z.name} ({zCount})
+                    </option>
+                  );
+                })}
+                {zoneCounts["Unassigned"] ? (
+                  <option value="UNASSIGNED">Unassigned ({zoneCounts["Unassigned"]})</option>
+                ) : null}
+              </select>
+            </div>
+
+            {/* Stream Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stream:</span>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', minWidth: '150px' }}
+                value={selectedStream}
+                onChange={(e) => setSelectedStream(e.target.value)}
+              >
+                <option value="ALL">All Streams</option>
+                {Object.keys(streamCounts).map((s) => (
+                  <option key={s} value={s}>
+                    {s} ({streamCounts[s]})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <input 
+              type="text" 
+              placeholder="Search code, name, place, district..." 
+              className="form-input" 
+              style={{ width: '240px', padding: '6px 12px', fontSize: '0.85rem' }} 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+            />
+
+            {(selectedZone !== "ALL" || selectedStream !== "ALL" || search) && (
+              <button 
+                onClick={() => { setSelectedZone("ALL"); setSelectedStream("ALL"); setSearch(""); }}
+                className="btn btn-secondary"
+                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                title="Reset Filters"
+              >
+                ✕ Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredInstitutions.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
+            <p style={{ margin: 0, fontWeight: 600 }}>No institutions match the selected filter criteria.</p>
+            <button 
+              onClick={() => { setSelectedZone("ALL"); setSelectedStream("ALL"); setSearch(""); }}
+              className="btn btn-secondary"
+              style={{ marginTop: '12px', fontSize: '0.82rem' }}
+            >
+              Clear Filters
+            </button>
+          </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  <th style={{ padding: '8px' }}>Code</th>
+                  <th style={{ padding: '10px 8px' }}>Code</th>
                   <th>Affiliation No</th>
                   <th>Institution Name</th>
                   <th>Place</th>
                   <th>Zone</th>
                   <th>District</th>
-                  <th>Stream</th>
+                  <th>Stream / Category</th>
                   <th style={{ textAlign: 'right', paddingRight: '8px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {institutions.map((inst) => (
+                {filteredInstitutions.map((inst) => (
                   <tr key={inst.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '10px 8px', fontWeight: 700, color: 'var(--primary)' }}>{inst.code}</td>
                     <td>{inst.affiliationNo || '-'}</td>
                     <td style={{ fontWeight: 600 }}>{inst.name}</td>
                     <td>{inst.place || '-'}</td>
-                    <td><span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>{inst.zone?.name || 'Unassigned'}</span></td>
+                    <td>
+                      <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>
+                        {inst.zone?.name || 'Unassigned'}
+                      </span>
+                    </td>
                     <td>{inst.district || '-'}</td>
-                    <td><span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inst.stream || 'FADHILA'}</span></td>
+                    <td>
+                      <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', fontWeight: 600, fontSize: '0.75rem' }}>
+                        {inst.stream || 'FADHILA'}
+                      </span>
+                    </td>
                     <td style={{ textAlign: 'right', paddingRight: '8px' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         <button 

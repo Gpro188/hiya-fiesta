@@ -185,22 +185,62 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
     }
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) || 
-    s.uid.toLowerCase().includes(search.toLowerCase()) ||
-    s.institution?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filters
+  const [selectedZoneId, setSelectedZoneId] = useState("ALL");
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState("ALL");
+  const [selectedStream, setSelectedStream] = useState("ALL");
+
+  // Calculate stream counts for students
+  const streamCounts = students.reduce((acc: Record<string, number>, s) => {
+    const stream = (s.stream || "FADHILA").trim().toUpperCase();
+    acc[stream] = (acc[stream] || 0) + 1;
+    return acc;
+  }, {});
+
+  const zoneCounts = students.reduce((acc: Record<string, number>, s) => {
+    const zName = s.institution?.zone?.name || "Unassigned";
+    acc[zName] = (acc[zName] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Dynamic institutions list filtered by selected zone
+  const availableInstitutions = selectedZoneId === "ALL" 
+    ? institutions 
+    : institutions.filter(i => i.zoneId === selectedZoneId);
+
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = 
+      s.name.toLowerCase().includes(search.toLowerCase()) || 
+      s.uid.toLowerCase().includes(search.toLowerCase()) ||
+      s.institution?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      (s.district && s.district.toLowerCase().includes(search.toLowerCase())) ||
+      (s.phone && s.phone.includes(search));
+
+    const matchesZone = 
+      selectedZoneId === "ALL" || 
+      (selectedZoneId === "UNASSIGNED" ? !s.institution?.zone : s.institution?.zone?.id === selectedZoneId || s.institution?.zoneId === selectedZoneId);
+
+    const matchesInstitution = 
+      selectedInstitutionId === "ALL" || 
+      s.institutionId === selectedInstitutionId;
+
+    const matchesStream = 
+      selectedStream === "ALL" || 
+      (s.stream || "FADHILA").trim().toUpperCase() === selectedStream.toUpperCase();
+
+    return matchesSearch && matchesZone && matchesInstitution && matchesStream;
+  });
 
   return (
     <div>
       {/* Upload Box & Manual Add Action */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0 }}>Upload Master Student UID Excel</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Upload student roster with Name, District, UID Number, Phone, and Stream.</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
               ➕ Add Single Student
             </button>
@@ -239,7 +279,59 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
         {success && <div style={{ marginTop: '10px', color: 'var(--success)' }}>✅ {success}</div>}
       </div>
 
-      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+      {/* Stream & Category Summary Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: 'var(--spacing-lg)' }}>
+        <div 
+          onClick={() => { setSelectedStream("ALL"); setSelectedZoneId("ALL"); setSelectedInstitutionId("ALL"); }}
+          className="glass-panel" 
+          style={{ 
+            padding: '16px 20px', 
+            borderRadius: '14px', 
+            cursor: 'pointer',
+            border: selectedStream === "ALL" && selectedZoneId === "ALL" && selectedInstitutionId === "ALL" ? '2px solid #8E0033' : '1px solid var(--border-color)',
+            backgroundColor: selectedStream === "ALL" && selectedZoneId === "ALL" && selectedInstitutionId === "ALL" ? 'rgba(142, 0, 51, 0.05)' : 'var(--surface-color)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+            Total Registered Students
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#8E0033', marginTop: '4px' }}>
+            {students.length}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Across {institutions.length} Colleges
+          </div>
+        </div>
+
+        {Object.entries(streamCounts).map(([streamName, count]) => (
+          <div 
+            key={streamName}
+            onClick={() => setSelectedStream(selectedStream === streamName ? "ALL" : streamName)}
+            className="glass-panel" 
+            style={{ 
+              padding: '16px 20px', 
+              borderRadius: '14px', 
+              cursor: 'pointer',
+              border: selectedStream === streamName ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+              backgroundColor: selectedStream === streamName ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface-color)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+              🎓 {streamName}
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#2563eb', marginTop: '4px' }}>
+              {count} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>students</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {Math.round((count / (students.length || 1)) * 100)}% of total registry
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-lg)' }}>
         <div style={{ border: '1px solid var(--border-color)', padding: '16px', borderRadius: '8px' }}>
           <h4 style={{ margin: '0 0 12px 0', color: 'var(--error)' }}>Bulk Delete by Zone</h4>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Delete all students belonging to institutions in a specific zone.</p>
@@ -267,31 +359,125 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
 
       {/* Directory Table */}
       <div className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ margin: 0 }}>Enrolled Student UID Registry ({students.length})</h3>
-          <input 
-            type="text" 
-            placeholder="Search by UID, Name, or College..." 
-            className="form-input" 
-            style={{ width: '300px' }} 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-          />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '1rem' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>👨‍🎓</span> Enrolled Student UID Registry ({filteredStudents.length}
+            {filteredStudents.length !== students.length && (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                filtered from {students.length}
+              </span>
+            )})
+          </h3>
+
+          {/* Filter Toolbar */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Zone Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Zone:</span>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', minWidth: '150px' }}
+                value={selectedZoneId}
+                onChange={(e) => {
+                  setSelectedZoneId(e.target.value);
+                  setSelectedInstitutionId("ALL");
+                }}
+              >
+                <option value="ALL">All Zones ({students.length})</option>
+                {zones?.map(z => {
+                  const zCount = zoneCounts[z.name] || 0;
+                  return (
+                    <option key={z.id} value={z.id}>
+                      {z.name} ({zCount})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Institution Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>College:</span>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', maxWidth: '220px' }}
+                value={selectedInstitutionId}
+                onChange={(e) => setSelectedInstitutionId(e.target.value)}
+              >
+                <option value="ALL">All Colleges ({availableInstitutions.length})</option>
+                {availableInstitutions?.map(i => (
+                  <option key={i.id} value={i.id}>
+                    {i.code} - {i.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Stream Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stream:</span>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', minWidth: '140px' }}
+                value={selectedStream}
+                onChange={(e) => setSelectedStream(e.target.value)}
+              >
+                <option value="ALL">All Streams</option>
+                {Object.keys(streamCounts).map(s => (
+                  <option key={s} value={s}>
+                    {s} ({streamCounts[s]})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Box */}
+            <input 
+              type="text" 
+              placeholder="Search by UID, Name, District..." 
+              className="form-input" 
+              style={{ width: '220px', padding: '6px 12px', fontSize: '0.85rem' }} 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+            />
+
+            {(selectedZoneId !== "ALL" || selectedInstitutionId !== "ALL" || selectedStream !== "ALL" || search) && (
+              <button 
+                onClick={() => { setSelectedZoneId("ALL"); setSelectedInstitutionId("ALL"); setSelectedStream("ALL"); setSearch(""); }}
+                className="btn btn-secondary"
+                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                title="Reset Filters"
+              >
+                ✕ Reset
+              </button>
+            )}
+          </div>
         </div>
 
         {filteredStudents.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No student UIDs found matching search.</p>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
+            <p style={{ margin: 0, fontWeight: 600 }}>No student UIDs match the selected filter criteria.</p>
+            <button 
+              onClick={() => { setSelectedZoneId("ALL"); setSelectedInstitutionId("ALL"); setSelectedStream("ALL"); setSearch(""); }}
+              className="btn btn-secondary"
+              style={{ marginTop: '12px', fontSize: '0.82rem' }}
+            >
+              Clear Filters
+            </button>
+          </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  <th style={{ padding: '8px' }}>UID Number</th>
+                  <th style={{ padding: '10px 8px' }}>UID Number</th>
                   <th>Student Name</th>
                   <th>Institution</th>
+                  <th>Zone</th>
                   <th>District</th>
                   <th>Phone</th>
-                  <th>Stream</th>
+                  <th>Stream / Category</th>
                   <th style={{ textAlign: 'right', paddingRight: '8px' }}>Actions</th>
                 </tr>
               </thead>
@@ -301,6 +487,11 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
                     <td style={{ padding: '10px 8px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{s.uid}</td>
                     <td style={{ fontWeight: 600 }}>{s.name}</td>
                     <td>{s.institution?.name || '-'}</td>
+                    <td>
+                      <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>
+                        {s.institution?.zone?.name || 'Unassigned'}
+                      </span>
+                    </td>
                     <td>{s.district || '-'}</td>
                     <td>{s.phone || '-'}</td>
                     <td><span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontWeight: 600, fontSize: '0.75rem' }}>{s.stream}</span></td>
