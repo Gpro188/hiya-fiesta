@@ -27,8 +27,12 @@ export default async function PrintProgramsReportPage(props: {
   const targetEventId = event?.id;
   const settings = await getSettings(targetEventId);
 
-  let whereClause: any = { eventId: targetEventId };
+  const allCategories = await prisma.category.findMany({
+    where: { eventId: targetEventId },
+    orderBy: { name: 'asc' }
+  });
 
+  let whereClause: any = { eventId: targetEventId };
   let categoryName = "All Categories & General Programs";
 
   if (categoryId === "GENERAL") {
@@ -41,12 +45,23 @@ export default async function PrintProgramsReportPage(props: {
     };
     categoryName = "General Programs (Open to All Categories)";
   } else if (categoryId && categoryId !== "ALL") {
-    whereClause = {
-      eventId: targetEventId,
-      categoryId: categoryId
-    };
-    const cat = await prisma.category.findUnique({ where: { id: categoryId } });
-    if (cat) categoryName = `${cat.name} Category Programs`;
+    // Check if categoryId is a UUID or a category name (e.g. FADHILA or FADHEELA)
+    const matchedCategory = allCategories.find(c => 
+      c.id === categoryId || c.name.trim().toUpperCase() === categoryId.trim().toUpperCase()
+    );
+
+    if (matchedCategory) {
+      whereClause = {
+        eventId: targetEventId,
+        categoryId: matchedCategory.id
+      };
+      categoryName = `${matchedCategory.name} Category Programs`;
+    } else {
+      whereClause = {
+        eventId: targetEventId,
+        categoryId: categoryId
+      };
+    }
   }
 
   const programs = await prisma.program.findMany({
@@ -65,6 +80,68 @@ export default async function PrintProgramsReportPage(props: {
 
   return (
     <div style={{ padding: '30px', backgroundColor: 'white', color: '#111827', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Category Switching Filter Bar (Hidden when printing via @media print in PrintButton) */}
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '20px', padding: '12px 16px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Filter Category:</span>
+          
+          <a
+            href={`/print/programs?eventId=${targetEventId}&categoryId=ALL`}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              backgroundColor: (!categoryId || categoryId === 'ALL') ? '#8E0033' : '#E2E8F0',
+              color: (!categoryId || categoryId === 'ALL') ? '#FFFFFF' : '#334155'
+            }}
+          >
+            📋 All Programs
+          </a>
+
+          {allCategories.map(cat => {
+            const isSelected = categoryId === cat.id || categoryId?.toUpperCase() === cat.name.toUpperCase();
+            return (
+              <a
+                key={cat.id}
+                href={`/print/programs?eventId=${targetEventId}&categoryId=${cat.id}`}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  backgroundColor: isSelected ? '#8E0033' : '#E2E8F0',
+                  color: isSelected ? '#FFFFFF' : '#334155'
+                }}
+              >
+                🏷️ {cat.name} Only
+              </a>
+            );
+          })}
+
+          <a
+            href={`/print/programs?eventId=${targetEventId}&categoryId=GENERAL`}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              backgroundColor: categoryId === 'GENERAL' ? '#D97706' : '#FEF3C7',
+              color: categoryId === 'GENERAL' ? '#FFFFFF' : '#92400E'
+            }}
+          >
+            ⭐ General Only
+          </a>
+        </div>
+
+        <div>
+          <PrintButton />
+        </div>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E11D5A', paddingBottom: '16px', marginBottom: '24px' }}>
         <div>
           <h1 style={{ margin: '0 0 4px 0', fontSize: '1.6rem', color: '#0F172A', textTransform: 'uppercase', fontWeight: 800 }}>
@@ -74,11 +151,10 @@ export default async function PrintProgramsReportPage(props: {
             Competition Programs List & Guidelines
           </h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#4B5563', fontWeight: 600 }}>
-            Filter: {categoryName} • Total Programs: {programs.length}
+            Filter: <span style={{ color: '#8E0033', fontWeight: 800 }}>{categoryName}</span> • Total Programs: {programs.length}
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <PrintButton />
           <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '6px' }}>
             Generated on: {new Date().toLocaleDateString('en-GB')}
           </div>
