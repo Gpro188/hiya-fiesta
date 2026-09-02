@@ -17,7 +17,6 @@ export default async function MasterStudentsPage() {
       include: {
         institution: { select: { id: true, name: true, code: true, zoneId: true, zone: { select: { id: true, name: true } } } }
       },
-      take: 2000,
       orderBy: { createdAt: 'desc' }
     }),
     prisma.masterInstitution.findMany({
