@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import GalleryClient, { GalleryItem } from "./GalleryClient";
 import { Metadata } from "next";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Media Gallery · CSWC Hiya Fiesta 2026",
   description: "Official festival photo gallery, stage competitions, and captured moments of CSWC Hiya Fiesta 2026.",
