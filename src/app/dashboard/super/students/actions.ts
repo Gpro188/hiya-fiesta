@@ -20,51 +20,143 @@ export async function bulkImportStudents(studentsData: Array<{
     }
 
     const institutions = await prisma.masterInstitution.findMany({
-      select: { id: true, name: true }
+      select: { id: true, name: true, code: true }
     });
 
     let importedCount = 0;
+    const skippedRecords: Array<{
+      rowNumber: number;
+      name: string;
+      uid: string;
+      institutionName: string;
+      reason: string;
+    }> = [];
 
-    for (const item of studentsData) {
-      if (!item.uid || !item.name || !item.institutionName) continue;
+    // Track duplicate UIDs inside the uploaded excel sheet itself
+    const seenUidsInUpload = new Map<string, number>();
 
-      const searchInstName = item.institutionName.trim().toUpperCase();
+    studentsData.forEach((item, idx) => {
+      const rowNum = idx + 2; // header is row 1
+      const uidTrimmed = item.uid?.trim().toUpperCase();
+
+      if (!uidTrimmed) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name || "Unknown",
+          uid: "-",
+          institutionName: item.institutionName || "-",
+          reason: "Missing Student UID"
+        });
+        return;
+      }
+
+      if (!item.name?.trim()) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: "-",
+          uid: uidTrimmed,
+          institutionName: item.institutionName || "-",
+          reason: "Missing Student Name"
+        });
+        return;
+      }
+
+      if (!item.institutionName?.trim()) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: "-",
+          reason: "Missing Institution Name"
+        });
+        return;
+      }
+
+      if (seenUidsInUpload.has(uidTrimmed)) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Duplicate UID in Excel (already on Row ${seenUidsInUpload.get(uidTrimmed)})`
+        });
+        return;
+      }
+      seenUidsInUpload.set(uidTrimmed, rowNum);
+    });
+
+    for (let idx = 0; idx < studentsData.length; idx++) {
+      const item = studentsData[idx];
+      const rowNum = idx + 2;
+      const uidTrimmed = item.uid?.trim().toUpperCase();
+
+      if (!uidTrimmed || !item.name?.trim() || !item.institutionName?.trim()) continue;
+
+      // Normalize search name (remove non-alphanumeric, extra spaces)
+      const cleanSearchName = item.institutionName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
       let targetInstitutionId = null;
+      let matchedInstName = "";
 
       for (const inst of institutions) {
-        const dbInstName = inst.name.trim().toUpperCase();
-        if (dbInstName === searchInstName || dbInstName.includes(searchInstName) || searchInstName.includes(dbInstName)) {
+        const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        if (cleanDbName === cleanSearchName || cleanDbName.includes(cleanSearchName) || cleanSearchName.includes(cleanDbName)) {
           targetInstitutionId = inst.id;
+          matchedInstName = inst.name;
           break;
         }
       }
 
-      if (!targetInstitutionId) continue;
+      if (!targetInstitutionId) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Institution not matched in Master Institutions Directory ("${item.institutionName}")`
+        });
+        continue;
+      }
 
-      await prisma.masterStudent.upsert({
-        where: { uid: item.uid.trim() },
-        update: {
-          name: item.name.trim(),
-          institutionId: targetInstitutionId,
-          district: item.district || null,
-          phone: item.phone || null,
-          stream: item.stream || "FADHILA",
-        },
-        create: {
-          uid: item.uid.trim().toUpperCase(),
-          name: item.name.trim(),
-          institutionId: targetInstitutionId,
-          district: item.district || null,
-          phone: item.phone || null,
-          stream: (item.stream || "FADHILA").trim().toUpperCase()
-        }
-      });
+      try {
+        await prisma.masterStudent.upsert({
+          where: { uid: uidTrimmed },
+          update: {
+            name: item.name.trim(),
+            institutionId: targetInstitutionId,
+            district: item.district || null,
+            phone: item.phone || null,
+            stream: (item.stream || "FADHILA").trim().toUpperCase(),
+          },
+          create: {
+            uid: uidTrimmed,
+            name: item.name.trim(),
+            institutionId: targetInstitutionId,
+            district: item.district || null,
+            phone: item.phone || null,
+            stream: (item.stream || "FADHILA").trim().toUpperCase()
+          }
+        });
 
-      importedCount++;
+        importedCount++;
+      } catch (dbErr: any) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Database Error: ${dbErr.message || "Failed to save"}`
+        });
+      }
     }
 
     revalidatePath("/dashboard/super/students");
-    return { success: true, count: importedCount };
+    return { 
+      success: true, 
+      count: importedCount, 
+      totalInExcel: studentsData.length,
+      skippedCount: skippedRecords.length,
+      skippedRecords 
+    };
   } catch (error: any) {
     console.error("Failed to bulk import students:", error);
     return { success: false, error: error.message || "Failed to import students" };

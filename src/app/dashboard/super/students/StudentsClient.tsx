@@ -45,6 +45,23 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
     XLSX.writeFile(wb, "CSWC_Master_Students_UID_Template.xlsx");
   };
 
+  const [skippedReport, setSkippedReport] = useState<any[]>([]);
+
+  const downloadSkippedReport = () => {
+    if (skippedReport.length === 0) return;
+    const exportData = skippedReport.map(item => ({
+      "Excel Row #": item.rowNumber,
+      "UID": item.uid,
+      "Student Name": item.name,
+      "Institution Name": item.institutionName,
+      "Reason Not Added": item.reason
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Skipped_Students");
+    XLSX.writeFile(wb, "Students_Not_Added_Report.xlsx");
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -52,6 +69,7 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
     setImporting(true);
     setError("");
     setSuccess("");
+    setSkippedReport([]);
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -69,18 +87,23 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
         }
 
         const mapped = data.map((row: any) => ({
-          institutionName: (row["Institution Name"] || row["Institution"] || "").toString().trim(),
-          name: (row["Name"] || row["name"] || "").toString().trim(),
+          institutionName: (row["Institution Name"] || row["Institution"] || row["institution"] || "").toString().trim(),
+          name: (row["Name"] || row["name"] || row["Student Name"] || "").toString().trim(),
           district: (row["District"] || row["district"] || "").toString().trim(),
-          uid: (row["UID"] || row["uid"] || row["UID Number"] || "").toString().trim(),
-          phone: (row["Phone"] || row["phone"] || "").toString().trim(),
+          uid: (row["UID"] || row["uid"] || row["UID Number"] || row["UID #"] || "").toString().trim(),
+          phone: (row["Phone"] || row["phone"] || row["Mobile"] || "").toString().trim(),
           stream: (row["Stream"] || row["stream"] || "FADHILA").toString().trim(),
         }));
 
         const result = await bulkImportStudents(mapped);
         if (result.success) {
-          setSuccess(`Successfully imported ${result.count} student UIDs!`);
-          setTimeout(() => window.location.reload(), 1200);
+          if (result.skippedCount && result.skippedCount > 0) {
+            setSkippedReport(result.skippedRecords || []);
+            setSuccess(`✅ Processed ${result.count} of ${result.totalInExcel} students. ⚠️ ${result.skippedCount} student(s) were NOT added.`);
+          } else {
+            setSuccess(`✅ Successfully imported all ${result.count} student UIDs!`);
+            setTimeout(() => window.location.reload(), 1500);
+          }
         } else {
           setError(result.error || "Failed to import students.");
         }
@@ -291,7 +314,56 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
         </div>
 
         {error && <div style={{ marginTop: '10px', color: 'var(--error)' }}>❌ {error}</div>}
-        {success && <div style={{ marginTop: '10px', color: 'var(--success)' }}>✅ {success}</div>}
+        {success && <div style={{ marginTop: '10px', color: 'var(--success)', fontWeight: 600 }}>{success}</div>}
+
+        {/* Skipped / Missing Records Diagnostic Panel */}
+        {skippedReport.length > 0 && (
+          <div style={{ marginTop: '16px', padding: '16px', borderRadius: '10px', backgroundColor: 'rgba(239, 68, 68, 0.04)', border: '1.5px solid rgba(239, 68, 68, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h4 style={{ margin: 0, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚠️</span> {skippedReport.length} Students Not Added from Excel
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  These rows could not be matched with an institution or have duplicate/missing data.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={downloadSkippedReport} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 12px', borderColor: '#dc2626', color: '#dc2626', fontWeight: 700 }}>
+                  📥 Download Error Report (.xlsx)
+                </button>
+                <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '5px 12px' }}>
+                  🔄 Refresh Registry
+                </button>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', backgroundColor: 'var(--surface-color)' }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', width: '80px' }}>Row #</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>UID</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Student Name</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Institution in Excel</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: '#dc2626' }}>Reason Not Added</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skippedReport.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>Row {item.rowNumber}</td>
+                      <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 600 }}>{item.uid}</td>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{item.institutionName}</td>
+                      <td style={{ padding: '6px 8px', color: '#dc2626', fontWeight: 600 }}>{item.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stream & Category Summary Cards */}
