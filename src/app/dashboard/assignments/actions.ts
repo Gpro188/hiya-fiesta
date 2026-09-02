@@ -65,13 +65,12 @@ export async function assignProgram(candidateId: string, programId: string) {
     const programCatName = program.category?.name?.toUpperCase() || "GENERAL";
     const studentStream = candidate.masterStudent?.stream?.toUpperCase();
 
-    // Validation 1: Stream Mismatch
-    if (!isGeneral && studentStream) {
-      if (studentStream === "FADHILA" && programCatName === "FADHEELA") {
-        return { success: false, error: "Fadhila stream students cannot register for Fadheela programs." };
-      }
-      if (studentStream === "FADHEELA" && programCatName === "FADHILA") {
-        return { success: false, error: "Fadheela stream students cannot register for Fadhila programs." };
+    // Validation 1: Stream & Category Mismatch
+    if (!isGeneral) {
+      // Check candidate's assigned category
+      const candidateCatName = candidate.category?.name?.toUpperCase() || "";
+      if (candidateCatName && candidateCatName !== "GENERAL" && programCatName !== candidateCatName) {
+        return { success: false, error: `Candidate is registered under ${candidate.category.name} and cannot register for ${program.category?.name} programs.` };
       }
     }
 

@@ -202,3 +202,20 @@ export async function bulkDeleteStudentsByInstitution(institutionId: string) {
     return { success: false, error: error.message || "Failed to bulk delete" };
   }
 }
+
+export async function bulkDeleteAllStudents() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized: Super Admin permission required." };
+    }
+
+    await prisma.masterStudent.deleteMany({});
+
+    revalidatePath("/dashboard/super/students");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to bulk delete all students:", error);
+    return { success: false, error: error.message || "Failed to delete all students" };
+  }
+}

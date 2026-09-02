@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { bulkImportStudents, addStudent, updateStudent, deleteStudent, bulkDeleteStudentsByZone, bulkDeleteStudentsByInstitution } from "./actions";
+import { bulkImportStudents, addStudent, updateStudent, deleteStudent, bulkDeleteStudentsByZone, bulkDeleteStudentsByInstitution, bulkDeleteAllStudents } from "./actions";
 
 export default function StudentsClient({ initialStudents, institutions, zones }: { initialStudents: any[], institutions: any[], zones: any[] }) {
   const [students, setStudents] = useState(initialStudents);
@@ -185,6 +185,21 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
     }
   };
 
+  const handleBulkDeleteAll = async () => {
+    const confirmation = prompt(`⚠️ DANGER: You are about to DELETE ALL ${students.length} STUDENTS from the entire master database!\n\nThis will permanently delete all student UIDs across ALL institutions.\n\nTo confirm, type "DELETE ALL" below:`);
+    if (confirmation === "DELETE ALL") {
+      setActionLoading(true);
+      const res = await bulkDeleteAllStudents();
+      if (res.success) {
+        setSuccess("Successfully deleted all student records from the master registry.");
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        alert("Failed to delete all students: " + res.error);
+        setActionLoading(false);
+      }
+    }
+  };
+
   // Filters
   const [selectedZoneId, setSelectedZoneId] = useState("ALL");
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("ALL");
@@ -353,6 +368,25 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
           </select>
           <button onClick={handleBulkDeleteByInst} disabled={!deleteInstId || actionLoading} className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--error)' }}>
             🗑️ Delete Institution Students
+          </button>
+        </div>
+
+        <div style={{ border: '1px solid rgba(239, 68, 68, 0.4)', backgroundColor: 'rgba(239, 68, 68, 0.03)', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <h4 style={{ margin: '0 0 12px 0', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚠️</span> Full Registry Reset
+            </h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              Permanently delete all <strong>{students.length}</strong> master student records from the database.
+            </p>
+          </div>
+          <button 
+            onClick={handleBulkDeleteAll} 
+            disabled={students.length === 0 || actionLoading} 
+            className="btn btn-secondary" 
+            style={{ width: '100%', borderColor: '#dc2626', color: '#dc2626', backgroundColor: 'rgba(239, 68, 68, 0.1)', fontWeight: 700 }}
+          >
+            🔥 Delete ALL Students ({students.length})
           </button>
         </div>
       </div>

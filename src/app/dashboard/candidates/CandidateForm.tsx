@@ -76,6 +76,8 @@ export default function CandidateForm({
   const [uid, setUid] = useState("");
   const [searchingUid, setSearchingUid] = useState(false);
   const [uidStatus, setUidStatus] = useState("");
+  const [isUnder20, setIsUnder20] = useState(false);
+  const [studentStream, setStudentStream] = useState("");
 
   const handleUidLookup = async (inputUid: string) => {
     setUid(inputUid);
@@ -88,17 +90,41 @@ export default function CandidateForm({
         setName(res.student.name);
         setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
         
-        // Auto-match category if stream matches FADHILA or FADHEELA
-        if (res.student.stream) {
-          const matchedCat = categories.find(c => c.name.toUpperCase().includes(res.student.stream.toUpperCase()));
+        const stream = (res.student.stream || "").toUpperCase();
+        setStudentStream(stream);
+
+        // Auto-match category
+        const isShareea = stream.includes("SHAREE") || stream.includes("SHARI");
+        if (isShareea) {
+          // Default to FADHEELA or SHAREEA, but allow FADHILA if under 20
+          const defaultCat = categories.find(c => c.name.toUpperCase().includes("FADHEELA") || c.name.toUpperCase().includes("SHAREE"));
+          if (defaultCat) setCategoryId(defaultCat.id);
+        } else if (stream) {
+          const matchedCat = categories.find(c => c.name.toUpperCase().includes(stream));
           if (matchedCat) setCategoryId(matchedCat.id);
         }
       } else {
         setUidStatus("⚠️ UID not found in Master Directory. You can type name manually.");
+        setStudentStream("");
       }
       setSearchingUid(false);
     } else {
       setUidStatus("");
+      setStudentStream("");
+    }
+  };
+
+  const isShareeaStream = studentStream.includes("SHAREE") || studentStream.includes("SHARI");
+
+  const handleUnder20Toggle = (checked: boolean) => {
+    setIsUnder20(checked);
+    if (checked) {
+      // If under 20, permit Fadhila category
+      const fadhilaCat = categories.find(c => c.name.toUpperCase().includes("FADHILA") && !c.name.toUpperCase().includes("FADHEELA"));
+      if (fadhilaCat) setCategoryId(fadhilaCat.id);
+    } else {
+      const defaultCat = categories.find(c => c.name.toUpperCase().includes("FADHEELA") || c.name.toUpperCase().includes("SHAREE"));
+      if (defaultCat) setCategoryId(defaultCat.id);
     }
   };
 
@@ -115,6 +141,22 @@ export default function CandidateForm({
           <a href="/dashboard/assignments" className="btn btn-primary" style={{ padding: '2px 8px', fontSize: '0.75rem', textDecoration: 'none' }}>
             Assign Programs &rarr;
           </a>
+        </div>
+      )}
+
+      {/* Shareea Stream Age Exception Alert / Checkbox */}
+      {isShareeaStream && (
+        <div style={{ marginBottom: 'var(--spacing-md)', padding: '10px 14px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input 
+            type="checkbox" 
+            id="under20Check"
+            checked={isUnder20}
+            onChange={(e) => handleUnder20Toggle(e.target.checked)}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+          />
+          <label htmlFor="under20Check" style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+            👶 Student is Under 20 Years Old (Eligible to participate in <strong>Fadhila Category</strong>)
+          </label>
         </div>
       )}
       
@@ -203,12 +245,12 @@ export default function CandidateForm({
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             required
-            disabled={!!uid}
-            style={{ backgroundColor: !!uid ? 'var(--surface-color)' : '', opacity: !!uid ? 0.7 : 1 }}
+            disabled={!!uid && !isShareeaStream}
+            style={{ backgroundColor: (!!uid && !isShareeaStream) ? 'var(--surface-color)' : '', opacity: (!!uid && !isShareeaStream) ? 0.7 : 1 }}
           >
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
           </select>
-          <span className="field-helper">{!!uid ? "Category is locked to the pre-registered student's stream." : "Age-group division."}</span>
+          <span className="field-helper">{isShareeaStream ? (isUnder20 ? "Under 20: Fadhila allowed" : "Shareea: Fadheela/Shareea category") : (!!uid ? "Locked to student's stream." : "Age-group division.")}</span>
         </div>
 
         <ImageUpload 
