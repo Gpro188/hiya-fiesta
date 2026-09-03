@@ -30,6 +30,10 @@ export default async function SettingsPage() {
     select: {
       id: true,
       name: true,
+      type: true,
+      parentId: true,
+      startDate: true,
+      endDate: true,
       registrationStart: true,
       registrationEnd: true,
       assignmentStart: true,

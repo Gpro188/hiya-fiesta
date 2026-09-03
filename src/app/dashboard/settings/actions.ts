@@ -133,6 +133,45 @@ export async function updateEventDeadlines(eventId: string, data: {
   }
 }
 
+export async function updateZoneTimelines(zoneUpdates: Array<{
+  id: string;
+  zoneActiveStartTime?: string | null;
+  zoneActiveEndTime?: string | null;
+  statusOverride?: string | null;
+}>) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    for (const item of zoneUpdates) {
+      const startVal = item.zoneActiveStartTime ? new Date(item.zoneActiveStartTime) : null;
+      const endVal = item.zoneActiveEndTime ? new Date(item.zoneActiveEndTime) : null;
+
+      await prisma.event.update({
+        where: { id: item.id },
+        data: {
+          zoneActiveStartTime: startVal,
+          zoneActiveEndTime: endVal,
+          startDate: startVal,
+          endDate: endVal,
+          ...(item.statusOverride ? { statusOverride: item.statusOverride } : {})
+        }
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/fest");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update zone timelines:", error);
+    return { success: false, error: "Failed to update zone timelines" };
+  }
+}
+
 export async function exportAllData() {
   try {
     const session = await getServerSession(authOptions);

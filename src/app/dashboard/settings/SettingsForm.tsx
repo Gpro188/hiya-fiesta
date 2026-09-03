@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateSettings, updateEventDeadlines, resetSystem } from "./actions";
+import { updateSettings, updateEventDeadlines, updateZoneTimelines, resetSystem } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
 export default function SettingsForm({ initialSettings, events, role }: { initialSettings: any, events: any[], role: string }) {
@@ -22,6 +22,15 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
   const [zoneActiveEndTime, setZoneActiveEndTime] = useState("");
   const [stateConfirmEndDate, setStateConfirmEndDate] = useState("");
   const [statusOverride, setStatusOverride] = useState("AUTO");
+
+  // Per-zone custom schedules
+  const [zoneSchedules, setZoneSchedules] = useState<Array<{
+    id: string;
+    name: string;
+    zoneActiveStartTime: string;
+    zoneActiveEndTime: string;
+    statusOverride: string;
+  }>>([]);
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -50,6 +59,18 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       setZoneActiveEndTime(toLocalISOString(selectedEvent.zoneActiveEndTime || selectedEvent.endDate));
       setStateConfirmEndDate(toLocalISOString(selectedEvent.stateConfirmEndDate));
       setStatusOverride(selectedEvent.statusOverride || "AUTO");
+    }
+
+    // Populate zone-specific schedules
+    const childZones = events.filter(e => e.type === 'ZONE');
+    if (childZones.length > 0) {
+      setZoneSchedules(childZones.map(z => ({
+        id: z.id,
+        name: z.name,
+        zoneActiveStartTime: toLocalISOString(z.zoneActiveStartTime || z.startDate),
+        zoneActiveEndTime: toLocalISOString(z.zoneActiveEndTime || z.endDate),
+        statusOverride: z.statusOverride || "AUTO"
+      })));
     }
   }, [selectedEventId, events]);
 
@@ -82,8 +103,14 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       statusOverride: statusOverride
     });
 
-    if (result.success && deadlineResult.success) {
-      setStatus({ type: 'success', message: '✅ All settings and festival deadlines saved & synchronized successfully.' });
+    // Save per-zone schedules if any
+    let zonesResult = { success: true };
+    if (zoneSchedules.length > 0) {
+      zonesResult = await updateZoneTimelines(zoneSchedules);
+    }
+
+    if (result.success && deadlineResult.success && zonesResult.success) {
+      setStatus({ type: 'success', message: '✅ All settings, zone timelines, and festival countdowns saved successfully.' });
     } else {
       setStatus({ type: 'error', message: 'Failed to save some settings' });
     }
@@ -233,42 +260,149 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
 
           {/* BOARD 2: FEST & ZONE COMPETITION DATES */}
           <div style={{
-            border: '1px solid var(--border-color)',
+            border: '2px solid rgba(59, 130, 246, 0.3)',
             borderRadius: 'var(--radius-lg)',
             padding: 'var(--spacing-lg)',
-            backgroundColor: 'rgba(255,255,255,0.02)',
+            backgroundColor: 'rgba(59, 130, 246, 0.02)',
             marginBottom: 'var(--spacing-xl)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
               <span style={{ fontSize: '1.4rem' }}>⏱️</span>
-              <h4 style={{ margin: 0, fontSize: '1.15rem' }}>Board 2: Zone & State Fest Competition Timelines</h4>
+              <h4 style={{ margin: 0, color: '#1d4ed8', fontSize: '1.15rem' }}>Board 2: Zone & State Fest Competition Timelines (Per-Zone Countdown)</h4>
             </div>
             <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Sets the official festival schedule and the live countdown clock on the public website and TV display.
+              Each zone can have its own distinct competition dates and times. The homepage displays live real-time countdown clocks for each zone based on these dates!
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Fest Start Time (Countdown Target)</label>
-                <input 
-                  type="datetime-local" 
-                  className="form-input" 
-                  value={zoneActiveStartTime}
-                  onChange={(e) => setZoneActiveStartTime(e.target.value)}
-                />
-                <span className="field-helper">Target time for countdown before on-stage competitions start.</span>
+            {/* Selected Event / State Master Countdown */}
+            {(() => {
+              const currentEv = events.find(e => e.id === selectedEventId);
+              return (
+                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: 'var(--spacing-lg)' }}>
+                  <strong style={{ fontSize: '0.9rem', display: 'block', marginBottom: '8px', color: 'var(--text-primary)' }}>
+                    {currentEv?.name} Default Schedule:
+                  </strong>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Fest Start Time (Countdown Target)</label>
+                      <input 
+                        type="datetime-local" 
+                        className="form-input" 
+                        value={zoneActiveStartTime}
+                        onChange={(e) => setZoneActiveStartTime(e.target.value)}
+                      />
+                      <span className="field-helper">Default target time for countdown before competitions begin.</span>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Fest End Time</label>
+                      <input 
+                        type="datetime-local" 
+                        className="form-input" 
+                        value={zoneActiveEndTime}
+                        onChange={(e) => setZoneActiveEndTime(e.target.value)}
+                      />
+                      <span className="field-helper">Grand finale & valedictory conclusion time.</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Individual Zone Schedules Grid */}
+            {zoneSchedules.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary)' }}>
+                    📍 Configure Individual Zone Dates & Auto Countdown:
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                    onClick={() => {
+                      // Apply the selected event times to all zones
+                      if (zoneActiveStartTime) {
+                        setZoneSchedules(prev => prev.map(z => ({
+                          ...z,
+                          zoneActiveStartTime,
+                          zoneActiveEndTime: zoneActiveEndTime || z.zoneActiveEndTime
+                        })));
+                      }
+                    }}
+                  >
+                    ⚡ Copy Default Time to All Zones
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                  {zoneSchedules.map((zone, idx) => (
+                    <div 
+                      key={zone.id}
+                      style={{
+                        padding: '14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--ink, #1e293b)', fontSize: '0.9rem' }}>
+                          {zone.name}
+                        </span>
+                        <select
+                          className="form-input"
+                          style={{ width: 'auto', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 700 }}
+                          value={zone.statusOverride}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, statusOverride: val } : z));
+                          }}
+                        >
+                          <option value="AUTO">AUTO (Date Clock)</option>
+                          <option value="LIVE">LIVE NOW</option>
+                          <option value="COMPLETED">COMPLETED</option>
+                          <option value="REGISTRATION">REGISTRATION</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '2px', color: '#64748b' }}>
+                            Start Time (Countdown)
+                          </label>
+                          <input 
+                            type="datetime-local" 
+                            className="form-input"
+                            style={{ fontSize: '0.8rem', padding: '6px 8px' }}
+                            value={zone.zoneActiveStartTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, zoneActiveStartTime: val } : z));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '2px', color: '#64748b' }}>
+                            End Time
+                          </label>
+                          <input 
+                            type="datetime-local" 
+                            className="form-input"
+                            style={{ fontSize: '0.8rem', padding: '6px 8px' }}
+                            value={zone.zoneActiveEndTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, zoneActiveEndTime: val } : z));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Fest End Time</label>
-                <input 
-                  type="datetime-local" 
-                  className="form-input" 
-                  value={zoneActiveEndTime}
-                  onChange={(e) => setZoneActiveEndTime(e.target.value)}
-                />
-                <span className="field-helper">Grand finale & valedictory conclusion time.</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* BOARD 3: STATE ADVANCEMENT CONFIRMATION */}
