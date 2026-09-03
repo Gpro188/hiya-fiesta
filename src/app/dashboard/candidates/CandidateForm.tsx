@@ -85,10 +85,17 @@ export default function CandidateForm({
       setSearchingUid(true);
       setUidStatus("Searching UID...");
       const { lookupStudentByUID } = await import("./uidLookup");
-      const res = await lookupStudentByUID(inputUid);
+      const res = await lookupStudentByUID(inputUid, selectedTeamId);
       if (res.success && res.student) {
         setName(res.student.name);
-        setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
+        
+        if (res.isAlreadyRegistered) {
+          setUidStatus(`🚫 ALREADY ADDED: ${res.student.name} is already registered in this team!`);
+          setError(`Student (${res.student.name} - UID: ${inputUid}) is already registered in your candidates list!`);
+        } else {
+          setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
+          setError("");
+        }
         
         const stream = (res.student.stream || "").toUpperCase();
         setStudentStream(stream);

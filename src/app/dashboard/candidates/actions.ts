@@ -42,8 +42,7 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
             where: { uid: finalUid }
          });
          if (!masterStudent || masterStudent.institutionId !== institutionId) {
-            // Invalid UID or doesn't belong to them
-            finalUid = undefined;
+            return { success: false, error: "Invalid Student UID or this student does not belong to your institution." };
          }
       }
     } else {
@@ -51,6 +50,30 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
        if (!["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
          finalUid = undefined;
        }
+    }
+
+    // BLOCK DUPLICATE: Check if student with same UID is already registered in this team
+    if (finalUid) {
+      const existingByUid = await prisma.candidate.findFirst({
+        where: {
+          teamId: data.teamId,
+          uid: finalUid
+        }
+      });
+      if (existingByUid) {
+        return { success: false, error: `Duplicate registration: Student (${existingByUid.name} - UID: ${finalUid}) is already added to candidates!` };
+      }
+    }
+
+    // Also block duplicate candidate name in the same team
+    const existingByName = await prisma.candidate.findFirst({
+      where: {
+        teamId: data.teamId,
+        name: { equals: data.name.trim(), mode: "insensitive" }
+      }
+    });
+    if (existingByName) {
+      return { success: false, error: `Duplicate registration: Candidate "${data.name.trim()}" is already registered in this team!` };
     }
 
     await prisma.candidate.create({
