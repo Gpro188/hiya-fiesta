@@ -536,3 +536,31 @@ export async function updatePassword(userId: string, password: string) {
     return { success: false, error: "Failed to update password" };
   }
 }
+
+export async function toggleGuidelinesVisibility(hide: boolean) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.globalSetting.upsert({
+      where: { id: "default" },
+      update: {
+        posterCongratulationUrl: hide ? "HIDE_GUIDELINES" : null
+      },
+      create: {
+        id: "default",
+        posterCongratulationUrl: hide ? "HIDE_GUIDELINES" : null
+      }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/reports");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to toggle guidelines visibility:", error);
+    return { success: false, error: error.message || "Failed to update guidelines visibility" };
+  }
+}

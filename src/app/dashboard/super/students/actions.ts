@@ -302,6 +302,11 @@ export async function bulkDeleteAllStudents() {
       return { success: false, error: "Unauthorized: Super Admin permission required." };
     }
 
+    // First unlink candidates from masterStudent to avoid foreign key constraints
+    await prisma.candidate.updateMany({
+      data: { uid: null }
+    });
+
     await prisma.masterStudent.deleteMany({});
 
     revalidatePath("/dashboard/super/students");

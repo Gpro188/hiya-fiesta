@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toggleGuidelinesVisibility } from "./settings/actions";
 
-export default function CustomerGuidelines({ role }: { role: string }) {
+export default function CustomerGuidelines({ role, initialHidden = false }: { role: string; initialHidden?: boolean }) {
   const isZoneAdmin = role === "ZONE_ADMIN";
   const isInstitutionManager = ["MANAGER", "INSTITUTION_MANAGER"].includes(role);
   const isSuperAdmin = ["ADMIN", "SUPER_ADMIN"].includes(role);
 
   const [activeTab, setActiveTab] = useState<string>("setup");
+  const [collapsed, setCollapsed] = useState(initialHidden);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggleGlobalHide = async () => {
+    setLoading(true);
+    const newHidden = !collapsed;
+    setCollapsed(newHidden);
+    const res = await toggleGuidelinesVisibility(newHidden);
+    if (!res.success) {
+      alert("Failed to update visibility: " + res.error);
+      setCollapsed(!newHidden);
+    }
+    setLoading(false);
+  };
+
+  if (collapsed && !isSuperAdmin) {
+    return null;
+  }
 
   const getTabs = () => {
     if (isZoneAdmin) {
@@ -53,12 +72,30 @@ export default function CustomerGuidelines({ role }: { role: string }) {
 
   return (
     <div data-tour="dash-guidelines" className="glass-panel animate-fade-in" style={{ padding: 'var(--spacing-lg)', border: '1px solid var(--border-color)', marginTop: 'var(--spacing-lg)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: 'var(--spacing-md)', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <div style={{ fontSize: '1.75rem' }}>📖</div>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{getHeaderTitle()}</h2>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{getHeaderSubtitle()}</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '1.75rem' }}>📖</div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{getHeaderTitle()}</h2>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{getHeaderSubtitle()}</p>
+          </div>
         </div>
+
+        {isSuperAdmin && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: collapsed ? '#f59e0b' : '#10b981', fontWeight: 600 }}>
+              {collapsed ? "👁️‍🗨️ Guidelines HIDDEN from Institutions" : "👁️ Guidelines VISIBLE to Institutions"}
+            </span>
+            <button 
+              onClick={handleToggleGlobalHide} 
+              disabled={loading}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.8rem', padding: '4px 10px', borderColor: collapsed ? '#10b981' : '#f59e0b', color: collapsed ? '#10b981' : '#f59e0b' }}
+            >
+              {collapsed ? "Show to Institutions" : "Hide from Institutions"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs Navigation */}

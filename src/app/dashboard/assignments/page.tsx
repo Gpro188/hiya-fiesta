@@ -165,6 +165,12 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     orderBy: { name: 'asc' }
   });
 
+  const globalSetting = await prisma.globalSetting.findFirst({
+    where: { id: "default" },
+    select: { posterCongratulationUrl: true }
+  });
+  const isGuidelinesHidden = globalSetting?.posterCongratulationUrl === "HIDE_GUIDELINES";
+
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
@@ -175,20 +181,22 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <a 
-            href="/program_manual.pdf" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Download Program Manual
-          </a>
+          {!isGuidelinesHidden && (
+            <a 
+              href="/program_manual.pdf" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download Program Manual
+            </a>
+          )}
           
           <a 
             href={`/print/assignments${teamId ? `?teamId=${teamId}` : ''}`} 

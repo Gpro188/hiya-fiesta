@@ -66,3 +66,104 @@ export async function deleteZone(id: string) {
     return { success: false, error: error.message || "Failed to delete zone" };
   }
 }
+
+export async function resetFestData(options: { 
+  zoneId?: string; 
+  clearResults?: boolean; 
+  clearAssignments?: boolean; 
+  clearCandidates?: boolean;
+  unlockTeams?: boolean;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized: Super Admin permission required." };
+    }
+
+    const { zoneId, clearResults = true, clearAssignments = true, clearCandidates = true, unlockTeams = true } = options;
+
+    let targetTeamIds: string[] = [];
+    if (zoneId) {
+      const institutions = await prisma.masterInstitution.findMany({
+        where: { zoneId },
+        select: { id: true }
+      });
+      const instIds = institutions.map(i => i.id);
+      const teams = await prisma.team.findMany({
+        where: { institutionId: { in: instIds } },
+        select: { id: true }
+      });
+      targetTeamIds = teams.map(t => t.id);
+    }
+
+    const teamFilter = targetTeamIds.length > 0 ? { teamId: { in: targetTeamIds } } : {};
+
+    // 1. Delete test results
+    if (clearResults) {
+      if (targetTeamIds.length > 0) {
+        await prisma.result.deleteMany({
+          where: {
+            OR: [
+              { teamId: { in: targetTeamIds } },
+              { candidate: { teamId: { in: targetTeamIds } } }
+            ]
+          }
+        });
+      } else {
+        await prisma.result.deleteMany({});
+      }
+    }
+
+    // 2. Delete test program assignments
+    if (clearAssignments) {
+      if (targetTeamIds.length > 0) {
+        await prisma.programAssignment.deleteMany({
+          where: { candidate: { teamId: { in: targetTeamIds } } }
+        });
+      } else {
+        await prisma.programAssignment.deleteMany({});
+      }
+    }
+
+    // 3. Delete state qualifications if any
+    if (clearCandidates) {
+      if (targetTeamIds.length > 0) {
+        await prisma.stateQualification.deleteMany({
+          where: { candidate: { teamId: { in: targetTeamIds } } }
+        });
+        await prisma.candidate.deleteMany({
+          where: { teamId: { in: targetTeamIds } }
+        });
+      } else {
+        await prisma.stateQualification.deleteMany({});
+        await prisma.candidate.deleteMany({});
+      }
+    }
+
+    // 4. Unlock institution teams & reset confirmation
+    if (unlockTeams) {
+      if (targetTeamIds.length > 0) {
+        await prisma.team.updateMany({
+          where: { id: { in: targetTeamIds } },
+          data: { isAssignmentsConfirmed: false }
+        });
+      } else {
+        await prisma.team.updateMany({
+          data: { isAssignmentsConfirmed: false }
+        });
+      }
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to reset festival data:", error);
+    return { success: false, error: error.message || "Failed to reset test data" };
+  }
+}
+

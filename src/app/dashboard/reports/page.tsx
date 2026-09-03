@@ -172,6 +172,12 @@ export default async function ReportsPage(props: {
 
     if (!team) return <div>You are not assigned to any team.</div>;
 
+    const globalSetting = await prisma.globalSetting.findFirst({
+      where: { id: "default" },
+      select: { posterCongratulationUrl: true }
+    });
+    const isGuidelinesHidden = globalSetting?.posterCongratulationUrl === "HIDE_GUIDELINES";
+
     return (
       <div className="animate-fade-in">
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -181,32 +187,36 @@ export default async function ReportsPage(props: {
           </p>
         </div>
 
-        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs & Guidelines (PDF Prints)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
-          <a href={`/print/programs?eventId=${team.eventId}&categoryId=ALL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>All Programs & Guidelines</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Full print list of all competition programs across all categories</p>
-          </a>
+        {!isGuidelinesHidden && (
+          <>
+            <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs & Guidelines (PDF Prints)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
+              <a href={`/print/programs?eventId=${team.eventId}&categoryId=ALL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
+                <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>All Programs & Guidelines</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Full print list of all competition programs across all categories</p>
+              </a>
 
-          <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHILA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌸</div>
-            <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Fadhila Programs Only</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print only programs and evaluation guidelines for Fadhila category</p>
-          </a>
+              <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHILA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌸</div>
+                <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Fadhila Programs Only</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print only programs and evaluation guidelines for Fadhila category</p>
+              </a>
 
-          <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHEELA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #2563eb' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
-            <h4 style={{ margin: '0 0 5px 0', color: '#2563eb' }}>Fadheela Programs Only</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print only programs and evaluation guidelines for Fadheela category</p>
-          </a>
+              <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHEELA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #2563eb' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
+                <h4 style={{ margin: '0 0 5px 0', color: '#2563eb' }}>Fadheela Programs Only</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print only programs and evaluation guidelines for Fadheela category</p>
+              </a>
 
-          <a href={`/print/programs?eventId=${team.eventId}&categoryId=GENERAL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #d97706' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⭐</div>
-            <h4 style={{ margin: '0 0 5px 0', color: '#d97706' }}>General Programs Only</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print general programs open to all institution categories</p>
-          </a>
-        </div>
+              <a href={`/print/programs?eventId=${team.eventId}&categoryId=GENERAL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #d97706' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⭐</div>
+                <h4 style={{ margin: '0 0 5px 0', color: '#d97706' }}>General Programs Only</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print general programs open to all institution categories</p>
+              </a>
+            </div>
+          </>
+        )}
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Team Documents & Exam Sheets</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>

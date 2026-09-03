@@ -30,6 +30,12 @@ export default async function DashboardPage() {
     select: { institutionId: true, eventId: true, zoneId: true } 
   });
 
+  const globalSetting = await prisma.globalSetting.findFirst({
+    where: { id: "default" },
+    select: { posterCongratulationUrl: true }
+  });
+  const isGuidelinesHidden = globalSetting?.posterCongratulationUrl === "HIDE_GUIDELINES";
+
   // Zone specific metrics
   let zoneData: {
     confirmedTeamsCount: number;
@@ -932,7 +938,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <CustomerGuidelines role={role} />
+      <CustomerGuidelines role={role} initialHidden={isGuidelinesHidden} />
 
       {/* Pending Programs for Managers */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && pendingPrograms.length > 0 && (
