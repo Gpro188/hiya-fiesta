@@ -16,7 +16,17 @@ type CandidateType = {
   _count: { programs: number };
 };
 
-export default function CandidateList({ candidates, role, categories }: { candidates: CandidateType[], role: string, categories: any[] }) {
+export default function CandidateList({ 
+  candidates, 
+  role, 
+  categories,
+  isSchedulePublished = true 
+}: { 
+  candidates: CandidateType[], 
+  role: string, 
+  categories: any[],
+  isSchedulePublished?: boolean 
+}) {
   const [editingCandidate, setEditingCandidate] = useState<CandidateType | null>(null);
 
   if (candidates.length === 0) {
@@ -149,14 +159,25 @@ export default function CandidateList({ candidates, role, categories }: { candid
                   </button>
                 )}
 
-                <a 
-                  href={`/print/id-card/${candidate.id}`}
-                  target="_blank"
-                  className="btn btn-secondary" 
-                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
-                >
-                  🆔 ID Card
-                </a>
+                {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && !isSchedulePublished ? (
+                  <button 
+                    disabled
+                    title="ID Card available after Zone Admin publishes schedule"
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', opacity: 0.5, cursor: 'not-allowed' }}
+                  >
+                    🔒 ID Card
+                  </button>
+                ) : (
+                  <a 
+                    href={`/print/id-card/${candidate.id}`}
+                    target="_blank"
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                  >
+                    🆔 ID Card
+                  </a>
+                )}
               </td>
             </tr>
           ))}

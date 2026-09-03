@@ -189,7 +189,7 @@ export default function AdminScheduler({
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {isSuperAdmin && (
+          {isSuperAdmin ? (
             <button 
               className="btn btn-primary" 
               style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#ffffff', fontWeight: 600 }}
@@ -197,6 +197,30 @@ export default function AdminScheduler({
               disabled={loadingId !== null}
             >
               {loadingId === "publish-master" ? "Publishing..." : "📢 Publish Master Schedule to All Zones"}
+            </button>
+          ) : (
+            <button 
+              className="btn btn-primary" 
+              style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#ffffff', fontWeight: 600 }}
+              onClick={async () => {
+                if (!confirm("Confirm and publish the final Zone Program Schedule? Once published, candidate timeslots/venues are finalized and institution colleges can view/print Candidate ID Cards.")) return;
+                setLoadingId("publish-zone");
+                try {
+                  const { publishZoneSchedule } = await import("./actions");
+                  const res = await publishZoneSchedule(eventId);
+                  if (res.success) {
+                    alert(`✅ Final Zone Schedule successfully published! Candidate time slots are synced and colleges can now print ID Cards.`);
+                    window.location.reload();
+                  } else {
+                    alert("Failed: " + (res.error || "Unknown error"));
+                  }
+                } finally {
+                  setLoadingId(null);
+                }
+              }} 
+              disabled={loadingId !== null}
+            >
+              {loadingId === "publish-zone" ? "Publishing..." : "📢 Publish Final Zone Schedule (Enable ID Cards)"}
             </button>
           )}
           <button className="btn btn-primary" onClick={handleAutoGenerate} disabled={loadingId !== null}>

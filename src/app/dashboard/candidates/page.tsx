@@ -28,6 +28,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   let masterStudents: any[] = [];
   let isRegistrationOpen = true;
   let registrationStatusMessage = "";
+  let isSchedulePublished = true;
 
   const userEventId = session.user.eventId;
   const categoryTeamWhere: any = userEventId ? {
@@ -115,6 +116,9 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             isRegistrationOpen = false;
             registrationStatusMessage = `Registration closed on ${end.toLocaleString()}.`;
           }
+
+          isSchedulePublished = zoneEvent.statusOverride === "SCHEDULE_PUBLISHED" || 
+            Boolean(zoneEvent.parent && zoneEvent.parent.statusOverride === "SCHEDULE_PUBLISHED");
         }
       }
     }
@@ -150,7 +154,6 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
     }
   }
 
-  // Define where clause scoped by eventId and role
   const whereClause: any = {};
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
     whereClause.teamId = userTeamId || "none";
@@ -191,12 +194,10 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
         </p>
       </div>
       
-      {/* Bulk Import / Excel Actions (Admins only) */}
       {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
         <CandidateBulkActions teams={teams} categories={categories} />
       )}
 
-      {/* Available Students (Managers Only) */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && masterStudents.length > 0 && (
         <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
           <div style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -287,18 +288,34 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             <a href={`/print/candidates?${fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''}${filterTeamId ? `&teamId=${filterTeamId}` : ''}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
               Print List
             </a>
-            <a 
-              data-tour="candidates-idcards"
-              href={`/print/id-cards?${["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? `teamId=${userTeamId}` : (filterTeamId ? `teamId=${filterTeamId}` : (fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''))}${filterCategoryId ? `&categoryId=${filterCategoryId}` : ''}`} 
-              target="_blank" 
-              className="btn btn-primary" 
-              style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', backgroundColor: 'var(--primary)', color: 'white' }}
-            >
-              Bulk ID Cards
-            </a>
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !isSchedulePublished ? (
+              <button 
+                disabled
+                title="ID Cards will be enabled once the final zone program schedule is published."
+                className="btn btn-secondary"
+                style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', opacity: 0.6, cursor: 'not-allowed' }}
+              >
+                🔒 ID Cards (Awaiting Schedule)
+              </button>
+            ) : (
+              <a 
+                data-tour="candidates-idcards"
+                href={`/print/id-cards?${["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? `teamId=${userTeamId}` : (filterTeamId ? `teamId=${filterTeamId}` : (fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''))}${filterCategoryId ? `&categoryId=${filterCategoryId}` : ''}`} 
+                target="_blank" 
+                className="btn btn-primary" 
+                style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', backgroundColor: 'var(--primary)', color: 'white' }}
+              >
+                Bulk ID Cards
+              </a>
+            )}
           </div>
         </div>
-        <CandidateList candidates={candidates as any} role={session.user.role} categories={categories} />
+        <CandidateList 
+          candidates={candidates as any} 
+          role={session.user.role} 
+          categories={categories} 
+          isSchedulePublished={isSchedulePublished}
+        />
       </div>
     </div>
   );

@@ -167,10 +167,24 @@ export default async function ReportsPage(props: {
     const team = await prisma.team.findFirst({
       where: fullUser.eventId 
         ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
-        : { institutionId: fullUser.institutionId }
+        : { institutionId: fullUser.institutionId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            statusOverride: true,
+            parentId: true,
+            parent: { select: { statusOverride: true } }
+          }
+        }
+      }
     });
 
     if (!team) return <div>You are not assigned to any team.</div>;
+
+    const isSchedulePublished = team.event?.statusOverride === "SCHEDULE_PUBLISHED" || 
+      team.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
 
     const globalSetting = await prisma.globalSetting.findFirst({
       where: { id: "default" },
@@ -238,11 +252,27 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Detailed report of all your assigned candidates, venues, and timings</p>
           </a>
 
-          <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🆔</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Team ID Cards</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official ID cards for all your approved candidates</p>
-          </a>
+          {isSchedulePublished ? (
+            <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #10b981' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🆔</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: '#10b981' }}>Team ID Cards</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', fontWeight: 700 }}>PUBLISHED</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official ID cards with finalized venues and scheduled time slots for all approved candidates.</p>
+            </a>
+          ) : (
+            <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: 'var(--text-secondary)' }}>Team ID Cards</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: 700 }}>AWAITING SCHEDULE</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                ID Card printing will be unlocked once the Zone Admin or Super Admin publishes the final program schedule and venues.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

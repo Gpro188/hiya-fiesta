@@ -139,10 +139,23 @@ export default async function SchedulePage(props: {
     const team = await prisma.team.findFirst({
       where: fullUser.eventId 
         ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
-        : { institutionId: fullUser.institutionId }
+        : { institutionId: fullUser.institutionId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            statusOverride: true,
+            parent: { select: { statusOverride: true } }
+          }
+        }
+      }
     });
 
     if (!team) return <div>You are not assigned to any team.</div>;
+
+    const isSchedulePublished = team.event?.statusOverride === "SCHEDULE_PUBLISHED" || 
+      team.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
 
     // Fetch all programs of the event
     const programs = await prisma.program.findMany({
@@ -161,9 +174,22 @@ export default async function SchedulePage(props: {
       <div className="animate-fade-in">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
           <div>
-            <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Team Festival Schedule</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Team Festival Schedule</h1>
+              {isSchedulePublished ? (
+                <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                  ✅ FINAL SCHEDULE PUBLISHED
+                </span>
+              ) : (
+                <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706' }}>
+                  ⏳ DRAFT / AWAITING ZONE PUBLICATION
+                </span>
+              )}
+            </div>
             <p className="page-description" style={{ marginBottom: 0 }}>
-              View all programs and track your team's assignments and time slots.
+              {isSchedulePublished 
+                ? "Final program timeline and assigned candidate slots are confirmed. Candidate ID cards are now available." 
+                : "Schedule is currently being finalized by the Zone Admin / Super Admin. Candidate time slots and ID cards will be active once published."}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>

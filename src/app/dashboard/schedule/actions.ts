@@ -347,12 +347,99 @@ export async function publishMasterScheduleToAllZones(sourceEventId?: string) {
       }
     }
 
+    // Mark master event and zones as SCHEDULE_PUBLISHED
+    await prisma.event.update({
+      where: { id: masterEvent.id },
+      data: { statusOverride: "SCHEDULE_PUBLISHED" }
+    });
+    await prisma.event.updateMany({
+      where: { id: { in: zones.map(z => z.id) } },
+      data: { statusOverride: "SCHEDULE_PUBLISHED" }
+    });
+
     revalidatePath("/dashboard/schedule");
     revalidatePath("/dashboard/programs");
+    revalidatePath("/dashboard/reports");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/print/id-cards");
     return { success: true, count: totalSynced, zoneCount: zones.length };
   } catch (error: any) {
     console.error("Failed to publish master schedule:", error);
     return { success: false, error: error.message || "Failed to publish master schedule." };
+  }
+}
+
+export async function publishZoneSchedule(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        programs: {
+          include: {
+            assignments: {
+              orderBy: { createdAt: 'asc' }
+            }
+          }
+        }
+      }
+    });
+
+    if (!event) return { success: false, error: "Event not found" };
+
+    let totalCalculated = 0;
+    const updates: any[] = [];
+
+    // Calculate slots and schedule times for all programs with start times
+    for (const prog of event.programs) {
+      if (prog.startTime && prog.assignments.length > 0) {
+        const baseTime = new Date(prog.startTime);
+        const duration = prog.duration || 10;
+
+        prog.assignments.forEach((assignment, index) => {
+          let slotNumber = 1;
+          let scheduledTime = baseTime;
+          if (prog.type === "INDIVIDUAL") {
+            slotNumber = index + 1;
+            scheduledTime = new Date(baseTime.getTime() + (index * duration * 60000));
+          }
+          updates.push(
+            prisma.programAssignment.update({
+              where: { id: assignment.id },
+              data: { slotNumber, scheduledTime }
+            })
+          );
+          totalCalculated++;
+        });
+      }
+    }
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
+    }
+
+    // Mark event statusOverride or custom flag indicating schedule is published
+    await prisma.event.update({
+      where: { id: eventId },
+      data: {
+        statusOverride: "SCHEDULE_PUBLISHED"
+      }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/reports");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/print/id-cards");
+
+    return { success: true, count: totalCalculated, programCount: event.programs.length };
+  } catch (error: any) {
+    console.error("Failed to publish zone schedule:", error);
+    return { success: false, error: error.message || "Failed to publish zone schedule" };
   }
 }
 
