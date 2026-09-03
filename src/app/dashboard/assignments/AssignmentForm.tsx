@@ -70,6 +70,14 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
   const [selectedProgramId, setSelectedProgramId] = useState<string>(programs[0]?.id || "");
   const [programSearchTerm, setProgramSearchTerm] = useState("");
 
+  // Determine the institution's relevant category from their registered candidates
+  const institutionCategories = Array.from(
+    new Set(candidates.map(c => c.category?.name?.toUpperCase()).filter(Boolean))
+  );
+  // Default mark sheet filter to the institution's category (e.g. FADHILA) if singular, otherwise 'ALL'
+  const defaultCategoryFilter = institutionCategories.length === 1 ? institutionCategories[0] : 'ALL';
+  const [markSheetCategoryFilter, setMarkSheetCategoryFilter] = useState<string>(defaultCategoryFilter);
+
   const selectedProgram = programs.find(p => p.id === selectedProgramId) || programs[0];
 
   // Calculate team assignments for all programs
@@ -329,6 +337,46 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
               onChange={(e) => setProgramSearchTerm(e.target.value)}
               style={{ marginBottom: '8px' }}
             />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Show Programs:</span>
+              {institutionCategories.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMarkSheetCategoryFilter(institutionCategories[0])}
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'var(--border-color)',
+                    backgroundColor: markSheetCategoryFilter === institutionCategories[0] ? 'rgba(165,0,58,0.15)' : 'transparent',
+                    color: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'var(--text-secondary)'
+                  }}
+                >
+                  ⭐ {institutionCategories[0]} & General
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMarkSheetCategoryFilter('ALL')}
+                style={{
+                  padding: '2px 10px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: markSheetCategoryFilter === 'ALL' ? 'var(--primary)' : 'var(--border-color)',
+                  backgroundColor: markSheetCategoryFilter === 'ALL' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: markSheetCategoryFilter === 'ALL' ? 'var(--text-primary)' : 'var(--text-secondary)'
+                }}
+              >
+                All Categories
+              </button>
+            </div>
+
             <select 
               className="form-input" 
               value={selectedProgram?.id || ""}
@@ -337,13 +385,26 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
                 setStatus(null);
               }}
             >
-              {programs.filter(p => 
-                !programSearchTerm || 
-                p.name.toLowerCase().includes(programSearchTerm.toLowerCase()) || 
-                (p.category?.name && p.category.name.toLowerCase().includes(programSearchTerm.toLowerCase())) ||
-                p.type.toLowerCase().includes(programSearchTerm.toLowerCase()) ||
-                (p.stageType && p.stageType.toLowerCase().includes(programSearchTerm.toLowerCase()))
-              ).map(p => {
+              {programs.filter(p => {
+                const pCatName = (p.category?.name || '').toUpperCase();
+                const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
+
+                // Category filter check
+                if (markSheetCategoryFilter !== 'ALL') {
+                  const matchCategory = markSheetCategoryFilter === 'GENERAL_ONLY' 
+                    ? isGeneral 
+                    : (pCatName === markSheetCategoryFilter || isGeneral);
+                  if (!matchCategory) return false;
+                }
+
+                if (!programSearchTerm) return true;
+                return (
+                  p.name.toLowerCase().includes(programSearchTerm.toLowerCase()) || 
+                  (p.category?.name && p.category.name.toLowerCase().includes(programSearchTerm.toLowerCase())) ||
+                  p.type.toLowerCase().includes(programSearchTerm.toLowerCase()) ||
+                  (p.stageType && p.stageType.toLowerCase().includes(programSearchTerm.toLowerCase()))
+                );
+              }).map(p => {
                 const assignedCount = teamProgramCounts[p.id] || 0;
                 const limit = p.candidateLimitPerTeam || 1;
                 return (
@@ -493,6 +554,95 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
           )}
         </div>
 
+        {/* CATEGORY FILTER TABS FOR MARK SHEET */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '4px' }}>Filter Programs:</span>
+          
+          {institutionCategories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMarkSheetCategoryFilter(institutionCategories[0])}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'var(--border-color)',
+                backgroundColor: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'transparent',
+                color: markSheetCategoryFilter === institutionCategories[0] ? 'white' : 'var(--text-secondary)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              ⭐ {institutionCategories[0]} + General Only
+            </button>
+          )}
+
+          {['FADHILA', 'FADHEELA'].map(cat => {
+            const isSelected = markSheetCategoryFilter === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setMarkSheetCategoryFilter(cat)}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: isSelected ? (cat === 'FADHILA' ? '#e11d5a' : '#2563eb') : 'var(--border-color)',
+                  backgroundColor: isSelected ? (cat === 'FADHILA' ? 'rgba(225,29,90,0.15)' : 'rgba(37,99,235,0.15)') : 'transparent',
+                  color: isSelected ? (cat === 'FADHILA' ? '#e11d5a' : '#2563eb') : 'var(--text-secondary)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {cat}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMarkSheetCategoryFilter('GENERAL_ONLY')}
+            style={{
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: markSheetCategoryFilter === 'GENERAL_ONLY' ? '#d97706' : 'var(--border-color)',
+              backgroundColor: markSheetCategoryFilter === 'GENERAL_ONLY' ? 'rgba(217,119,6,0.15)' : 'transparent',
+              color: markSheetCategoryFilter === 'GENERAL_ONLY' ? '#d97706' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            General Only
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMarkSheetCategoryFilter('ALL')}
+            style={{
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: markSheetCategoryFilter === 'ALL' ? 'var(--text-primary)' : 'var(--border-color)',
+              backgroundColor: markSheetCategoryFilter === 'ALL' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: markSheetCategoryFilter === 'ALL' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Show All ({programs.length})
+          </button>
+        </div>
+
         <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
             <thead>
@@ -508,7 +658,29 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
               </tr>
             </thead>
             <tbody>
-              {programs.map((p, idx) => {
+              {programs
+                .filter(p => {
+                  const pCatName = (p.category?.name || '').toUpperCase();
+                  const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
+
+                  if (markSheetCategoryFilter === 'ALL') {
+                    return true;
+                  }
+                  if (markSheetCategoryFilter === 'GENERAL_ONLY') {
+                    return isGeneral;
+                  }
+                  // If filter is specific category (e.g. FADHILA or FADHEELA):
+                  // Include that specific category OR any General program
+                  if (markSheetCategoryFilter === 'FADHILA') {
+                    return pCatName === 'FADHILA' || isGeneral;
+                  }
+                  if (markSheetCategoryFilter === 'FADHEELA') {
+                    return pCatName === 'FADHEELA' || isGeneral;
+                  }
+                  // Fallback: matches filter name or general
+                  return pCatName === markSheetCategoryFilter || isGeneral;
+                })
+                .map((p, idx) => {
                 const assignedList = teamProgramAssignments[p.id] || [];
                 const limit = p.candidateLimitPerTeam || 1;
                 const isFulfilled = assignedList.length >= limit;
