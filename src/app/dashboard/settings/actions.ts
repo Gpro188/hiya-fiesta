@@ -87,7 +87,7 @@ export async function updateEventDeadlines(eventId: string, data: {
     const startDateVal = data.zoneActiveStartTime ? new Date(data.zoneActiveStartTime) : null;
     const endDateVal = data.zoneActiveEndTime ? new Date(data.zoneActiveEndTime) : null;
 
-    await prisma.event.update({
+    const updatedEvent = await prisma.event.update({
       where: { id: eventId },
       data: {
         ...(isAdmin ? {
@@ -106,10 +106,25 @@ export async function updateEventDeadlines(eventId: string, data: {
       }
     });
 
+    // If updated event is State Master Event, sync deadlines to all child Zone events
+    if (isAdmin && (updatedEvent.type === "STATE" || !updatedEvent.parentId)) {
+      await prisma.event.updateMany({
+        where: { parentId: updatedEvent.id },
+        data: {
+          registrationStart: data.registrationStart ? new Date(data.registrationStart) : null,
+          registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
+          assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
+          assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
+        }
+      });
+    }
+
     revalidatePath("/");
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard/events");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
     return { success: true };
   } catch (error) {
     console.error("Failed to update event deadlines:", error);
