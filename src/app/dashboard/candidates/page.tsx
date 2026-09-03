@@ -109,7 +109,10 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           const start = zoneEvent.registrationStart;
           const end = zoneEvent.registrationEnd;
 
-          if (start && now < start) {
+          if (team.isAssignmentsConfirmed) {
+            isRegistrationOpen = false;
+            registrationStatusMessage = "Registration is confirmed and locked by the Zone Admin. Please contact your Zone Admin to unlock for any corrections.";
+          } else if (start && now < start) {
             isRegistrationOpen = false;
             registrationStatusMessage = `Registration will open on ${start.toLocaleString()}.`;
           } else if (end && now > end) {

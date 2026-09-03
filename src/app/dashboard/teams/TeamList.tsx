@@ -111,11 +111,12 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </button>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
               {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && team.isAssignmentsConfirmed && (
                 <button 
                   onClick={async (e) => {
-                    if (confirm("Are you sure you want to unlock this team's assignments so they can make changes?")) {
+                    const reason = prompt(`Unlock registration & assignments for "${team.name}"?\n\nEnter reason for unlocking (e.g., "Add candidate correction", "Replace program assignment"):`, "Permission granted by Zone Admin for correction");
+                    if (reason !== null) {
                       const btn = e.currentTarget;
                       btn.disabled = true;
                       btn.innerText = "Unlocking...";
@@ -123,42 +124,50 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                       if (!result.success) {
                         alert(result.error);
                         btn.disabled = false;
-                        btn.innerText = "Unlock Edit";
+                        btn.innerText = "🔓 Unlock for Edit";
+                      } else {
+                        alert(`✅ ${team.name} has been unlocked! The institution can now edit candidates and assignments.`);
                       }
                     }
                   }}
                   className="btn btn-secondary" 
-                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', backgroundColor: 'var(--warning)', color: 'black' }}
+                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
+                  title="Unlock registration for this institution so they can make changes"
                 >
-                  Unlock Edit
+                  🔓 Unlock for Edit
                 </button>
               )}
-              <button 
-                onClick={() => setEditingTeam(team)}
-                className="btn btn-secondary" 
-                style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
-              >
-                Edit
-              </button>
-              <button 
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this team and its manager?')) {
-                    deleteTeam(team.id);
-                  }
-                }}
-              className="btn btn-secondary" 
-              style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', color: 'var(--error)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-            >
-              Delete
-            </button>
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
-                <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', borderColor: 'var(--primary)', color: 'var(--primary)', textDecoration: 'none' }}>
-                  🆔 ID Cards
-                </a>
-                <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', textDecoration: 'none' }}>
-                  📑 Candidates Report
-                </a>
-              </div>
+
+              {/* Edit and Delete are only available for State Super Admins / Admins, NOT Zone Admins */}
+              {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+                <>
+                  <button 
+                    onClick={() => setEditingTeam(team)}
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this team and its manager?')) {
+                        deleteTeam(team.id);
+                      }
+                    }}
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', color: 'var(--error)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+
+              <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', borderColor: 'var(--primary)', color: 'var(--primary)', textDecoration: 'none' }}>
+                🆔 ID Cards
+              </a>
+              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none' }}>
+                📑 Candidates Report
+              </a>
             </div>
           </div>
         </div>

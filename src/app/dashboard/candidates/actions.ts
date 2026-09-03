@@ -28,6 +28,10 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       }) : null;
       if (!team) return { success: false, error: "Team not found" };
       
+      if (team.isAssignmentsConfirmed) {
+        return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
+      }
+      
       const now = new Date();
       if (team.event.registrationStart && now < team.event.registrationStart) {
         return { success: false, error: `Registration opens on ${team.event.registrationStart.toLocaleString()}` };
@@ -124,6 +128,9 @@ export async function updateCandidate(id: string, data: { name: string, category
           : { institutionId: fullUser.institutionId },
         include: { event: true }
       }) : null;
+      if (team && team.isAssignmentsConfirmed) {
+        return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
+      }
       if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
         return { success: false, error: "Registration deadline has passed. Cannot edit candidate." };
       }
@@ -175,6 +182,9 @@ export async function deleteCandidate(id: string) {
           : { institutionId: fullUser.institutionId },
         include: { event: true }
       }) : null;
+      if (team && team.isAssignmentsConfirmed) {
+        return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
+      }
       if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
         return { success: false, error: "Registration deadline has passed. Cannot delete candidate." };
       }
