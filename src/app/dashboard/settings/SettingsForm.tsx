@@ -89,24 +89,36 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       });
     }
 
+    // Convert local browser datetime (e.g. "2026-09-03T14:01") to unambiguous ISO string in browser
+    const toServerIso = (localStr: string) => {
+      if (!localStr) return null;
+      const d = new Date(localStr);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    };
+
     // Save event deadlines (ensure registrationEnd and institutionRegistrationEndDate match)
     const effectiveRegistrationEnd = registrationEnd || institutionRegistrationEndDate;
     const deadlineResult = await updateEventDeadlines(selectedEventId, {
-      registrationStart: registrationStart || null,
-      registrationEnd: effectiveRegistrationEnd || null,
-      assignmentStart: assignmentStart || null,
-      assignmentEnd: assignmentEnd || null,
-      institutionRegistrationEndDate: effectiveRegistrationEnd || null,
-      zoneActiveStartTime: zoneActiveStartTime || null,
-      zoneActiveEndTime: zoneActiveEndTime || null,
-      stateConfirmEndDate: stateConfirmEndDate || null,
+      registrationStart: toServerIso(registrationStart),
+      registrationEnd: toServerIso(effectiveRegistrationEnd),
+      assignmentStart: toServerIso(assignmentStart),
+      assignmentEnd: toServerIso(assignmentEnd),
+      institutionRegistrationEndDate: toServerIso(effectiveRegistrationEnd),
+      zoneActiveStartTime: toServerIso(zoneActiveStartTime),
+      zoneActiveEndTime: toServerIso(zoneActiveEndTime),
+      stateConfirmEndDate: toServerIso(stateConfirmEndDate),
       statusOverride: statusOverride
     });
 
     // Save per-zone schedules if any
     let zonesResult = { success: true };
     if (zoneSchedules.length > 0) {
-      zonesResult = await updateZoneTimelines(zoneSchedules);
+      zonesResult = await updateZoneTimelines(zoneSchedules.map(z => ({
+        id: z.id,
+        zoneActiveStartTime: toServerIso(z.zoneActiveStartTime),
+        zoneActiveEndTime: toServerIso(z.zoneActiveEndTime),
+        statusOverride: z.statusOverride
+      })));
     }
 
     if (result.success && deadlineResult.success && zonesResult.success) {
