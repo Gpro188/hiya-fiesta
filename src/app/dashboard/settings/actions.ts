@@ -115,6 +115,7 @@ export async function updateEventDeadlines(eventId: string, data: {
           registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
           assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
           assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
+          institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
         }
       });
     }

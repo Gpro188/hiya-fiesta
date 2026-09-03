@@ -106,8 +106,8 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           // Auto-Sync block removed to prevent automatic candidate registration
 
           const now = new Date();
-          const start = zoneEvent.registrationStart;
-          const end = zoneEvent.registrationEnd;
+          const start = zoneEvent.registrationStart || zoneEvent.parent?.registrationStart;
+          const end = zoneEvent.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.parent?.registrationEnd;
 
           if (team.isAssignmentsConfirmed) {
             isRegistrationOpen = false;

@@ -37,7 +37,8 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
 
     if (institution?.zone) {
       const zoneEvent = await prisma.event.findFirst({
-        where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } }
+        where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } },
+        include: { parent: true }
       });
 
       if (zoneEvent) {
@@ -66,9 +67,13 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
           isAssignmentsConfirmed = team.isAssignmentsConfirmed;
           // Check assignment window
           const now = new Date();
-          const start = zoneEvent.assignmentStart;
-          const end = zoneEvent.assignmentEnd;
-          if (start && now < start) {
+          const start = zoneEvent.assignmentStart || zoneEvent.parent?.assignmentStart;
+          const end = zoneEvent.assignmentEnd || zoneEvent.parent?.assignmentEnd || zoneEvent.institutionRegistrationEndDate || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.registrationEnd;
+          
+          if (team.isAssignmentsConfirmed) {
+            isAssignmentOpen = false;
+            assignmentStatusMessage = "Program assignments have been submitted to the Zone and are now locked.";
+          } else if (start && now < start) {
             isAssignmentOpen = false;
             assignmentStatusMessage = `Program assignments will open on ${start.toLocaleString()}.`;
           } else if (end && now > end) {

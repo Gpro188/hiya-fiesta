@@ -24,7 +24,7 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
         where: fullUser?.eventId 
           ? { institutionId, eventId: fullUser.eventId }
           : { institutionId },
-        include: { event: true }
+        include: { event: { include: { parent: true } } }
       }) : null;
       if (!team) return { success: false, error: "Team not found" };
       
@@ -33,10 +33,13 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       }
       
       const now = new Date();
-      if (team.event.registrationStart && now < team.event.registrationStart) {
-        return { success: false, error: `Registration opens on ${team.event.registrationStart.toLocaleString()}` };
+      const start = team.event.registrationStart || team.event.parent?.registrationStart;
+      const end = team.event.institutionRegistrationEndDate || team.event.registrationEnd || team.event.parent?.institutionRegistrationEndDate || team.event.parent?.registrationEnd;
+      
+      if (start && now < start) {
+        return { success: false, error: `Registration opens on ${start.toLocaleString()}` };
       }
-      if (team.event.registrationEnd && now > team.event.registrationEnd) {
+      if (end && now > end) {
         return { success: false, error: "Registration deadline has passed. Please contact Admin." };
       }
 

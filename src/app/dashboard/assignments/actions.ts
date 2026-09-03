@@ -23,22 +23,26 @@ export async function assignProgram(candidateId: string, programId: string) {
       let teamForManager = null;
       if (institution?.zone) {
         const zoneEvent = await prisma.event.findFirst({
-          where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } }
+          where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } },
+          include: { parent: true }
         });
         if (zoneEvent) {
           teamForManager = await prisma.team.findFirst({
             where: { institutionId: fullUser.institutionId, eventId: zoneEvent.id },
-            include: { event: true }
+            include: { event: { include: { parent: true } } }
           });
           if (teamForManager) {
             if (teamForManager.isAssignmentsConfirmed) {
               return { success: false, error: "Program assignments have been submitted to the Zone and are now locked." };
             }
             const now = new Date();
-            if (zoneEvent.registrationStart && now < zoneEvent.registrationStart) {
-              return { success: false, error: `Program registration opens on ${zoneEvent.registrationStart.toLocaleString()}` };
+            const start = zoneEvent.assignmentStart || zoneEvent.parent?.assignmentStart;
+            const end = zoneEvent.assignmentEnd || zoneEvent.parent?.assignmentEnd || zoneEvent.institutionRegistrationEndDate || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.registrationEnd;
+            
+            if (start && now < start) {
+              return { success: false, error: `Program registration opens on ${start.toLocaleString()}` };
             }
-            if (zoneEvent.registrationEnd && now > zoneEvent.registrationEnd) {
+            if (end && now > end) {
               return { success: false, error: "Registration deadline has passed." };
             }
           }
