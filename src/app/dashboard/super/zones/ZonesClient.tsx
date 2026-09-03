@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addZone, updateZone, deleteZone, resetFestData } from "./actions";
+import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [zones, setZones] = useState(initialZones);
@@ -9,9 +9,11 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingZone, setEditingZone] = useState<any | null>(null);
+  const [viewingCollegesZone, setViewingCollegesZone] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedResetZoneId, setSelectedResetZoneId] = useState("ALL");
   const [resetSuccess, setResetSuccess] = useState("");
+  const [collegeSearch, setCollegeSearch] = useState("");
 
   const handleResetFestData = async () => {
     const isAll = selectedResetZoneId === "ALL";
@@ -211,10 +213,17 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                     </td>
                     <td style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{zone.code}</td>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{zone.totalInstitutions || 0}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
-                        ({zone.registeredInstitutions || 0} active)
-                      </span>
+                      <button 
+                        onClick={() => setViewingCollegesZone(zone)}
+                        className="btn btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                        title="Click to view and unlock individual colleges in this zone"
+                      >
+                        🏛️ <strong>{zone.totalInstitutions || 0}</strong>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          ({zone.registeredInstitutions || 0} active)
+                        </span>
+                      </button>
                     </td>
                     <td style={{ fontWeight: 700, color: '#10b981' }}>
                       {zone.totalCandidates || 0}
@@ -230,7 +239,7 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                               borderRadius: '10px',
                               transition: 'width 0.3s ease'
                             }} 
-                          />
+                            />
                         </div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '35px' }}>
                           {zone.registrationPercentage || 0}%
@@ -262,7 +271,15 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                       </div>
                     </td>
                     <td style={{ textAlign: 'right', paddingRight: '8px' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button 
+                          onClick={() => setViewingCollegesZone(zone)}
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }}
+                          title="Open institution list and manage edit permissions"
+                        >
+                          🏛️ Colleges
+                        </button>
                         <button 
                           onClick={() => setEditingZone(zone)} 
                           className="btn btn-secondary" 
@@ -341,6 +358,155 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View & Manage Zone Colleges Modal */}
+      {viewingCollegesZone && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', borderRadius: '16px', backgroundColor: 'var(--surface-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🏛️</span> {viewingCollegesZone.name} ({viewingCollegesZone.code}) - Institutions Management
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Unlock individual colleges for re-editing / correcting candidate data, or lock and confirm their registrations.
+                </p>
+              </div>
+              <button 
+                onClick={() => { setViewingCollegesZone(null); setCollegeSearch(""); }} 
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Filter Search */}
+            <div style={{ marginBottom: '14px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search college by name or code..."
+                value={collegeSearch}
+                onChange={(e) => setCollegeSearch(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '0.875rem' }}
+              />
+            </div>
+
+            {/* Colleges Table */}
+            {(!viewingCollegesZone.institutions || viewingCollegesZone.institutions.length === 0) ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No institutions mapped to this zone yet. You can assign colleges in Master Institutions.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '8px' }}>#</th>
+                      <th style={{ padding: '8px' }}>Code</th>
+                      <th style={{ padding: '8px' }}>Institution Name</th>
+                      <th style={{ padding: '8px' }}>Candidates</th>
+                      <th style={{ padding: '8px' }}>Registration Status</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingCollegesZone.institutions
+                      .filter((inst: any) => 
+                        !collegeSearch || 
+                        inst.name.toLowerCase().includes(collegeSearch.toLowerCase()) || 
+                        (inst.code && inst.code.toLowerCase().includes(collegeSearch.toLowerCase()))
+                      )
+                      .map((inst: any, idx: number) => {
+                        const team = inst.teams?.[0];
+                        const candidateCount = team?._count?.candidates || 0;
+                        const isConfirmed = team?.isAssignmentsConfirmed;
+
+                        return (
+                          <tr key={inst.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <td style={{ padding: '10px 8px', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td style={{ padding: '10px 8px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>
+                              {inst.code || '-'}
+                            </td>
+                            <td style={{ padding: '10px 8px', fontWeight: 600 }}>{inst.name}</td>
+                            <td style={{ padding: '10px 8px' }}>
+                              <span style={{ fontWeight: 700, color: candidateCount > 0 ? '#10b981' : 'var(--text-muted)' }}>
+                                {candidateCount} candidates
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 8px' }}>
+                              {team ? (
+                                isConfirmed ? (
+                                  <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                                    🔒 Confirmed & Locked
+                                  </span>
+                                ) : (
+                                  <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                                    ⚡ Open for Edit
+                                  </span>
+                                )
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>No team yet</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 8px', textAlign: 'right' }}>
+                              {team && (
+                                isConfirmed ? (
+                                  <button
+                                    onClick={async () => {
+                                      const reason = prompt(`Open registration for "${inst.name}"?\n\nEnter reason / note for opening (e.g. "Name correction", "Add remaining candidates", etc.):`, "Permission granted by Zone Admin for correction");
+                                      if (reason !== null) {
+                                        setActionLoading(true);
+                                        const res = await unlockInstitutionTeam(team.id, reason);
+                                        if (res.success) {
+                                          alert(`✅ ${inst.name} is now OPEN for editing!`);
+                                          window.location.reload();
+                                        } else {
+                                          alert("Failed: " + res.error);
+                                          setActionLoading(false);
+                                        }
+                                      }
+                                    }}
+                                    disabled={actionLoading}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
+                                  >
+                                    🔓 Open for Edit
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm(`Lock & confirm registration for "${inst.name}"?`)) {
+                                        setActionLoading(true);
+                                        const res = await lockInstitutionTeam(team.id);
+                                        if (res.success) {
+                                          window.location.reload();
+                                        } else {
+                                          alert("Failed: " + res.error);
+                                          setActionLoading(false);
+                                        }
+                                      }
+                                    }}
+                                    disabled={actionLoading}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', borderColor: '#10b981' }}
+                                  >
+                                    🔒 Lock
+                                  </button>
+                                )
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

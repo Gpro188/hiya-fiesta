@@ -13,7 +13,7 @@ export async function updateSettings(data: {
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
 

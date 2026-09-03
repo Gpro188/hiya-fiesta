@@ -167,3 +167,53 @@ export async function resetFestData(options: {
   }
 }
 
+export async function unlockInstitutionTeam(teamId: string, reason?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { isAssignmentsConfirmed: false }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to unlock institution team:", error);
+    return { success: false, error: error.message || "Failed to unlock institution registration" };
+  }
+}
+
+export async function lockInstitutionTeam(teamId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { isAssignmentsConfirmed: true }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to lock institution team:", error);
+    return { success: false, error: error.message || "Failed to lock institution registration" };
+  }
+}
+
