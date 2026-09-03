@@ -236,6 +236,7 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
         <EditProgramModal 
           program={editingProgram} 
           categories={categories}
+          userRole={role}
           onClose={() => setEditingProgram(null)} 
         />
       )}

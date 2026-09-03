@@ -97,7 +97,7 @@ export default async function ProgramsPage() {
               <div>
                 <div data-tour="programs-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
                   <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Create New Program</h3>
-                  <ProgramForm events={events} />
+                  <ProgramForm events={events} userRole={session.user.role} />
                 </div>
               </div>
             )}

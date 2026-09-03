@@ -5,7 +5,8 @@ import { createProgram } from "./actions";
 
 type EventType = { id: string; name: string; categories: { id: string; name: string }[] };
 
-export default function ProgramForm({ events }: { events: EventType[] }) {
+export default function ProgramForm({ events, userRole }: { events: EventType[], userRole?: string }) {
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
   const [name, setName] = useState("");
   const [programCode, setProgramCode] = useState("");
   const [type, setType] = useState("INDIVIDUAL");
@@ -166,29 +167,33 @@ export default function ProgramForm({ events }: { events: EventType[] }) {
         <span className="field-helper">Time allocated in minutes. Used for schedule planning.</span>
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Description (Topics etc.)</label>
-        <textarea 
-          className="form-input" 
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Topics for speech: Faith over fame, etc."
-          rows={3}
-        />
-        <span className="field-helper">Optional details about the program topics or rules.</span>
-      </div>
+      {isSuperAdmin && (
+        <>
+          <div className="form-group">
+            <label className="form-label">Description (Topics etc.)</label>
+            <textarea 
+              className="form-input" 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Topics for speech: Faith over fame, etc."
+              rows={3}
+            />
+            <span className="field-helper">Optional details about the program topics or rules.</span>
+          </div>
 
-      <div className="form-group">
-        <label className="form-label">Evaluation Criteria / Assessment Criteria</label>
-        <textarea 
-          className="form-input" 
-          value={evaluationCriteria}
-          onChange={(e) => setEvaluationCriteria(e.target.value)}
-          placeholder="e.g. Voice 20, Pronunciation 30..."
-          rows={3}
-        />
-        <span className="field-helper">Optional breakdown of how this program is judged.</span>
-      </div>
+          <div className="form-group">
+            <label className="form-label">Evaluation Criteria / Assessment Criteria</label>
+            <textarea 
+              className="form-input" 
+              value={evaluationCriteria}
+              onChange={(e) => setEvaluationCriteria(e.target.value)}
+              placeholder="e.g. Voice 20, Pronunciation 30..."
+              rows={3}
+            />
+            <span className="field-helper">Optional breakdown of how this program is judged.</span>
+          </div>
+        </>
+      )}
 
       <div className="form-group">
         <label className="form-label">Candidates Per Team Limit</label>

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { updateProgram } from "./actions";
 
-export default function EditProgramModal({ program, categories, onClose }: { program: any, categories: any[], onClose: () => void }) {
+export default function EditProgramModal({ program, categories, onClose, userRole }: { program: any, categories: any[], onClose: () => void, userRole?: string }) {
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
   const [name, setName] = useState(program.name);
   const [programCode, setProgramCode] = useState(program.programCode || "");
   const [type, setType] = useState(program.type);
@@ -126,24 +127,28 @@ export default function EditProgramModal({ program, categories, onClose }: { pro
               required 
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">Description (Topics etc.)</label>
-            <textarea 
-              className="form-input" 
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Evaluation Criteria</label>
-            <textarea 
-              className="form-input" 
-              value={evaluationCriteria}
-              onChange={(e) => setEvaluationCriteria(e.target.value)}
-              rows={3}
-            />
-          </div>
+          {isSuperAdmin && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Description (Topics etc.)</label>
+                <textarea 
+                  className="form-input" 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Evaluation Criteria</label>
+                <textarea 
+                  className="form-input" 
+                  value={evaluationCriteria}
+                  onChange={(e) => setEvaluationCriteria(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
             <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
               {loading ? "Saving..." : "Save Changes"}
