@@ -26,18 +26,29 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
+  // Helper to format Date in local input format YYYY-MM-DDTHH:mm
+  const toLocalISOString = (dateInput: any) => {
+    if (!dateInput) return "";
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   useEffect(() => {
     const selectedEvent = events.find(e => e.id === selectedEventId);
     if (selectedEvent) {
-      setRegistrationStart(selectedEvent.registrationStart ? new Date(selectedEvent.registrationStart).toISOString().slice(0, 16) : "");
-      setRegistrationEnd(selectedEvent.registrationEnd ? new Date(selectedEvent.registrationEnd).toISOString().slice(0, 16) : "");
-      setAssignmentStart(selectedEvent.assignmentStart ? new Date(selectedEvent.assignmentStart).toISOString().slice(0, 16) : "");
-      setAssignmentEnd(selectedEvent.assignmentEnd ? new Date(selectedEvent.assignmentEnd).toISOString().slice(0, 16) : "");
+      setRegistrationStart(toLocalISOString(selectedEvent.registrationStart));
+      // Sync registrationEnd with institutionRegistrationEndDate if present
+      const effectiveRegEnd = selectedEvent.institutionRegistrationEndDate || selectedEvent.registrationEnd;
+      setRegistrationEnd(toLocalISOString(effectiveRegEnd));
+      setAssignmentStart(toLocalISOString(selectedEvent.assignmentStart));
+      setAssignmentEnd(toLocalISOString(selectedEvent.assignmentEnd));
 
-      setInstitutionRegistrationEndDate(selectedEvent.institutionRegistrationEndDate ? new Date(selectedEvent.institutionRegistrationEndDate).toISOString().slice(0, 16) : "");
-      setZoneActiveStartTime(selectedEvent.zoneActiveStartTime ? new Date(selectedEvent.zoneActiveStartTime).toISOString().slice(0, 16) : "");
-      setZoneActiveEndTime(selectedEvent.zoneActiveEndTime ? new Date(selectedEvent.zoneActiveEndTime).toISOString().slice(0, 16) : "");
-      setStateConfirmEndDate(selectedEvent.stateConfirmEndDate ? new Date(selectedEvent.stateConfirmEndDate).toISOString().slice(0, 16) : "");
+      setInstitutionRegistrationEndDate(toLocalISOString(effectiveRegEnd));
+      setZoneActiveStartTime(toLocalISOString(selectedEvent.zoneActiveStartTime || selectedEvent.startDate));
+      setZoneActiveEndTime(toLocalISOString(selectedEvent.zoneActiveEndTime || selectedEvent.endDate));
+      setStateConfirmEndDate(toLocalISOString(selectedEvent.stateConfirmEndDate));
       setStatusOverride(selectedEvent.statusOverride || "AUTO");
     }
   }, [selectedEventId, events]);
@@ -57,13 +68,14 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       });
     }
 
-    // Save event deadlines
+    // Save event deadlines (ensure registrationEnd and institutionRegistrationEndDate match)
+    const effectiveRegistrationEnd = registrationEnd || institutionRegistrationEndDate;
     const deadlineResult = await updateEventDeadlines(selectedEventId, {
       registrationStart: registrationStart || null,
-      registrationEnd: registrationEnd || null,
+      registrationEnd: effectiveRegistrationEnd || null,
       assignmentStart: assignmentStart || null,
       assignmentEnd: assignmentEnd || null,
-      institutionRegistrationEndDate: institutionRegistrationEndDate || null,
+      institutionRegistrationEndDate: effectiveRegistrationEnd || null,
       zoneActiveStartTime: zoneActiveStartTime || null,
       zoneActiveEndTime: zoneActiveEndTime || null,
       stateConfirmEndDate: stateConfirmEndDate || null,
@@ -71,7 +83,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
     });
 
     if (result.success && deadlineResult.success) {
-      setStatus({ type: 'success', message: 'Settings saved successfully.' });
+      setStatus({ type: 'success', message: '✅ All settings and festival deadlines saved & synchronized successfully.' });
     } else {
       setStatus({ type: 'error', message: 'Failed to save some settings' });
     }
@@ -136,130 +148,188 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
 
       {events.length > 0 ? (
         <>
-          <div className="form-group">
-            <label className="form-label">Select Event</label>
+          <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <label className="form-label" style={{ fontWeight: 700 }}>Select Festival Event to Configure</label>
             <select 
               className="form-input"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
+              style={{ fontWeight: 600, borderColor: 'var(--primary)' }}
             >
               {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>{ev.name}</option>
+                <option key={ev.id} value={ev.id}>{ev.name} ({ev.type})</option>
               ))}
             </select>
+            <span className="field-helper">Saving deadlines will automatically update and synchronize all child zones.</span>
           </div>
 
-          <div className="form-group" style={{ marginTop: 'var(--spacing-sm)' }}>
-            <label className="form-label">Visibility Status Override</label>
-            <select 
-              className="form-input"
-              value={statusOverride}
-              onChange={(e) => setStatusOverride(e.target.value)}
-              style={{ backgroundColor: statusOverride !== 'AUTO' ? '#fffbeb' : undefined, borderColor: statusOverride !== 'AUTO' ? '#f59e0b' : undefined }}
-            >
-              <option value="AUTO">AUTO (Depends on dates)</option>
-              <option value="HIDDEN">HIDDEN (Hide from public)</option>
-              <option value="PENDING">PENDING</option>
-              <option value="REGISTRATION">REGISTRATION OPEN</option>
-              <option value="LIVE">LIVE NOW</option>
-              <option value="COMPLETED">COMPLETED</option>
-            </select>
-            <p className="form-help">Force the visibility state of this event on the public homepage. "AUTO" uses the scheduled dates.</p>
-          </div>
+          {/* BOARD 1: INSTITUTION PORTAL DEADLINES */}
+          <div style={{
+            border: '2px solid rgba(165,0,58,0.3)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-lg)',
+            backgroundColor: 'rgba(165,0,58,0.02)',
+            marginBottom: 'var(--spacing-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
+              <span style={{ fontSize: '1.4rem' }}>🏛️</span>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>Board 1: Institution Portal Deadlines (Colleges & Teams)</h4>
+            </div>
+            <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Control when college/institution managers can add students and assign competition programs. Once the deadline passes, institution portals lock automatically.
+            </p>
 
-          {(role === "ADMIN" || role === "SUPER_ADMIN") && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-                <div className="form-group">
-                  <label className="form-label">Registration Start Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={registrationStart}
-                    onChange={(e) => setRegistrationStart(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Registration Deadline</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={registrationEnd}
-                    onChange={(e) => setRegistrationEnd(e.target.value)}
-                  />
-                </div>
-              </div>
-              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Managers cannot add new candidates outside this window.</span>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                <div className="form-group">
-                  <label className="form-label">Assignment Start Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={assignmentStart}
-                    onChange={(e) => setAssignmentStart(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Assignment Deadline</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={assignmentEnd}
-                    onChange={(e) => setAssignmentEnd(e.target.value)}
-                  />
-                </div>
-              </div>
-              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>Managers cannot assign programs outside this window.</span>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Fest / Zone Start Time (Live Countdown Target)</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={zoneActiveStartTime}
-                    onChange={(e) => setZoneActiveStartTime(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 700 }}>Fest / Zone End Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={zoneActiveEndTime}
-                    onChange={(e) => setZoneActiveEndTime(e.target.value)}
-                  />
-                </div>
-              </div>
-              <span className="field-helper" style={{ display: 'block', marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>
-                Used for the live countdown timer on the homepage and zone pages before the festival competitions begin.
-              </span>
-
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
               <div className="form-group">
-                <label className="form-label">State Confirm End Date</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>Candidate Registration Start</label>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
-                  value={stateConfirmEndDate}
-                  onChange={(e) => setStateConfirmEndDate(e.target.value)}
+                  value={registrationStart}
+                  onChange={(e) => setRegistrationStart(e.target.value)}
                 />
-                <span className="field-helper">Deadline to confirm registrations to the state portal.</span>
+                <span className="field-helper">Opening time for institutions to add student candidates.</span>
               </div>
-            </>
-          )}
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Candidate Registration Deadline</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={registrationEnd}
+                  onChange={(e) => {
+                    setRegistrationEnd(e.target.value);
+                    setInstitutionRegistrationEndDate(e.target.value);
+                  }}
+                  style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
+                />
+                <span className="field-helper">Strict cutoff for institutions to add or delete candidates.</span>
+              </div>
+            </div>
 
-          <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-            <label className="form-label">Institution Registration End Date</label>
-            <input 
-              type="datetime-local" 
-              className="form-input" 
-              value={institutionRegistrationEndDate}
-              onChange={(e) => setInstitutionRegistrationEndDate(e.target.value)}
-              disabled={role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "ZONE_ADMIN"}
-            />
-            <span className="field-helper">Deadline for institutions to register candidates.</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Program Assignment Start</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={assignmentStart}
+                  onChange={(e) => setAssignmentStart(e.target.value)}
+                />
+                <span className="field-helper">Opening time for institutions to allocate programs to candidates.</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Program Assignment Deadline</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={assignmentEnd}
+                  onChange={(e) => setAssignmentEnd(e.target.value)}
+                  style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
+                />
+                <span className="field-helper">Strict cutoff for institutions to assign or remove programs.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BOARD 2: FEST & ZONE COMPETITION DATES */}
+          <div style={{
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-lg)',
+            backgroundColor: 'rgba(255,255,255,0.02)',
+            marginBottom: 'var(--spacing-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
+              <span style={{ fontSize: '1.4rem' }}>⏱️</span>
+              <h4 style={{ margin: 0, fontSize: '1.15rem' }}>Board 2: Zone & State Fest Competition Timelines</h4>
+            </div>
+            <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Sets the official festival schedule and the live countdown clock on the public website and TV display.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Fest Start Time (Countdown Target)</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={zoneActiveStartTime}
+                  onChange={(e) => setZoneActiveStartTime(e.target.value)}
+                />
+                <span className="field-helper">Target time for countdown before on-stage competitions start.</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Fest End Time</label>
+                <input 
+                  type="datetime-local" 
+                  className="form-input" 
+                  value={zoneActiveEndTime}
+                  onChange={(e) => setZoneActiveEndTime(e.target.value)}
+                />
+                <span className="field-helper">Grand finale & valedictory conclusion time.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BOARD 3: STATE ADVANCEMENT CONFIRMATION */}
+          <div style={{
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-lg)',
+            backgroundColor: 'rgba(255,255,255,0.02)',
+            marginBottom: 'var(--spacing-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
+              <span style={{ fontSize: '1.4rem' }}>🏆</span>
+              <h4 style={{ margin: 0, fontSize: '1.15rem' }}>Board 3: State Fest Advancement Deadline</h4>
+            </div>
+            <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Deadline for Zone Admins to confirm zonal winners promoted to the State Final competition.
+            </p>
+
+            <div className="form-group" style={{ maxWidth: '450px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>State Confirm End Date</label>
+              <input 
+                type="datetime-local" 
+                className="form-input" 
+                value={stateConfirmEndDate}
+                onChange={(e) => setStateConfirmEndDate(e.target.value)}
+              />
+              <span className="field-helper">Deadline for Zone Admins to submit advanced finalists.</span>
+            </div>
+          </div>
+
+          {/* BOARD 4: PUBLIC PORTAL VISIBILITY */}
+          <div style={{
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-lg)',
+            backgroundColor: 'rgba(255,255,255,0.02)',
+            marginBottom: 'var(--spacing-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
+              <span style={{ fontSize: '1.4rem' }}>🌐</span>
+              <h4 style={{ margin: 0, fontSize: '1.15rem' }}>Board 4: Public Website Visibility & Mode</h4>
+            </div>
+            <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Force the public status of the event on the homepage, results portal, and public hub.
+            </p>
+
+            <div className="form-group" style={{ maxWidth: '450px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>Visibility Status Override</label>
+              <select 
+                className="form-input"
+                value={statusOverride}
+                onChange={(e) => setStatusOverride(e.target.value)}
+                style={{ backgroundColor: statusOverride !== 'AUTO' ? '#fffbeb' : undefined, borderColor: statusOverride !== 'AUTO' ? '#f59e0b' : undefined }}
+              >
+                <option value="AUTO">AUTO (Follows Scheduled Dates)</option>
+                <option value="REGISTRATION">REGISTRATION OPEN (Force Registration Banner)</option>
+                <option value="LIVE">LIVE NOW (Force Live Festival Banner)</option>
+                <option value="COMPLETED">COMPLETED (Show Results & Winners)</option>
+                <option value="HIDDEN">HIDDEN (Hide from public website)</option>
+              </select>
+            </div>
           </div>
         </>
       ) : (
