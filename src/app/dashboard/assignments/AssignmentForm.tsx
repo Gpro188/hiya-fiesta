@@ -328,92 +328,105 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
         /* MODE 2: BY PROGRAM */
         <>
           <div className="form-group" style={{ marginBottom: 'var(--spacing-xl)' }}>
-            <label className="form-label">Search & Select Competition Program</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Search program by name, category, or type..."
-              value={programSearchTerm}
-              onChange={(e) => setProgramSearchTerm(e.target.value)}
-              style={{ marginBottom: '8px' }}
-            />
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Show Programs:</span>
-              {institutionCategories.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setMarkSheetCategoryFilter(institutionCategories[0])}
-                  style={{
-                    padding: '2px 10px',
-                    borderRadius: '12px',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: '1px solid',
-                    borderColor: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'var(--border-color)',
-                    backgroundColor: markSheetCategoryFilter === institutionCategories[0] ? 'rgba(165,0,58,0.15)' : 'transparent',
-                    color: markSheetCategoryFilter === institutionCategories[0] ? 'var(--primary)' : 'var(--text-secondary)'
+            {/* STEP 1: SELECT CATEGORY */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>1️⃣ Select Category</span>
+                </label>
+                <select
+                  className="form-input"
+                  style={{ fontWeight: 600 }}
+                  value={markSheetCategoryFilter}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    setMarkSheetCategoryFilter(newCat);
+                    // Automatically auto-select the first program in that category
+                    const matchedProgram = programs.find(p => {
+                      const pCatName = (p.category?.name || '').toUpperCase();
+                      const isGen = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
+                      if (newCat === 'ALL') return true;
+                      if (newCat === 'GENERAL_ONLY') return isGen;
+                      return pCatName === newCat || isGen;
+                    });
+                    if (matchedProgram) {
+                      setSelectedProgramId(matchedProgram.id);
+                    }
                   }}
                 >
-                  ⭐ {institutionCategories[0]} & General
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setMarkSheetCategoryFilter('ALL')}
-                style={{
-                  padding: '2px 10px',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: markSheetCategoryFilter === 'ALL' ? 'var(--primary)' : 'var(--border-color)',
-                  backgroundColor: markSheetCategoryFilter === 'ALL' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  color: markSheetCategoryFilter === 'ALL' ? 'var(--text-primary)' : 'var(--text-secondary)'
-                }}
-              >
-                All Categories
-              </button>
+                  {institutionCategories.length > 0 && (
+                    <option value={institutionCategories[0]}>
+                      ⭐ My Category ({institutionCategories[0]}) & General
+                    </option>
+                  )}
+                  <option value="FADHILA">FADHILA & General</option>
+                  <option value="FADHEELA">FADHEELA & General</option>
+                  <option value="GENERAL_ONLY">General Programs Only</option>
+                  <option value="ALL">Show All Categories</option>
+                </select>
+                <span className="field-helper">Choose the category to filter all matching competition programs.</span>
+              </div>
+
+              {/* STEP 2: SEARCH PROGRAM */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>2️⃣ Filter / Search Program</span>
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Search program by name or code..."
+                  value={programSearchTerm}
+                  onChange={(e) => setProgramSearchTerm(e.target.value)}
+                />
+                <span className="field-helper">Type program name or stage (On-Stage / Off-Stage).</span>
+              </div>
             </div>
 
-            <select 
-              className="form-input" 
-              value={selectedProgram?.id || ""}
-              onChange={(e) => {
-                setSelectedProgramId(e.target.value);
-                setStatus(null);
-              }}
-            >
-              {programs.filter(p => {
-                const pCatName = (p.category?.name || '').toUpperCase();
-                const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
+            {/* STEP 3: SELECT SPECIFIC PROGRAM */}
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>3️⃣ Choose Program to Assign</span>
+              </label>
+              <select 
+                className="form-input" 
+                value={selectedProgram?.id || ""}
+                onChange={(e) => {
+                  setSelectedProgramId(e.target.value);
+                  setStatus(null);
+                }}
+                style={{ fontSize: '0.95rem', padding: '10px' }}
+              >
+                {programs.filter(p => {
+                  const pCatName = (p.category?.name || '').toUpperCase();
+                  const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
 
-                // Category filter check
-                if (markSheetCategoryFilter !== 'ALL') {
-                  const matchCategory = markSheetCategoryFilter === 'GENERAL_ONLY' 
-                    ? isGeneral 
-                    : (pCatName === markSheetCategoryFilter || isGeneral);
-                  if (!matchCategory) return false;
-                }
+                  // Category filter check
+                  if (markSheetCategoryFilter !== 'ALL') {
+                    const matchCategory = markSheetCategoryFilter === 'GENERAL_ONLY' 
+                      ? isGeneral 
+                      : (pCatName === markSheetCategoryFilter || isGeneral);
+                    if (!matchCategory) return false;
+                  }
 
-                if (!programSearchTerm) return true;
-                return (
-                  p.name.toLowerCase().includes(programSearchTerm.toLowerCase()) || 
-                  (p.category?.name && p.category.name.toLowerCase().includes(programSearchTerm.toLowerCase())) ||
-                  p.type.toLowerCase().includes(programSearchTerm.toLowerCase()) ||
-                  (p.stageType && p.stageType.toLowerCase().includes(programSearchTerm.toLowerCase()))
-                );
-              }).map(p => {
-                const assignedCount = teamProgramCounts[p.id] || 0;
-                const limit = p.candidateLimitPerTeam || 1;
-                return (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.stageType === 'OFF_STAGE' ? 'OFF-STAGE' : 'ON-STAGE'}) - {p.type} - [{p.category?.name || 'General'}] • Slot: {assignedCount}/{limit} {assignedCount >= limit ? '✅ FULL' : '⚡ OPEN'}
-                  </option>
-                );
-              })}
-            </select>
+                  if (!programSearchTerm) return true;
+                  return (
+                    p.name.toLowerCase().includes(programSearchTerm.toLowerCase()) || 
+                    (p.category?.name && p.category.name.toLowerCase().includes(programSearchTerm.toLowerCase())) ||
+                    p.type.toLowerCase().includes(programSearchTerm.toLowerCase()) ||
+                    (p.stageType && p.stageType.toLowerCase().includes(programSearchTerm.toLowerCase()))
+                  );
+                }).map(p => {
+                  const assignedCount = teamProgramCounts[p.id] || 0;
+                  const limit = p.candidateLimitPerTeam || 1;
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.programCode ? `[#${p.programCode}] ` : ''}{p.name} ({p.stageType === 'OFF_STAGE' ? 'OFF-STAGE' : 'ON-STAGE'}) - [{p.category?.name || 'General'}] • Slot: {assignedCount}/{limit} {assignedCount >= limit ? '✅ FILLED' : '⚡ OPEN'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
             {selectedProgram && (
               <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedProgram.name}</span>
