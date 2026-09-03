@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { assignProgram, unassignProgram } from "./actions";
 
 export default function AssignmentForm({ candidates, programs, isAssignmentOpen = true, statusMessage = "", initialCandidateId, teamId, isAssignmentsConfirmed = false }: { candidates: any[], programs: any[], isAssignmentOpen?: boolean, statusMessage?: string, initialCandidateId?: string, teamId?: string | null, isAssignmentsConfirmed?: boolean }) {
+  const router = useRouter();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>(initialCandidateId || candidates[0]?.id || "");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,11 +47,11 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
     setStatus(null);
     const result = await assignProgram(selectedCandidateId, programId);
     if (result.success) {
-      window.location.reload();
+      router.refresh();
     } else {
       setStatus({ type: 'error', message: result.error || 'Failed to assign' });
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleUnassign = async (programId: string) => {
@@ -57,11 +59,11 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
     setStatus(null);
     const result = await unassignProgram(selectedCandidateId, programId);
     if (result.success) {
-      window.location.reload();
+      router.refresh();
     } else {
       setStatus({ type: 'error', message: result.error || 'Failed to unassign' });
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (
