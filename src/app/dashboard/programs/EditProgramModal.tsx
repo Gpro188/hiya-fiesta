@@ -29,7 +29,7 @@ export default function EditProgramModal({ program, categories, onClose, userRol
       programCode,
       name, 
       type, 
-      categoryId: categoryId || null,
+      categoryId: (type === "GENERAL" || type === "INSTITUTION") ? null : (categoryId || null),
       candidateLimitPerTeam: parseInt(candidateLimitPerTeam.toString()) || 1,
       duration: parseInt(duration.toString()) || 10,
       description,
@@ -79,6 +79,7 @@ export default function EditProgramModal({ program, categories, onClose, userRol
               <option value="INDIVIDUAL">INDIVIDUAL</option>
               <option value="GROUP">GROUP</option>
               <option value="GENERAL">GENERAL</option>
+              <option value="INSTITUTION">INSTITUTION (Assigned on Institution Name - Magazine etc.)</option>
             </select>
           </div>
 
@@ -92,11 +93,11 @@ export default function EditProgramModal({ program, categories, onClose, userRol
               required
             >
               <option value="ON_STAGE">On-Stage (Live Performance)</option>
-              <option value="OFF_STAGE">Off-Stage (Written/Submission)</option>
+              <option value="OFF_STAGE">Off-Stage (Written/Submission/Magazine)</option>
             </select>
           </div>
 
-          {type !== "GENERAL" && (
+          {type !== "GENERAL" && type !== "INSTITUTION" && (
             <div className="form-group">
               <label className="form-label">Category</label>
               <select className="form-input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>

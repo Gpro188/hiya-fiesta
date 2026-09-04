@@ -678,6 +678,11 @@ export default function PublicDashboard({
                             <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1a1420', lineHeight: 1.2, fontFamily: "'Fraunces', serif" }}>
                               {top2.name}
                             </div>
+                            {top2.place && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                📍 {top2.place}
+                              </div>
+                            )}
                             {top2.leaderName && (
                               <div style={{ fontSize: '0.72rem', color: '#7a7480', marginTop: '2px', fontFamily: "'Inter', sans-serif" }}>
                                 Leader: {top2.leaderName}
@@ -761,6 +766,11 @@ export default function PublicDashboard({
                             <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#1a1420', lineHeight: 1.2, fontFamily: "'Fraunces', serif" }}>
                               {top1.name}
                             </div>
+                            {top1.place && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                📍 {top1.place}
+                              </div>
+                            )}
                             {top1.leaderName && (
                               <div style={{ fontSize: '0.75rem', color: '#7a7480', marginTop: '2px', fontFamily: "'Inter', sans-serif" }}>
                                 Leader: {top1.leaderName}
@@ -846,6 +856,11 @@ export default function PublicDashboard({
                             <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1a1420', lineHeight: 1.2, fontFamily: "'Fraunces', serif" }}>
                               {top3.name}
                             </div>
+                            {top3.place && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                📍 {top3.place}
+                              </div>
+                            )}
                             {top3.leaderName && (
                               <div style={{ fontSize: '0.72rem', color: '#7a7480', marginTop: '2px', fontFamily: "'Inter', sans-serif" }}>
                                 Leader: {top3.leaderName}
@@ -923,6 +938,11 @@ export default function PublicDashboard({
                               }}>
                                 {top1.name}
                               </div>
+                              {top1.place && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                  📍 {top1.place}
+                                </div>
+                              )}
                               <div style={{ 
                                 fontSize: '0.75rem', 
                                 color: '#B45309', 
@@ -987,6 +1007,11 @@ export default function PublicDashboard({
                               }}>
                                 {top2.name}
                               </div>
+                              {top2.place && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                  📍 {top2.place}
+                                </div>
+                              )}
                               <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: '3px', fontFamily: "'Inter', sans-serif", fontWeight: 600 }}>
                                 {top2.leaderName ? `Leader: ${top2.leaderName}` : '2nd Place Runner Up'}
                               </div>
@@ -1045,6 +1070,11 @@ export default function PublicDashboard({
                               }}>
                                 {top3.name}
                               </div>
+                              {top3.place && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                  📍 {top3.place}
+                                </div>
+                              )}
                               <div style={{ fontSize: '0.72rem', color: '#C2410C', marginTop: '3px', fontFamily: "'Inter', sans-serif", fontWeight: 600 }}>
                                 {top3.leaderName ? `Leader: ${top3.leaderName}` : '3rd Place Runner Up'}
                               </div>
@@ -1126,6 +1156,11 @@ export default function PublicDashboard({
                                 }}>
                                   {team.name}
                                 </div>
+                                {team.place && (
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+                                    📍 {team.place}
+                                  </div>
+                                )}
                                 {team.leaderName && (
                                   <div style={{ fontSize: '0.7rem', color: '#7a7480', fontFamily: "'Inter', sans-serif", marginTop: '2px' }}>
                                     Leader: {team.leaderName}

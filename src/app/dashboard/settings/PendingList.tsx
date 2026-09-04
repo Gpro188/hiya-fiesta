@@ -1,9 +1,11 @@
-export default function PendingList({ programs, teams }: { programs: any[], teams: any[] }) {
-  // Programs with 0 assignments
-  const emptyPrograms = programs.filter(p => p._count.assignments === 0);
+import { isInstitutionProgram } from "@/lib/programUtils";
 
-  // Programs that require participants (especially Group/General)
-  const groupOrGeneralPrograms = programs.filter(p => p.type === "GROUP" || p.type === "GENERAL");
+export default function PendingList({ programs, teams }: { programs: any[], teams: any[] }) {
+  // Programs with 0 assignments (excluding Institution-level programs like Magazine)
+  const emptyPrograms = programs.filter(p => !isInstitutionProgram(p) && p._count.assignments === 0);
+
+  // Programs that require participants (especially Group/General, excluding Institution-level programs)
+  const groupOrGeneralPrograms = programs.filter(p => !isInstitutionProgram(p) && (p.type === "GROUP" || p.type === "GENERAL"));
 
   const teamFulfillment = teams.map(team => {
     const underAssigned = groupOrGeneralPrograms.filter(p => {

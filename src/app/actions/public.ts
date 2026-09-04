@@ -55,7 +55,7 @@ const getCachedPublicEventData = unstable_cache(
           flagColor: true,
           leaderName: true,
           leaderPhoto: true,
-          institution: { select: { logoUrl: true, name: true, code: true } }
+          institution: { select: { logoUrl: true, name: true, code: true, place: true } }
         }
       }),
 
@@ -91,13 +91,35 @@ const getCachedPublicEventData = unstable_cache(
     ]);
 
     // --- Team Leaderboard ---
-    const teamScores: Record<string, { id: string, name: string, points: number, flagColor: string | null, leaderName: string | null, leaderPhoto: string | null, logoUrl: string | null }> = {};
+    const teamScores: Record<string, { 
+      id: string, 
+      name: string, 
+      place: string | null,
+      points: number, 
+      flagColor: string | null, 
+      leaderName: string | null, 
+      leaderPhoto: string | null, 
+      logoUrl: string | null 
+    }> = {};
     
     // Initialize all teams in scores to handle teams with 0 points
     teams.forEach(t => {
+      let cleanName = (t.institution?.name || t.name || "").trim();
+      let rawPlace = (t.institution?.place || "").trim();
+
+      if (!rawPlace && cleanName.includes(",")) {
+        const parts = cleanName.split(",");
+        cleanName = parts[0].trim();
+        rawPlace = parts.slice(1).join(",").trim();
+      } else if (rawPlace && cleanName.toLowerCase().includes(rawPlace.toLowerCase())) {
+        const escaped = rawPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        cleanName = cleanName.replace(new RegExp(`,\\s*${escaped}$`, 'i'), '').trim();
+      }
+
       teamScores[t.id] = {
         id: t.id,
-        name: t.name,
+        name: cleanName,
+        place: rawPlace || null,
         points: 0,
         flagColor: t.flagColor,
         leaderName: t.leaderName,
@@ -129,9 +151,21 @@ const getCachedPublicEventData = unstable_cache(
 
       if (teamId) {
         if (!teamScores[teamId]) {
+          let cleanName = (matchingTeam?.institution?.name || teamName).trim();
+          let rawPlace = (matchingTeam?.institution?.place || "").trim();
+          if (!rawPlace && cleanName.includes(",")) {
+            const parts = cleanName.split(",");
+            cleanName = parts[0].trim();
+            rawPlace = parts.slice(1).join(",").trim();
+          } else if (rawPlace && cleanName.toLowerCase().includes(rawPlace.toLowerCase())) {
+            const escaped = rawPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cleanName = cleanName.replace(new RegExp(`,\\s*${escaped}$`, 'i'), '').trim();
+          }
+
           teamScores[teamId] = {
             id: teamId,
-            name: teamName,
+            name: cleanName,
+            place: rawPlace || null,
             points: 0,
             flagColor: teamFlag,
             leaderName: null,
@@ -272,11 +306,19 @@ const getCacheCSWCgramResults = unstable_cache(
           include: {
             candidate: {
               include: {
-                team: true,
+                team: {
+                  include: {
+                    institution: { select: { name: true, place: true } }
+                  }
+                },
                 institution: { select: { name: true, place: true } }
               }
             },
-            team: true
+            team: {
+              include: {
+                institution: { select: { name: true, place: true } }
+              }
+            }
           },
           orderBy: { rank: 'asc' }
         }

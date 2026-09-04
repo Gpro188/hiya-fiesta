@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function TVDisplayClient({ 
   event, 
@@ -151,7 +152,14 @@ export default function TVDisplayClient({
                   ) : (
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[1].flagColor || silver, margin: '0 auto 6px auto' }} />
                   )}
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[1].name}</div>
+                  <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{top3[1].name}</div>
+                    {top3[1].place && (
+                      <div style={{ fontSize: '0.66rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
+                        📍 {top3[1].place}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[1].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
                   <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[1].change}</div>
@@ -167,7 +175,14 @@ export default function TVDisplayClient({
                   ) : (
                     <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: top3[0].flagColor || gold, margin: '0 auto 6px auto' }} />
                   )}
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[0].name}</div>
+                  <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>{top3[0].name}</div>
+                    {top3[0].place && (
+                      <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
+                        📍 {top3[0].place}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ fontSize: '2.5rem', fontWeight: 900, color: gold, margin: '10px 0 0 0' }}>{top3[0].points}</div>
                   <div style={{ fontSize: '0.75rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
                   <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[0].change}</div>
@@ -184,7 +199,14 @@ export default function TVDisplayClient({
                   ) : (
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[2].flagColor || bronze, margin: '0 auto 6px auto' }} />
                   )}
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{top3[2].name}</div>
+                  <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{top3[2].name}</div>
+                    {top3[2].place && (
+                      <div style={{ fontSize: '0.66rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
+                        📍 {top3[2].place}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[2].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
                   <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[2].change}</div>
@@ -213,13 +235,22 @@ export default function TVDisplayClient({
                 {rest.map((t, idx) => (
                   <tr key={t.id} style={{ borderBottom: `1px solid ${borderCol}` }}>
                     <td style={{ padding: '0.85rem 1rem', color: textSec }}>#{idx + 4}</td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {t.logoUrl ? (
-                        <img src={t.logoUrl} alt={t.name} style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px' }} />
-                      ) : (
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.flagColor || '#ec4899', display: 'inline-block' }}></span>
-                      )}
-                      <span>{t.name}</span>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {t.logoUrl ? (
+                          <img src={t.logoUrl} alt={t.name} style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.flagColor || '#ec4899', display: 'inline-block', flexShrink: 0 }}></span>
+                        )}
+                        <div>
+                          <div>{t.name}</div>
+                          {t.place && (
+                            <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '1px' }}>
+                              📍 {t.place}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: textSec }}>{t.prefixCode}</td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 800, color: '#38bdf8', fontSize: '0.9rem' }}>{t.points}</td>
@@ -259,20 +290,31 @@ export default function TVDisplayClient({
                     <div style={{ fontSize: '0.65rem', color: textSec, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '2px' }}>
                       {res.program?.name} ({res.program?.category?.name})
                     </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                        {(() => {
+                          const isState = event.type === 'STATE';
+                          if (res.candidate) {
+                            const inst = formatInstitutionDisplay(res.candidate.team);
+                            const zoneName = res.candidate.team?.event?.name;
+                            if (isState && zoneName) return `${res.candidate.name} - ${inst.name} (${zoneName})`;
+                            return `${res.candidate.name} - ${inst.name}`;
+                          } else {
+                            const inst = formatInstitutionDisplay(res.team);
+                            const zoneName = res.team?.event?.name;
+                            if (isState && zoneName) return `${inst.name} (${zoneName})`;
+                            return inst.name;
+                          }
+                        })()}
+                      </div>
                       {(() => {
-                        const isState = event.type === 'STATE';
-                        if (res.candidate) {
-                          const instName = res.candidate.team?.institution?.name || res.candidate.team?.name;
-                          const zoneName = res.candidate.team?.event?.name;
-                          if (isState && zoneName) return `${res.candidate.name} - ${instName} (${zoneName})`;
-                          return `${res.candidate.name} - ${instName}`;
-                        } else {
-                          const instName = res.team?.institution?.name || res.team?.name;
-                          const zoneName = res.team?.event?.name;
-                          if (isState && zoneName) return `${instName} (${zoneName})`;
-                          return instName;
-                        }
+                        const inst = formatInstitutionDisplay(res.candidate ? res.candidate.team : res.team);
+                        if (!inst.place) return null;
+                        return (
+                          <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
+                            📍 {inst.place}
+                          </div>
+                        );
                       })()}
                     </div>
                   </div>

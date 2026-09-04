@@ -327,8 +327,22 @@ export default function AdminScheduler({
                           {isBreak ? `☕ ${program.name}` : program.name}
                         </h4>
                         {!isBreak && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                            {program.stageType} • {program.category?.name || 'General'} • {program._count?.assignments || 0} Candidates
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              letterSpacing: '0.03em',
+                              backgroundColor: program.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
+                              color: program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
+                              border: `1px solid ${program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
+                            }}>
+                              {program.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {program.category?.name || 'General'} • {program._count?.assignments || 0} Candidates
+                            </span>
                           </div>
                         )}
                       </div>

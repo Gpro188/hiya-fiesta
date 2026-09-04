@@ -4,6 +4,7 @@ import SearchClient from "./SearchClient";
 import { getSettings } from "@/lib/settings";
 import PublicNav from "@/app/components/PublicNav";
 import PublicFooter from "@/app/components/PublicFooter";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default async function SearchPage(props: {
   searchParams: Promise<{ 
@@ -203,12 +204,27 @@ export default async function SearchPage(props: {
                         <h3 style={{ color: '#1a1420', fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: '1.25rem', margin: '0 0 6px 0' }}>
                           {candidate.name} <span style={{ color: '#7a7480', fontSize: '0.85rem', fontFamily: "'IBM Plex Mono', monospace" }}>({candidate.chestNumber})</span>
                         </h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                          <div style={{ width: '4px', height: '32px', backgroundColor: candidate.team.flagColor || '#e6007e', borderRadius: '9999px' }}></div>
-                          <div style={{ color: '#7a7480', fontSize: '0.875rem' }}>
-                            Team: <strong style={{ color: '#1a1420' }}>{candidate.team.name}</strong> • Category: <strong style={{ color: '#e6007e' }}>{candidate.category.name}</strong>
-                          </div>
-                        </div>
+                        {(() => {
+                          const { name: instName, place: instPlace } = formatInstitutionDisplay(candidate.team);
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                              <div style={{ width: '4px', height: '36px', backgroundColor: candidate.team.flagColor || '#e6007e', borderRadius: '9999px' }}></div>
+                              <div style={{ color: '#7a7480', fontSize: '0.875rem' }}>
+                                <div>
+                                  Team: <strong style={{ color: '#1a1420' }}>{instName}</strong>
+                                  {instPlace && (
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
+                                      📍 {instPlace}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', marginTop: '2px' }}>
+                                  Category: <strong style={{ color: '#e6007e' }}>{candidate.category.name}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         <h4 style={{ margin: '0 0 10px 0', fontSize: '0.92rem', fontFamily: "'Fraunces', serif", color: '#1a1420', fontWeight: 800 }}>
                           Schedule & Results
@@ -237,10 +253,19 @@ export default async function SearchPage(props: {
                                   borderLeft: `4px solid ${isEntered ? '#10b981' : '#e6007e'}` 
                                 }}>
                                   <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                       <Link href={winnerUrl} style={{ fontWeight: 800, color: '#1a1420', textDecoration: 'none' }}>
                                         {p.program.name}
                                       </Link>
+                                      {p.program.stageType === 'OFF_STAGE' ? (
+                                        <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(14, 165, 233, 0.12)', color: '#0284c7', border: '1px solid #7dd3fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                          🎨 OFF
+                                        </span>
+                                      ) : (
+                                        <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(236, 72, 153, 0.12)', color: '#db2777', border: '1px solid #f472b6', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                          🎭 ON
+                                        </span>
+                                      )}
                                       <span style={{ 
                                         fontSize: '0.68rem', 
                                         padding: '2px 8px', 
@@ -359,9 +384,17 @@ export default async function SearchPage(props: {
                               <div style={{ color: '#7a7480', fontSize: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                                 <span>Event: <strong style={{ color: '#1a1420' }}>{program.event.name}</strong></span>
                                 <span>•</span>
-                                <span>Type: <strong>{program.type}</strong></span>
+                                {program.stageType === 'OFF_STAGE' ? (
+                                  <span style={{ backgroundColor: 'rgba(14, 165, 233, 0.14)', color: '#0284c7', border: '1px solid #7dd3fc', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                    🎨 OFF STAGE
+                                  </span>
+                                ) : (
+                                  <span style={{ backgroundColor: 'rgba(236, 72, 153, 0.14)', color: '#db2777', border: '1px solid #f472b6', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                    🎭 ON STAGE
+                                  </span>
+                                )}
                                 <span>•</span>
-                                <span>Stage: <strong>{program.stageType}</strong></span>
+                                <span>Type: <strong>{program.type}</strong></span>
                                 {program.startTime && (
                                   <>
                                     <span>•</span>

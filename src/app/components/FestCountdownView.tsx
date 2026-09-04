@@ -11,7 +11,16 @@ interface FestCountdownViewProps {
   teamsCount: number;
   programsCount: number;
   candidatesCount: number;
-  programsList?: Array<{ id: string; name: string; category?: { name: string } | null; venue?: string | null; startTime?: string | Date | null }>;
+  isSchedulePublished?: boolean;
+  programsList?: Array<{ 
+    id: string; 
+    name: string; 
+    stageType?: string | null;
+    type?: string | null;
+    category?: { name: string } | null; 
+    venue?: string | null; 
+    startTime?: string | Date | null 
+  }>;
 }
 
 export default function FestCountdownView({
@@ -22,6 +31,7 @@ export default function FestCountdownView({
   teamsCount,
   programsCount,
   candidatesCount,
+  isSchedulePublished = false,
   programsList = [],
 }: FestCountdownViewProps) {
   const [timeLeft, setTimeLeft] = useState<{
@@ -314,67 +324,108 @@ export default function FestCountdownView({
         </div>
       </div>
 
-      {/* ── SCHEDULE / COMPETITIONS TOGGLE ── */}
-      {programsList.length > 0 && (
-        <div className="glass-panel" style={{ borderRadius: "18px", padding: "24px", backgroundColor: "#ffffff" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h3 style={{ margin: "0 0 4px 0", color: "#1e1b4b" }}>📅 Scheduled Competitions ({programsList.length})</h3>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>
-                Preview of all stage and off-stage competition programs for this zone
-              </p>
+      {/* ── SCHEDULE / COMPETITIONS ── */}
+      <div className="glass-panel" style={{ borderRadius: "18px", padding: "24px", backgroundColor: "#ffffff" }}>
+        {!isSchedulePublished ? (
+          <div style={{ textAlign: "center", padding: "28px 16px" }}>
+            <div style={{ 
+              width: "56px", 
+              height: "56px", 
+              borderRadius: "50%", 
+              backgroundColor: "#fef2f2", 
+              color: "#dc2626", 
+              display: "inline-flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              fontSize: "1.8rem", 
+              margin: "0 auto 14px auto",
+              border: "2px dashed #fca5a5"
+            }}>
+              🔒
             </div>
-            <button
-              onClick={() => setShowSchedule(!showSchedule)}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: showSchedule ? "#e2e8f0" : "#8E0033",
-                color: showSchedule ? "#334155" : "#ffffff",
-                borderRadius: "8px",
-                border: "none",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {showSchedule ? "Hide Schedule ▲" : "View Schedule ▼"}
-            </button>
+            <h3 style={{ margin: "0 0 6px 0", color: "#1e1b4b", fontSize: "1.2rem", fontWeight: 800 }}>
+              Competition Schedule Awaiting Publication
+            </h3>
+            <p style={{ margin: "0 auto", maxWidth: "520px", fontSize: "0.9rem", color: "#64748b", lineHeight: 1.5 }}>
+              The official competition schedule for this zone will be displayed once published by the Zone Administration.
+            </p>
+            <div style={{ marginTop: "16px", display: "inline-flex", alignItems: "center", gap: "8px", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", padding: "6px 16px", borderRadius: "999px", fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>
+              <span>ℹ️</span> Program order and venues are being finalized by Zone Admin
+            </div>
           </div>
-
-          {showSchedule && (
-            <div style={{ marginTop: "20px", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#475569", fontWeight: 800 }}>
-                    <th style={{ padding: "10px 12px", textAlign: "left" }}>Program Name</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left" }}>Category</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left" }}>Venue / Stage</th>
-                    <th style={{ padding: "10px 12px", textAlign: "right" }}>Scheduled Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {programsList.map((prog) => (
-                    <tr key={prog.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1e293b" }}>{prog.name}</td>
-                      <td style={{ padding: "10px 12px" }}>
-                        <span style={{ backgroundColor: "rgba(79, 70, 229, 0.1)", color: "#4f46e5", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700 }}>
-                          {prog.category?.name || "General"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px 12px", color: "#64748b" }}>{prog.venue || "Stage 1"}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "#334155", fontWeight: 600 }}>
-                        {prog.startTime
-                          ? new Date(prog.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                          : "As per schedule"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        ) : programsList.length > 0 ? (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px 0", color: "#1e1b4b" }}>📅 Published Schedule ({programsList.length})</h3>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>
+                  Official stage and off-stage competition schedule for this zone
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSchedule(!showSchedule)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: showSchedule ? "#e2e8f0" : "#8E0033",
+                  color: showSchedule ? "#334155" : "#ffffff",
+                  borderRadius: "8px",
+                  border: "none",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {showSchedule ? "Hide Schedule ▲" : "View Schedule ▼"}
+              </button>
             </div>
-          )}
-        </div>
-      )}
+
+            {showSchedule && (
+              <div style={{ marginTop: "20px", overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#475569", fontWeight: 800 }}>
+                      <th style={{ padding: "10px 12px", textAlign: "left" }}>Program Name</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left" }}>Stage / Type</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left" }}>Category</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left" }}>Venue / Stage</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>Scheduled Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {programsList.map((prog) => (
+                      <tr key={prog.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1e293b" }}>{prog.name}</td>
+                        <td style={{ padding: "10px 12px" }}>
+                          {prog.stageType === "OFF_STAGE" ? (
+                            <span style={{ backgroundColor: "rgba(14, 165, 233, 0.14)", color: "#0284c7", border: "1px solid #7dd3fc", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap" }}>
+                              🎨 OFF STAGE
+                            </span>
+                          ) : (
+                            <span style={{ backgroundColor: "rgba(236, 72, 153, 0.14)", color: "#db2777", border: "1px solid #f472b6", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap" }}>
+                              🎭 ON STAGE
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ backgroundColor: "rgba(79, 70, 229, 0.1)", color: "#4f46e5", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700 }}>
+                            {prog.category?.name || "General"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 12px", color: "#64748b" }}>{prog.venue || "Stage 1"}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: "#334155", fontWeight: 600 }}>
+                          {prog.startTime
+                            ? new Date(prog.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : "As per schedule"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

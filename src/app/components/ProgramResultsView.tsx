@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { toPng } from "html-to-image";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function ProgramResultsView({ program, settings, userRole, eventId }: { program: any, settings: any, userRole?: string, eventId?: string }) {
   const isAuthorizedMedia = userRole === 'ADMIN' || userRole === 'MEDIA';
@@ -229,12 +230,22 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                           )}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
-                          <span style={{ color: '#332938', fontWeight: 600 }}>
-                             {res.candidate?.team?.name || res.team?.name || '-'}
-                          </span>
-                          {res.candidate?.institution?.name && (
-                             <div style={{ fontSize: '0.75rem', color: '#7a7480' }}>{res.candidate.institution.name}</div>
-                          )}
+                        {(() => {
+                          const instObj = res.candidate?.team || res.team || { name: res.candidate?.institution?.name };
+                          const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+                          return (
+                            <div>
+                              <div style={{ color: '#332938', fontWeight: 700 }}>
+                                {instName}
+                              </div>
+                              {instPlace && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                                  📍 {instPlace}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 900, color: '#e6007e', fontFamily: "'IBM Plex Mono', monospace", fontSize: '1rem' }}>
                           {res.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 700 }}>pts</span>
@@ -284,9 +295,22 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                         <div style={{ fontWeight: 800, color: '#1a1420', fontSize: '0.92rem', wordBreak: 'break-word' }}>
                           {res.candidate?.name || res.team?.name}
                         </div>
-                        <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', wordBreak: 'break-word' }}>
-                          {res.candidate?.team?.name || res.team?.name || '-'}
-                        </div>
+                        {(() => {
+                          const instObj = res.candidate?.team || res.team || { name: res.candidate?.institution?.name };
+                          const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+                          return (
+                            <div>
+                              <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700, wordBreak: 'break-word' }}>
+                                {instName}
+                              </div>
+                              {instPlace && (
+                                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '1px', fontWeight: 500 }}>
+                                  📍 {instPlace}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {res.candidate?.chestNumber && (
                           <div style={{ fontSize: '0.7rem', color: '#a1a1aa', fontFamily: "'IBM Plex Mono', monospace" }}>
                             Chest #{res.candidate.chestNumber}
@@ -333,9 +357,20 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                       <span style={{ color: '#7a7480' }}>Venue</span>
                       <strong style={{ color: '#1a1420' }}>{program.venue || '-'}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: '#7a7480' }}>Stage</span>
-                      <strong style={{ color: '#1a1420' }}>{program.stageType}</strong>
+                      <span style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        letterSpacing: '0.03em',
+                        backgroundColor: program.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
+                        color: program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
+                        border: `1.5px solid ${program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
+                      }}>
+                        {program.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
+                      </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#7a7480' }}>Category</span>
@@ -421,9 +456,16 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                                               </div>
                                           )}
                                       </div>
-                                      {(instName || instPlace) && (
-                                          <div style={{ fontSize: '1rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '6px', lineHeight: 1.3 }}>
-                                              {instName}{instPlace ? `, ${instPlace}` : ''}
+                                      {instName && (
+                                          <div style={{ marginTop: '6px' }}>
+                                              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.2 }}>
+                                                  {instName}
+                                              </div>
+                                              {instPlace && (
+                                                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginTop: '2px' }}>
+                                                      📍 {instPlace}
+                                                  </div>
+                                              )}
                                           </div>
                                       )}
                                       {result.grade && (
@@ -447,7 +489,8 @@ function WinnerDisplay({ result, rank, isMain = false }: { result: any, rank: nu
   const name = result?.candidate?.name || result?.team?.name || 'TBA';
   const points = result?.points || 0;
   const chest = result?.candidate?.chestNumber;
-  const instName = result?.candidate?.institution?.name || result?.candidate?.team?.name;
+  const instObj = result?.candidate?.team || result?.team || { name: result?.candidate?.institution?.name };
+  const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
   
   const rankColor = rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : '#D97706';
   const gradientBg = rank === 1 
@@ -533,8 +576,15 @@ function WinnerDisplay({ result, rank, isMain = false }: { result: any, rank: nu
           {points} <span style={{ fontSize: '0.75rem', color: '#7a7480', fontWeight: 700 }}>PTS</span>
         </div>
         {instName && (
-          <div style={{ fontSize: '0.78rem', color: '#475569', marginTop: '6px', fontWeight: 600, lineHeight: 1.3 }}>
-            {instName}
+          <div style={{ marginTop: '6px' }}>
+            <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700, lineHeight: 1.3 }}>
+              {instName}
+            </div>
+            {instPlace && (
+              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                📍 {instPlace}
+              </div>
+            )}
           </div>
         )}
       </div>

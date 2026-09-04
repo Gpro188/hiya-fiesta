@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
-import { isProgramGeneral } from "@/lib/programUtils";
+import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
 
 export async function assignProgram(candidateId: string, programId: string) {
   try {
@@ -67,6 +67,10 @@ export async function assignProgram(candidateId: string, programId: string) {
     });
 
     if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
+
+    if (isInstitutionProgram(program)) {
+      return { success: false, error: "Institution-level programs (such as Magazine) are assigned directly to the Institution/Team, not to individual students." };
+    }
 
     const isGeneral = isProgramGeneral(program);
     const programCatName = program.category?.name?.toUpperCase() || "GENERAL";

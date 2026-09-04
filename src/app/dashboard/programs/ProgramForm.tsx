@@ -33,7 +33,7 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
       programCode,
       name,
       type,
-      categoryId: type === "GENERAL" ? null : categoryId,
+      categoryId: (type === "GENERAL" || type === "INSTITUTION") ? null : categoryId,
       eventId,
       candidateLimitPerTeam: parseInt(candidateLimitPerTeam.toString()) || 1,
       duration: parseInt(duration.toString()) || 10,
@@ -116,8 +116,9 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
           <option value="INDIVIDUAL">Individual</option>
           <option value="GROUP">Group</option>
           <option value="GENERAL">General</option>
+          <option value="INSTITUTION">Institution (Assigned directly to Institution - e.g. Magazine)</option>
         </select>
-        <span className="field-helper">Individual = scored per candidate. Group = scored as a team. General = non-category program.</span>
+        <span className="field-helper">Individual = scored per candidate. Group = scored as a team. General = non-category program. Institution = evaluated directly on Institution name.</span>
       </div>
 
       <div className="form-group">
@@ -129,12 +130,12 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
           required
         >
           <option value="ON_STAGE">On-Stage (Live Performance)</option>
-          <option value="OFF_STAGE">Off-Stage (Written/Submission)</option>
+          <option value="OFF_STAGE">Off-Stage (Written/Submission/Magazine)</option>
         </select>
         <span className="field-helper">Off-stage programs generally occur before the live events.</span>
       </div>
 
-      {type !== "GENERAL" && (
+      {type !== "GENERAL" && type !== "INSTITUTION" && (
         <div className="form-group">
           <label className="form-label">Category</label>
           <select 

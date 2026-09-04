@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { assignProgram, unassignProgram } from "./actions";
-import { isProgramGeneral } from "@/lib/programUtils";
+import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
 
 export default function AssignmentForm({ 
   candidates, 
@@ -177,15 +177,16 @@ export default function AssignmentForm({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '4px',
-        padding: '2px 7px',
+        padding: '3px 8px',
         borderRadius: '6px',
-        fontSize: '0.72rem',
-        fontWeight: 700,
-        backgroundColor: isOffStage ? 'rgba(14, 165, 233, 0.12)' : 'rgba(236, 72, 153, 0.12)',
+        fontSize: '0.74rem',
+        fontWeight: 800,
+        letterSpacing: '0.03em',
+        backgroundColor: isOffStage ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
         color: isOffStage ? '#0284c7' : '#db2777',
-        border: `1px solid ${isOffStage ? 'rgba(14, 165, 233, 0.3)' : 'rgba(236, 72, 153, 0.3)'}`
+        border: `1.5px solid ${isOffStage ? '#0284c7' : '#db2777'}`
       }}>
-        {isOffStage ? "📝 OFF-STAGE" : "🎤 ON-STAGE"}
+        {isOffStage ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
       </span>
     );
   };
@@ -290,6 +291,7 @@ export default function AssignmentForm({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }}>
                 {programs
                   .filter(p => !assigneCSWCgramIds.includes(p.id))
+                  .filter(p => !isInstitutionProgram(p))
                   .filter(p => isProgramGeneral(p) || p.categoryId === selectedCandidate.categoryId || (p.category?.name === selectedCandidate.category?.name))
                   .filter(p => {
                     const teamLimit = p.candidateLimitPerTeam || 1;
@@ -480,7 +482,7 @@ export default function AssignmentForm({
                 }}
                 style={{ fontSize: '0.95rem', padding: '10px' }}
               >
-                {programs.filter(p => {
+                {programs.filter(p => !isInstitutionProgram(p)).filter(p => {
                   const pCatName = (p.category?.name || '').toUpperCase();
                   const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
 
@@ -683,6 +685,27 @@ export default function AssignmentForm({
           )}
         </div>
 
+        {programs.some(p => isInstitutionProgram(p)) && (
+          <div style={{
+            marginBottom: 'var(--spacing-md)',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(168, 85, 247, 0.08)',
+            border: '1px solid rgba(168, 85, 247, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{ fontSize: '1.4rem' }}>🏛️</span>
+            <div style={{ fontSize: '0.85rem' }}>
+              <strong style={{ color: '#9333ea' }}>Institution-Level Programs:</strong>
+              <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                Programs such as <strong>Magazine</strong> are evaluated directly on the Institution Name. Individual student registration is not required.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* CATEGORY FILTER TABS FOR MARK SHEET */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '4px' }}>Filter Programs:</span>
@@ -810,15 +833,16 @@ export default function AssignmentForm({
                   return pCatName === markSheetCategoryFilter || isGeneral;
                 })
                 .map((p, idx) => {
+                const isInst = isInstitutionProgram(p);
                 const assignedList = teamProgramAssignments[p.id] || [];
                 const limit = p.candidateLimitPerTeam || 1;
-                const isFulfilled = assignedList.length >= limit;
-                const isEmpty = assignedList.length === 0;
+                const isFulfilled = isInst || assignedList.length >= limit;
+                const isEmpty = !isInst && assignedList.length === 0;
 
                 return (
                   <tr key={p.id} style={{ 
                     borderBottom: '1px solid var(--border-color)',
-                    backgroundColor: isFulfilled ? 'rgba(16, 185, 129, 0.02)' : (isEmpty ? 'rgba(239, 68, 68, 0.02)' : 'transparent')
+                    backgroundColor: isInst ? 'rgba(168, 85, 247, 0.03)' : (isFulfilled ? 'rgba(16, 185, 129, 0.02)' : (isEmpty ? 'rgba(239, 68, 68, 0.02)' : 'transparent'))
                   }}>
                     <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{idx + 1}</td>
                     <td style={{ padding: '10px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
@@ -833,28 +857,45 @@ export default function AssignmentForm({
                         borderRadius: '4px', 
                         fontSize: '0.75rem', 
                         fontWeight: 600, 
-                        backgroundColor: p.category?.name === 'FADHILA' ? 'rgba(142,0,51,0.1)' : (p.category?.name === 'FADHEELA' ? 'rgba(37,99,235,0.1)' : 'rgba(217,119,6,0.1)'),
-                        color: p.category?.name === 'FADHILA' ? '#e11d5a' : (p.category?.name === 'FADHEELA' ? '#2563eb' : '#d97706')
+                        backgroundColor: isInst ? 'rgba(168, 85, 247, 0.12)' : (p.category?.name === 'FADHILA' ? 'rgba(142,0,51,0.1)' : (p.category?.name === 'FADHEELA' ? 'rgba(37,99,235,0.1)' : 'rgba(217,119,6,0.1)')),
+                        color: isInst ? '#9333ea' : (p.category?.name === 'FADHILA' ? '#e11d5a' : (p.category?.name === 'FADHEELA' ? '#2563eb' : '#d97706'))
                       }}>
-                        {p.category?.name || 'General'}
+                        {isInst ? 'INSTITUTION' : (p.category?.name || 'General')}
                       </span>
                     </td>
-                    <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{p.type}</td>
+                    <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{isInst ? 'INSTITUTION' : p.type}</td>
                     <td style={{ padding: '10px' }}>{renderStageBadge(p.stageType, p.type)}</td>
                     <td style={{ padding: '10px' }}>
-                      <span style={{ 
-                        padding: '3px 8px', 
-                        borderRadius: '4px', 
-                        fontSize: '0.75rem', 
-                        fontWeight: 700,
-                        backgroundColor: isFulfilled ? 'rgba(16, 185, 129, 0.15)' : (isEmpty ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.15)'),
-                        color: isFulfilled ? '#10b981' : (isEmpty ? '#ef4444' : '#f59e0b')
-                      }}>
-                        {assignedList.length} / {limit} {isFulfilled ? '✓ Filled' : (isEmpty ? '⭕ Empty' : '⏳ Partial')}
-                      </span>
+                      {isInst ? (
+                        <span style={{ 
+                          padding: '3px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700,
+                          backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                          color: '#9333ea'
+                        }}>
+                          🏛️ Institution Entry
+                        </span>
+                      ) : (
+                        <span style={{ 
+                          padding: '3px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700,
+                          backgroundColor: isFulfilled ? 'rgba(16, 185, 129, 0.15)' : (isEmpty ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.15)'),
+                          color: isFulfilled ? '#10b981' : (isEmpty ? '#ef4444' : '#f59e0b')
+                        }}>
+                          {assignedList.length} / {limit} {isFulfilled ? '✓ Filled' : (isEmpty ? '⭕ Empty' : '⏳ Partial')}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '10px' }}>
-                      {assignedList.length === 0 ? (
+                      {isInst ? (
+                        <span style={{ color: '#9333ea', fontWeight: 600, fontSize: '0.8rem' }}>
+                          🏛️ Directly on Institution Name (No student registration needed)
+                        </span>
+                      ) : assignedList.length === 0 ? (
                         <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None assigned</span>
                       ) : (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>

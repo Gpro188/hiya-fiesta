@@ -41,9 +41,14 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
 
   // Check if festival has started or is live/completed
   const now = new Date();
-  const startTarget = event.startDate || event.zoneActiveStartTime;
+  const startTarget = event.startDate || event.zoneActiveStartTime || event.parent?.startDate;
   const isExplicitLive = event.statusOverride === "LIVE";
   const isExplicitCompleted = event.statusOverride === "COMPLETED";
+  const isSchedulePublished = 
+    event.statusOverride === "SCHEDULE_PUBLISHED" || 
+    isExplicitLive || 
+    isExplicitCompleted || 
+    Boolean(event.parent?.statusOverride === "SCHEDULE_PUBLISHED");
   
   const isStarted =
     isExplicitLive ||
@@ -146,6 +151,7 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
               teamsCount={preFestData.teamsCount}
               candidatesCount={preFestData.candidatesCount}
               programsCount={preFestData.programsCount}
+              isSchedulePublished={isSchedulePublished}
               programsList={preFestData.programsList as any}
             />
           ) : (

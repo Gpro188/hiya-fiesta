@@ -5,12 +5,14 @@ import { deleteProgram } from "./actions";
 import EditProgramModal from "./EditProgramModal";
 
 import AssignJudgesModal from "./AssignJudgesModal";
+import { isInstitutionProgram } from "@/lib/programUtils";
 
 type ProgramType = {
   id: string;
   programCode: string | null;
   name: string;
   type: string;
+  stageType?: string | null;
   categoryId: string | null;
   category: { name: string } | null;
   event: { name: string };
@@ -22,6 +24,7 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
   const [editingProgram, setEditingProgram] = useState<ProgramType | null>(null);
   const [assigningProgram, setAssigningProgram] = useState<ProgramType | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterStage, setFilterStage] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
 
   if (programs.length === 0) {
@@ -30,7 +33,7 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
 
   const isZoneAdmin = role === "ZONE_ADMIN";
 
-  // Filter programs by selected category & search
+  // Filter programs by selected category, stage & search
   const filteredPrograms = programs.filter(p => {
     // Category / General Filter
     if (filterCategory === "GENERAL") {
@@ -38,6 +41,11 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
     } else if (filterCategory !== "ALL") {
       if (p.categoryId !== filterCategory) return false;
     }
+
+    // Stage Filter
+    if (filterStage === "ON_STAGE" && p.stageType !== "ON_STAGE") return false;
+    if (filterStage === "OFF_STAGE" && p.stageType !== "OFF_STAGE") return false;
+    if (filterStage === "INSTITUTION" && !isInstitutionProgram(p)) return false;
 
     // Search filter
     if (searchTerm.trim()) {
@@ -50,13 +58,19 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
     return true;
   });
 
+  const onStageCount = programs.filter(p => p.stageType === "ON_STAGE").length;
+  const offStageCount = programs.filter(p => p.stageType === "OFF_STAGE").length;
+  const instCount = programs.filter(p => isInstitutionProgram(p)).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-      {/* Category & Search Filter Bar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--surface-color)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+      {/* Category, Stage & Search Filter Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--surface-color)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+        
+        {/* Row 1: Category Filter & Search */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Filter Category:</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Category:</span>
             <button
               type="button"
               onClick={() => setFilterCategory("ALL")}
@@ -124,6 +138,77 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
             style={{ width: '220px', padding: '4px 8px', fontSize: '0.8rem', borderRadius: '20px' }}
           />
         </div>
+
+        {/* Row 2: Prominent Stage Filter Buttons */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Stage:</span>
+          <button
+            type="button"
+            onClick={() => setFilterStage("ALL")}
+            style={{
+              padding: '3px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              borderRadius: '20px',
+              border: filterStage === "ALL" ? '1.5px solid var(--text-primary)' : '1px solid var(--border-color)',
+              backgroundColor: filterStage === "ALL" ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: filterStage === "ALL" ? 'var(--text-primary)' : 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+          >
+            All Stages
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterStage("ON_STAGE")}
+            style={{
+              padding: '3px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              borderRadius: '20px',
+              border: filterStage === "ON_STAGE" ? '1.5px solid #db2777' : '1px solid rgba(236, 72, 153, 0.3)',
+              backgroundColor: filterStage === "ON_STAGE" ? '#db2777' : 'rgba(236, 72, 153, 0.1)',
+              color: filterStage === "ON_STAGE" ? '#fff' : '#db2777',
+              cursor: 'pointer'
+            }}
+          >
+            🎭 ON-STAGE ({onStageCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterStage("OFF_STAGE")}
+            style={{
+              padding: '3px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              borderRadius: '20px',
+              border: filterStage === "OFF_STAGE" ? '1.5px solid #0284c7' : '1px solid rgba(14, 165, 233, 0.3)',
+              backgroundColor: filterStage === "OFF_STAGE" ? '#0284c7' : 'rgba(14, 165, 233, 0.1)',
+              color: filterStage === "OFF_STAGE" ? '#fff' : '#0284c7',
+              cursor: 'pointer'
+            }}
+          >
+            🎨 OFF-STAGE ({offStageCount})
+          </button>
+          {instCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStage("INSTITUTION")}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                borderRadius: '20px',
+                border: filterStage === "INSTITUTION" ? '1.5px solid #9333ea' : '1px solid rgba(168, 85, 247, 0.3)',
+                backgroundColor: filterStage === "INSTITUTION" ? '#9333ea' : 'rgba(168, 85, 247, 0.1)',
+                color: filterStage === "INSTITUTION" ? '#fff' : '#9333ea',
+                cursor: 'pointer'
+              }}
+            >
+              🏛️ INSTITUTION ({instCount})
+            </button>
+          )}
+        </div>
       </div>
 
       {filteredPrograms.length === 0 ? (
@@ -158,11 +243,48 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                     </span>
                   )}
                   {program.name} 
-                  <span style={{ color: 'var(--secondary)', fontSize: '0.8rem', padding: '2px 6px', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderRadius: '4px' }}>
-                    {program.type}
+                  
+                  {/* High-visibility ON STAGE / OFF STAGE Badge */}
+                  <span style={{ 
+                    fontSize: '0.74rem', 
+                    fontWeight: 800, 
+                    padding: '3px 8px', 
+                    borderRadius: '6px', 
+                    letterSpacing: '0.04em',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: program.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)', 
+                    color: program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
+                    border: `1.5px solid ${program.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
+                  }}>
+                    {program.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
                   </span>
+
+                  {isInstitutionProgram(program) ? (
+                    <span style={{ 
+                      fontSize: '0.74rem', 
+                      fontWeight: 800, 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      letterSpacing: '0.04em',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: 'rgba(168, 85, 247, 0.16)', 
+                      color: '#9333ea',
+                      border: '1.5px solid #9333ea'
+                    }}>
+                      🏛️ INSTITUTION
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--secondary)', fontSize: '0.8rem', padding: '2px 6px', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderRadius: '4px', fontWeight: 600 }}>
+                      {program.type}
+                    </span>
+                  )}
+
                   {program.category && (
-                    <span style={{ color: 'var(--success)', fontSize: '0.8rem', padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
+                    <span style={{ color: 'var(--success)', fontSize: '0.8rem', padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px', fontWeight: 600 }}>
                       {program.category.name}
                     </span>
                   )}

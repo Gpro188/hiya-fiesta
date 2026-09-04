@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { batchSubmitProgramMarks } from "./actions";
+import { isInstitutionProgram } from "@/lib/programUtils";
 
 interface ScoringEntry {
   participantId: string;
@@ -77,7 +78,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
   });
 
   const selecteCSWCgram = allPrograms.find((p: any) => p.id === programId);
-  const isIndividual = selecteCSWCgram?.type === "INDIVIDUAL";
+  const isIndividual = selecteCSWCgram?.type === "INDIVIDUAL" && !isInstitutionProgram(selecteCSWCgram);
 
   // When selected program changes, build list of all candidates / teams with existing scores
   useEffect(() => {
@@ -303,7 +304,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
             <option value="">-- Select Program to Score --</option>
             {programs.map((p: any) => (
               <option key={p.id} value={p.id}>
-                {p.name} ({p.type})
+                {p.name} [{p.stageType === 'OFF_STAGE' ? 'OFF-STAGE' : 'ON-STAGE'}] {isInstitutionProgram(p) ? '• INSTITUTION' : `(${p.type})`}
               </option>
             ))}
           </select>
@@ -330,11 +331,36 @@ export default function ScoringForm({ events }: { events: any[] }) {
             gap: '12px'
           }}>
             <div>
-              <h3 style={{ margin: '0 0 4px 0', color: '#1a1420', fontSize: '1.2rem', fontWeight: 800 }}>
-                {selecteCSWCgram.name}
+              <h3 style={{ margin: '0 0 6px 0', color: '#1a1420', fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>{selecteCSWCgram.name}</span>
+                <span style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  letterSpacing: '0.03em',
+                  backgroundColor: selecteCSWCgram.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
+                  color: selecteCSWCgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
+                  border: `1.5px solid ${selecteCSWCgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
+                }}>
+                  {selecteCSWCgram.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
+                </span>
+                {isInstitutionProgram(selecteCSWCgram) && (
+                  <span style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                    color: '#9333ea',
+                    border: '1.5px solid #9333ea'
+                  }}>
+                    🏛️ INSTITUTION ENTRY
+                  </span>
+                )}
               </h3>
               <p style={{ margin: 0, fontSize: '0.82rem', color: '#7a7480' }}>
-                Category: <strong>{selecteCSWCgram.category?.name || 'General'}</strong> • Type: <strong>{selecteCSWCgram.type}</strong> • Candidates Enrolled: <strong>{entries.length}</strong>
+                Category: <strong>{selecteCSWCgram.category?.name || 'General'}</strong> • Type: <strong>{isInstitutionProgram(selecteCSWCgram) ? 'INSTITUTION' : selecteCSWCgram.type}</strong> • Entries: <strong>{entries.length}</strong>
               </p>
             </div>
             
