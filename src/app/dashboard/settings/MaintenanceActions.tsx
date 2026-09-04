@@ -130,8 +130,14 @@ export default function MaintenanceActions() {
 
         // Step 7: Finalize & Settings (100%)
         setProgress(100);
-        setCurrentStepText("🎉 Finalizing restore and updating system settings...");
-        await restoreStepFinalize(data.globalSettings || (data.settings ? [data.settings] : []), data.homepageSettings || []);
+        await restoreStepFinalize(
+          data.globalSettings || (data.settings ? [data.settings] : []), 
+          data.homepageSettings || [],
+          data.pointMatrices || [],
+          data.stateQualifications || [],
+          data.mediaTemplates || [],
+          data.volunteers || []
+        );
 
         setStatus("✅ Full Festival Data Restored Successfully (100%)!");
         setTimeout(() => {

@@ -203,6 +203,10 @@ export async function exportAllData() {
       candidates: await prisma.candidate.findMany(),
       programAssignments: await prisma.programAssignment.findMany(),
       results: await prisma.result.findMany(),
+      pointMatrices: await prisma.pointMatrix.findMany(),
+      stateQualifications: await prisma.stateQualification.findMany(),
+      mediaTemplates: await prisma.mediaTemplate.findMany(),
+      volunteers: await prisma.volunteer.findMany(),
       globalSettings: await prisma.globalSetting.findMany(),
       homepageSettings: await prisma.homepageSetting.findMany(),
       users: await prisma.user.findMany({
@@ -550,7 +554,14 @@ export async function restoreStepAssignmentsAndResults(assignments: any[] = [], 
   }
 }
 
-export async function restoreStepFinalize(globalSettings: any[] = [], homepageSettings: any[] = []) {
+export async function restoreStepFinalize(
+  globalSettings: any[] = [], 
+  homepageSettings: any[] = [],
+  pointMatrices: any[] = [],
+  stateQualifications: any[] = [],
+  mediaTemplates: any[] = [],
+  volunteers: any[] = []
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
@@ -575,6 +586,40 @@ export async function restoreStepFinalize(globalSettings: any[] = [], homepageSe
           create: hs
         });
       }
+    }
+
+    if (pointMatrices && pointMatrices.length > 0) {
+      for (const pm of pointMatrices) {
+        await prisma.pointMatrix.upsert({
+          where: { id: pm.id },
+          update: pm,
+          create: pm
+        });
+      }
+    }
+
+    if (mediaTemplates && mediaTemplates.length > 0) {
+      for (const mt of mediaTemplates) {
+        await prisma.mediaTemplate.upsert({
+          where: { id: mt.id },
+          update: mt,
+          create: mt
+        });
+      }
+    }
+
+    if (volunteers && volunteers.length > 0) {
+      await prisma.volunteer.createMany({
+        data: volunteers,
+        skipDuplicates: true
+      });
+    }
+
+    if (stateQualifications && stateQualifications.length > 0) {
+      await prisma.stateQualification.createMany({
+        data: stateQualifications,
+        skipDuplicates: true
+      });
     }
 
     revalidatePath("/dashboard");
