@@ -8,6 +8,7 @@ export interface OffStageCandidateRow {
   candidateId: string;
   candidateName: string;
   candidateUid: string | null;
+  candidatePhoto?: string | null;
   chestNumber: string | null;
   programId: string;
   programName: string;
@@ -262,34 +263,37 @@ export default function OffStageInvigilationSheet({
               >
                 <thead>
                   <tr style={{ backgroundColor: "#f1f5f9", borderBottom: "2px solid #0f172a", color: "#0f172a" }}>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "32px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "28px", textAlign: "center" }}>
                       Sl.
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", textAlign: "left" }}>
                       Program Name & Code
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "65px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "55px", textAlign: "center" }}>
                       Duration
+                    </th>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "50px", textAlign: "center" }}>
+                      Photo
                     </th>
                     <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left" }}>
                       Candidate Name
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "85px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "80px", textAlign: "center" }}>
                       UID
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "65px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "60px", textAlign: "center" }}>
                       Chest No.
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "95px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "85px", textAlign: "center" }}>
                       Time (Start - End)
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "105px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "95px", textAlign: "center" }}>
                       Sign of Candidate
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "95px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "85px", textAlign: "center" }}>
                       Invigilator Sign
                     </th>
-                    <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "65px", textAlign: "center" }}>
+                    <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "55px", textAlign: "center" }}>
                       Remarks
                     </th>
                   </tr>
@@ -297,17 +301,17 @@ export default function OffStageInvigilationSheet({
                 <tbody>
                   {catGroup.rows.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ padding: "20px", textAlign: "center", color: "#64748b" }}>
+                      <td colSpan={11} style={{ padding: "20px", textAlign: "center", color: "#64748b" }}>
                         No candidates assigned for off-stage programs in this category.
                       </td>
                     </tr>
                   ) : (
                     catGroup.rows.map((row, idx) => (
                       <tr key={row.assignmentId || `${row.candidateId}-${row.programId}`} style={{ borderBottom: "1px solid #94a3b8" }}>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontWeight: 700 }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 700 }}>
                           {idx + 1}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 8px" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 8px" }}>
                           <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.85rem" }}>
                             {row.programName}
                           </div>
@@ -329,30 +333,66 @@ export default function OffStageInvigilationSheet({
                             </span>
                           )}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontWeight: 600 }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 600 }}>
                           {row.duration ? `${row.duration} M` : "—"}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 8px", fontWeight: 700 }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "4px 2px", textAlign: "center", verticalAlign: "middle" }}>
+                          {row.candidatePhoto ? (
+                            <img
+                              src={row.candidatePhoto}
+                              alt={row.candidateName}
+                              style={{
+                                width: "40px",
+                                height: "48px",
+                                objectFit: "cover",
+                                borderRadius: "3px",
+                                border: "1px solid #334155",
+                                display: "block",
+                                margin: "0 auto",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "40px",
+                                height: "48px",
+                                backgroundColor: "#f1f5f9",
+                                border: "1px dashed #94a3b8",
+                                borderRadius: "3px",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                margin: "0 auto",
+                                color: "#94a3b8",
+                              }}
+                            >
+                              <span style={{ fontSize: "0.8rem", lineHeight: 1 }}>👤</span>
+                              <span style={{ fontSize: "0.48rem", fontWeight: 700, marginTop: "2px" }}>NO PIC</span>
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 8px", fontWeight: 700 }}>
                           {row.candidateName}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontFamily: "monospace", fontSize: "0.8rem", color: "#334155" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontFamily: "monospace", fontSize: "0.8rem", color: "#334155" }}>
                           {row.candidateUid || "—"}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontWeight: 800, fontSize: "0.88rem", color: "#8E0033" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 800, fontSize: "0.88rem", color: "#8E0033" }}>
                           {row.chestNumber || "—"}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontSize: "0.75rem" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontSize: "0.75rem" }}>
                           <div style={{ color: "#475569" }}>___:___ to ___:___</div>
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}>
                           {/* Blank box for candidate signature */}
                           <div style={{ minHeight: "26px", borderBottom: "1px dotted #94a3b8" }}></div>
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}>
                           {/* Blank box for invigilator signature */}
                           <div style={{ minHeight: "26px", borderBottom: "1px dotted #94a3b8" }}></div>
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "7px 4px", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
                           [ &nbsp; ] P &nbsp; [ &nbsp; ] A
                         </td>
                       </tr>

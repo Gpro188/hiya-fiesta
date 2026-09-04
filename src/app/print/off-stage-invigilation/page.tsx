@@ -24,6 +24,12 @@ export default async function PrintOffStageInvigilationPage(props: {
     }
 
     const { role, id: userId } = session.user;
+
+    // Strict access control: Available to ZONE_ADMIN, ADMIN, and SUPER_ADMIN ONLY!
+    if (!["ZONE_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role)) {
+      redirect("/dashboard");
+    }
+
     const fullUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { eventId: true, zoneId: true, institutionId: true },
@@ -32,28 +38,20 @@ export default async function PrintOffStageInvigilationPage(props: {
     // Determine filtering conditions based on user role and searchParams
     let teamWhere: any = {};
 
-    if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
-      if (!fullUser?.institutionId) {
-        return <div style={{ padding: "40px" }}>You are not assigned to any institution.</div>;
-      }
-      teamWhere.institutionId = fullUser.institutionId;
-      if (fullUser.eventId) {
-        teamWhere.eventId = fullUser.eventId;
-      }
-    } else if (role === "ZONE_ADMIN") {
+    if (role === "ZONE_ADMIN") {
       const zoneId = fullUser?.zoneId || searchParams.zoneId;
       const targetEventId = fullUser?.eventId || searchParams.eventId;
 
       if (searchParams.teamId) {
         teamWhere.id = searchParams.teamId;
-      } else if (zoneId && targetEventId) {
-        teamWhere.event = {
-          OR: [{ id: targetEventId }, { zoneId: zoneId }],
-        };
+      } else if (zoneId) {
+        teamWhere.OR = [
+          { event: { zoneId: zoneId } },
+          { institution: { zoneId: zoneId } },
+          ...(targetEventId ? [{ eventId: targetEventId }] : [])
+        ];
       } else if (targetEventId) {
         teamWhere.eventId = targetEventId;
-      } else if (zoneId) {
-        teamWhere.event = { zoneId: zoneId };
       }
     } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
       if (searchParams.teamId) {
@@ -61,7 +59,10 @@ export default async function PrintOffStageInvigilationPage(props: {
       } else if (searchParams.institutionId) {
         teamWhere.institutionId = searchParams.institutionId;
       } else if (searchParams.zoneId) {
-        teamWhere.event = { zoneId: searchParams.zoneId };
+        teamWhere.OR = [
+          { event: { zoneId: searchParams.zoneId } },
+          { institution: { zoneId: searchParams.zoneId } }
+        ];
       } else if (searchParams.eventId) {
         teamWhere.eventId = searchParams.eventId;
       }
@@ -147,6 +148,7 @@ export default async function PrintOffStageInvigilationPage(props: {
           candidateId: candidate.id,
           candidateName: candidate.name,
           candidateUid: candidate.uid,
+          candidatePhoto: candidate.photo || candidate.photoUrl || null,
           chestNumber: candidate.chestNumber,
           programId: program.id,
           programName: program.name,
@@ -198,12 +200,12 @@ export default async function PrintOffStageInvigilationPage(props: {
       <div style={{ padding: "40px", textAlign: "center", fontFamily: "sans-serif" }}>
         <h2>Unable to load off-stage invigilation sheet</h2>
         <p style={{ color: "#ef4444" }}>{err?.message || "An unexpected error occurred."}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          style={{ padding: "8px 16px", cursor: "pointer", marginTop: "12px" }}
+        <a 
+          href="/dashboard/reports" 
+          style={{ display: "inline-block", padding: "8px 16px", backgroundColor: "#8E0033", color: "#fff", textDecoration: "none", borderRadius: "4px", marginTop: "12px" }}
         >
-          Retry
-        </button>
+          Return to Reports
+        </a>
       </div>
     );
   }

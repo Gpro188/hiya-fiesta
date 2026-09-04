@@ -171,6 +171,17 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               >
                 Review Assignments
               </a>
+              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
+                <a 
+                  href={`/print/off-stage-invigilation?teamId=${team.id}`} 
+                  target="_blank" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none', borderColor: '#8E0033', color: '#8E0033', fontWeight: 600 }}
+                  title="Print Off-Stage Invigilation Sheet with candidate photos"
+                >
+                  📝 Off-Stage Sheet
+                </a>
+              )}
               {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && totalPrograms > 0 && !team.isAssignmentsConfirmed && (
                 <button 
                   onClick={async (e) => {
