@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
+import { isInstitutionProgram } from "@/lib/programUtils";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,10 @@ export default async function PrintProgramsReportPage(props: {
   if (eventId) {
     event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: { categories: true }
+      include: { 
+        categories: true,
+        parent: { include: { categories: true } }
+      }
     });
   } else {
     event = await prisma.event.findFirst({
@@ -25,42 +29,63 @@ export default async function PrintProgramsReportPage(props: {
   }
 
   const targetEventId = event?.id;
-  const settings = await getSettings(targetEventId);
+  const eventIdsToSearch = [event?.id, event?.parentId].filter(Boolean) as string[];
+  const settings = await getSettings(event?.parentId || targetEventId);
 
+  // Fetch all categories for this event and parent event
   const allCategories = await prisma.category.findMany({
-    where: { eventId: targetEventId },
+    where: { eventId: { in: eventIdsToSearch } },
     orderBy: { name: 'asc' }
   });
 
-  let whereClause: any = { eventId: targetEventId };
+  // Filter out any categories named GENERAL to avoid duplicate buttons, and deduplicate by name
+  const seenCatNames = new Set<string>();
+  const uniqueCategoryButtons = allCategories.filter(cat => {
+    const nameUpper = cat.name.trim().toUpperCase();
+    if (nameUpper === 'GENERAL') return false;
+    if (seenCatNames.has(nameUpper)) return false;
+    seenCatNames.add(nameUpper);
+    return true;
+  });
+
+  let whereClause: any = { eventId: { in: eventIdsToSearch } };
   let categoryName = "All Categories & General Programs";
 
-  if (categoryId === "GENERAL") {
+  const selectedUpper = categoryId?.trim().toUpperCase();
+
+  if (selectedUpper === "GENERAL") {
     whereClause = {
-      eventId: targetEventId,
+      eventId: { in: eventIdsToSearch },
       OR: [
         { type: "GENERAL" },
-        { categoryId: null }
+        { categoryId: null },
+        { category: { name: { equals: "GENERAL", mode: "insensitive" } } }
       ]
     };
     categoryName = "General Programs (Open to All Categories)";
-  } else if (categoryId && categoryId !== "ALL") {
-    // Check if categoryId is a UUID or a category name (e.g. FADHILA or FADHEELA)
+  } else if (categoryId && selectedUpper !== "ALL") {
     const matchedCategory = allCategories.find(c => 
-      c.id === categoryId || c.name.trim().toUpperCase() === categoryId.trim().toUpperCase()
+      c.id === categoryId || c.name.trim().toUpperCase() === selectedUpper
     );
 
     if (matchedCategory) {
       whereClause = {
-        eventId: targetEventId,
-        categoryId: matchedCategory.id
+        eventId: { in: eventIdsToSearch },
+        OR: [
+          { categoryId: matchedCategory.id },
+          { category: { name: { equals: matchedCategory.name, mode: "insensitive" } } }
+        ]
       };
       categoryName = `${matchedCategory.name} Category Programs`;
     } else {
       whereClause = {
-        eventId: targetEventId,
-        categoryId: categoryId
+        eventId: { in: eventIdsToSearch },
+        OR: [
+          { categoryId: categoryId },
+          { category: { name: { equals: categoryId, mode: "insensitive" } } }
+        ]
       };
+      categoryName = `${categoryId} Programs`;
     }
   }
 
@@ -93,19 +118,19 @@ export default async function PrintProgramsReportPage(props: {
               fontSize: '0.8rem',
               fontWeight: 700,
               textDecoration: 'none',
-              backgroundColor: (!categoryId || categoryId === 'ALL') ? '#8E0033' : '#E2E8F0',
-              color: (!categoryId || categoryId === 'ALL') ? '#FFFFFF' : '#334155'
+              backgroundColor: (!categoryId || selectedUpper === 'ALL') ? '#8E0033' : '#E2E8F0',
+              color: (!categoryId || selectedUpper === 'ALL') ? '#FFFFFF' : '#334155'
             }}
           >
             📋 All Programs
           </a>
 
-          {allCategories.map(cat => {
-            const isSelected = categoryId === cat.id || categoryId?.toUpperCase() === cat.name.toUpperCase();
+          {uniqueCategoryButtons.map(cat => {
+            const isSelected = categoryId === cat.id || selectedUpper === cat.name.toUpperCase();
             return (
               <a
                 key={cat.id}
-                href={`/print/programs?eventId=${targetEventId}&categoryId=${cat.id}`}
+                href={`/print/programs?eventId=${targetEventId}&categoryId=${cat.name}`}
                 style={{
                   padding: '6px 12px',
                   borderRadius: '6px',
@@ -129,8 +154,8 @@ export default async function PrintProgramsReportPage(props: {
               fontSize: '0.8rem',
               fontWeight: 700,
               textDecoration: 'none',
-              backgroundColor: categoryId === 'GENERAL' ? '#D97706' : '#FEF3C7',
-              color: categoryId === 'GENERAL' ? '#FFFFFF' : '#92400E'
+              backgroundColor: selectedUpper === 'GENERAL' ? '#D97706' : '#FEF3C7',
+              color: selectedUpper === 'GENERAL' ? '#FFFFFF' : '#92400E'
             }}
           >
             ⭐ General Only
@@ -148,7 +173,7 @@ export default async function PrintProgramsReportPage(props: {
             {event?.name || settings.festName}
           </h1>
           <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#E11D5A', fontWeight: 700 }}>
-            Competition Programs List & Guidelines
+            Competition Programs List
           </h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#4B5563', fontWeight: 600 }}>
             Filter: <span style={{ color: '#8E0033', fontWeight: 800 }}>{categoryName}</span> • Total Programs: {programs.length}
@@ -170,15 +195,13 @@ export default async function PrintProgramsReportPage(props: {
             <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '90px' }}>Type</th>
             <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '80px' }}>Stage</th>
             <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '90px' }}>Category</th>
-            <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '70px' }}>Time</th>
-            <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '70px' }}>Limit</th>
-            <th style={{ padding: '10px 10px', border: '1px solid #E5E7EB', textAlign: 'left' }}>Guidelines / Evaluation</th>
+            <th style={{ padding: '10px 8px', border: '1px solid #E5E7EB', textAlign: 'center', width: '70px' }}>Duration</th>
           </tr>
         </thead>
         <tbody>
           {programs.length === 0 ? (
             <tr>
-              <td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+              <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#6B7280', border: '1px solid #E5E7EB' }}>
                 No programs found for this selection.
               </td>
             </tr>
@@ -191,6 +214,11 @@ export default async function PrintProgramsReportPage(props: {
                 </td>
                 <td style={{ padding: '8px 10px', border: '1px solid #E5E7EB', fontWeight: 600 }}>
                   {p.name}
+                  {p.programCode?.toUpperCase() === 'OFF01' && (
+                    <span style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#FDF2F8', color: '#BE185D', border: '1px solid #FBCFE8' }}>
+                      INSTITUTION ENTRY
+                    </span>
+                  )}
                 </td>
                 <td style={{ padding: '8px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
                   <span style={{ 
@@ -212,14 +240,6 @@ export default async function PrintProgramsReportPage(props: {
                 </td>
                 <td style={{ padding: '8px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
                   {p.duration} min
-                </td>
-                <td style={{ padding: '8px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
-                  {p.candidateLimitPerTeam}
-                </td>
-                <td style={{ padding: '8px 10px', border: '1px solid #E5E7EB', fontSize: '0.75rem', color: '#4B5563' }}>
-                  {p.description && <div><strong>Desc:</strong> {p.description}</div>}
-                  {p.evaluationCriteria && <div><strong>Criteria:</strong> {p.evaluationCriteria}</div>}
-                  {!p.description && !p.evaluationCriteria && '-'}
                 </td>
               </tr>
             ))
