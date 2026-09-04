@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export async function assignProgram(candidateId: string, programId: string) {
   try {
@@ -54,7 +56,8 @@ export async function assignProgram(candidateId: string, programId: string) {
       include: { 
         programs: { include: { program: { include: { category: true } } } }, 
         category: true,
-        masterStudent: true
+        masterStudent: true,
+        team: true
       }
     });
 
@@ -65,7 +68,7 @@ export async function assignProgram(candidateId: string, programId: string) {
 
     if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
 
-    const isGeneral = !program.category || program.category.name.toUpperCase() === "GENERAL";
+    const isGeneral = isProgramGeneral(program);
     const programCatName = program.category?.name?.toUpperCase() || "GENERAL";
     const studentStream = candidate.masterStudent?.stream?.toUpperCase();
 
@@ -78,27 +81,44 @@ export async function assignProgram(candidateId: string, programId: string) {
       }
     }
 
-    // Validation 2: Individual Registration Limits
-    // Max 2 On-stage, 2 Off-stage, 1 General
-    const currentOnStage = candidate.programs.filter(p => p.program.stageType === "ON_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length;
-    const currentOffStage = candidate.programs.filter(p => p.program.stageType === "OFF_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length;
-    const currentGeneral = candidate.programs.filter(p => !p.program.category || p.program.category.name.toUpperCase() === "GENERAL").length;
+    // Validation 2: Individual and General Registration Limits
+    // Fetch dynamic limits from Settings (falls back to 4 individual, 2 on-stage, 2 off-stage, 2 general total, 1 general on-stage, 1 general off-stage)
+    const settings = await getSettings(candidate.team?.eventId || session.user.eventId);
+    const maxIndivTotal = settings?.maxIndividualPrograms ?? 4;
+    const maxIndivOnStage = settings?.maxIndividualOnStage ?? 2;
+    const maxIndivOffStage = settings?.maxIndividualOffStage ?? 2;
+    const maxGenTotal = settings?.maxGeneralTotal ?? 2;
+    const maxGenOnStage = settings?.maxGeneralOnStage ?? 1;
+    const maxGenOffStage = settings?.maxGeneralOffStage ?? 1;
+
+    // Separate counts cleanly using isProgramGeneral
+    const currentOnStageIndividual = candidate.programs.filter(p => !isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE").length;
+    const currentOffStageIndividual = candidate.programs.filter(p => !isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE").length;
+    const currentIndividualTotal = candidate.programs.filter(p => !isProgramGeneral(p.program) && p.program.type === "INDIVIDUAL").length;
+
+    const currentOnStageGeneral = candidate.programs.filter(p => isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE").length;
+    const currentOffStageGeneral = candidate.programs.filter(p => isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE").length;
+    const currentGeneralTotal = candidate.programs.filter(p => isProgramGeneral(p.program)).length;
 
     if (isGeneral) {
-      if (currentGeneral >= 1) return { success: false, error: "Exceeded max limit of 1 General program per candidate." };
+      if (program.stageType === "ON_STAGE" && currentOnStageGeneral >= maxGenOnStage) {
+        return { success: false, error: `Exceeded max limit of ${maxGenOnStage} On-Stage General program(s) per candidate.` };
+      }
+      if (program.stageType === "OFF_STAGE" && currentOffStageGeneral >= maxGenOffStage) {
+        return { success: false, error: `Exceeded max limit of ${maxGenOffStage} Off-Stage General program(s) per candidate.` };
+      }
+      if (currentGeneralTotal >= maxGenTotal) {
+        return { success: false, error: `Exceeded max limit of ${maxGenTotal} General program(s) per candidate.` };
+      }
     } else {
-      if (program.stageType === "ON_STAGE" && currentOnStage >= 2) {
-        return { success: false, error: "Exceeded max limit of 2 On-Stage programs per candidate." };
+      if (program.stageType === "ON_STAGE" && currentOnStageIndividual >= maxIndivOnStage) {
+        return { success: false, error: `Exceeded max limit of ${maxIndivOnStage} On-Stage programs per candidate.` };
       }
-      if (program.stageType === "OFF_STAGE" && currentOffStage >= 2) {
-        return { success: false, error: "Exceeded max limit of 2 Off-Stage programs per candidate." };
+      if (program.stageType === "OFF_STAGE" && currentOffStageIndividual >= maxIndivOffStage) {
+        return { success: false, error: `Exceeded max limit of ${maxIndivOffStage} Off-Stage programs per candidate.` };
       }
-    }
-
-    if (program.type === "INDIVIDUAL") {
-      const currentIndividual = candidate.programs.filter(p => p.program.type === "INDIVIDUAL").length;
-      if (currentIndividual >= 4) {
-        return { success: false, error: "Exceeded max limit of 4 Individual programs per candidate." };
+      if (program.type === "INDIVIDUAL" && currentIndividualTotal >= maxIndivTotal) {
+        return { success: false, error: `Exceeded max limit of ${maxIndivTotal} Individual programs per candidate.` };
       }
     }
 

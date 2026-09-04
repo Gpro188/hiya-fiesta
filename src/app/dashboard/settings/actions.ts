@@ -10,6 +10,12 @@ export async function updateSettings(data: {
   festName: string, 
   festMoto: string, 
   festLogo: string,
+  maxIndividualPrograms?: number,
+  maxIndividualOnStage?: number,
+  maxIndividualOffStage?: number,
+  maxGeneralTotal?: number,
+  maxGeneralOnStage?: number,
+  maxGeneralOffStage?: number,
 }) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,6 +24,18 @@ export async function updateSettings(data: {
     }
 
     const { eventId } = session.user;
+
+    const settingPayload = {
+      festName: data.festName,
+      festMoto: data.festMoto,
+      festLogo: data.festLogo,
+      maxIndividualPrograms: data.maxIndividualPrograms ?? 4,
+      maxIndividualOnStage: data.maxIndividualOnStage ?? 2,
+      maxIndividualOffStage: data.maxIndividualOffStage ?? 2,
+      maxGeneralTotal: data.maxGeneralTotal ?? 2,
+      maxGeneralOnStage: data.maxGeneralOnStage ?? 1,
+      maxGeneralOffStage: data.maxGeneralOffStage ?? 1,
+    };
 
     if (eventId) {
       // Update the event name so it stays in sync
@@ -28,37 +46,27 @@ export async function updateSettings(data: {
 
       await prisma.globalSetting.upsert({
         where: { eventId },
-        update: {
-          festName: data.festName,
-          festMoto: data.festMoto,
-          festLogo: data.festLogo,
-        },
+        update: settingPayload,
         create: {
           eventId,
           id: `event-${eventId}`,
-          festName: data.festName,
-          festMoto: data.festMoto,
-          festLogo: data.festLogo,
+          ...settingPayload
         }
       });
     } else {
       await prisma.globalSetting.upsert({
         where: { id: "default" },
-        update: {
-          festName: data.festName,
-          festMoto: data.festMoto,
-          festLogo: data.festLogo,
-        },
+        update: settingPayload,
         create: {
           id: "default",
-          festName: data.festName,
-          festMoto: data.festMoto,
-          festLogo: data.festLogo,
+          ...settingPayload
         }
       });
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/assignments");
     return { success: true };
   } catch (error) {
     console.error("Failed to update settings:", error);

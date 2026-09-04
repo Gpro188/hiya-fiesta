@@ -63,20 +63,26 @@ export async function getSettings(eventId?: string | null) {
     });
   } catch (e) {
     console.error("getSettings failed:", e);
-    return { 
-      id: eventId || "default", 
-      festName: "CSWC Hiya Fiesta 2026", 
-      festMoto: "Council of Samastha Women's Colleges", 
-      festLogo: null,
-      posterBgUrl: null,
-      posterLogoUrl: null,
-      posterHeaderUrl: null,
-      posterFooterUrl: null,
-      posterCongratulationUrl: null,
-      posterPrimaryColor: "#1e293b",
-      posterSecondaryColor: "#f97316",
-      posterTextColor: "#1e293b"
-    } as any;
+      return { 
+        id: eventId || "default", 
+        festName: "CSWC Hiya Fiesta 2026", 
+        festMoto: "Council of Samastha Women's Colleges", 
+        festLogo: null,
+        posterBgUrl: null,
+        posterLogoUrl: null,
+        posterHeaderUrl: null,
+        posterFooterUrl: null,
+        posterCongratulationUrl: null,
+        posterPrimaryColor: "#1e293b",
+        posterSecondaryColor: "#f97316",
+        posterTextColor: "#1e293b",
+        maxIndividualPrograms: 4,
+        maxIndividualOnStage: 2,
+        maxIndividualOffStage: 2,
+        maxGeneralTotal: 2,
+        maxGeneralOnStage: 1,
+        maxGeneralOffStage: 1,
+      } as any;
   }
 }
 

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/lib/settings";
 import AssignmentForm from "./AssignmentForm";
 import Link from "next/link";
 
@@ -151,7 +152,14 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
               id: true,
               name: true,
               type: true,
-              stageType: true
+              stageType: true,
+              categoryId: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
             }
           }
         }
@@ -170,11 +178,17 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     orderBy: { name: 'asc' }
   });
 
-  const globalSetting = await prisma.globalSetting.findFirst({
-    where: { id: "default" },
-    select: { posterCongratulationUrl: true }
-  });
-  const isGuidelinesHidden = globalSetting?.posterCongratulationUrl === "HIDE_GUIDELINES";
+  const settings = await getSettings(zoneEventId || parentEventId || session.user.eventId);
+  const limits = {
+    maxIndividualPrograms: settings?.maxIndividualPrograms ?? 4,
+    maxIndividualOnStage: settings?.maxIndividualOnStage ?? 2,
+    maxIndividualOffStage: settings?.maxIndividualOffStage ?? 2,
+    maxGeneralTotal: settings?.maxGeneralTotal ?? 2,
+    maxGeneralOnStage: settings?.maxGeneralOnStage ?? 1,
+    maxGeneralOffStage: settings?.maxGeneralOffStage ?? 1,
+  };
+
+  const isGuidelinesHidden = settings?.posterCongratulationUrl === "HIDE_GUIDELINES";
 
   return (
     <div className="animate-fade-in">
@@ -304,6 +318,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             initialCandidateId={searchParams.candidateId}
             teamId={teamId}
             isAssignmentsConfirmed={isAssignmentsConfirmed}
+            limits={limits}
           />
         </div>
       )}

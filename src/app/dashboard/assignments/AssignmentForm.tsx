@@ -3,8 +3,34 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { assignProgram, unassignProgram } from "./actions";
+import { isProgramGeneral } from "@/lib/programUtils";
 
-export default function AssignmentForm({ candidates, programs, isAssignmentOpen = true, statusMessage = "", initialCandidateId, teamId, isAssignmentsConfirmed = false }: { candidates: any[], programs: any[], isAssignmentOpen?: boolean, statusMessage?: string, initialCandidateId?: string, teamId?: string | null, isAssignmentsConfirmed?: boolean }) {
+export default function AssignmentForm({ 
+  candidates, 
+  programs, 
+  isAssignmentOpen = true, 
+  statusMessage = "", 
+  initialCandidateId, 
+  teamId, 
+  isAssignmentsConfirmed = false,
+  limits
+}: { 
+  candidates: any[], 
+  programs: any[], 
+  isAssignmentOpen?: boolean, 
+  statusMessage?: string, 
+  initialCandidateId?: string, 
+  teamId?: string | null, 
+  isAssignmentsConfirmed?: boolean,
+  limits?: {
+    maxIndividualPrograms?: number;
+    maxIndividualOnStage?: number;
+    maxIndividualOffStage?: number;
+    maxGeneralTotal?: number;
+    maxGeneralOnStage?: number;
+    maxGeneralOffStage?: number;
+  }
+}) {
   const router = useRouter();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>(initialCandidateId || candidates[0]?.id || "");
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,11 +61,37 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
   }
 
   const assigneCSWCgramIds = selectedCandidate.programs.map((p: any) => p.programId);
-  // Default individual program limit per candidate
-  const maxIndividualLimit = 4;
+  
+  // Program registration limits
+  const maxIndividualLimit = limits?.maxIndividualPrograms ?? 4;
+  const maxIndividualOnStage = limits?.maxIndividualOnStage ?? 2;
+  const maxIndividualOffStage = limits?.maxIndividualOffStage ?? 2;
+  const maxGeneralTotal = limits?.maxGeneralTotal ?? 2;
+  const maxGeneralOnStage = limits?.maxGeneralOnStage ?? 1;
+  const maxGeneralOffStage = limits?.maxGeneralOffStage ?? 1;
   
   const currentIndividualCount = selectedCandidate.programs.filter(
-    (p: any) => p.program.type === "INDIVIDUAL"
+    (p: any) => !isProgramGeneral(p.program) && p.program.type === "INDIVIDUAL"
+  ).length;
+
+  const currentIndividualOnStage = selectedCandidate.programs.filter(
+    (p: any) => !isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE"
+  ).length;
+
+  const currentIndividualOffStage = selectedCandidate.programs.filter(
+    (p: any) => !isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE"
+  ).length;
+
+  const currentGeneralTotal = selectedCandidate.programs.filter(
+    (p: any) => isProgramGeneral(p.program)
+  ).length;
+
+  const currentGeneralOnStage = selectedCandidate.programs.filter(
+    (p: any) => isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE"
+  ).length;
+
+  const currentGeneralOffStage = selectedCandidate.programs.filter(
+    (p: any) => isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE"
   ).length;
 
   const handleAssign = async (programId: string) => {
@@ -218,11 +270,15 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
             <span className="field-helper">Choose a student to view and manage their program assignments.</span>
             <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
               <span>Category: <strong>{selectedCandidate.category?.name}</strong></span>
-              <span>Individual Total Limit: <strong style={{ color: currentIndividualCount >= maxIndividualLimit ? 'var(--error)' : 'var(--success)' }}>{currentIndividualCount} / {maxIndividualLimit}</strong></span>
+              <span>Individual Limit: <strong style={{ color: currentIndividualCount >= maxIndividualLimit ? 'var(--error)' : 'var(--success)' }}>{currentIndividualCount} / {maxIndividualLimit}</strong></span>
               <span>
-                (On-Stage: <strong>{selectedCandidate.programs.filter((p: any) => p.program.stageType === "ON_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length}/2</strong>, 
-                Off-Stage: <strong>{selectedCandidate.programs.filter((p: any) => p.program.stageType === "OFF_STAGE" && p.program.category?.name?.toUpperCase() !== "GENERAL").length}/2</strong>, 
-                General: <strong>{selectedCandidate.programs.filter((p: any) => !p.program.category || p.program.category?.name?.toUpperCase() === "GENERAL").length}/1</strong>)
+                (On-Stage: <strong>{currentIndividualOnStage}/{maxIndividualOnStage}</strong>, 
+                Off-Stage: <strong>{currentIndividualOffStage}/{maxIndividualOffStage}</strong>)
+              </span>
+              <span>General Limit: <strong style={{ color: currentGeneralTotal >= maxGeneralTotal ? 'var(--error)' : 'var(--success)' }}>{currentGeneralTotal} / {maxGeneralTotal}</strong></span>
+              <span>
+                (On-Stage: <strong>{currentGeneralOnStage}/{maxGeneralOnStage}</strong>, 
+                Off-Stage: <strong>{currentGeneralOffStage}/{maxGeneralOffStage}</strong>)
               </span>
             </div>
           </div>
@@ -234,14 +290,41 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }}>
                 {programs
                   .filter(p => !assigneCSWCgramIds.includes(p.id))
-                  .filter(p => p.type === "GENERAL" || p.categoryId === selectedCandidate.categoryId || (p.category?.name === selectedCandidate.category?.name))
+                  .filter(p => isProgramGeneral(p) || p.categoryId === selectedCandidate.categoryId || (p.category?.name === selectedCandidate.category?.name))
                   .filter(p => {
                     const teamLimit = p.candidateLimitPerTeam || 1;
                     const currentTeamCount = teamProgramCounts[p.id] || 0;
                     return currentTeamCount < teamLimit;
                   })
                   .map(program => {
-                    const isLimitReached = program.type === "INDIVIDUAL" && currentIndividualCount >= maxIndividualLimit;
+                    const isGen = isProgramGeneral(program);
+                    let isLimitReached = false;
+                    let limitReason = "";
+
+                    if (isGen) {
+                      if (program.stageType === "ON_STAGE" && currentGeneralOnStage >= maxGeneralOnStage) {
+                        isLimitReached = true;
+                        limitReason = `General On-Stage limit reached (${maxGeneralOnStage}/${maxGeneralOnStage})`;
+                      } else if (program.stageType === "OFF_STAGE" && currentGeneralOffStage >= maxGeneralOffStage) {
+                        isLimitReached = true;
+                        limitReason = `General Off-Stage limit reached (${maxGeneralOffStage}/${maxGeneralOffStage})`;
+                      } else if (currentGeneralTotal >= maxGeneralTotal) {
+                        isLimitReached = true;
+                        limitReason = `General limit reached (${maxGeneralTotal}/${maxGeneralTotal})`;
+                      }
+                    } else {
+                      if (program.stageType === "ON_STAGE" && currentIndividualOnStage >= maxIndividualOnStage) {
+                        isLimitReached = true;
+                        limitReason = `Individual On-Stage limit reached (${maxIndividualOnStage}/${maxIndividualOnStage})`;
+                      } else if (program.stageType === "OFF_STAGE" && currentIndividualOffStage >= maxIndividualOffStage) {
+                        isLimitReached = true;
+                        limitReason = `Individual Off-Stage limit reached (${maxIndividualOffStage}/${maxIndividualOffStage})`;
+                      } else if (program.type === "INDIVIDUAL" && currentIndividualCount >= maxIndividualLimit) {
+                        isLimitReached = true;
+                        limitReason = `Individual limit reached (${maxIndividualLimit}/${maxIndividualLimit})`;
+                      }
+                    }
+
                     const canAssign = !isLimitReached;
 
                     return (
@@ -261,11 +344,11 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
                             {renderStageBadge(program.stageType, program.type)}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            <span style={{ fontWeight: 600 }}>{program.type}</span> {program.category && `• ${program.category.name}`}
+                            <span style={{ fontWeight: 600 }}>{isGen ? 'GENERAL' : program.type}</span> {program.category && `• ${program.category.name}`}
                           </div>
                           {!canAssign && (
                             <div style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: '2px' }}>
-                              Individual limit reached ({maxIndividualLimit}/{maxIndividualLimit})
+                              {limitReason}
                             </div>
                           )}
                         </div>
@@ -455,12 +538,45 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
                       const isAssigned = c.programs.some((p: any) => p.programId === selectedProgram.id);
                       if (isAssigned) return false;
                       // Category match
-                      if (selectedProgram.type === "GENERAL") return true;
+                      if (isProgramGeneral(selectedProgram)) return true;
                       return c.categoryId === selectedProgram.categoryId || c.category?.name === selectedProgram.category?.name;
                     })
                     .map(candidate => {
-                      const indivCount = candidate.programs.filter((p: any) => p.program.type === "INDIVIDUAL").length;
-                      const isLimitReached = selectedProgram.type === "INDIVIDUAL" && indivCount >= maxIndividualLimit;
+                      const isGen = isProgramGeneral(selectedProgram);
+                      const cIndivCount = candidate.programs.filter((p: any) => !isProgramGeneral(p.program) && p.program.type === "INDIVIDUAL").length;
+                      const cIndivOn = candidate.programs.filter((p: any) => !isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE").length;
+                      const cIndivOff = candidate.programs.filter((p: any) => !isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE").length;
+                      const cGenTotal = candidate.programs.filter((p: any) => isProgramGeneral(p.program)).length;
+                      const cGenOn = candidate.programs.filter((p: any) => isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE").length;
+                      const cGenOff = candidate.programs.filter((p: any) => isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE").length;
+
+                      let isLimitReached = false;
+                      let limitReason = "";
+
+                      if (isGen) {
+                        if (selectedProgram.stageType === "ON_STAGE" && cGenOn >= maxGeneralOnStage) {
+                          isLimitReached = true;
+                          limitReason = `General On-Stage reached (${maxGeneralOnStage}/${maxGeneralOnStage})`;
+                        } else if (selectedProgram.stageType === "OFF_STAGE" && cGenOff >= maxGeneralOffStage) {
+                          isLimitReached = true;
+                          limitReason = `General Off-Stage reached (${maxGeneralOffStage}/${maxGeneralOffStage})`;
+                        } else if (cGenTotal >= maxGeneralTotal) {
+                          isLimitReached = true;
+                          limitReason = `General limit reached (${maxGeneralTotal}/${maxGeneralTotal})`;
+                        }
+                      } else {
+                        if (selectedProgram.stageType === "ON_STAGE" && cIndivOn >= maxIndividualOnStage) {
+                          isLimitReached = true;
+                          limitReason = `On-Stage limit reached (${maxIndividualOnStage}/${maxIndividualOnStage})`;
+                        } else if (selectedProgram.stageType === "OFF_STAGE" && cIndivOff >= maxIndividualOffStage) {
+                          isLimitReached = true;
+                          limitReason = `Off-Stage limit reached (${maxIndividualOffStage}/${maxIndividualOffStage})`;
+                        } else if (selectedProgram.type === "INDIVIDUAL" && cIndivCount >= maxIndividualLimit) {
+                          isLimitReached = true;
+                          limitReason = `Individual limit reached (${maxIndividualLimit}/${maxIndividualLimit})`;
+                        }
+                      }
+
                       const isTeamSlotFull = (teamProgramCounts[selectedProgram.id] || 0) >= (selectedProgram.candidateLimitPerTeam || 1);
                       const canAssign = !isLimitReached && !isTeamSlotFull;
 
@@ -480,13 +596,13 @@ export default function AssignmentForm({ candidates, programs, isAssignmentOpen 
                               {candidate.name} {candidate.uid ? `(${candidate.uid})` : ''}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              Category: {candidate.category?.name} • Indiv: {indivCount}/{maxIndividualLimit}
+                              Category: {candidate.category?.name || 'General'} • Indiv: {cIndivCount}/{maxIndividualLimit} (On: {cIndivOn}/{maxIndividualOnStage}, Off: {cIndivOff}/{maxIndividualOffStage}) • Gen: {cGenTotal}/{maxGeneralTotal} (On: {cGenOn}/{maxGeneralOnStage}, Off: {cGenOff}/{maxGeneralOffStage})
                             </div>
                             {isTeamSlotFull && (
                               <div style={{ fontSize: '0.7rem', color: 'var(--error)' }}>Team program slot is full</div>
                             )}
                             {!isTeamSlotFull && isLimitReached && (
-                              <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>Candidate reached individual limit</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>{limitReason}</div>
                             )}
                           </div>
                           <button

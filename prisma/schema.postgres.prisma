@@ -269,6 +269,14 @@ model GlobalSetting {
   posterSecondaryColor    String? @default("#f97316")
   posterTextColor         String? @default("#1e293b")
   posterCongratulationUrl String?
+
+  // Candidate Program Registration Limits
+  maxIndividualPrograms   Int?     @default(4)
+  maxIndividualOnStage    Int?     @default(2)
+  maxIndividualOffStage   Int?     @default(2)
+  maxGeneralTotal         Int?     @default(2)
+  maxGeneralOnStage       Int?     @default(1)
+  maxGeneralOffStage      Int?     @default(1)
 }
 
 model PageVisit {

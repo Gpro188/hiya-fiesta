@@ -9,6 +9,14 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
   const [festMoto, setFestMoto] = useState(initialSettings?.festMoto || "Celebrating Creativity");
   const [festLogo, setFestLogo] = useState(initialSettings?.festLogo || "");
   
+  // Registration Limits State
+  const [maxIndividualPrograms, setMaxIndividualPrograms] = useState<number>(initialSettings?.maxIndividualPrograms ?? 4);
+  const [maxIndividualOnStage, setMaxIndividualOnStage] = useState<number>(initialSettings?.maxIndividualOnStage ?? 2);
+  const [maxIndividualOffStage, setMaxIndividualOffStage] = useState<number>(initialSettings?.maxIndividualOffStage ?? 2);
+  const [maxGeneralTotal, setMaxGeneralTotal] = useState<number>(initialSettings?.maxGeneralTotal ?? 2);
+  const [maxGeneralOnStage, setMaxGeneralOnStage] = useState<number>(initialSettings?.maxGeneralOnStage ?? 1);
+  const [maxGeneralOffStage, setMaxGeneralOffStage] = useState<number>(initialSettings?.maxGeneralOffStage ?? 1);
+
   // Event Deadline State
   const [selectedEventId, setSelectedEventId] = useState(events[0]?.id || "");
   
@@ -85,7 +93,13 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       result = await updateSettings({ 
         festName, 
         festMoto, 
-        festLogo
+        festLogo,
+        maxIndividualPrograms,
+        maxIndividualOnStage,
+        maxIndividualOffStage,
+        maxGeneralTotal,
+        maxGeneralOnStage,
+        maxGeneralOffStage,
       });
     }
 
@@ -201,6 +215,115 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
             </select>
             <span className="field-helper">Saving deadlines will automatically update and synchronize all child zones.</span>
           </div>
+
+          {/* BOARD: CANDIDATE PROGRAM REGISTRATION LIMITS */}
+          {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+            <div style={{
+              border: '2px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'rgba(16, 185, 129, 0.03)',
+              marginBottom: 'var(--spacing-xl)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
+                <span style={{ fontSize: '1.4rem' }}>🎯</span>
+                <h4 style={{ margin: 0, color: 'var(--success)', fontSize: '1.15rem' }}>Candidate Program Registration Limits (Super Admin)</h4>
+              </div>
+              <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Control candidate entry rules across all categories. Allows candidates to take separate caps for Individual and General programs (including 1 On-Stage and 1 Off-Stage General program).
+              </p>
+
+              {/* SECTION A: INDIVIDUAL PROGRAMS */}
+              <div style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>👤 Individual Programs Limits</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-md)' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Total Individual Max</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="20" 
+                      className="form-input" 
+                      value={maxIndividualPrograms} 
+                      onChange={(e) => setMaxIndividualPrograms(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 4 programs per candidate</span>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Individual On-Stage Max</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="10" 
+                      className="form-input" 
+                      value={maxIndividualOnStage} 
+                      onChange={(e) => setMaxIndividualOnStage(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 2 On-Stage programs</span>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Individual Off-Stage Max</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="10" 
+                      className="form-input" 
+                      value={maxIndividualOffStage} 
+                      onChange={(e) => setMaxIndividualOffStage(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 2 Off-Stage programs</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION B: GENERAL PROGRAMS */}
+              <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🌐 General Programs Limits</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-md)' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Total General Max</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      className="form-input" 
+                      value={maxGeneralTotal} 
+                      onChange={(e) => setMaxGeneralTotal(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 2 General programs (1 On + 1 Off)</span>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>General On-Stage Max</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="5" 
+                      className="form-input" 
+                      value={maxGeneralOnStage} 
+                      onChange={(e) => setMaxGeneralOnStage(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 1 General On-Stage</span>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>General Off-Stage Max</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="5" 
+                      className="form-input" 
+                      value={maxGeneralOffStage} 
+                      onChange={(e) => setMaxGeneralOffStage(parseInt(e.target.value) || 0)} 
+                    />
+                    <span className="field-helper">Default: 1 General Off-Stage</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* BOARD 1: INSTITUTION PORTAL DEADLINES */}
           <div style={{
