@@ -102,6 +102,8 @@ model Event {
   assignmentStart                DateTime?
   registrationEnd                DateTime?
   registrationStart              DateTime?
+  offStageRegistrationEnd        DateTime?
+  onStageRegistrationEnd         DateTime?
   statusOverride                 String           @default("AUTO")
   customDomain                   String?
   categories                     Category[]
@@ -150,6 +152,9 @@ model Team {
   leaderName             String?
   leaderPhoto            String?
   isAssignmentsConfirmed Boolean            @default(false)
+  offStageUnlocked       Boolean            @default(false)
+  onStageUnlocked        Boolean            @default(false)
+  registrationUnlocked   Boolean            @default(false)
   candidates             Candidate[]
   results                Result[]
   institution            MasterInstitution? @relation(fields: [institutionId], references: [id])

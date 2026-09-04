@@ -3,32 +3,74 @@
 import { useState } from "react";
 import { deleteTeam } from "./actions";
 import EditTeamModal from "./EditTeamModal";
+import RegistrationAccessModal from "./RegistrationAccessModal";
 
 type TeamType = {
   id: string;
   name: string;
   prefixCode: string;
-  event: { name: string };
+  event: { 
+    name: string;
+    offStageRegistrationEnd?: string | Date | null;
+    onStageRegistrationEnd?: string | Date | null;
+    institutionRegistrationEndDate?: string | Date | null;
+    registrationEnd?: string | Date | null;
+    parent?: {
+      offStageRegistrationEnd?: string | Date | null;
+      onStageRegistrationEnd?: string | Date | null;
+      institutionRegistrationEndDate?: string | Date | null;
+      registrationEnd?: string | Date | null;
+    } | null;
+  };
   manager: { username: string } | null;
   leaderName: string | null;
   leaderPhoto: string | null;
   flagColor: string | null;
   isAssignmentsConfirmed: boolean;
+  offStageUnlocked?: boolean;
+  onStageUnlocked?: boolean;
+  registrationUnlocked?: boolean;
   _count: { candidates: number };
   candidates?: { id: string; _count: { programs: number } }[];
 };
 
 export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[], role?: string }) {
   const [editingTeam, setEditingTeam] = useState<TeamType | null>(null);
+  const [accessModalTeam, setAccessModalTeam] = useState<TeamType | null>(null);
 
   if (teams.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>No teams created yet.</div>;
   }
 
+  const now = new Date();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
       {teams.map((team) => {
         const totalPrograms = team.candidates?.reduce((sum, c) => sum + c._count.programs, 0) || 0;
+
+        const offDeadline =
+          team.event?.offStageRegistrationEnd ||
+          team.event?.parent?.offStageRegistrationEnd ||
+          team.event?.institutionRegistrationEndDate ||
+          team.event?.parent?.institutionRegistrationEndDate ||
+          team.event?.registrationEnd ||
+          team.event?.parent?.registrationEnd;
+
+        const onDeadline =
+          team.event?.onStageRegistrationEnd ||
+          team.event?.parent?.onStageRegistrationEnd ||
+          team.event?.institutionRegistrationEndDate ||
+          team.event?.parent?.institutionRegistrationEndDate ||
+          team.event?.registrationEnd ||
+          team.event?.parent?.registrationEnd;
+
+        const isOffDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
+        const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
+
+        const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
+        const isOnStageOpen = team.onStageUnlocked || (!team.isAssignmentsConfirmed && !isOnDeadlinePassed);
+
         return (
         <div key={team.id} style={{ 
           padding: 'var(--spacing-md)', 
@@ -38,9 +80,11 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: 'rgba(15, 23, 42, 0.4)'
+          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+          gap: 'var(--spacing-md)',
+          flexWrap: 'wrap'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flex: 1, minWidth: '300px' }}>
             {team.leaderPhoto && (
               <img 
                 src={team.leaderPhoto} 
@@ -66,6 +110,33 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   Leader: {team.leaderName}
                 </div>
               )}
+
+              {/* Off-Stage and On-Stage Status Badges */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                <span style={{ 
+                  fontSize: '0.75rem', 
+                  padding: '3px 8px', 
+                  borderRadius: '4px', 
+                  fontWeight: 600,
+                  backgroundColor: team.offStageUnlocked ? 'rgba(16, 185, 129, 0.15)' : isOffStageOpen ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: team.offStageUnlocked ? '#10b981' : isOffStageOpen ? '#60a5fa' : '#ef4444',
+                  border: `1px solid ${team.offStageUnlocked ? '#10b981' : isOffStageOpen ? 'rgba(96, 165, 250, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                }}>
+                  🎨 Off-Stage: {team.offStageUnlocked ? '⚡ Zone Override (Open)' : isOffStageOpen ? '🟢 Open' : '🔒 Closed'}
+                </span>
+                <span style={{ 
+                  fontSize: '0.75rem', 
+                  padding: '3px 8px', 
+                  borderRadius: '4px', 
+                  fontWeight: 600,
+                  backgroundColor: team.onStageUnlocked ? 'rgba(16, 185, 129, 0.15)' : isOnStageOpen ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: team.onStageUnlocked ? '#10b981' : isOnStageOpen ? '#60a5fa' : '#ef4444',
+                  border: `1px solid ${team.onStageUnlocked ? '#10b981' : isOnStageOpen ? 'rgba(96, 165, 250, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                }}>
+                  🎭 On-Stage: {team.onStageUnlocked ? '⚡ Zone Override (Open)' : isOnStageOpen ? '🟢 Open' : '🔒 Closed'}
+                </span>
+              </div>
+
               {team.isAssignmentsConfirmed ? (
                 <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
                   ✅ Registration Confirmed & Locked (Chest Numbers Assigned)
@@ -81,7 +152,8 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexDirection: 'column' }}>
+
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexDirection: 'column', alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <a 
                 href={`/print/assignments?teamId=${team.id}`} 
@@ -111,30 +183,24 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </button>
               )}
             </div>
+
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
-              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && team.isAssignmentsConfirmed && (
+              {/* Dedicated Stage Unlock / Access Control for Zone Admins & Admins */}
+              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
                 <button 
-                  onClick={async (e) => {
-                    const reason = prompt(`Unlock registration & assignments for "${team.name}"?\n\nEnter reason for unlocking (e.g., "Add candidate correction", "Replace program assignment"):`, "Permission granted by Zone Admin for correction");
-                    if (reason !== null) {
-                      const btn = e.currentTarget;
-                      btn.disabled = true;
-                      btn.innerText = "Unlocking...";
-                      const result = await import("./actions").then(m => m.unlockTeamAssignments(team.id));
-                      if (!result.success) {
-                        alert(result.error);
-                        btn.disabled = false;
-                        btn.innerText = "🔓 Unlock for Edit";
-                      } else {
-                        alert(`✅ ${team.name} has been unlocked! The institution can now edit candidates and assignments.`);
-                      }
-                    }
-                  }}
+                  onClick={() => setAccessModalTeam(team)}
                   className="btn btn-secondary" 
-                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
-                  title="Unlock registration for this institution so they can make changes"
+                  style={{ 
+                    padding: '0.25rem 0.75rem', 
+                    fontSize: '0.8rem', 
+                    backgroundColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(142, 0, 51, 0.15)', 
+                    color: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#10b981' : 'var(--primary)', 
+                    borderColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#10b981' : 'var(--primary)', 
+                    fontWeight: 700 
+                  }}
+                  title="Open Off-Stage, On-Stage, Both, or Lock registration for this institution"
                 >
-                  🔓 Unlock for Edit
+                  ⚡ Registration Access
                 </button>
               )}
 
@@ -178,6 +244,14 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
         <EditTeamModal 
           team={editingTeam} 
           onClose={() => setEditingTeam(null)} 
+        />
+      )}
+
+      {accessModalTeam && (
+        <RegistrationAccessModal
+          team={accessModalTeam}
+          onClose={() => setAccessModalTeam(null)}
+          onUpdated={() => setAccessModalTeam(null)}
         />
       )}
     </div>

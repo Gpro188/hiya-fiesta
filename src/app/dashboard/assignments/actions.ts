@@ -12,52 +12,19 @@ export async function assignProgram(candidateId: string, programId: string) {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
-    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
-      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
-      if (!fullUser?.institutionId) return { success: false, error: "Institution not found" };
-
-      // Find zone event via institution → zone → zone event
-      const institution = await prisma.masterInstitution.findUnique({
-        where: { id: fullUser.institutionId },
-        include: { zone: true }
-      });
-
-      let teamForManager = null;
-      if (institution?.zone) {
-        const zoneEvent = await prisma.event.findFirst({
-          where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } },
-          include: { parent: true }
-        });
-        if (zoneEvent) {
-          teamForManager = await prisma.team.findFirst({
-            where: { institutionId: fullUser.institutionId, eventId: zoneEvent.id },
-            include: { event: { include: { parent: true } } }
-          });
-          if (teamForManager) {
-            if (teamForManager.isAssignmentsConfirmed) {
-              return { success: false, error: "Program assignments have been submitted to the Zone and are now locked." };
-            }
-            const now = new Date();
-            const start = zoneEvent.assignmentStart || zoneEvent.parent?.assignmentStart;
-            const end = zoneEvent.assignmentEnd || zoneEvent.parent?.assignmentEnd || zoneEvent.institutionRegistrationEndDate || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.registrationEnd;
-            
-            if (start && now < start) {
-              return { success: false, error: `Program registration opens on ${start.toLocaleString()}` };
-            }
-            if (end && now > end) {
-              return { success: false, error: "Registration deadline has passed." };
-            }
-          }
-        }
-      }
-    }
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
       include: { 
         programs: { include: { program: { include: { category: true } } } }, 
         category: true,
         masterStudent: true,
-        team: true
+        team: {
+          include: {
+            event: {
+              include: { parent: true }
+            }
+          }
+        }
       }
     });
 
@@ -67,6 +34,72 @@ export async function assignProgram(candidateId: string, programId: string) {
     });
 
     if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const team = candidate.team;
+      if (team) {
+        const now = new Date();
+        const event = team.event;
+        const isOffStage = program.stageType === "OFF_STAGE";
+        const isOnStage = program.stageType === "ON_STAGE";
+
+        const offDeadline =
+          event?.offStageRegistrationEnd ||
+          event?.parent?.offStageRegistrationEnd ||
+          event?.institutionRegistrationEndDate ||
+          event?.parent?.institutionRegistrationEndDate ||
+          event?.registrationEnd ||
+          event?.parent?.registrationEnd;
+
+        const onDeadline =
+          event?.onStageRegistrationEnd ||
+          event?.parent?.onStageRegistrationEnd ||
+          event?.institutionRegistrationEndDate ||
+          event?.parent?.institutionRegistrationEndDate ||
+          event?.registrationEnd ||
+          event?.parent?.registrationEnd;
+
+        const start = event?.assignmentStart || event?.parent?.assignmentStart || event?.registrationStart || event?.parent?.registrationStart;
+        if (start && now < new Date(start)) {
+          return { success: false, error: `Program registration opens on ${new Date(start).toLocaleString()}` };
+        }
+
+        if (isOffStage) {
+          if (!team.offStageUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked." };
+            }
+            if (offDeadline && now > new Date(offDeadline)) {
+              return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
+            }
+          }
+        } else if (isOnStage) {
+          if (!team.onStageUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked." };
+            }
+            if (onDeadline && now > new Date(onDeadline)) {
+              return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
+            }
+          }
+        } else {
+          // Programs without explicit stage or general programs
+          if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
+            }
+            const generalEnd =
+              event?.institutionRegistrationEndDate ||
+              event?.parent?.institutionRegistrationEndDate ||
+              event?.registrationEnd ||
+              event?.parent?.registrationEnd;
+            if (generalEnd && now > new Date(generalEnd)) {
+              return { success: false, error: "Registration deadline has passed." };
+            }
+          }
+        }
+      }
+    }
 
     if (isInstitutionProgram(program)) {
       return { success: false, error: "Institution-level programs (such as Magazine) are assigned directly to the Institution/Team, not to individual students." };
@@ -165,20 +198,78 @@ export async function unassignProgram(candidateId: string, programId: string) {
     if (!session) return { success: false, error: "Unauthorized" };
 
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
-      const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { team: true } });
-      if (candidate?.team?.isAssignmentsConfirmed) {
-        return { success: false, error: "Program assignments have been submitted to the Zone and are now locked." };
-      }
-      
-      const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
-      const team = fullUser?.institutionId ? await prisma.team.findFirst({
-        where: fullUser.eventId 
-          ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
-          : { institutionId: fullUser.institutionId },
-        include: { event: true }
-      }) : null;
-      if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
-        return { success: false, error: "Registration deadline has passed. Cannot unassign program." };
+      const candidate = await prisma.candidate.findUnique({ 
+        where: { id: candidateId }, 
+        include: { 
+          team: { 
+            include: { 
+              event: { 
+                include: { parent: true } 
+              } 
+            } 
+          } 
+        } 
+      });
+
+      const program = await prisma.program.findUnique({ where: { id: programId } });
+      if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
+
+      const team = candidate.team;
+      if (team) {
+        const now = new Date();
+        const event = team.event;
+        const isOffStage = program.stageType === "OFF_STAGE";
+        const isOnStage = program.stageType === "ON_STAGE";
+
+        const offDeadline =
+          event?.offStageRegistrationEnd ||
+          event?.parent?.offStageRegistrationEnd ||
+          event?.institutionRegistrationEndDate ||
+          event?.parent?.institutionRegistrationEndDate ||
+          event?.registrationEnd ||
+          event?.parent?.registrationEnd;
+
+        const onDeadline =
+          event?.onStageRegistrationEnd ||
+          event?.parent?.onStageRegistrationEnd ||
+          event?.institutionRegistrationEndDate ||
+          event?.parent?.institutionRegistrationEndDate ||
+          event?.registrationEnd ||
+          event?.parent?.registrationEnd;
+
+        if (isOffStage) {
+          if (!team.offStageUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked." };
+            }
+            if (offDeadline && now > new Date(offDeadline)) {
+              return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Cannot remove assignment.` };
+            }
+          }
+        } else if (isOnStage) {
+          if (!team.onStageUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked." };
+            }
+            if (onDeadline && now > new Date(onDeadline)) {
+              return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Cannot remove assignment.` };
+            }
+          }
+        } else {
+          if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
+            }
+            const generalEnd =
+              event?.institutionRegistrationEndDate ||
+              event?.parent?.institutionRegistrationEndDate ||
+              event?.registrationEnd ||
+              event?.parent?.registrationEnd;
+            if (generalEnd && now > new Date(generalEnd)) {
+              return { success: false, error: "Registration deadline has passed. Cannot remove assignment." };
+            }
+          }
+        }
       }
     }
     await prisma.programAssignment.delete({

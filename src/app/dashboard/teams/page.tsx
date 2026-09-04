@@ -43,7 +43,11 @@ export default async function TeamsPage() {
   const teams = await prisma.team.findMany({
     where: teamWhere,
     include: {
-      event: true,
+      event: {
+        include: {
+          parent: true
+        }
+      },
       _count: {
         select: { candidates: true }
       },

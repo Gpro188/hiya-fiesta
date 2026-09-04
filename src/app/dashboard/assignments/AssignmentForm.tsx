@@ -13,7 +13,14 @@ export default function AssignmentForm({
   initialCandidateId, 
   teamId, 
   isAssignmentsConfirmed = false,
-  limits
+  limits,
+  isOffStageOpen = true,
+  isOnStageOpen = true,
+  offStageDeadline = null,
+  onStageDeadline = null,
+  offStageUnlocked = false,
+  onStageUnlocked = false,
+  role = "INSTITUTION_MANAGER"
 }: { 
   candidates: any[], 
   programs: any[], 
@@ -29,7 +36,14 @@ export default function AssignmentForm({
     maxGeneralTotal?: number;
     maxGeneralOnStage?: number;
     maxGeneralOffStage?: number;
-  }
+  };
+  isOffStageOpen?: boolean;
+  isOnStageOpen?: boolean;
+  offStageDeadline?: string | null;
+  onStageDeadline?: string | null;
+  offStageUnlocked?: boolean;
+  onStageUnlocked?: boolean;
+  role?: string;
 }) {
   const router = useRouter();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>(initialCandidateId || candidates[0]?.id || "");
@@ -191,6 +205,14 @@ export default function AssignmentForm({
     );
   };
 
+  // Stage allowed check
+  const isStageAllowed = (prog: any) => {
+    if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
+    if (prog.stageType === "OFF_STAGE") return isOffStageOpen;
+    if (prog.stageType === "ON_STAGE") return isOnStageOpen;
+    return isOffStageOpen || isOnStageOpen;
+  };
+
   return (
     <div>
       {status && (
@@ -198,6 +220,76 @@ export default function AssignmentForm({
           {status.message}
         </div>
       )}
+
+      {/* Split Stage Registration Status Banner */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 'var(--spacing-md)',
+        marginBottom: 'var(--spacing-lg)',
+        padding: 'var(--spacing-md)',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid var(--border-color)'
+      }}>
+        {/* Off-Stage Card */}
+        <div style={{
+          padding: 'var(--spacing-sm) var(--spacing-md)',
+          borderRadius: '8px',
+          backgroundColor: offStageUnlocked ? 'rgba(16, 185, 129, 0.1)' : isOffStageOpen ? 'rgba(14, 165, 233, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+          border: `1.5px solid ${offStageUnlocked ? '#10b981' : isOffStageOpen ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0284c7' }}>🎨 OFF-STAGE PROGRAMS</span>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              backgroundColor: offStageUnlocked ? '#10b981' : isOffStageOpen ? '#0284c7' : '#ef4444',
+              color: '#fff'
+            }}>
+              {offStageUnlocked ? '⚡ ZONE UNLOCKED' : isOffStageOpen ? '🟢 OPEN' : '🔒 CLOSED'}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            {offStageUnlocked
+              ? 'Zone Admin granted special editing access for off-stage programs.'
+              : offStageDeadline
+                ? `Deadline: ${new Date(offStageDeadline).toLocaleString()}`
+                : 'Registration is open according to general schedule.'}
+          </div>
+        </div>
+
+        {/* On-Stage Card */}
+        <div style={{
+          padding: 'var(--spacing-sm) var(--spacing-md)',
+          borderRadius: '8px',
+          backgroundColor: onStageUnlocked ? 'rgba(16, 185, 129, 0.1)' : isOnStageOpen ? 'rgba(236, 72, 153, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+          border: `1.5px solid ${onStageUnlocked ? '#10b981' : isOnStageOpen ? 'rgba(236, 72, 153, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#db2777' }}>🎭 ON-STAGE PROGRAMS</span>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              backgroundColor: onStageUnlocked ? '#10b981' : isOnStageOpen ? '#db2777' : '#ef4444',
+              color: '#fff'
+            }}>
+              {onStageUnlocked ? '⚡ ZONE UNLOCKED' : isOnStageOpen ? '🟢 OPEN' : '🔒 CLOSED'}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            {onStageUnlocked
+              ? 'Zone Admin granted special editing access for on-stage programs.'
+              : onStageDeadline
+                ? `Deadline: ${new Date(onStageDeadline).toLocaleString()}`
+                : 'Registration is open according to general schedule.'}
+          </div>
+        </div>
+      </div>
 
       {/* Dual Assignment Mode Selector */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
@@ -327,7 +419,11 @@ export default function AssignmentForm({
                       }
                     }
 
-                    const canAssign = !isLimitReached;
+                    const isStageOpen = isStageAllowed(program);
+                    if (!isStageOpen && !isLimitReached) {
+                      limitReason = program.stageType === "OFF_STAGE" ? "🔒 Off-Stage Registration Closed" : "🔒 On-Stage Registration Closed";
+                    }
+                    const canAssign = !isLimitReached && isStageOpen;
 
                     return (
                       <div key={program.id} style={{ 
@@ -349,7 +445,7 @@ export default function AssignmentForm({
                             <span style={{ fontWeight: 600 }}>{isGen ? 'GENERAL' : program.type}</span> {program.category && `• ${program.category.name}`}
                           </div>
                           {!canAssign && (
-                            <div style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: '2px' }}>
+                            <div style={{ fontSize: '0.7rem', color: !isStageOpen ? 'var(--error)' : 'var(--warning)', marginTop: '2px', fontWeight: !isStageOpen ? 700 : 400 }}>
                               {limitReason}
                             </div>
                           )}
@@ -360,7 +456,7 @@ export default function AssignmentForm({
                           style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
                           disabled={!canAssign || loading || isAssignmentsConfirmed}
                         >
-                          Assign
+                          {isStageOpen ? "Assign" : "Locked"}
                         </button>
                       </div>
                     );
@@ -375,35 +471,39 @@ export default function AssignmentForm({
                 {selectedCandidate.programs.length === 0 ? (
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No programs assigned yet.</div>
                 ) : (
-                  selectedCandidate.programs.map((p: any) => (
-                    <div key={p.programId} style={{ 
-                      padding: 'var(--spacing-sm)', 
-                      border: '1px solid var(--success)', 
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>{p.program.name}</span>
-                          {renderStageBadge(p.program.stageType, p.program.type)}
+                  selectedCandidate.programs.map((p: any) => {
+                    const isStageOpen = isStageAllowed(p.program);
+                    return (
+                      <div key={p.programId} style={{ 
+                        padding: 'var(--spacing-sm)', 
+                        border: '1px solid var(--success)', 
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{p.program.name}</span>
+                            {renderStageBadge(p.program.stageType, p.program.type)}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            {p.program.type} {p.program.category && `• ${p.program.category.name}`}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          {p.program.type} {p.program.category && `• ${p.program.category.name}`}
-                        </div>
+                        <button 
+                          onClick={() => handleUnassign(p.programId)}
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: isStageOpen ? 'var(--error)' : 'var(--text-muted)' }}
+                          disabled={loading || isAssignmentsConfirmed || !isStageOpen}
+                          title={!isStageOpen ? "Registration for this stage is closed" : undefined}
+                        >
+                          {isStageOpen ? "Remove" : "🔒 Closed"}
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleUnassign(p.programId)}
-                        className="btn btn-secondary" 
-                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: 'var(--error)' }}
-                        disabled={loading || isAssignmentsConfirmed}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -580,7 +680,11 @@ export default function AssignmentForm({
                       }
 
                       const isTeamSlotFull = (teamProgramCounts[selectedProgram.id] || 0) >= (selectedProgram.candidateLimitPerTeam || 1);
-                      const canAssign = !isLimitReached && !isTeamSlotFull;
+                      const isStageOpen = isStageAllowed(selectedProgram);
+                      if (!isStageOpen && !isLimitReached) {
+                        limitReason = selectedProgram.stageType === "OFF_STAGE" ? "🔒 Off-Stage Registration Closed" : "🔒 On-Stage Registration Closed";
+                      }
+                      const canAssign = !isLimitReached && !isTeamSlotFull && isStageOpen;
 
                       return (
                         <div key={candidate.id} style={{ 
@@ -598,13 +702,12 @@ export default function AssignmentForm({
                               {candidate.name} {candidate.uid ? `(${candidate.uid})` : ''}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              Category: {candidate.category?.name || 'General'} • Indiv: {cIndivCount}/{maxIndividualLimit} (On: {cIndivOn}/{maxIndividualOnStage}, Off: {cIndivOff}/{maxIndividualOffStage}) • Gen: {cGenTotal}/{maxGeneralTotal} (On: {cGenOn}/{maxGeneralOnStage}, Off: {cGenOff}/{maxGeneralOffStage})
+                              Category: <strong>{candidate.category?.name}</strong> • Stream: <strong>{candidate.masterStudent?.stream || 'N/A'}</strong>
                             </div>
-                            {isTeamSlotFull && (
-                              <div style={{ fontSize: '0.7rem', color: 'var(--error)' }}>Team program slot is full</div>
-                            )}
-                            {!isTeamSlotFull && isLimitReached && (
-                              <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>{limitReason}</div>
+                            {!canAssign && (
+                              <div style={{ fontSize: '0.7rem', color: !isStageOpen ? 'var(--error)' : 'var(--warning)', marginTop: '2px', fontWeight: !isStageOpen ? 700 : 400 }}>
+                                {isTeamSlotFull ? "Team program slot full" : limitReason}
+                              </div>
                             )}
                           </div>
                           <button
@@ -613,7 +716,7 @@ export default function AssignmentForm({
                             style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
                             disabled={!canAssign || loading || isAssignmentsConfirmed}
                           >
-                            Assign
+                            {isStageOpen ? "Assign" : "Locked"}
                           </button>
                         </div>
                       );
@@ -631,7 +734,9 @@ export default function AssignmentForm({
                   {(!teamProgramAssignments[selectedProgram.id] || teamProgramAssignments[selectedProgram.id].length === 0) ? (
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No candidates assigned to this program yet.</div>
                   ) : (
-                    teamProgramAssignments[selectedProgram.id].map(c => (
+                    teamProgramAssignments[selectedProgram.id].map(c => {
+                      const isStageOpen = isStageAllowed(selectedProgram);
+                      return (
                       <div key={c.id} style={{ 
                         padding: 'var(--spacing-sm)', 
                         border: '1px solid var(--success)', 
@@ -648,13 +753,15 @@ export default function AssignmentForm({
                         <button 
                           onClick={() => handleUnassignCandidate(c.id, selectedProgram.id)}
                           className="btn btn-secondary" 
-                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: 'var(--error)' }}
-                          disabled={loading || isAssignmentsConfirmed}
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: isStageOpen ? 'var(--error)' : 'var(--text-muted)' }}
+                          disabled={loading || isAssignmentsConfirmed || !isStageOpen}
+                          title={!isStageOpen ? "Registration for this stage is closed" : undefined}
                         >
-                          Remove
+                          {isStageOpen ? "Remove" : "🔒 Closed"}
                         </button>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

@@ -66,21 +66,6 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
         if (team) {
           teamId = team.id;
           isAssignmentsConfirmed = team.isAssignmentsConfirmed;
-          // Check assignment window
-          const now = new Date();
-          const start = zoneEvent.assignmentStart || zoneEvent.parent?.assignmentStart;
-          const end = zoneEvent.assignmentEnd || zoneEvent.parent?.assignmentEnd || zoneEvent.institutionRegistrationEndDate || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.registrationEnd;
-          
-          if (team.isAssignmentsConfirmed) {
-            isAssignmentOpen = false;
-            assignmentStatusMessage = "Program assignments have been submitted to the Zone and are now locked.";
-          } else if (start && now < start) {
-            isAssignmentOpen = false;
-            assignmentStatusMessage = `Program assignments will open on ${start.toLocaleString()}.`;
-          } else if (end && now > end) {
-            isAssignmentOpen = false;
-            assignmentStatusMessage = `Program assignments closed on ${end.toLocaleString()}.`;
-          }
         }
       }
     }
@@ -113,12 +98,58 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     if (!teamId && availableTeams.length > 0) {
       teamId = availableTeams[0].id;
     }
+  }
 
-    if (teamId) {
-      const currentTeam = await prisma.team.findUnique({ where: { id: teamId } });
-      if (currentTeam) {
-        isAssignmentsConfirmed = currentTeam.isAssignmentsConfirmed;
+  // Load team details with event and parent event
+  let currentTeam: any = null;
+  if (teamId) {
+    currentTeam = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        event: {
+          include: { parent: true }
+        }
       }
+    });
+    if (currentTeam) {
+      isAssignmentsConfirmed = currentTeam.isAssignmentsConfirmed;
+    }
+  }
+
+  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+  const now = new Date();
+
+  const offDeadline =
+    currentTeam?.event?.offStageRegistrationEnd ||
+    currentTeam?.event?.parent?.offStageRegistrationEnd ||
+    currentTeam?.event?.institutionRegistrationEndDate ||
+    currentTeam?.event?.parent?.institutionRegistrationEndDate ||
+    currentTeam?.event?.registrationEnd ||
+    currentTeam?.event?.parent?.registrationEnd;
+
+  const onDeadline =
+    currentTeam?.event?.onStageRegistrationEnd ||
+    currentTeam?.event?.parent?.onStageRegistrationEnd ||
+    currentTeam?.event?.institutionRegistrationEndDate ||
+    currentTeam?.event?.parent?.institutionRegistrationEndDate ||
+    currentTeam?.event?.registrationEnd ||
+    currentTeam?.event?.parent?.registrationEnd;
+
+  const isOffStageDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
+  const isOnStageDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
+
+  const isOffStageOpen = isAdmin || (currentTeam?.offStageUnlocked || (!currentTeam?.isAssignmentsConfirmed && !isOffStageDeadlinePassed));
+  const isOnStageOpen = isAdmin || (currentTeam?.onStageUnlocked || (!currentTeam?.isAssignmentsConfirmed && !isOnStageDeadlinePassed));
+
+  if (!isAdmin && currentTeam) {
+    if (currentTeam.isAssignmentsConfirmed && !currentTeam.offStageUnlocked && !currentTeam.onStageUnlocked) {
+      isAssignmentOpen = false;
+      assignmentStatusMessage = "Program assignments have been submitted to the Zone and are now locked.";
+    } else if (!isOffStageOpen && !isOnStageOpen) {
+      isAssignmentOpen = false;
+      assignmentStatusMessage = "Both Off-Stage and On-Stage registration deadlines have passed. Contact your Zone Admin to request access.";
+    } else {
+      isAssignmentOpen = true;
     }
   }
 
@@ -319,6 +350,13 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             teamId={teamId}
             isAssignmentsConfirmed={isAssignmentsConfirmed}
             limits={limits}
+            isOffStageOpen={isOffStageOpen}
+            isOnStageOpen={isOnStageOpen}
+            offStageDeadline={offDeadline ? new Date(offDeadline).toISOString() : null}
+            onStageDeadline={onDeadline ? new Date(onDeadline).toISOString() : null}
+            offStageUnlocked={currentTeam?.offStageUnlocked || false}
+            onStageUnlocked={currentTeam?.onStageUnlocked || false}
+            role={session.user.role}
           />
         </div>
       )}

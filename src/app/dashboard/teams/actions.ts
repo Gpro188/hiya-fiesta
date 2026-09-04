@@ -231,22 +231,90 @@ export async function confirmTeamRegistration(teamId: string) {
   }
 }
 
-export async function unlockTeamAssignments(teamId: string) {
+export async function updateTeamRegistrationAccess(
+  teamId: string, 
+  accessType: 'OFF_STAGE' | 'ON_STAGE' | 'BOTH' | 'LOCK',
+  reason?: string
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
 
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: { event: true }
+    });
+    if (!team) return { success: false, error: "Team not found" };
+
+    // If ZONE_ADMIN, ensure team is within their zone
+    if (session.user.role === "ZONE_ADMIN") {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { zoneId: true }
+      });
+      if (team.event.zoneId !== fullUser?.zoneId) {
+        return { success: false, error: "Unauthorized: You can only manage teams in your assigned zone." };
+      }
+    }
+
+    let updateData: any = {};
+    if (accessType === 'OFF_STAGE') {
+      updateData = {
+        offStageUnlocked: true,
+        isAssignmentsConfirmed: false,
+      };
+    } else if (accessType === 'ON_STAGE') {
+      updateData = {
+        onStageUnlocked: true,
+        isAssignmentsConfirmed: false,
+      };
+    } else if (accessType === 'BOTH') {
+      updateData = {
+        offStageUnlocked: true,
+        onStageUnlocked: true,
+        registrationUnlocked: true,
+        isAssignmentsConfirmed: false,
+      };
+    } else if (accessType === 'LOCK') {
+      updateData = {
+        offStageUnlocked: false,
+        onStageUnlocked: false,
+        registrationUnlocked: false,
+        isAssignmentsConfirmed: true,
+      };
+    }
+
     await prisma.team.update({
       where: { id: teamId },
-      data: { isAssignmentsConfirmed: false }
+      data: updateData
     });
+
+    // Record audit log
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Zone Admin",
+        action: `SET_REGISTRATION_ACCESS_${accessType}`,
+        entityType: "TEAM",
+        entityId: teamId,
+        reason: reason || `Registration access set to ${accessType} by ${session.user.role}`
+      }
+    }).catch(err => console.warn("Audit log creation non-fatal error:", err));
+
     revalidatePath("/dashboard/teams");
     revalidatePath("/dashboard/assignments");
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard");
     return { success: true };
-  } catch (error) {
-    return { success: false, error: "Failed to unlock assignments" };
+  } catch (error: any) {
+    console.error("Failed to update team registration access:", error);
+    return { success: false, error: error.message || "Failed to update registration access" };
   }
 }
+
+export async function unlockTeamAssignments(teamId: string) {
+  return updateTeamRegistrationAccess(teamId, 'BOTH', 'Full unlock granted');
+}
+

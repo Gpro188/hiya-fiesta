@@ -142,6 +142,8 @@ export async function updateEventDeadlines(eventId: string, data: {
   assignmentStart: string | null;
   assignmentEnd: string | null;
   institutionRegistrationEndDate: string | null;
+  offStageRegistrationEnd?: string | null;
+  onStageRegistrationEnd?: string | null;
   zoneActiveStartTime: string | null;
   zoneActiveEndTime: string | null;
   stateConfirmEndDate: string | null;
@@ -172,6 +174,8 @@ export async function updateEventDeadlines(eventId: string, data: {
           stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
         } : {}),
         institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
+        offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
+        onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
         ...(data.statusOverride ? { statusOverride: data.statusOverride } : {})
       }
     });
@@ -186,6 +190,8 @@ export async function updateEventDeadlines(eventId: string, data: {
           assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
           assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
           institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
+          offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
+          onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
         }
       });
     }

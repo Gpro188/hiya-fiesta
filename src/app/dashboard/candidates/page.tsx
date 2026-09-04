@@ -107,17 +107,22 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
 
           const now = new Date();
           const start = zoneEvent.registrationStart || zoneEvent.parent?.registrationStart;
-          const end = zoneEvent.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.parent?.registrationEnd;
+          const offEnd = zoneEvent.offStageRegistrationEnd || zoneEvent.parent?.offStageRegistrationEnd;
+          const onEnd = zoneEvent.onStageRegistrationEnd || zoneEvent.parent?.onStageRegistrationEnd;
+          const generalEnd = zoneEvent.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.parent?.registrationEnd;
 
-          if (team.isAssignmentsConfirmed) {
+          const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
+          const isAnyStageOpen = (!offEnd || now <= offEnd) || (!onEnd || now <= onEnd) || (!generalEnd || now <= generalEnd);
+
+          if (team.isAssignmentsConfirmed && !isUnlocked) {
             isRegistrationOpen = false;
             registrationStatusMessage = "Registration is confirmed and locked by the Zone Admin. Please contact your Zone Admin to unlock for any corrections.";
           } else if (start && now < start) {
             isRegistrationOpen = false;
             registrationStatusMessage = `Registration will open on ${start.toLocaleString()}.`;
-          } else if (end && now > end) {
+          } else if (!isUnlocked && !isAnyStageOpen) {
             isRegistrationOpen = false;
-            registrationStatusMessage = `Registration closed on ${end.toLocaleString()}.`;
+            registrationStatusMessage = "Registration deadlines for Off-Stage and On-Stage programs have passed. Please contact your Zone Admin.";
           }
 
           isSchedulePublished = zoneEvent.statusOverride === "SCHEDULE_PUBLISHED" || 

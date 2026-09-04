@@ -40,6 +40,8 @@ export default async function SettingsPage() {
       assignmentStart: true,
       assignmentEnd: true,
       institutionRegistrationEndDate: true,
+      offStageRegistrationEnd: true,
+      onStageRegistrationEnd: true,
       zoneActiveStartTime: true,
       zoneActiveEndTime: true,
       stateConfirmEndDate: true,
