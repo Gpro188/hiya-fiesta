@@ -49,13 +49,12 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
   useEffect(() => {
     const selectedEvent = events.find(e => e.id === selectedEventId);
     if (selectedEvent) {
-      setRegistrationStart(toLocalISOString(selectedEvent.registrationStart));
-      // Sync registrationEnd with institutionRegistrationEndDate if present
-      const effectiveRegEnd = selectedEvent.institutionRegistrationEndDate || selectedEvent.registrationEnd;
+      const effectiveStart = selectedEvent.registrationStart || selectedEvent.assignmentStart;
+      const effectiveRegEnd = selectedEvent.institutionRegistrationEndDate || selectedEvent.registrationEnd || selectedEvent.assignmentEnd;
+      setRegistrationStart(toLocalISOString(effectiveStart));
+      setAssignmentStart(toLocalISOString(effectiveStart));
       setRegistrationEnd(toLocalISOString(effectiveRegEnd));
-      setAssignmentStart(toLocalISOString(selectedEvent.assignmentStart));
-      setAssignmentEnd(toLocalISOString(selectedEvent.assignmentEnd));
-
+      setAssignmentEnd(toLocalISOString(effectiveRegEnd));
       setInstitutionRegistrationEndDate(toLocalISOString(effectiveRegEnd));
       setOffStageRegistrationEnd(toLocalISOString(selectedEvent.offStageRegistrationEnd || effectiveRegEnd));
       setOnStageRegistrationEnd(toLocalISOString(selectedEvent.onStageRegistrationEnd || effectiveRegEnd));
@@ -100,13 +99,14 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       return isNaN(d.getTime()) ? null : d.toISOString();
     };
 
-    // Save event deadlines (ensure registrationEnd and institutionRegistrationEndDate match)
-    const effectiveRegistrationEnd = registrationEnd || institutionRegistrationEndDate;
+    // Save event deadlines (sync registrationStart with assignmentStart, and registrationEnd with assignmentEnd and institutionRegistrationEndDate)
+    const effectiveRegistrationStart = registrationStart || assignmentStart;
+    const effectiveRegistrationEnd = registrationEnd || assignmentEnd || institutionRegistrationEndDate;
     const deadlineResult = await updateEventDeadlines(selectedEventId, {
-      registrationStart: toServerIso(registrationStart),
+      registrationStart: toServerIso(effectiveRegistrationStart),
       registrationEnd: toServerIso(effectiveRegistrationEnd),
-      assignmentStart: toServerIso(assignmentStart),
-      assignmentEnd: toServerIso(assignmentEnd),
+      assignmentStart: toServerIso(effectiveRegistrationStart),
+      assignmentEnd: toServerIso(effectiveRegistrationEnd),
       institutionRegistrationEndDate: toServerIso(effectiveRegistrationEnd),
       offStageRegistrationEnd: toServerIso(offStageRegistrationEnd),
       onStageRegistrationEnd: toServerIso(onStageRegistrationEnd),
@@ -226,52 +226,36 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
               <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Candidate Registration Start</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Registration & Assignment Opening Time
+                </label>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
-                  value={registrationStart}
-                  onChange={(e) => setRegistrationStart(e.target.value)}
+                  value={registrationStart || assignmentStart}
+                  onChange={(e) => {
+                    setRegistrationStart(e.target.value);
+                    setAssignmentStart(e.target.value);
+                  }}
                 />
-                <span className="field-helper">Opening time for institutions to add student candidates.</span>
+                <span className="field-helper">Opening date/time for institutions to add candidates and allocate competition programs.</span>
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Candidate Registration Deadline</label>
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  General Registration & Assignment Deadline
+                </label>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
-                  value={registrationEnd}
+                  value={registrationEnd || assignmentEnd || institutionRegistrationEndDate}
                   onChange={(e) => {
                     setRegistrationEnd(e.target.value);
+                    setAssignmentEnd(e.target.value);
                     setInstitutionRegistrationEndDate(e.target.value);
                   }}
                   style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
                 />
-                <span className="field-helper">Strict cutoff for institutions to add or delete candidates.</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>Program Assignment Start</label>
-                <input 
-                  type="datetime-local" 
-                  className="form-input" 
-                  value={assignmentStart}
-                  onChange={(e) => setAssignmentStart(e.target.value)}
-                />
-                <span className="field-helper">Opening time for institutions to allocate programs to candidates.</span>
-              </div>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>Program Assignment Deadline</label>
-                <input 
-                  type="datetime-local" 
-                  className="form-input" 
-                  value={assignmentEnd}
-                  onChange={(e) => setAssignmentEnd(e.target.value)}
-                  style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
-                />
-                <span className="field-helper">Strict cutoff for institutions to assign or remove programs.</span>
+                <span className="field-helper">General cutoff for institutions to add/delete candidates and allocate programs.</span>
               </div>
             </div>
 
