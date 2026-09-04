@@ -5,6 +5,8 @@ import PrintButton from "@/components/PrintButton";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 export default async function PrintAssignmentsPage(props: { searchParams: Promise<{ teamId?: string; eventId?: string }> }) {
   const searchParams = await props.searchParams;
   let eventId = searchParams.eventId;

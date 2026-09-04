@@ -513,7 +513,8 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                 onChange={(e) => setStatusOverride(e.target.value)}
                 style={{ backgroundColor: statusOverride !== 'AUTO' ? '#fffbeb' : undefined, borderColor: statusOverride !== 'AUTO' ? '#f59e0b' : undefined }}
               >
-                <option value="AUTO">AUTO (Follows Scheduled Dates)</option>
+                <option value="AUTO">AUTO / DRAFT (Schedule Hidden - Follows Festival Countdown)</option>
+                <option value="SCHEDULE_PUBLISHED">📢 SCHEDULE PUBLISHED (Show Stage Schedule on Results & Portals)</option>
                 <option value="REGISTRATION">REGISTRATION OPEN (Force Registration Banner)</option>
                 <option value="LIVE">LIVE NOW (Force Live Festival Banner)</option>
                 <option value="COMPLETED">COMPLETED (Show Results & Winners)</option>

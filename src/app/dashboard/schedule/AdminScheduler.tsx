@@ -8,14 +8,17 @@ export default function AdminScheduler({
   initialPrograms, 
   eventId, 
   allJudges = [],
-  isSuperAdmin = false 
+  isSuperAdmin = false,
+  eventStatusOverride = "AUTO"
 }: { 
   initialPrograms: any[], 
   eventId: string, 
   allJudges?: any[],
-  isSuperAdmin?: boolean 
+  isSuperAdmin?: boolean,
+  eventStatusOverride?: string
 }) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
+  const [statusOverride, setStatusOverride] = useState(eventStatusOverride);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [importing, setImporting] = useState(false);
@@ -188,7 +191,33 @@ export default function AdminScheduler({
             <button className="btn btn-secondary" onClick={handleAddVenue}>Add Venue</button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {statusOverride === "SCHEDULE_PUBLISHED" ? (
+            <span style={{ 
+              padding: '6px 12px', 
+              borderRadius: '6px', 
+              backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+              color: '#10b981', 
+              fontWeight: 700, 
+              fontSize: '0.82rem',
+              border: '1px solid rgba(16, 185, 129, 0.3)'
+            }}>
+              🟢 Schedule is PUBLISHED (Live)
+            </span>
+          ) : (
+            <span style={{ 
+              padding: '6px 12px', 
+              borderRadius: '6px', 
+              backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+              color: '#ef4444', 
+              fontWeight: 700, 
+              fontSize: '0.82rem',
+              border: '1px solid rgba(239, 68, 68, 0.3)'
+            }}>
+              🔒 Schedule is DRAFT / HIDDEN
+            </span>
+          )}
+
           {isSuperAdmin ? (
             <button 
               className="btn btn-primary" 
@@ -199,33 +228,80 @@ export default function AdminScheduler({
               {loadingId === "publish-master" ? "Publishing..." : "📢 Publish Master Schedule to All Zones"}
             </button>
           ) : (
-            <button 
-              className="btn btn-primary" 
-              style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#ffffff', fontWeight: 600 }}
-              onClick={async () => {
-                if (!confirm("Confirm and publish the final Zone Program Schedule? Once published, candidate timeslots/venues are finalized and institution colleges can view/print Candidate ID Cards.")) return;
-                setLoadingId("publish-zone");
-                try {
-                  const { publishZoneSchedule } = await import("./actions");
-                  const res = await publishZoneSchedule(eventId);
-                  if (res.success) {
-                    alert(`✅ Final Zone Schedule successfully published! Candidate time slots are synced and colleges can now print ID Cards.`);
-                    window.location.reload();
-                  } else {
-                    alert("Failed: " + (res.error || "Unknown error"));
+            statusOverride !== "SCHEDULE_PUBLISHED" ? (
+              <button 
+                className="btn btn-primary" 
+                style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#ffffff', fontWeight: 600 }}
+                onClick={async () => {
+                  if (!confirm("Confirm and publish the final Zone Program Schedule? Once published, candidate timeslots and venues are finalized and visible to public results and colleges.")) return;
+                  setLoadingId("publish-zone");
+                  try {
+                    const { publishZoneSchedule } = await import("./actions");
+                    const res = await publishZoneSchedule(eventId);
+                    if (res.success) {
+                      setStatusOverride("SCHEDULE_PUBLISHED");
+                      alert(`✅ Final Zone Schedule successfully published!`);
+                      window.location.reload();
+                    } else {
+                      alert("Failed: " + (res.error || "Unknown error"));
+                    }
+                  } finally {
+                    setLoadingId(null);
                   }
-                } finally {
-                  setLoadingId(null);
-                }
-              }} 
-              disabled={loadingId !== null}
-            >
-              {loadingId === "publish-zone" ? "Publishing..." : "📢 Publish Final Zone Schedule (Enable ID Cards)"}
-            </button>
+                }} 
+                disabled={loadingId !== null}
+              >
+                {loadingId === "publish-zone" ? "Publishing..." : "📢 Publish Final Zone Schedule"}
+              </button>
+            ) : (
+              <button 
+                className="btn btn-secondary" 
+                style={{ borderColor: '#ef4444', color: '#ef4444', fontWeight: 600 }}
+                onClick={async () => {
+                  if (!confirm("Hide this schedule from public results and colleges? It will return to Draft mode (only visible to Admins).")) return;
+                  setLoadingId("unpublish-zone");
+                  try {
+                    const { unpublishSchedule } = await import("./actions");
+                    const res = await unpublishSchedule(eventId);
+                    if (res.success) {
+                      setStatusOverride("AUTO");
+                      alert(`🔒 Schedule is now hidden (Draft Mode). Only Zone Admins can view it.`);
+                      window.location.reload();
+                    } else {
+                      alert("Failed: " + (res.error || "Unknown error"));
+                    }
+                  } finally {
+                    setLoadingId(null);
+                  }
+                }} 
+                disabled={loadingId !== null}
+              >
+                {loadingId === "unpublish-zone" ? "Hiding..." : "🔒 Hide / Unpublish Schedule (Draft)"}
+              </button>
+            )
           )}
+
           <button className="btn btn-primary" onClick={handleAutoGenerate} disabled={loadingId !== null}>
             {loadingId === "auto-gen" ? "..." : "🤖 Auto-Generate Schedule"}
           </button>
+        </div>
+      </div>
+
+      {/* Stage Scheduler Focus Notice */}
+      <div style={{
+        padding: '10px 16px',
+        borderRadius: '8px',
+        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        border: '1px solid rgba(59, 130, 246, 0.25)',
+        color: '#60a5fa',
+        fontSize: '0.85rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
+        <div>
+          <strong>On-Stage Scheduling Focus:</strong> Off-Stage programs contest early at institution halls. This stage scheduler is used primarily to configure venues, stages, and time slots for <strong>On-Stage</strong> programs.
         </div>
       </div>
       

@@ -86,8 +86,9 @@ export default async function SchedulePage(props: {
     });
 
     let zoneJudges: any[] = [];
+    let activeEv: any = null;
     if (activeEventId) {
-      const activeEv = await prisma.event.findUnique({
+      activeEv = await prisma.event.findUnique({
         where: { id: activeEventId },
         include: { selectedJudges: { select: { id: true, username: true } } }
       });
@@ -126,6 +127,7 @@ export default async function SchedulePage(props: {
             eventId={activeEventId || "default"} 
             allJudges={zoneJudges}
             isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
+            eventStatusOverride={activeEv?.statusOverride || "AUTO"}
           />
         </div>
       </div>

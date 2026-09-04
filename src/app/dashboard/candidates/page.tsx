@@ -193,6 +193,9 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
     orderBy: { createdAt: 'desc' }
   });
 
+  const isChestNosConfirmed = candidates.some(c => Boolean(c.chestNumber));
+  const canPrintCards = isSchedulePublished || isChestNosConfirmed;
+
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -296,14 +299,14 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             <a href={`/print/candidates?${fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''}${filterTeamId ? `&teamId=${filterTeamId}` : ''}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
               Print List
             </a>
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !isSchedulePublished ? (
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !canPrintCards ? (
               <button 
                 disabled
-                title="ID Cards will be enabled once the final zone program schedule is published."
+                title="ID Cards will be enabled once the final zone program schedule is published or chest numbers are assigned."
                 className="btn btn-secondary"
                 style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', opacity: 0.6, cursor: 'not-allowed' }}
               >
-                🔒 ID Cards (Awaiting Schedule)
+                🔒 ID Cards (Awaiting Publication/Chest Nos)
               </button>
             ) : (
               <a 
@@ -322,7 +325,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           candidates={candidates as any} 
           role={session.user.role} 
           categories={categories} 
-          isSchedulePublished={isSchedulePublished}
+          isSchedulePublished={canPrintCards}
         />
       </div>
     </div>

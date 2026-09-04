@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import BulkIdCardsClient from "./BulkIdCardsClient";
 
+export const dynamic = 'force-dynamic';
+
 export default async function BulkIdCardsPage({ searchParams }: { searchParams: Promise<{ teamId?: string, categoryId?: string, eventId?: string }> }) {
   const params = await searchParams;
   let eventId = params.eventId || undefined;
@@ -28,7 +30,12 @@ export default async function BulkIdCardsPage({ searchParams }: { searchParams: 
 
   const settings = await getSettings(eventId);
 
-  let whereClause: any = { isApproved: true };
+  let whereClause: any = {
+    OR: [
+      { isApproved: true },
+      { chestNumber: { not: null } }
+    ]
+  };
   if (params.teamId) {
     whereClause.teamId = params.teamId;
   } else if (params.categoryId) {

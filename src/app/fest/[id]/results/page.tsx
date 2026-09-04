@@ -47,8 +47,7 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
   const isSchedulePublished = 
     event.statusOverride === "SCHEDULE_PUBLISHED" || 
     isExplicitLive || 
-    isExplicitCompleted || 
-    Boolean(event.parent?.statusOverride === "SCHEDULE_PUBLISHED");
+    isExplicitCompleted;
   
   const isStarted =
     isExplicitLive ||

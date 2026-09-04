@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
 
+export const dynamic = 'force-dynamic';
+
 export default async function PrintSchedulePage(props: {
   searchParams: Promise<{ eventId?: string; teamId?: string }>;
 }) {

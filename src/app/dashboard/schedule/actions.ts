@@ -443,3 +443,31 @@ export async function publishZoneSchedule(eventId: string) {
   }
 }
 
+export async function unpublishSchedule(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.event.update({
+      where: { id: eventId },
+      data: {
+        statusOverride: "AUTO"
+      }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/reports");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/fest/[id]/results");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to unpublish schedule:", error);
+    return { success: false, error: error.message || "Failed to unpublish schedule" };
+  }
+}
+
+

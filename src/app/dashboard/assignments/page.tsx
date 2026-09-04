@@ -261,6 +261,15 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             </svg>
             Print Assignments List
           </a>
+          
+          <a 
+            href={`/print/off-stage-invigilation${teamId ? `?teamId=${teamId}` : ''}`} 
+            target="_blank" 
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', borderColor: '#8E0033', color: '#8E0033' }}
+          >
+            📝 Print Off-Stage Invigilation Sheet
+          </a>
         </div>
       </div>
 

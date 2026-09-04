@@ -159,10 +159,10 @@ export default function CandidateList({
                   </button>
                 )}
 
-                {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && !isSchedulePublished ? (
+                {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && !isSchedulePublished && !candidate.chestNumber && !candidate.isApproved ? (
                   <button 
                     disabled
-                    title="ID Card available after Zone Admin publishes schedule"
+                    title="ID Card available after Zone Admin confirms candidates / assigns chest numbers"
                     className="btn btn-secondary" 
                     style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', opacity: 0.5, cursor: 'not-allowed' }}
                   >

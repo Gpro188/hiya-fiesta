@@ -200,7 +200,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   }}
                   title="Open Off-Stage, On-Stage, Both, or Lock registration for this institution"
                 >
-                  ⚡ Registration Access
+                  {(team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? "🔓 Registration Access (Unlocked)" : "⚡ Unlock Registration"}
                 </button>
               )}
 
@@ -228,8 +228,8 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </>
               )}
 
-              <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', borderColor: 'var(--primary)', color: 'var(--primary)', textDecoration: 'none' }}>
-                🆔 ID Cards
+              <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', borderColor: '#10b981', color: '#10b981', textDecoration: 'none', fontWeight: 600 }}>
+                🪪 Chest Slips & ID Cards
               </a>
               <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none' }}>
                 📑 Candidates Report

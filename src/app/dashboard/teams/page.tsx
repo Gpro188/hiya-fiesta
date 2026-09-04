@@ -69,6 +69,26 @@ export default async function TeamsPage() {
           Manage participating teams. Assign managers, set flag colors, and define prefix codes used for chest number generation.
         </p>
       </div>
+
+      {role === "ZONE_ADMIN" && (
+        <div style={{
+          padding: '12px 18px',
+          borderRadius: '8px',
+          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          border: '1px solid rgba(59, 130, 246, 0.25)',
+          color: '#60a5fa',
+          fontSize: '0.875rem',
+          marginBottom: 'var(--spacing-md)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ fontSize: '1.4rem' }}>💡</span>
+          <div>
+            <strong>How to Open Registration for an Individual Institution:</strong> To unlock registration or program assignment for any specific college in your zone, find the college below and click <strong>⚡ Unlock Registration</strong>. You can choose to open <em>Off-Stage only</em>, <em>On-Stage only</em>, or <em>Full Access</em>.
+          </div>
+        </div>
+      )}
       
       {events.length === 0 ? (
         <div className="glass-panel empty-state-guidance">

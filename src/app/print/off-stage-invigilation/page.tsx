@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import OffStageInvigilationSheet, { InstitutionOffStageData, CategoryOffStageGroup, OffStageCandidateRow } from "@/components/OffStageInvigilationSheet";
 
+export const dynamic = 'force-dynamic';
+
 export default async function PrintOffStageInvigilationPage(props: {
   searchParams: Promise<{
     teamId?: string;
@@ -13,55 +15,57 @@ export default async function PrintOffStageInvigilationPage(props: {
     zoneId?: string;
   }>;
 }) {
-  const searchParams = await props.searchParams;
-  const session = await getServerSession(authOptions);
+  try {
+    const searchParams = await props.searchParams;
+    const session = await getServerSession(authOptions);
 
-  if (!session) {
-    redirect("/login");
-  }
+    if (!session) {
+      redirect("/login");
+    }
 
-  const { role, id: userId } = session.user;
-  const fullUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { eventId: true, zoneId: true, institutionId: true },
-  });
+    const { role, id: userId } = session.user;
+    const fullUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { eventId: true, zoneId: true, institutionId: true },
+    });
 
-  // Determine filtering conditions based on user role and searchParams
-  let teamWhere: any = {};
+    // Determine filtering conditions based on user role and searchParams
+    let teamWhere: any = {};
 
-  if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
-    if (!fullUser?.institutionId) {
-      return <div style={{ padding: "40px" }}>You are not assigned to any institution.</div>;
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
+      if (!fullUser?.institutionId) {
+        return <div style={{ padding: "40px" }}>You are not assigned to any institution.</div>;
+      }
+      teamWhere.institutionId = fullUser.institutionId;
+      if (fullUser.eventId) {
+        teamWhere.eventId = fullUser.eventId;
+      }
+    } else if (role === "ZONE_ADMIN") {
+      const zoneId = fullUser?.zoneId || searchParams.zoneId;
+      const targetEventId = fullUser?.eventId || searchParams.eventId;
+
+      if (searchParams.teamId) {
+        teamWhere.id = searchParams.teamId;
+      } else if (zoneId && targetEventId) {
+        teamWhere.event = {
+          OR: [{ id: targetEventId }, { zoneId: zoneId }],
+        };
+      } else if (targetEventId) {
+        teamWhere.eventId = targetEventId;
+      } else if (zoneId) {
+        teamWhere.event = { zoneId: zoneId };
+      }
+    } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
+      if (searchParams.teamId) {
+        teamWhere.id = searchParams.teamId;
+      } else if (searchParams.institutionId) {
+        teamWhere.institutionId = searchParams.institutionId;
+      } else if (searchParams.zoneId) {
+        teamWhere.event = { zoneId: searchParams.zoneId };
+      } else if (searchParams.eventId) {
+        teamWhere.eventId = searchParams.eventId;
+      }
     }
-    teamWhere = { institutionId: fullUser.institutionId };
-    if (fullUser.eventId) {
-      teamWhere.eventId = fullUser.eventId;
-    }
-  } else if (role === "ZONE_ADMIN") {
-    const zoneId = fullUser?.zoneId || searchParams.zoneId;
-    if (zoneId) {
-      teamWhere = {
-        event: {
-          OR: [{ zoneId }, { id: fullUser?.eventId || "" }],
-        },
-      };
-    } else if (fullUser?.eventId) {
-      teamWhere = { eventId: fullUser.eventId };
-    }
-    if (searchParams.teamId) {
-      teamWhere.id = searchParams.teamId;
-    }
-  } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
-    if (searchParams.teamId) {
-      teamWhere.id = searchParams.teamId;
-    } else if (searchParams.institutionId) {
-      teamWhere.institutionId = searchParams.institutionId;
-    } else if (searchParams.zoneId) {
-      teamWhere.event = { zoneId: searchParams.zoneId };
-    } else if (searchParams.eventId) {
-      teamWhere.eventId = searchParams.eventId;
-    }
-  }
 
   // Fetch teams along with their event, zone, and institution
   const teams = await prisma.team.findMany({
@@ -181,11 +185,26 @@ export default async function PrintOffStageInvigilationPage(props: {
     });
   }
 
-  return (
-    <OffStageInvigilationSheet
-      institutionsData={institutionsData}
-      festName={settings.festName}
-      festMoto={settings.festMoto}
-    />
-  );
+    return (
+      <OffStageInvigilationSheet
+        institutionsData={institutionsData}
+        festName={settings.festName}
+        festMoto={settings.festMoto}
+      />
+    );
+  } catch (err: any) {
+    console.error("Off-stage invigilation error:", err);
+    return (
+      <div style={{ padding: "40px", textAlign: "center", fontFamily: "sans-serif" }}>
+        <h2>Unable to load off-stage invigilation sheet</h2>
+        <p style={{ color: "#ef4444" }}>{err?.message || "An unexpected error occurred."}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          style={{ padding: "8px 16px", cursor: "pointer", marginTop: "12px" }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 }
