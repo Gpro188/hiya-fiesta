@@ -78,7 +78,8 @@ export default async function ScoringPage(props: {
         select: {
           id: true,
           name: true,
-          flagColor: true
+          flagColor: true,
+          magazineCode: true
         }
       }
     }

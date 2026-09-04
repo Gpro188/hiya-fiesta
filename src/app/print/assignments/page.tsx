@@ -29,22 +29,25 @@ export default async function PrintAssignmentsPage(props: { searchParams: Promis
   }
 
   let teamName = "All Teams";
+  let magazineCode: string | null = null;
   if (!eventId && teamId) {
     const team = await prisma.team.findUnique({
       where: { id: teamId },
-      select: { eventId: true, name: true }
+      select: { eventId: true, name: true, magazineCode: true }
     });
     if (team) {
       eventId = team.eventId;
       teamName = team.name;
+      magazineCode = team.magazineCode;
     }
   } else if (teamId) {
     const team = await prisma.team.findUnique({
       where: { id: teamId },
-      select: { name: true }
+      select: { name: true, magazineCode: true }
     });
     if (team) {
       teamName = team.name;
+      magazineCode = team.magazineCode;
     }
   }
 
@@ -91,6 +94,18 @@ export default async function PrintAssignmentsPage(props: { searchParams: Promis
           Team: {teamName}
         </p>
       </div>
+
+      {magazineCode && (
+        <div style={{ marginBottom: '20px', padding: '12px 18px', border: '2px dashed #000', borderRadius: '6px', backgroundColor: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>📖 INSTITUTION MAGAZINE CODE: </span>
+            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '1.5px', marginLeft: '6px' }}>{magazineCode}</span>
+          </div>
+          <div style={{ fontSize: '0.82rem', color: '#444' }}>
+            *Write/Mark this code clearly on the top-right corner of your physical magazine submission.
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: '20px', fontSize: '0.9rem' }}>
         <strong>Registration Rules Enforced:</strong> Max 2 On-Stage, Max 2 Off-Stage, Max 1 General per student.

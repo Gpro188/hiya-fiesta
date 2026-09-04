@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import AssignmentForm from "./AssignmentForm";
 import Link from "next/link";
+import { isInstitutionProgram } from "@/lib/programUtils";
 
 export default async function AssignmentsPage(props: { searchParams: Promise<{ candidateId?: string, teamId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -231,23 +232,6 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {!isGuidelinesHidden && (
-            <a 
-              href="/program_manual.pdf" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="btn btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Download Program Manual
-            </a>
-          )}
-          
           <a 
             href={`/print/assignments${teamId ? `?teamId=${teamId}` : ''}`} 
             target="_blank" 
@@ -260,15 +244,6 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
               <rect x="6" y="14" width="12" height="8"></rect>
             </svg>
             Print Assignments List
-          </a>
-          
-          <a 
-            href={`/print/off-stage-invigilation${teamId ? `?teamId=${teamId}` : ''}`} 
-            target="_blank" 
-            className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', borderColor: '#8E0033', color: '#8E0033' }}
-          >
-            📝 Print Off-Stage Invigilation Sheet
           </a>
         </div>
       </div>
@@ -293,7 +268,6 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
 
       {(() => {
         const totalCandidates = candidates.length;
-        const assignedCandidates = candidates.filter(c => c.programs.length > 0).length;
         
         // Calculate Total Available Program Slots for the Team
         const candidateCategoryIds = new Set(candidates.map(c => c.categoryId));
@@ -301,12 +275,20 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
         
         const applicablePrograms = programs.filter(p => 
           p.type === "GENERAL" || 
+          isInstitutionProgram(p) ||
           (p.categoryId !== null && candidateCategoryIds.has(p.categoryId)) || 
           (p.category && candidateCategoryNames.has(p.category.name))
         );
 
-        const totalAvailableSlots = applicablePrograms.reduce((acc, p) => acc + (p.candidateLimitPerTeam || 1), 0);
-        const totalAssignments = candidates.reduce((acc, c) => acc + c.programs.length, 0);
+        const studentPrograms = applicablePrograms.filter(p => !isInstitutionProgram(p));
+        const hasInstProgram = applicablePrograms.some(p => isInstitutionProgram(p));
+        const isMagEnrolled = currentTeam?.isMagazineParticipating || false;
+
+        const studentAvailableSlots = studentPrograms.reduce((acc, p) => acc + (p.candidateLimitPerTeam || 1), 0);
+        const studentAssignments = candidates.reduce((acc, c) => acc + c.programs.length, 0);
+
+        const totalAvailableSlots = studentAvailableSlots + (hasInstProgram ? 1 : 0);
+        const totalAssignments = studentAssignments + (hasInstProgram && isMagEnrolled ? 1 : 0);
         const pendingPrograms = Math.max(0, totalAvailableSlots - totalAssignments);
 
         return (
@@ -325,11 +307,74 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             </div>
             <div className="stat-card glass-panel" style={{ padding: 'var(--spacing-md)' }}>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Pending Slots</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--warning)' }}>{pendingPrograms}</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingPrograms > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                {pendingPrograms}
+              </div>
             </div>
           </div>
         );
       })()}
+
+      {/* Magazine Competition Highlight & Status Card */}
+      {currentTeam && (
+        <div style={{
+          marginBottom: 'var(--spacing-lg)',
+          padding: '16px 20px',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: currentTeam.magazineCode 
+            ? 'rgba(16, 185, 129, 0.08)' 
+            : currentTeam.isMagazineParticipating 
+              ? 'rgba(147, 51, 234, 0.08)' 
+              : 'rgba(245, 158, 11, 0.08)',
+          border: `1.5px solid ${currentTeam.magazineCode 
+            ? '#10b981' 
+            : currentTeam.isMagazineParticipating 
+              ? '#9333ea' 
+              : '#f59e0b'}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '280px' }}>
+            <span style={{ fontSize: '2.2rem' }}>
+              {currentTeam.magazineCode ? '🎉' : currentTeam.isMagazineParticipating ? '📖' : '⏳'}
+            </span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ 
+                  fontSize: '1.05rem', 
+                  color: currentTeam.magazineCode ? '#10b981' : currentTeam.isMagazineParticipating ? '#9333ea' : '#d97706' 
+                }}>
+                  {currentTeam.magazineCode 
+                    ? `Official Magazine Code: ${currentTeam.magazineCode}` 
+                    : currentTeam.isMagazineParticipating 
+                      ? 'Magazine Registration Confirmed' 
+                      : 'College Magazine Competition Pending Registration'}
+                </strong>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  backgroundColor: currentTeam.magazineCode ? '#10b981' : currentTeam.isMagazineParticipating ? '#9333ea' : '#f59e0b',
+                  color: '#fff'
+                }}>
+                  {currentTeam.magazineCode ? 'OFFICIAL CODE ASSIGNED' : currentTeam.isMagazineParticipating ? 'ENROLLED & CONFIRMED' : 'ACTION REQUIRED'}
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                {currentTeam.magazineCode
+                  ? 'Please write/mark this code number clearly on the top-right corner of your physical magazine submission before handing it over.'
+                  : currentTeam.isMagazineParticipating
+                    ? `Registered under ${currentTeam.name}. No individual candidate assignment needed (evaluated on College Name). Your Magazine Code Number will be generated once Zone Admin confirms the list.`
+                    : 'The Magazine competition is evaluated on the Institution Name. Click "Confirm Magazine Participation" below so your college is officially registered.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {candidates.length === 0 ? (
         <div className="glass-panel empty-state-guidance">
@@ -358,6 +403,9 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             initialCandidateId={searchParams.candidateId}
             teamId={teamId}
             isAssignmentsConfirmed={isAssignmentsConfirmed}
+            isMagazineParticipating={currentTeam?.isMagazineParticipating || false}
+            magazineCode={currentTeam?.magazineCode || null}
+            teamName={currentTeam?.name || ""}
             limits={limits}
             isOffStageOpen={isOffStageOpen}
             isOnStageOpen={isOnStageOpen}

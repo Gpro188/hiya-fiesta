@@ -216,15 +216,18 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
           No programs found for the selected filter.
         </div>
       ) : (
-        filteredPrograms.map((program) => (
+        filteredPrograms.map((program) => {
+          const isInst = isInstitutionProgram(program);
+          return (
           <div key={program.id} style={{ 
             padding: 'var(--spacing-md)', 
-            border: '1px solid var(--border-color)', 
+            border: isInst ? '1.5px solid #9333ea' : '1px solid var(--border-color)', 
+            borderLeft: isInst ? '5px solid #9333ea' : undefined,
             borderRadius: 'var(--radius-md)',
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--spacing-sm)',
-            backgroundColor: 'rgba(15, 23, 42, 0.4)'
+            backgroundColor: isInst ? 'rgba(147, 51, 234, 0.05)' : 'rgba(15, 23, 42, 0.4)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
@@ -261,7 +264,7 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                     {program.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
                   </span>
 
-                  {isInstitutionProgram(program) ? (
+                  {isInst ? (
                     <span style={{ 
                       fontSize: '0.74rem', 
                       fontWeight: 800, 
@@ -297,6 +300,11 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                      </span>
                   )}
                 </div>
+                {isInst && (
+                  <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#9333ea', fontWeight: 700 }}>
+                    🏛️ INSTITUTION LEVEL: Evaluated on College Name (No student registration needed).
+                  </div>
+                )}
               </div>
               
               <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
@@ -351,7 +359,8 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
               </div>
             </div>
           </div>
-        ))
+          );
+        })
       )}
 
       {editingProgram && (

@@ -155,6 +155,8 @@ model Team {
   offStageUnlocked       Boolean            @default(false)
   onStageUnlocked        Boolean            @default(false)
   registrationUnlocked   Boolean            @default(false)
+  magazineCode           String?
+  isMagazineParticipating Boolean           @default(false)
   candidates             Candidate[]
   results                Result[]
   institution            MasterInstitution? @relation(fields: [institutionId], references: [id])

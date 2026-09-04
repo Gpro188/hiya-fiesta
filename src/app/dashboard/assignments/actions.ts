@@ -310,3 +310,55 @@ export async function confirmTeamAssignments(teamId: string) {
     return { success: false, error: "Failed to confirm assignments." };
   }
 }
+
+export async function toggleMagazineParticipation(teamId: string, participating: boolean) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        event: {
+          include: { parent: true }
+        }
+      }
+    });
+
+    if (!team) return { success: false, error: "Team not found" };
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      if (team.isAssignmentsConfirmed) {
+        return { success: false, error: "Assignments are already confirmed and locked by the Zone Admin." };
+      }
+
+      const now = new Date();
+      const event = team.event;
+      // Magazine is Off-Stage
+      const offDeadline =
+        event?.offStageRegistrationEnd ||
+        event?.parent?.offStageRegistrationEnd ||
+        event?.institutionRegistrationEndDate ||
+        event?.parent?.institutionRegistrationEndDate ||
+        event?.registrationEnd ||
+        event?.parent?.registrationEnd;
+
+      if (!team.offStageUnlocked && offDeadline && now > new Date(offDeadline)) {
+        return { success: false, error: "Off-stage / Magazine registration deadline has passed." };
+      }
+    }
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { isMagazineParticipating: participating }
+    });
+
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/reports");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to toggle magazine participation:", error);
+    return { success: false, error: error.message || "Failed to update magazine participation" };
+  }
+}
+

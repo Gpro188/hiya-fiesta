@@ -30,6 +30,7 @@ type TeamType = {
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   registrationUnlocked?: boolean;
+  magazineCode?: string | null;
   _count: { candidates: number };
   candidates?: { id: string; _count: { programs: number } }[];
 };
@@ -138,8 +139,15 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               </div>
 
               {team.isAssignmentsConfirmed ? (
-                <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
-                  ✅ Registration Confirmed & Locked (Chest Numbers Assigned)
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
+                    ✅ Registration Confirmed & Locked (Chest Numbers Assigned)
+                  </div>
+                  {team.magazineCode && (
+                    <div style={{ fontSize: '0.8rem', color: '#9333ea', fontWeight: 800, padding: '4px 8px', backgroundColor: 'rgba(147, 51, 234, 0.12)', border: '1px solid rgba(147, 51, 234, 0.3)', borderRadius: '4px' }}>
+                      📖 Magazine Code: <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{team.magazineCode}</span>
+                    </div>
+                  )}
                 </div>
               ) : totalPrograms === 0 ? (
                 <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
@@ -172,7 +180,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                     const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id));
                     if (!result.success) alert(result.error);
                     else if (result.count === 0) alert("No new candidates to confirm.");
-                    else alert(`Successfully confirmed ${result.count} candidates and generated sequential chest numbers.`);
+                    else alert(`Successfully confirmed ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
                     btn.disabled = false;
                     btn.innerText = "Approve & Generate Chest Nos";
                   }}

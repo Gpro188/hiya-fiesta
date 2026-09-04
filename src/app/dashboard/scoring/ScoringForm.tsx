@@ -11,6 +11,7 @@ interface ScoringEntry {
   teamId?: string;
   name: string;
   chestNumber?: string;
+  magazineCode?: string;
   teamName?: string;
   marks: string;
   rank: string;
@@ -116,6 +117,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
           teamId: t.id,
           name: t.name,
           teamName: t.name,
+          magazineCode: t.magazineCode,
           marks: res ? res.marks.toString() : "",
           rank: res?.rank ? res.rank.toString() : "",
           grade: res?.grade || "",
@@ -404,7 +406,11 @@ export default function ScoringForm({ events }: { events: any[] }) {
                 <thead>
                   <tr style={{ backgroundColor: '#FAF5F8', borderBottom: '1.5px solid #f2d9e6', color: '#554a5c', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ padding: '12px 16px', width: '50px', textAlign: 'center' }}>#</th>
-                    {isIndividual && <th style={{ padding: '12px 16px', width: '110px' }}>Chest No</th>}
+                    {isIndividual ? (
+                      <th style={{ padding: '12px 16px', width: '110px' }}>Chest No</th>
+                    ) : isInstitutionProgram(selecteCSWCgram) ? (
+                      <th style={{ padding: '12px 16px', width: '130px', color: '#9333ea' }}>Magazine Code</th>
+                    ) : null}
                     <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
                     <th style={{ padding: '12px 16px' }}>Institution / Team</th>
                     <th style={{ padding: '12px 16px', width: '140px' }}>Total Marks</th>
@@ -420,11 +426,17 @@ export default function ScoringForm({ events }: { events: any[] }) {
                         {idx + 1}
                       </td>
 
-                      {isIndividual && (
+                      {isIndividual ? (
                         <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--primary, #e6007e)' }}>
                           {entry.chestNumber || '-'}
                         </td>
-                      )}
+                      ) : isInstitutionProgram(selecteCSWCgram) ? (
+                        <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace", color: '#9333ea' }}>
+                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(147, 51, 234, 0.1)', border: '1px solid rgba(147, 51, 234, 0.3)' }}>
+                            {entry.magazineCode || '-'}
+                          </span>
+                        </td>
+                      ) : null}
 
                       <td style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420' }}>
                         {entry.name}

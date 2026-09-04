@@ -112,8 +112,30 @@ export async function confirmTeamRegistration(teamId: string) {
     if (!team) return { success: false, error: "Team not found" };
 
     let totalApproved = 0;
+    let assignedMagazineCode = team.magazineCode;
 
     await prisma.$transaction(async (tx) => {
+      // 1. Assign sequential Magazine Code if not already assigned
+      if (!assignedMagazineCode) {
+        const existingTeamsWithMag = await tx.team.findMany({
+          where: {
+            eventId: team.eventId,
+            magazineCode: { not: null }
+          },
+          select: { magazineCode: true }
+        });
+
+        const existingNums = existingTeamsWithMag
+          .map(t => {
+            const match = t.magazineCode?.match(/MAG-(\d+)/i);
+            return match ? parseInt(match[1], 10) : null;
+          })
+          .filter((n): n is number => n !== null && !isNaN(n));
+
+        const nextMagNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+        assignedMagazineCode = `MAG-${String(nextMagNum).padStart(2, '0')}`;
+      }
+
       // Find all candidates for this team that have at least one program assigned
       const candidatesToApprove = await tx.candidate.findMany({
         where: {
@@ -130,7 +152,11 @@ export async function confirmTeamRegistration(teamId: string) {
       if (candidatesToApprove.length === 0) {
         await tx.team.update({
           where: { id: teamId },
-          data: { isAssignmentsConfirmed: true }
+          data: { 
+            isAssignmentsConfirmed: true,
+            isMagazineParticipating: true,
+            magazineCode: assignedMagazineCode
+          }
         });
         return;
       }
@@ -214,14 +240,19 @@ export async function confirmTeamRegistration(teamId: string) {
       // Mark the team assignments confirmed
       await tx.team.update({
         where: { id: teamId },
-        data: { isAssignmentsConfirmed: true }
+        data: { 
+          isAssignmentsConfirmed: true,
+          isMagazineParticipating: true,
+          magazineCode: assignedMagazineCode
+        }
       });
     });
 
     revalidatePath("/dashboard/teams");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
-    return { success: true, count: totalApproved };
+    revalidatePath("/dashboard/reports");
+    return { success: true, count: totalApproved, magazineCode: assignedMagazineCode };
   } catch (error: any) {
     console.error("Failed to confirm team registration:", error);
     if (error.code === 'P2002') {

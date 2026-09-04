@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { assignProgram, unassignProgram } from "./actions";
+import { assignProgram, unassignProgram, toggleMagazineParticipation } from "./actions";
 import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
 
 export default function AssignmentForm({ 
@@ -13,6 +13,9 @@ export default function AssignmentForm({
   initialCandidateId, 
   teamId, 
   isAssignmentsConfirmed = false,
+  isMagazineParticipating = false,
+  magazineCode = null,
+  teamName = "",
   limits,
   isOffStageOpen = true,
   isOnStageOpen = true,
@@ -29,6 +32,9 @@ export default function AssignmentForm({
   initialCandidateId?: string, 
   teamId?: string | null, 
   isAssignmentsConfirmed?: boolean,
+  isMagazineParticipating?: boolean,
+  magazineCode?: string | null,
+  teamName?: string,
   limits?: {
     maxIndividualPrograms?: number;
     maxIndividualOnStage?: number;
@@ -51,6 +57,25 @@ export default function AssignmentForm({
   const [loading, setLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+
+  const handleToggleMagazine = async (participating: boolean) => {
+    if (!teamId) return;
+    setLoading(true);
+    setStatus(null);
+    const res = await toggleMagazineParticipation(teamId, participating);
+    if (res.success) {
+      setStatus({ 
+        type: 'success', 
+        message: participating 
+          ? 'Successfully confirmed Magazine competition participation for your institution!' 
+          : 'Magazine participation removed.' 
+      });
+      router.refresh();
+    } else {
+      setStatus({ type: 'error', message: res.error || 'Failed to update magazine status' });
+    }
+    setLoading(false);
+  };
 
   const selectedCandidate = candidates.find(c => c.id === selectedCandidateId);
   
@@ -512,6 +537,70 @@ export default function AssignmentForm({
       ) : (
         /* MODE 2: BY PROGRAM */
         <>
+          {/* Magazine Institution Program Special Card in Mode 2 */}
+          {programs.some(p => isInstitutionProgram(p)) && (
+            <div style={{
+              marginBottom: 'var(--spacing-lg)',
+              padding: '16px 20px',
+              borderRadius: '8px',
+              backgroundColor: isMagazineParticipating ? 'rgba(147, 51, 234, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+              border: `1.5px solid ${isMagazineParticipating ? '#9333ea' : '#f59e0b'}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.4rem' }}>📖</span>
+                  <strong style={{ fontSize: '1rem', color: isMagazineParticipating ? '#9333ea' : '#d97706' }}>
+                    Institution Program: College Magazine (Off-Stage)
+                  </strong>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    backgroundColor: isMagazineParticipating ? '#9333ea' : '#f59e0b',
+                    color: '#fff'
+                  }}>
+                    {isMagazineParticipating ? 'ENROLLED & CONFIRMED' : 'PENDING REGISTRATION'}
+                  </span>
+                </div>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  Evaluated on the Institution Name. No candidate selection required.
+                  {magazineCode ? ` Official Magazine Code to write on cover: ${magazineCode}` : ' Code will be assigned upon Zone Admin approval.'}
+                </p>
+              </div>
+              {!isAssignmentsConfirmed && (
+                <div>
+                  {isMagazineParticipating ? (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMagazine(false)}
+                      disabled={loading}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                    >
+                      Withdraw Magazine
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMagazine(true)}
+                      disabled={loading}
+                      className="btn btn-primary"
+                      style={{ fontSize: '0.85rem', padding: '6px 16px', backgroundColor: '#9333ea', borderColor: '#9333ea' }}
+                    >
+                      ✓ Confirm Magazine Participation
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="form-group" style={{ marginBottom: 'var(--spacing-xl)' }}>
             {/* STEP 1: SELECT CATEGORY */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
@@ -949,7 +1038,10 @@ export default function AssignmentForm({
                 return (
                   <tr key={p.id} style={{ 
                     borderBottom: '1px solid var(--border-color)',
-                    backgroundColor: isInst ? 'rgba(168, 85, 247, 0.03)' : (isFulfilled ? 'rgba(16, 185, 129, 0.02)' : (isEmpty ? 'rgba(239, 68, 68, 0.02)' : 'transparent'))
+                    backgroundColor: isInst 
+                      ? (isMagazineParticipating ? 'rgba(147, 51, 234, 0.08)' : 'rgba(245, 158, 11, 0.06)') 
+                      : (isFulfilled ? 'rgba(16, 185, 129, 0.02)' : (isEmpty ? 'rgba(239, 68, 68, 0.02)' : 'transparent')),
+                    borderLeft: isInst ? `4px solid ${isMagazineParticipating ? '#9333ea' : '#f59e0b'}` : undefined
                   }}>
                     <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{idx + 1}</td>
                     <td style={{ padding: '10px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
@@ -975,14 +1067,15 @@ export default function AssignmentForm({
                     <td style={{ padding: '10px' }}>
                       {isInst ? (
                         <span style={{ 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
+                          padding: '4px 10px', 
+                          borderRadius: '6px', 
                           fontSize: '0.75rem', 
-                          fontWeight: 700,
-                          backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                          color: '#9333ea'
+                          fontWeight: 800,
+                          backgroundColor: isMagazineParticipating ? 'rgba(147, 51, 234, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                          color: isMagazineParticipating ? '#9333ea' : '#d97706',
+                          border: `1px solid ${isMagazineParticipating ? '#9333ea' : '#f59e0b'}`
                         }}>
-                          🏛️ Institution Entry
+                          {isMagazineParticipating ? '✓ Confirmed Entry' : '⏳ Pending Confirmation'}
                         </span>
                       ) : (
                         <span style={{ 
@@ -999,9 +1092,38 @@ export default function AssignmentForm({
                     </td>
                     <td style={{ padding: '10px' }}>
                       {isInst ? (
-                        <span style={{ color: '#9333ea', fontWeight: 600, fontSize: '0.8rem' }}>
-                          🏛️ Directly on Institution Name (No student registration needed)
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                          <div>
+                            <span style={{ color: '#9333ea', fontWeight: 700, fontSize: '0.85rem' }}>
+                              🏛️ Evaluated on Institution Name (No student registration needed)
+                            </span>
+                            {magazineCode && (
+                              <div style={{ marginTop: '2px', color: '#10b981', fontWeight: 800, fontSize: '0.82rem' }}>
+                                📖 Official Magazine Code: <span style={{ fontFamily: 'monospace', fontSize: '0.95rem' }}>{magazineCode}</span> (Mark on physical magazine)
+                              </div>
+                            )}
+                          </div>
+                          {!isAssignmentsConfirmed && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleMagazine(!isMagazineParticipating)}
+                              disabled={loading}
+                              style={{
+                                padding: '5px 12px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                border: 'none',
+                                backgroundColor: isMagazineParticipating ? 'rgba(239, 68, 68, 0.15)' : '#9333ea',
+                                color: isMagazineParticipating ? '#ef4444' : '#fff',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {isMagazineParticipating ? 'Withdraw Entry' : '✓ Confirm Magazine Participation'}
+                            </button>
+                          )}
+                        </div>
                       ) : assignedList.length === 0 ? (
                         <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None assigned</span>
                       ) : (

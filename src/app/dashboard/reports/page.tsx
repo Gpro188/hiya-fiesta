@@ -198,7 +198,7 @@ export default async function ReportsPage(props: {
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
           <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Institution Print Hub</h1>
           <p className="page-description">
-            Access printable documents, off-stage invigilation sheets, and ID cards for your institution.
+            Access printable documents, schedules, and ID cards for your institution.
           </p>
         </div>
 
@@ -241,15 +241,6 @@ export default async function ReportsPage(props: {
           <div style={{ gridColumn: '1 / -1', marginTop: 'var(--spacing-md)', marginBottom: 'var(--spacing-xs)' }}>
             <h3 style={{ margin: 0, color: 'var(--primary)' }}>Institution Participation & ID Documents</h3>
           </div>
-
-          <a href={`/print/off-stage-invigilation?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-              <h4 style={{ margin: 0, color: '#8E0033' }}>Off-Stage Invigilation Sheet</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.15)', color: '#8E0033', fontWeight: 700 }}>OFF-STAGE</span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official category-separated sheets for external invigilators with candidate details & signature records.</p>
-          </a>
 
           <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
