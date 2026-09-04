@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import SettingsForm from "./SettingsForm";
+import RegistrationLimitsCard from "./RegistrationLimitsCard";
 import PendingList from "./PendingList";
 import MaintenanceActions from "./MaintenanceActions";
 import { prisma } from "@/lib/prisma";
@@ -96,18 +97,35 @@ export default async function SettingsPage() {
             Configure festival-wide settings, audit program assignments, and manage data maintenance operations.
           </p>
         </div>
-        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
-          <a 
-            href="/dashboard/settings/homepage" 
-            className="btn btn-primary" 
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
-          >
-            <span>🎨</span> Homepage & Theme Settings
-          </a>
-        )}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a 
+              href="#registration-limits" 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+            >
+              <span>🎯</span> Candidate Program Limits
+            </a>
+          )}
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a 
+              href="/dashboard/settings/homepage" 
+              className="btn btn-primary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+            >
+              <span>🎨</span> Homepage & Theme Settings
+            </a>
+          )}
+        </div>
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xl)' }}>
+        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+          <div data-tour="settings-limits">
+            <RegistrationLimitsCard initialSettings={settings} role={role} />
+          </div>
+        )}
+
         <div data-tour="settings-config" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>General Configuration</h2>
           <SettingsForm initialSettings={settings} events={events as any} role={role} />

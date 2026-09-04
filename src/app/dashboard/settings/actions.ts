@@ -25,17 +25,17 @@ export async function updateSettings(data: {
 
     const { eventId } = session.user;
 
-    const settingPayload = {
+    const settingPayload: any = {
       festName: data.festName,
       festMoto: data.festMoto,
       festLogo: data.festLogo,
-      maxIndividualPrograms: data.maxIndividualPrograms ?? 4,
-      maxIndividualOnStage: data.maxIndividualOnStage ?? 2,
-      maxIndividualOffStage: data.maxIndividualOffStage ?? 2,
-      maxGeneralTotal: data.maxGeneralTotal ?? 2,
-      maxGeneralOnStage: data.maxGeneralOnStage ?? 1,
-      maxGeneralOffStage: data.maxGeneralOffStage ?? 1,
     };
+    if (data.maxIndividualPrograms !== undefined) settingPayload.maxIndividualPrograms = data.maxIndividualPrograms;
+    if (data.maxIndividualOnStage !== undefined) settingPayload.maxIndividualOnStage = data.maxIndividualOnStage;
+    if (data.maxIndividualOffStage !== undefined) settingPayload.maxIndividualOffStage = data.maxIndividualOffStage;
+    if (data.maxGeneralTotal !== undefined) settingPayload.maxGeneralTotal = data.maxGeneralTotal;
+    if (data.maxGeneralOnStage !== undefined) settingPayload.maxGeneralOnStage = data.maxGeneralOnStage;
+    if (data.maxGeneralOffStage !== undefined) settingPayload.maxGeneralOffStage = data.maxGeneralOffStage;
 
     if (eventId) {
       // Update the event name so it stays in sync
@@ -71,6 +71,68 @@ export async function updateSettings(data: {
   } catch (error) {
     console.error("Failed to update settings:", error);
     return { success: false, error: "Failed to update settings" };
+  }
+}
+
+export async function updateRegistrationLimits(data: {
+  maxIndividualPrograms: number;
+  maxIndividualOnStage: number;
+  maxIndividualOffStage: number;
+  maxGeneralTotal: number;
+  maxGeneralOnStage: number;
+  maxGeneralOffStage: number;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { eventId } = session.user;
+
+    const settingPayload = {
+      maxIndividualPrograms: Number(data.maxIndividualPrograms) || 4,
+      maxIndividualOnStage: Number(data.maxIndividualOnStage) || 2,
+      maxIndividualOffStage: Number(data.maxIndividualOffStage) || 2,
+      maxGeneralTotal: Number(data.maxGeneralTotal) || 2,
+      maxGeneralOnStage: Number(data.maxGeneralOnStage) || 1,
+      maxGeneralOffStage: Number(data.maxGeneralOffStage) || 1,
+    };
+
+    if (eventId) {
+      await prisma.globalSetting.upsert({
+        where: { eventId },
+        update: settingPayload,
+        create: {
+          eventId,
+          id: `event-${eventId}`,
+          festName: "Arts Fest",
+          festMoto: "Celebrating Creativity",
+          festLogo: "",
+          ...settingPayload,
+        },
+      });
+    } else {
+      await prisma.globalSetting.upsert({
+        where: { id: "default" },
+        update: settingPayload,
+        create: {
+          id: "default",
+          festName: "Arts Fest",
+          festMoto: "Celebrating Creativity",
+          festLogo: "",
+          ...settingPayload,
+        },
+      });
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/assignments");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update registration limits:", error);
+    return { success: false, error: "Failed to update registration limits" };
   }
 }
 
