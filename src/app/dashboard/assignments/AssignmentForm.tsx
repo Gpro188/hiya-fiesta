@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { assignProgram, unassignProgram, toggleMagazineParticipation } from "./actions";
 import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
@@ -56,7 +57,23 @@ export default function AssignmentForm({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (showConfirmModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showConfirmModal]);
 
   const handleToggleMagazine = async (participating: boolean) => {
     if (!teamId) return;
@@ -1177,73 +1194,136 @@ export default function AssignmentForm({
         </div>
       )}
 
-      {showConfirmModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: 'white', padding: 'var(--spacing-xl)', borderRadius: 'var(--radius-lg)', maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ marginTop: 0, color: 'var(--primary)', borderBottom: '2px solid var(--border-color)', paddingBottom: 'var(--spacing-sm)' }}>Review Assignments</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>Please review the final list of assigned candidates and their programs. <strong>This action cannot be undone online!</strong></p>
-            
-            <div style={{ marginTop: 'var(--spacing-md)', display: 'grid', gap: 'var(--spacing-md)' }}>
+      {mounted && showConfirmModal && createPortal(
+        <div 
+          onClick={() => setShowConfirmModal(false)}
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 999999, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              backgroundColor: '#ffffff', 
+              color: '#0f172a',
+              borderRadius: '16px', 
+              maxWidth: '780px', 
+              width: '100%', 
+              maxHeight: '88vh', 
+              display: 'flex', 
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#ffffff' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🔒</span> Review & Confirm Final Assignments
+                </h3>
+                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                  Please review the final list of assigned candidates and their programs. <strong>This action cannot be undone online!</strong>
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  fontSize: '1.25rem', 
+                  cursor: 'pointer', 
+                  color: '#64748b',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Candidate Program List */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {candidates.filter(c => c.programs.length > 0).map(c => (
-                <div key={c.id} style={{ border: '1px solid var(--border-color)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '8px' }}>{c.name} {c.uid ? `(${c.uid})` : ''} - {c.category?.name}</div>
-                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.875rem' }}>
+                <div key={c.id} style={{ border: '1px solid #e2e8f0', padding: '14px 16px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px', color: '#0f172a', fontSize: '0.95rem' }}>
+                    {c.name} {c.uid ? `(${c.uid})` : ''} - <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{c.category?.name}</span>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: '#334155' }}>
                     {c.programs.map((p: any) => (
-                      <li key={p.programId}>{p.program.name} ({p.program.type})</li>
+                      <li key={p.programId} style={{ marginTop: '2px' }}>
+                        <strong>{p.program.name}</strong> <span style={{ color: '#64748b' }}>({p.program.type})</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               ))}
               {candidates.filter(c => c.programs.length > 0).length === 0 && (
-                <div style={{ color: 'var(--warning)', padding: 'var(--spacing-md)', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 'var(--radius-md)' }}>
-                  You have not assigned any programs to your candidates. If you submit now, your team will have 0 entries.
+                <div style={{ color: 'var(--warning)', padding: '16px', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: '10px', border: '1px solid rgba(245,158,11,0.3)', fontSize: '0.9rem' }}>
+                  ⚠️ You have not assigned any programs to your candidates. If you submit now, your team will have 0 entries.
                 </div>
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)', borderTop: '1px solid var(--border-color)', paddingTop: 'var(--spacing-md)' }}>
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', flexWrap: 'wrap', gap: '10px' }}>
               <a 
                 href={`/print/assignments${teamId ? `?teamId=${teamId}` : ''}`}
                 target="_blank"
                 className="btn btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 6 2 18 2 18 9"></polyline>
                   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                   <rect x="6" y="14" width="12" height="8"></rect>
                 </svg>
                 Print List
               </a>
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setShowConfirmModal(false)}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                style={{ backgroundColor: 'var(--success)' }}
-                disabled={loading}
-                onClick={async () => {
-                  setLoading(true);
-                  const { confirmTeamAssignments } = await import('./actions');
-                  const res = await confirmTeamAssignments(teamId!);
-                  if(res.success) {
-                    window.location.reload();
-                  } else {
-                    setStatus({ type: 'error', message: res.error || "Failed to confirm." });
-                    setLoading(false);
-                    setShowConfirmModal(false);
-                  }
-                }}
-              >
-                {loading ? "Submitting..." : "Yes, Lock and Submit"}
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={loading}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--success)', fontSize: '0.85rem', fontWeight: 700 }}
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true);
+                    const { confirmTeamAssignments } = await import('./actions');
+                    const res = await confirmTeamAssignments(teamId!);
+                    if (res.success) {
+                      window.location.reload();
+                    } else {
+                      setStatus({ type: 'error', message: res.error || "Failed to confirm." });
+                      setLoading(false);
+                      setShowConfirmModal(false);
+                    }
+                  }}
+                >
+                  {loading ? "Submitting..." : "✅ Yes, Lock and Submit"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
