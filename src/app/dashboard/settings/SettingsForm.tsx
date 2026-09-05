@@ -99,15 +99,14 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       return isNaN(d.getTime()) ? null : d.toISOString();
     };
 
-    // Save event deadlines (sync registrationStart with assignmentStart, and registrationEnd with assignmentEnd and institutionRegistrationEndDate)
-    const effectiveRegistrationStart = registrationStart || assignmentStart;
-    const effectiveRegistrationEnd = registrationEnd || assignmentEnd || institutionRegistrationEndDate;
+    // Save event deadlines (sync general cutoff with on-stage/off-stage and remove opening time blocker)
+    const effectiveCutoff = onStageRegistrationEnd || offStageRegistrationEnd;
     const deadlineResult = await updateEventDeadlines(selectedEventId, {
-      registrationStart: toServerIso(effectiveRegistrationStart),
-      registrationEnd: toServerIso(effectiveRegistrationEnd),
-      assignmentStart: toServerIso(effectiveRegistrationStart),
-      assignmentEnd: toServerIso(effectiveRegistrationEnd),
-      institutionRegistrationEndDate: toServerIso(effectiveRegistrationEnd),
+      registrationStart: null,
+      assignmentStart: null,
+      registrationEnd: toServerIso(effectiveCutoff),
+      assignmentEnd: toServerIso(effectiveCutoff),
+      institutionRegistrationEndDate: toServerIso(effectiveCutoff),
       offStageRegistrationEnd: toServerIso(offStageRegistrationEnd),
       onStageRegistrationEnd: toServerIso(onStageRegistrationEnd),
       zoneActiveStartTime: toServerIso(zoneActiveStartTime),
@@ -208,108 +207,56 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
             <span className="field-helper">Saving deadlines will automatically update and synchronize all child zones.</span>
           </div>
 
-          {/* BOARD 1: INSTITUTION PORTAL DEADLINES */}
+          {/* BOARD 1: STAGE REGISTRATION DEADLINES */}
           <div style={{
-            border: '2px solid rgba(165,0,58,0.3)',
+            border: '2px solid rgba(165,0,58,0.25)',
             borderRadius: 'var(--radius-lg)',
             padding: 'var(--spacing-lg)',
-            backgroundColor: 'rgba(165,0,58,0.02)',
-            marginBottom: 'var(--spacing-xl)'
+            backgroundColor: '#ffffff',
+            marginBottom: 'var(--spacing-xl)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-xs)' }}>
               <span style={{ fontSize: '1.4rem' }}>🏛️</span>
-              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>Board 1: Institution Portal Deadlines (Colleges & Teams)</h4>
+              <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>
+                Board 1: Stage Registration Deadlines (Off-Stage & On-Stage)
+              </h4>
             </div>
             <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Control when college/institution managers can add students and assign competition programs. Once the deadline passes, institution portals lock automatically.
+              Set separate closing deadlines for Off-Stage and On-Stage competitions. Off-Stage programs contest early, while On-Stage remains open until its later cutoff.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700 }}>
-                  Registration & Assignment Opening Time
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--spacing-lg)' }}>
+              <div className="form-group" style={{ backgroundColor: 'rgba(14, 165, 233, 0.04)', padding: '16px', borderRadius: '10px', border: '1.5px solid rgba(14, 165, 233, 0.3)' }}>
+                <label className="form-label" style={{ fontWeight: 800, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                  <span>🎨</span> Off-Stage Registration Deadline
                 </label>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
-                  value={registrationStart || assignmentStart}
-                  onChange={(e) => {
-                    setRegistrationStart(e.target.value);
-                    setAssignmentStart(e.target.value);
-                  }}
+                  value={offStageRegistrationEnd}
+                  onChange={(e) => setOffStageRegistrationEnd(e.target.value)}
+                  style={{ borderColor: '#0284c7', borderWidth: '2px', backgroundColor: '#ffffff', fontWeight: 600, fontSize: '0.95rem' }}
                 />
-                <span className="field-helper">Opening date/time for institutions to add candidates and allocate competition programs.</span>
+                <span className="field-helper" style={{ color: '#0369a1', marginTop: '6px', display: 'block', fontSize: '0.8rem' }}>
+                  Cutoff date/time for all Off-Stage program allocations. Once this passes, institutions cannot add or modify Off-Stage entries.
+                </span>
               </div>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                  General Registration & Assignment Deadline
+
+              <div className="form-group" style={{ backgroundColor: 'rgba(236, 72, 153, 0.04)', padding: '16px', borderRadius: '10px', border: '1.5px solid rgba(236, 72, 153, 0.3)' }}>
+                <label className="form-label" style={{ fontWeight: 800, color: '#db2777', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                  <span>🎭</span> On-Stage Registration Deadline
                 </label>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
-                  value={registrationEnd || assignmentEnd || institutionRegistrationEndDate}
-                  onChange={(e) => {
-                    setRegistrationEnd(e.target.value);
-                    setAssignmentEnd(e.target.value);
-                    setInstitutionRegistrationEndDate(e.target.value);
-                  }}
-                  style={{ borderColor: 'var(--primary)', borderWidth: '2px' }}
+                  value={onStageRegistrationEnd}
+                  onChange={(e) => setOnStageRegistrationEnd(e.target.value)}
+                  style={{ borderColor: '#db2777', borderWidth: '2px', backgroundColor: '#ffffff', fontWeight: 600, fontSize: '0.95rem' }}
                 />
-                <span className="field-helper">General cutoff for institutions to add/delete candidates and allocate programs.</span>
-              </div>
-            </div>
-
-            {/* SPLIT OFF-STAGE & ON-STAGE DEADLINES */}
-            <div style={{ 
-              marginTop: 'var(--spacing-md)',
-              padding: 'var(--spacing-md)', 
-              backgroundColor: '#ffffff', 
-              borderRadius: 'var(--radius-md)', 
-              border: '1.5px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span style={{ fontSize: '1.1rem' }}>⚡</span>
-                <strong style={{ fontSize: '0.95rem', color: '#1e293b' }}>
-                  Split Stage Deadlines (Early Off-Stage & Later On-Stage Cutoffs)
-                </strong>
-              </div>
-              <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Off-stage programs contest very early. Configure separate closing deadlines for Off-Stage vs. On-Stage competitions.
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
-                <div className="form-group" style={{ backgroundColor: 'rgba(14, 165, 233, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.25)' }}>
-                  <label className="form-label" style={{ fontWeight: 800, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🎨</span> Off-Stage Registration Deadline
-                  </label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={offStageRegistrationEnd}
-                    onChange={(e) => setOffStageRegistrationEnd(e.target.value)}
-                    style={{ borderColor: '#0284c7', borderWidth: '2px', backgroundColor: '#ffffff' }}
-                  />
-                  <span className="field-helper" style={{ color: '#0369a1' }}>
-                    Cutoff date/time for all Off-Stage program allocations. Once passed, off-stage competitions lock.
-                  </span>
-                </div>
-
-                <div className="form-group" style={{ backgroundColor: 'rgba(236, 72, 153, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.25)' }}>
-                  <label className="form-label" style={{ fontWeight: 800, color: '#db2777', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🎭</span> On-Stage Registration Deadline
-                  </label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={onStageRegistrationEnd}
-                    onChange={(e) => setOnStageRegistrationEnd(e.target.value)}
-                    style={{ borderColor: '#db2777', borderWidth: '2px', backgroundColor: '#ffffff' }}
-                  />
-                  <span className="field-helper" style={{ color: '#be185d' }}>
-                    Cutoff date/time for all On-Stage program allocations. Remains open after off-stage closes.
-                  </span>
-                </div>
+                <span className="field-helper" style={{ color: '#be185d', marginTop: '6px', display: 'block', fontSize: '0.8rem' }}>
+                  Cutoff date/time for all On-Stage program allocations. Remains open even after Off-Stage closes.
+                </span>
               </div>
             </div>
           </div>

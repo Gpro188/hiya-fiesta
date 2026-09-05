@@ -159,23 +159,26 @@ export async function updateEventDeadlines(eventId: string, data: {
     const startDateVal = data.zoneActiveStartTime ? new Date(data.zoneActiveStartTime) : null;
     const endDateVal = data.zoneActiveEndTime ? new Date(data.zoneActiveEndTime) : null;
 
+    const effectiveCutoff = data.onStageRegistrationEnd || data.offStageRegistrationEnd || data.institutionRegistrationEndDate;
+    const effectiveCutoffDate = effectiveCutoff ? new Date(effectiveCutoff) : null;
+
     const updatedEvent = await prisma.event.update({
       where: { id: eventId },
       data: {
+        registrationStart: null,
+        assignmentStart: null,
+        registrationEnd: effectiveCutoffDate,
+        assignmentEnd: effectiveCutoffDate,
+        institutionRegistrationEndDate: effectiveCutoffDate,
+        offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
+        onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
         ...(isAdmin ? {
-          registrationStart: data.registrationStart ? new Date(data.registrationStart) : null,
-          registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
-          assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
-          assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
           startDate: startDateVal,
           endDate: endDateVal,
           zoneActiveStartTime: startDateVal,
           zoneActiveEndTime: endDateVal,
           stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
         } : {}),
-        institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
-        offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
-        onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
         ...(data.statusOverride ? { statusOverride: data.statusOverride } : {})
       }
     });
@@ -185,11 +188,11 @@ export async function updateEventDeadlines(eventId: string, data: {
       await prisma.event.updateMany({
         where: { parentId: updatedEvent.id },
         data: {
-          registrationStart: data.registrationStart ? new Date(data.registrationStart) : null,
-          registrationEnd: data.registrationEnd ? new Date(data.registrationEnd) : null,
-          assignmentStart: data.assignmentStart ? new Date(data.assignmentStart) : null,
-          assignmentEnd: data.assignmentEnd ? new Date(data.assignmentEnd) : null,
-          institutionRegistrationEndDate: data.institutionRegistrationEndDate ? new Date(data.institutionRegistrationEndDate) : null,
+          registrationStart: null,
+          assignmentStart: null,
+          registrationEnd: effectiveCutoffDate,
+          assignmentEnd: effectiveCutoffDate,
+          institutionRegistrationEndDate: effectiveCutoffDate,
           offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
           onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
         }
