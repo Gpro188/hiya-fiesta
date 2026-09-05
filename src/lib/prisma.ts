@@ -7,14 +7,19 @@ function getDatabaseUrl(): string {
   
   // If connecting to postgres pooler, ensure optimal connection limit and timeout
   if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
-    if (url.includes("pooler.supabase.com:6543")) {
-      // Ensure connect_timeout and pool_timeout are set so requests don't hang
+    if (url.includes("6543") || url.includes("pgbouncer=true") || url.includes("pooler.supabase.com")) {
+      // Ensure connect_timeout and pool_timeout are set generously so concurrent queries don't crash
       if (!url.includes("connect_timeout")) {
-        url += (url.includes("?") ? "&" : "?") + "connect_timeout=15&pool_timeout=15";
+        url += (url.includes("?") ? "&" : "?") + "connect_timeout=30";
       }
-      // Replace connection_limit=1 with connection_limit=10 to prevent concurrent queuing delays
-      if (url.includes("connection_limit=1")) {
-        url = url.replace("connection_limit=1", "connection_limit=10");
+      if (!url.includes("pool_timeout")) {
+        url += (url.includes("?") ? "&" : "?") + "pool_timeout=30";
+      }
+      // Replace connection_limit=1 or any small limit with connection_limit=20 to support concurrent requests
+      if (url.includes("connection_limit=")) {
+        url = url.replace(/connection_limit=\d+/g, "connection_limit=20");
+      } else {
+        url += (url.includes("?") ? "&" : "?") + "connection_limit=20";
       }
     }
   }
@@ -32,5 +37,6 @@ export const prisma =
     },
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Always cache client on globalThis to prevent spawning multiple connection pools in PM2 / Node.js
+globalForPrisma.prisma = prisma;
 

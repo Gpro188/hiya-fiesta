@@ -1,6 +1,18 @@
 import { prisma } from "./prisma";
 
+const settingsCache = new Map<string, { data: any; expiresAt: number }>();
+
+export function clearSettingsCache() {
+  settingsCache.clear();
+}
+
 export async function getSettings(eventId?: string | null) {
+  const cacheKey = eventId || "default";
+  const cached = settingsCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
   try {
     if (eventId) {
       const existing = await prisma.globalSetting.findFirst({
@@ -11,7 +23,10 @@ export async function getSettings(eventId?: string | null) {
           ]
         }
       });
-      if (existing) return existing;
+      if (existing) {
+        settingsCache.set(cacheKey, { data: existing, expiresAt: Date.now() + 60000 });
+        return existing;
+      }
 
       const event = await prisma.event.findUnique({
         where: { id: eventId }
@@ -27,7 +42,7 @@ export async function getSettings(eventId?: string | null) {
         } as any;
       }
 
-      return await prisma.globalSetting.upsert({
+      const upserted = await prisma.globalSetting.upsert({
         where: { id: eventId },
         update: {
           eventId: eventId,
@@ -40,6 +55,8 @@ export async function getSettings(eventId?: string | null) {
           festMoto: "Council of Samastha Women's Colleges"
         }
       });
+      settingsCache.set(cacheKey, { data: upserted, expiresAt: Date.now() + 60000 });
+      return upserted;
     }
 
     const defaultSetting = await prisma.globalSetting.findFirst({
@@ -50,9 +67,12 @@ export async function getSettings(eventId?: string | null) {
         ]
       }
     });
-    if (defaultSetting) return defaultSetting;
+    if (defaultSetting) {
+      settingsCache.set(cacheKey, { data: defaultSetting, expiresAt: Date.now() + 60000 });
+      return defaultSetting;
+    }
 
-    return await prisma.globalSetting.upsert({
+    const defaultUpserted = await prisma.globalSetting.upsert({
       where: { id: "default" },
       update: {},
       create: { 
@@ -61,6 +81,8 @@ export async function getSettings(eventId?: string | null) {
         festMoto: "Council of Samastha Women's Colleges"
       }
     });
+    settingsCache.set(cacheKey, { data: defaultUpserted, expiresAt: Date.now() + 60000 });
+    return defaultUpserted;
   } catch (e) {
     console.error("getSettings failed:", e);
       return { 

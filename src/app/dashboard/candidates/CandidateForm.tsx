@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { addCandidate } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
@@ -78,44 +78,61 @@ export default function CandidateForm({
   const [uidStatus, setUidStatus] = useState("");
   const [isUnder20, setIsUnder20] = useState(false);
   const [studentStream, setStudentStream] = useState("");
+  const uidLookupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleUidLookup = async (inputUid: string) => {
+  const handleUidLookup = (inputUid: string) => {
     setUid(inputUid);
-    if (inputUid.trim().length >= 4) {
+    const trimmed = inputUid.trim();
+
+    if (uidLookupTimerRef.current) {
+      clearTimeout(uidLookupTimerRef.current);
+    }
+
+    if (trimmed.length >= 4) {
       setSearchingUid(true);
       setUidStatus("Searching UID...");
-      const { lookupStudentByUID } = await import("./uidLookup");
-      const res = await lookupStudentByUID(inputUid, selectedTeamId);
-      if (res.success && res.student) {
-        setName(res.student.name);
-        
-        if (res.isAlreadyRegistered) {
-          setUidStatus(`🚫 ALREADY ADDED: ${res.student.name} is already registered in this team!`);
-          setError(`Student (${res.student.name} - UID: ${inputUid}) is already registered in your candidates list!`);
-        } else {
-          setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
-          setError("");
-        }
-        
-        const stream = (res.student.stream || "").toUpperCase();
-        setStudentStream(stream);
 
-        // Auto-match category
-        const isShareea = stream.includes("SHAREE") || stream.includes("SHARI");
-        if (isShareea) {
-          // Default to FADHEELA or SHAREEA, but allow FADHILA if under 20
-          const defaultCat = categories.find(c => c.name.toUpperCase().includes("FADHEELA") || c.name.toUpperCase().includes("SHAREE"));
-          if (defaultCat) setCategoryId(defaultCat.id);
-        } else if (stream) {
-          const matchedCat = categories.find(c => c.name.toUpperCase().includes(stream));
-          if (matchedCat) setCategoryId(matchedCat.id);
+      uidLookupTimerRef.current = setTimeout(async () => {
+        try {
+          const { lookupStudentByUID } = await import("./uidLookup");
+          const res = await lookupStudentByUID(trimmed, selectedTeamId);
+          if (res.success && res.student) {
+            setName(res.student.name);
+            
+            if (res.isAlreadyRegistered) {
+              setUidStatus(`🚫 ALREADY ADDED: ${res.student.name} is already registered in this team!`);
+              setError(`Student (${res.student.name} - UID: ${trimmed}) is already registered in your candidates list!`);
+            } else {
+              setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
+              setError("");
+            }
+            
+            const stream = (res.student.stream || "").toUpperCase();
+            setStudentStream(stream);
+
+            // Auto-match category
+            const isShareea = stream.includes("SHAREE") || stream.includes("SHARI");
+            if (isShareea) {
+              // Default to FADHEELA or SHAREEA, but allow FADHILA if under 20
+              const defaultCat = categories.find(c => c.name.toUpperCase().includes("FADHEELA") || c.name.toUpperCase().includes("SHAREE"));
+              if (defaultCat) setCategoryId(defaultCat.id);
+            } else if (stream) {
+              const matchedCat = categories.find(c => c.name.toUpperCase().includes(stream));
+              if (matchedCat) setCategoryId(matchedCat.id);
+            }
+          } else {
+            setUidStatus("⚠️ UID not found in Master Directory. You can type name manually.");
+            setStudentStream("");
+          }
+        } catch (err) {
+          console.error("UID Lookup error:", err);
+          setUidStatus("⚠️ Lookup error, please try again.");
+        } finally {
+          setSearchingUid(false);
         }
-      } else {
-        setUidStatus("⚠️ UID not found in Master Directory. You can type name manually.");
-        setStudentStream("");
-      }
-      setSearchingUid(false);
+      }, 350);
     } else {
+      setSearchingUid(false);
       setUidStatus("");
       setStudentStream("");
     }
