@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { createUser } from "./actions";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function CreateUserForm({ role, zones, institutions, userZoneId }: { 
   role: string, 
@@ -160,9 +161,12 @@ export default function CreateUserForm({ role, zones, institutions, userZoneId }
                   <label className="form-label">Institution</label>
                   <select className="form-input" value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
                     <option value="">Select Institution (Optional)</option>
-                    {filteredInstitutions.map(i => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
+                    {filteredInstitutions.map(i => {
+                      const { name: instName, place: instPlace } = formatInstitutionDisplay(i);
+                      return (
+                        <option key={i.id} value={i.id}>{instName}{instPlace ? ` (${instPlace})` : ''}</option>
+                      );
+                    })}
                   </select>
                 </div>
               )}

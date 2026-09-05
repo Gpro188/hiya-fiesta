@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [zones, setZones] = useState(initialZones);
@@ -389,7 +390,7 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
               <input
                 type="text"
                 className="form-input"
-                placeholder="Search college by name or code..."
+                placeholder="Search college by name, code, or place..."
                 value={collegeSearch}
                 onChange={(e) => setCollegeSearch(e.target.value)}
                 style={{ padding: '8px 12px', fontSize: '0.875rem' }}
@@ -416,15 +417,23 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                   </thead>
                   <tbody>
                     {viewingCollegesZone.institutions
-                      .filter((inst: any) => 
-                        !collegeSearch || 
-                        inst.name.toLowerCase().includes(collegeSearch.toLowerCase()) || 
-                        (inst.code && inst.code.toLowerCase().includes(collegeSearch.toLowerCase()))
-                      )
+                      .filter((inst: any) => {
+                        if (!collegeSearch) return true;
+                        const q = collegeSearch.toLowerCase().trim();
+                        const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
+                        return (
+                          instName.toLowerCase().includes(q) ||
+                          (instPlace && instPlace.toLowerCase().includes(q)) ||
+                          (inst.code && inst.code.toLowerCase().includes(q)) ||
+                          (inst.place && inst.place.toLowerCase().includes(q)) ||
+                          (inst.name && inst.name.toLowerCase().includes(q))
+                        );
+                      })
                       .map((inst: any, idx: number) => {
                         const team = inst.teams?.[0];
                         const candidateCount = team?._count?.candidates || 0;
                         const isConfirmed = team?.isAssignmentsConfirmed;
+                        const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
 
                         return (
                           <tr key={inst.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -432,7 +441,14 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                             <td style={{ padding: '10px 8px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>
                               {inst.code || '-'}
                             </td>
-                            <td style={{ padding: '10px 8px', fontWeight: 600 }}>{inst.name}</td>
+                            <td style={{ padding: '10px 8px' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{instName}</div>
+                              {instPlace && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <span>📍</span> {instPlace}
+                                </div>
+                              )}
+                            </td>
                             <td style={{ padding: '10px 8px' }}>
                               <span style={{ fontWeight: 700, color: candidateCount > 0 ? '#10b981' : 'var(--text-muted)' }}>
                                 {candidateCount} candidates

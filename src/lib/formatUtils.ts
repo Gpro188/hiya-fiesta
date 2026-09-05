@@ -17,10 +17,20 @@ export function formatInstitutionDisplay(team: {
     const parts = rawName.split(",");
     rawName = parts[0].trim();
     rawPlace = parts.slice(1).join(",").trim();
-  } else if (rawPlace && rawName.toLowerCase().includes(rawPlace.toLowerCase())) {
+  } else if (rawPlace) {
     // If rawName contains ", PLACE" at the end, strip it from name so it isn't repeated
     const escapedPlace = rawPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     rawName = rawName.replace(new RegExp(`,\\s*${escapedPlace}$`, 'i'), '').trim();
+
+    // Also check if rawName still contains a trailing comma-separated place that differs from rawPlace
+    if (rawName.includes(",")) {
+      const parts = rawName.split(",");
+      const trailingPart = parts.slice(1).join(",").trim();
+      rawName = parts[0].trim();
+      if (!rawPlace.toLowerCase().includes(trailingPart.toLowerCase())) {
+        rawPlace = `${trailingPart}, ${rawPlace}`;
+      }
+    }
   }
 
   return {

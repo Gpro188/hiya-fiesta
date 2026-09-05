@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { deleteCandidate, approveCandidate } from "./actions";
 import EditCandidateModal from "./EditCandidateModal";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 type CandidateType = {
   id: string;
@@ -136,7 +137,19 @@ export default function CandidateList({
 
                 {!isInstitutionRole && (
                   <td style={{ padding: 'var(--spacing-sm)', fontSize: '0.85rem' }}>
-                    {candidate.team.name}
+                    {(() => {
+                      const { name: instName, place: instPlace } = formatInstitutionDisplay(candidate.team);
+                      return (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{instName}</div>
+                          {instPlace && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <span>📍</span> {instPlace}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                 )}
 

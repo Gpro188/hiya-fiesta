@@ -15,12 +15,12 @@ export default async function MasterStudentsPage() {
   const [students, institutions, zones] = await Promise.all([
     prisma.masterStudent.findMany({
       include: {
-        institution: { select: { id: true, name: true, code: true, zoneId: true, zone: { select: { id: true, name: true } } } }
+        institution: { select: { id: true, name: true, code: true, place: true, zoneId: true, zone: { select: { id: true, name: true } } } }
       },
       orderBy: { createdAt: 'desc' }
     }),
     prisma.masterInstitution.findMany({
-      select: { id: true, name: true, code: true, zoneId: true },
+      select: { id: true, name: true, code: true, place: true, zoneId: true },
       orderBy: { name: 'asc' }
     }),
     prisma.zone.findMany({

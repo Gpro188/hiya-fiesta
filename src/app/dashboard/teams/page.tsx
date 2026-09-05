@@ -48,6 +48,9 @@ export default async function TeamsPage() {
           parent: true
         }
       },
+      institution: {
+        select: { id: true, name: true, code: true, place: true }
+      },
       _count: {
         select: { candidates: true }
       },

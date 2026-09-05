@@ -3,6 +3,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { bulkImportStudents, addStudent, updateStudent, deleteStudent, bulkDeleteStudentsByZone, bulkDeleteStudentsByInstitution, bulkDeleteAllStudents } from "./actions";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function StudentsClient({ initialStudents, institutions, zones }: { initialStudents: any[], institutions: any[], zones: any[] }) {
   const [students, setStudents] = useState(initialStudents);
@@ -279,11 +280,17 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
     : institutions.filter(i => i.zoneId === selectedZoneId);
 
   const filteredStudents = students.filter(s => {
+    const { name: instName, place: instPlace } = formatInstitutionDisplay(s.institution);
+    const q = search.toLowerCase();
     const matchesSearch = 
-      s.name.toLowerCase().includes(search.toLowerCase()) || 
-      s.uid.toLowerCase().includes(search.toLowerCase()) ||
-      s.institution?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      (s.district && s.district.toLowerCase().includes(search.toLowerCase())) ||
+      s.name.toLowerCase().includes(q) || 
+      s.uid.toLowerCase().includes(q) ||
+      instName.toLowerCase().includes(q) ||
+      (instPlace && instPlace.toLowerCase().includes(q)) ||
+      s.institution?.name?.toLowerCase().includes(q) ||
+      s.institution?.code?.toLowerCase().includes(q) ||
+      s.institution?.place?.toLowerCase().includes(q) ||
+      (s.district && s.district.toLowerCase().includes(q)) ||
       (s.phone && s.phone.includes(search));
 
     const matchesZone = 
@@ -557,11 +564,14 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
                 onChange={(e) => setSelectedInstitutionId(e.target.value)}
               >
                 <option value="ALL">All Colleges ({availableInstitutions.length})</option>
-                {availableInstitutions?.map(i => (
-                  <option key={i.id} value={i.id}>
-                    {i.code} - {i.name}
-                  </option>
-                ))}
+                {availableInstitutions?.map(i => {
+                  const { name: instName, place: instPlace } = formatInstitutionDisplay(i);
+                  return (
+                    <option key={i.id} value={i.id}>
+                      {i.code} - {instName}{instPlace ? ` (${instPlace})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -638,7 +648,18 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
                   <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '10px 8px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{s.uid}</td>
                     <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td>{s.institution?.name || '-'}</td>
+                    <td>
+                      {s.institution ? (
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatInstitutionDisplay(s.institution).name}</div>
+                          {formatInstitutionDisplay(s.institution).place && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <span>📍</span> {formatInstitutionDisplay(s.institution).place}
+                            </div>
+                          )}
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td>
                       <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>
                         {s.institution?.zone?.name || 'Unassigned'}

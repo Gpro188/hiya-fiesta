@@ -3,6 +3,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { bulkImportInstitutions, updateInstitution, deleteInstitution } from "./actions";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function InstitutionsClient({ initialInstitutions, zones }: { initialInstitutions: any[], zones: any[] }) {
   const [institutions, setInstitutions] = useState(initialInstitutions);
@@ -181,12 +182,16 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
 
   // Filtered institutions
   const filteredInstitutions = institutions.filter((inst) => {
+    const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
+    const q = search.toLowerCase();
     const matchesSearch =
-      inst.name?.toLowerCase().includes(search.toLowerCase()) ||
-      inst.code?.toLowerCase().includes(search.toLowerCase()) ||
-      inst.place?.toLowerCase().includes(search.toLowerCase()) ||
-      inst.district?.toLowerCase().includes(search.toLowerCase()) ||
-      (inst.affiliationNo && inst.affiliationNo.toLowerCase().includes(search.toLowerCase()));
+      instName.toLowerCase().includes(q) ||
+      (instPlace && instPlace.toLowerCase().includes(q)) ||
+      inst.name?.toLowerCase().includes(q) ||
+      inst.code?.toLowerCase().includes(q) ||
+      inst.place?.toLowerCase().includes(q) ||
+      inst.district?.toLowerCase().includes(q) ||
+      (inst.affiliationNo && inst.affiliationNo.toLowerCase().includes(q));
 
     const matchesZone =
       selectedZone === "ALL" ||
@@ -408,12 +413,21 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                 </tr>
               </thead>
               <tbody>
-                {filteredInstitutions.map((inst) => (
+                {filteredInstitutions.map((inst) => {
+                  const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
+                  return (
                   <tr key={inst.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '10px 8px', fontWeight: 700, color: 'var(--primary)' }}>{inst.code}</td>
                     <td>{inst.affiliationNo || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>{inst.name}</td>
-                    <td>{inst.place || '-'}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      <div>{instName}</div>
+                      {instPlace && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
+                          📍 {instPlace}
+                        </div>
+                      )}
+                    </td>
+                    <td>{inst.place || instPlace || '-'}</td>
                     <td>
                       <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 600, fontSize: '0.75rem' }}>
                         {inst.zone?.name || 'Unassigned'}
@@ -444,7 +458,8 @@ export default function InstitutionsClient({ initialInstitutions, zones }: { ini
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

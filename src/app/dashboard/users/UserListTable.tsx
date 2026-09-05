@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import UserActions from "./UserActions";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 interface UserItem {
   id: string;
@@ -11,7 +12,7 @@ interface UserItem {
   zoneId?: string | null;
   institutionId?: string | null;
   zone?: { id: string; name: string } | null;
-  institution?: { id: string; name: string; zoneId?: string | null } | null;
+  institution?: { id: string; name: string; place?: string | null; zoneId?: string | null } | null;
 }
 
 interface ZoneOption {
@@ -52,7 +53,13 @@ export default function UserListTable({
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       const matchUsername = u.username.toLowerCase().includes(q);
-      const matchInst = u.institution?.name?.toLowerCase().includes(q) || false;
+      const { name: instName, place: instPlace } = formatInstitutionDisplay(u.institution);
+      const matchInst = u.institution ? (
+        instName.toLowerCase().includes(q) ||
+        (instPlace && instPlace.toLowerCase().includes(q)) ||
+        u.institution.name.toLowerCase().includes(q) ||
+        (u.institution.place && u.institution.place.toLowerCase().includes(q))
+      ) : false;
       const matchZone = u.zone?.name?.toLowerCase().includes(q) || false;
       if (!matchUsername && !matchInst && !matchZone) return false;
     }
@@ -246,9 +253,14 @@ export default function UserListTable({
               style={{ width: "100%", padding: "6px 10px", fontSize: "0.85rem" }}
             >
               <option value="ALL">All Institutions ({availableInstitutions.length})</option>
-              {availableInstitutions.map((inst) => (
-                <option key={inst.id} value={inst.id}>{inst.name}</option>
-              ))}
+              {availableInstitutions.map((inst) => {
+                const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
+                return (
+                  <option key={inst.id} value={inst.id}>
+                    {instName}{instPlace ? ` (${instPlace})` : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -303,8 +315,13 @@ export default function UserListTable({
                 <td>
                   {user.institution ? (
                     <div style={{ display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontWeight: 600 }}>{user.institution.name}</span>
-                      {user.zone && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{user.zone.name} Zone</span>}
+                      <span style={{ fontWeight: 600 }}>{formatInstitutionDisplay(user.institution).name}</span>
+                      {formatInstitutionDisplay(user.institution).place && (
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px", display: "flex", alignItems: "center", gap: "3px" }}>
+                          <span>📍</span> {formatInstitutionDisplay(user.institution).place}
+                        </span>
+                      )}
+                      {user.zone && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>{user.zone.name} Zone</span>}
                     </div>
                   ) : user.zone ? (
                     <span style={{ fontWeight: 600, color: "var(--primary)" }}>{user.zone.name} Zone</span>

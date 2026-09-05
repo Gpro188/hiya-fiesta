@@ -4,6 +4,7 @@ import { useState } from "react";
 import { deleteTeam } from "./actions";
 import EditTeamModal from "./EditTeamModal";
 import RegistrationAccessModal from "./RegistrationAccessModal";
+import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 type TeamType = {
   id: string;
@@ -22,7 +23,8 @@ type TeamType = {
       registrationEnd?: string | Date | null;
     } | null;
   };
-  manager: { username: string } | null;
+  institution?: { id: string; name: string; code?: string | null; place?: string | null } | null;
+  manager?: { username: string } | null;
   leaderName: string | null;
   leaderPhoto: string | null;
   flagColor: string | null;
@@ -38,6 +40,7 @@ type TeamType = {
 export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[], role?: string }) {
   const [editingTeam, setEditingTeam] = useState<TeamType | null>(null);
   const [accessModalTeam, setAccessModalTeam] = useState<TeamType | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   if (teams.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>No teams created yet.</div>;
@@ -45,65 +48,104 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
 
   const now = new Date();
 
+  const filteredTeams = teams.filter(t => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const { name: instName, place: instPlace } = formatInstitutionDisplay(t);
+    return (
+      instName.toLowerCase().includes(q) ||
+      (instPlace && instPlace.toLowerCase().includes(q)) ||
+      t.name.toLowerCase().includes(q) ||
+      t.prefixCode.toLowerCase().includes(q) ||
+      (t.institution?.place && t.institution.place.toLowerCase().includes(q)) ||
+      (t.institution?.code && t.institution.code.toLowerCase().includes(q)) ||
+      (t.manager?.username && t.manager.username.toLowerCase().includes(q)) ||
+      (t.leaderName && t.leaderName.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-      {teams.map((team) => {
-        const totalPrograms = team.candidates?.reduce((sum, c) => sum + c._count.programs, 0) || 0;
+      {/* Team Search Bar */}
+      <div style={{ marginBottom: '4px' }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Search team / college by name, code, or place..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ width: '100%', padding: '10px 14px', fontSize: '0.9rem', borderRadius: '8px' }}
+        />
+      </div>
 
-        const offDeadline =
-          team.event?.offStageRegistrationEnd ||
-          team.event?.parent?.offStageRegistrationEnd ||
-          team.event?.institutionRegistrationEndDate ||
-          team.event?.parent?.institutionRegistrationEndDate ||
-          team.event?.registrationEnd ||
-          team.event?.parent?.registrationEnd;
+      {filteredTeams.length === 0 ? (
+        <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          No teams found matching &quot;{searchQuery}&quot;.
+        </div>
+      ) : (
+        filteredTeams.map((team) => {
+          const totalPrograms = team.candidates?.reduce((sum, c) => sum + c._count.programs, 0) || 0;
+          const { name: instName, place: instPlace } = formatInstitutionDisplay(team);
 
-        const onDeadline =
-          team.event?.onStageRegistrationEnd ||
-          team.event?.parent?.onStageRegistrationEnd ||
-          team.event?.institutionRegistrationEndDate ||
-          team.event?.parent?.institutionRegistrationEndDate ||
-          team.event?.registrationEnd ||
-          team.event?.parent?.registrationEnd;
+          const offDeadline =
+            team.event?.offStageRegistrationEnd ||
+            team.event?.parent?.offStageRegistrationEnd ||
+            team.event?.institutionRegistrationEndDate ||
+            team.event?.parent?.institutionRegistrationEndDate ||
+            team.event?.registrationEnd ||
+            team.event?.parent?.registrationEnd;
 
-        const isOffDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
-        const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
+          const onDeadline =
+            team.event?.onStageRegistrationEnd ||
+            team.event?.parent?.onStageRegistrationEnd ||
+            team.event?.institutionRegistrationEndDate ||
+            team.event?.parent?.institutionRegistrationEndDate ||
+            team.event?.registrationEnd ||
+            team.event?.parent?.registrationEnd;
 
-        const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
-        const isOnStageOpen = team.onStageUnlocked || (!team.isAssignmentsConfirmed && !isOnDeadlinePassed);
+          const isOffDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
+          const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
 
-        return (
-        <div key={team.id} style={{ 
-          padding: '16px 20px', 
-          border: '1px solid #e2e8f0', 
-          borderLeft: `5px solid ${team.flagColor || '#8E0033'}`,
-          borderRadius: '10px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: '#ffffff',
-          boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
-          gap: 'var(--spacing-md)',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flex: 1, minWidth: '300px' }}>
-            {team.leaderPhoto && (
-              <img 
-                src={team.leaderPhoto} 
-                alt={team.leaderName || "Leader"} 
-                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0' }}
-              />
-            )}
-            <div>
-              <h4 style={{ color: '#0f172a', marginBottom: '4px', fontSize: '1.05rem', fontWeight: 800 }}>
-                {team.name}{" "}
-                <span style={{ color: '#8E0033', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#fdf2f8', border: '1px solid #fbcfe8', padding: '2px 8px', borderRadius: '4px' }}>
-                  Prefix: {team.prefixCode}
-                </span>
-                {team.isAssignmentsConfirmed && (
-                  <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>LOCKED</span>
+          const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
+          const isOnStageOpen = team.onStageUnlocked || (!team.isAssignmentsConfirmed && !isOnDeadlinePassed);
+
+          return (
+          <div key={team.id} style={{ 
+            padding: '16px 20px', 
+            border: '1px solid #e2e8f0', 
+            borderLeft: `5px solid ${team.flagColor || '#8E0033'}`,
+            borderRadius: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
+            gap: 'var(--spacing-md)',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flex: 1, minWidth: '300px' }}>
+              {team.leaderPhoto && (
+                <img 
+                  src={team.leaderPhoto} 
+                  alt={team.leaderName || "Leader"} 
+                  style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0' }}
+                />
+              )}
+              <div>
+                <h4 style={{ color: '#0f172a', marginBottom: '2px', fontSize: '1.05rem', fontWeight: 800 }}>
+                  {instName}{" "}
+                  <span style={{ color: '#8E0033', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#fdf2f8', border: '1px solid #fbcfe8', padding: '2px 8px', borderRadius: '4px' }}>
+                    Prefix: {team.prefixCode}
+                  </span>
+                  {team.isAssignmentsConfirmed && (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>LOCKED</span>
+                  )}
+                </h4>
+                {instPlace && (
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>📍</span> {instPlace}
+                  </div>
                 )}
-              </h4>
               <div style={{ fontSize: '0.875rem', color: '#475569' }}>
                 Event: <strong style={{ color: '#1e293b' }}>{team.event.name}</strong> • Manager: <strong style={{ color: '#1e293b' }}>{team.manager?.username || 'None'}</strong>
               </div>
@@ -266,8 +308,8 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
             </div>
           </div>
         </div>
-        );
-      })}
+      );
+    }))}
 
       {editingTeam && (
         <EditTeamModal 

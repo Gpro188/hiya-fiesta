@@ -18,6 +18,7 @@ export default async function MasterZonesPage() {
           id: true,
           name: true,
           code: true,
+          place: true,
           teams: {
             select: {
               id: true,
