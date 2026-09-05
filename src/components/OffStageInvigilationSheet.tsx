@@ -67,7 +67,7 @@ export default function OffStageInvigilationSheet({
             📝 Off-Stage Invigilation & Attendance Sheets
           </h2>
           <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-            Each category prints on a separate sheet with blank invigilator details and candidate signature boxes.
+            Each category prints on a separate sheet with blank organiser details and candidate signature boxes.
           </p>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
@@ -218,7 +218,7 @@ export default function OffStageInvigilationSheet({
                 </div>
               </div>
 
-              {/* ── Invigilator Details (Blank to Fill) ── */}
+              {/* ── Organiser Details (Blank to Fill) ── */}
               <div
                 style={{
                   border: "1px dashed #475569",
@@ -229,23 +229,17 @@ export default function OffStageInvigilationSheet({
                   fontSize: "0.86rem",
                 }}
               >
-                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "12px", marginBottom: "8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: "16px", alignItems: "center" }}>
                   <div>
-                    <strong>Name of Invigilator:</strong>{" "}
-                    <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "65%", minHeight: "18px" }}></span>
+                    <strong>Name of Organiser:</strong>{" "}
+                    <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "60%", minHeight: "18px" }}></span>
                   </div>
                   <div>
                     <strong>Contact / Mobile:</strong>{" "}
-                    <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "60%", minHeight: "18px" }}></span>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "12px" }}>
-                  <div>
-                    <strong>Invigilator College / Center:</strong>{" "}
-                    <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "60%", minHeight: "18px" }}></span>
+                    <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "55%", minHeight: "18px" }}></span>
                   </div>
                   <div>
-                    <strong>Date of Examination:</strong>{" "}
+                    <strong>Date of Event:</strong>{" "}
                     <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "55%", minHeight: "18px" }}></span>
                   </div>
                 </div>
@@ -291,7 +285,7 @@ export default function OffStageInvigilationSheet({
                       Sign of Candidate
                     </th>
                     <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "85px", textAlign: "center" }}>
-                      Invigilator Sign
+                      Organiser Sign
                     </th>
                     <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "55px", textAlign: "center" }}>
                       Remarks
@@ -389,7 +383,7 @@ export default function OffStageInvigilationSheet({
                           <div style={{ minHeight: "26px", borderBottom: "1px dotted #94a3b8" }}></div>
                         </td>
                         <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}>
-                          {/* Blank box for invigilator signature */}
+                          {/* Blank box for organiser signature */}
                           <div style={{ minHeight: "26px", borderBottom: "1px dotted #94a3b8" }}></div>
                         </td>
                         <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
@@ -412,7 +406,7 @@ export default function OffStageInvigilationSheet({
                 }}
               >
                 <div style={{ fontStyle: "italic", marginBottom: "22px", color: "#334155", lineHeight: 1.4 }}>
-                  <strong>Invigilator Certification:</strong> I hereby certify that the above off-stage examinations / competitions were conducted strictly adhering to the official CSWC Hiya Fiesta 2026 guidelines, syllabus duration, and invigilation protocols without any malpractice.
+                  <strong>Organiser Certification:</strong> I hereby certify that the above off-stage competitions / events were conducted strictly adhering to the official CSWC Hiya Fiesta 2026 guidelines, syllabus duration, and event protocols without any malpractice.
                 </div>
 
                 <div
@@ -427,7 +421,7 @@ export default function OffStageInvigilationSheet({
                 >
                   <div>
                     <div style={{ borderBottom: "1px solid #0f172a", minHeight: "22px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 700 }}>Signature of Invigilator</div>
+                    <div style={{ fontWeight: 700 }}>Signature of Organiser</div>
                     <div style={{ fontSize: "0.74rem", color: "#64748b" }}>Name: ____________________</div>
                   </div>
 
