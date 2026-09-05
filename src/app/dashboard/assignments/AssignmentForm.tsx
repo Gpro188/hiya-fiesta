@@ -94,7 +94,13 @@ export default function AssignmentForm({
     setLoading(false);
   };
 
-  const selectedCandidate = candidates.find(c => c.id === selectedCandidateId);
+  const [candidatesList, setCandidatesList] = useState<any[]>(candidates);
+
+  useEffect(() => {
+    setCandidatesList(candidates);
+  }, [candidates]);
+
+  const selectedCandidate = candidatesList.find(c => c.id === selectedCandidateId) || candidatesList[0];
   
   if (!selectedCandidate) return null;
 
@@ -151,27 +157,48 @@ export default function AssignmentForm({
   ).length;
 
   const handleAssign = async (programId: string) => {
-    setLoading(true);
+    const prog = programs.find(p => p.id === programId);
+    if (!prog) return;
+
     setStatus(null);
+    const prevCandidates = candidatesList;
+    // Optimistic UI update: 0ms lag
+    setCandidatesList(prev => prev.map(c => {
+      if (c.id === selectedCandidateId) {
+        return {
+          ...c,
+          programs: [...c.programs, { id: `temp-${Date.now()}`, candidateId: c.id, programId, program: prog }]
+        };
+      }
+      return c;
+    }));
+
     const result = await assignProgram(selectedCandidateId, programId);
-    if (result.success) {
-      router.refresh();
-    } else {
+    if (!result.success) {
+      setCandidatesList(prevCandidates);
       setStatus({ type: 'error', message: result.error || 'Failed to assign' });
     }
-    setLoading(false);
   };
 
   const handleUnassign = async (programId: string) => {
-    setLoading(true);
     setStatus(null);
+    const prevCandidates = candidatesList;
+    // Optimistic UI update: 0ms lag
+    setCandidatesList(prev => prev.map(c => {
+      if (c.id === selectedCandidateId) {
+        return {
+          ...c,
+          programs: c.programs.filter((p: any) => p.programId !== programId)
+        };
+      }
+      return c;
+    }));
+
     const result = await unassignProgram(selectedCandidateId, programId);
-    if (result.success) {
-      router.refresh();
-    } else {
+    if (!result.success) {
+      setCandidatesList(prevCandidates);
       setStatus({ type: 'error', message: result.error || 'Failed to unassign' });
     }
-    setLoading(false);
   };
 
   const [mode, setMode] = useState<'BY_STUDENT' | 'BY_PROGRAM'>('BY_STUDENT');
@@ -180,7 +207,7 @@ export default function AssignmentForm({
 
   // Determine the institution's relevant category from their registered candidates
   const institutionCategories = Array.from(
-    new Set(candidates.map(c => c.category?.name?.toUpperCase()).filter(Boolean))
+    new Set(candidatesList.map(c => c.category?.name?.toUpperCase()).filter(Boolean))
   );
   // Default mark sheet filter to the institution's category (e.g. FADHILA) if singular, otherwise 'ALL'
   const defaultCategoryFilter = institutionCategories.length === 1 ? institutionCategories[0] : 'ALL';
@@ -191,7 +218,7 @@ export default function AssignmentForm({
   // Calculate team assignments for all programs
   const teamProgramCounts: Record<string, number> = {};
   const teamProgramAssignments: Record<string, any[]> = {};
-  candidates.forEach(c => {
+  candidatesList.forEach(c => {
     c.programs.forEach((p: any) => {
       teamProgramCounts[p.programId] = (teamProgramCounts[p.programId] || 0) + 1;
       if (!teamProgramAssignments[p.programId]) {
@@ -202,27 +229,48 @@ export default function AssignmentForm({
   });
 
   const handleAssignCandidate = async (candidateId: string, programId: string) => {
-    setLoading(true);
+    const prog = programs.find(p => p.id === programId);
+    if (!prog) return;
+
     setStatus(null);
+    const prevCandidates = candidatesList;
+    // Optimistic UI update
+    setCandidatesList(prev => prev.map(c => {
+      if (c.id === candidateId) {
+        return {
+          ...c,
+          programs: [...c.programs, { id: `temp-${Date.now()}`, candidateId: c.id, programId, program: prog }]
+        };
+      }
+      return c;
+    }));
+
     const result = await assignProgram(candidateId, programId);
-    if (result.success) {
-      router.refresh();
-    } else {
+    if (!result.success) {
+      setCandidatesList(prevCandidates);
       setStatus({ type: 'error', message: result.error || 'Failed to assign' });
     }
-    setLoading(false);
   };
 
   const handleUnassignCandidate = async (candidateId: string, programId: string) => {
-    setLoading(true);
     setStatus(null);
+    const prevCandidates = candidatesList;
+    // Optimistic UI update
+    setCandidatesList(prev => prev.map(c => {
+      if (c.id === candidateId) {
+        return {
+          ...c,
+          programs: c.programs.filter((p: any) => p.programId !== programId)
+        };
+      }
+      return c;
+    }));
+
     const result = await unassignProgram(candidateId, programId);
-    if (result.success) {
-      router.refresh();
-    } else {
+    if (!result.success) {
+      setCandidatesList(prevCandidates);
       setStatus({ type: 'error', message: result.error || 'Failed to unassign' });
     }
-    setLoading(false);
   };
 
   // Stage Badge helper
@@ -391,7 +439,7 @@ export default function AssignmentForm({
               }}
             >
               <option value="">-- Choose a Candidate --</option>
-              {candidates.filter(c => 
+              {candidatesList.filter(c => 
                 !searchTerm || 
                 c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 (c.uid && c.uid.toLowerCase().includes(searchTerm.toLowerCase())) ||

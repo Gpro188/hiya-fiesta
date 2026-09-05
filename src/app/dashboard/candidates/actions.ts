@@ -16,6 +16,7 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
 
     let finalUid = data.uid;
     let institutionId = null;
+    let teamInstitutionId: string | null = null;
 
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
       const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
@@ -27,6 +28,7 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
         include: { event: { include: { parent: true } } }
       }) : null;
       if (!team) return { success: false, error: "Team not found" };
+      teamInstitutionId = team.institutionId;
       
       const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
       if (team.isAssignmentsConfirmed && !isUnlocked) {
@@ -49,20 +51,27 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
 
       // Verify UID belongs to their institution
       if (finalUid) {
-         const masterStudent = await prisma.masterStudent.findUnique({
-            where: { uid: finalUid },
+         const masterStudent = await prisma.masterStudent.findFirst({
+            where: { 
+              uid: { equals: finalUid, mode: "insensitive" },
+              ...(institutionId ? { institutionId } : {})
+            },
             include: { institution: { select: { name: true } } }
          });
          if (!masterStudent) {
+            const otherInstStudent = await prisma.masterStudent.findFirst({
+               where: { uid: { equals: finalUid, mode: "insensitive" } },
+               include: { institution: { select: { name: true } } }
+            });
+            if (otherInstStudent) {
+               return { 
+                  success: false, 
+                  error: `This student (${finalUid} - ${otherInstStudent.name}) is registered under "${otherInstStudent.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.` 
+               };
+            }
             return { 
                success: false, 
                error: "Student UID not found in institution directory. If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC." 
-            };
-         }
-         if (masterStudent.institutionId !== institutionId) {
-            return { 
-               success: false, 
-               error: `This student (${finalUid} - ${masterStudent.name}) is registered under "${masterStudent.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.` 
             };
          }
       }
@@ -71,6 +80,11 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
        if (!["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
          finalUid = undefined;
        }
+       const targetTeam = await prisma.team.findUnique({
+         where: { id: data.teamId },
+         select: { institutionId: true }
+       });
+       teamInstitutionId = targetTeam?.institutionId || null;
     }
 
     // BLOCK DUPLICATE: Check if student with same UID is already registered in this team
@@ -102,6 +116,7 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
         name: data.name,
         categoryId: data.categoryId,
         teamId: data.teamId,
+        institutionId: teamInstitutionId || institutionId || null,
         photoUrl: data.photo,
         uid: finalUid || null,
         isApproved: false,

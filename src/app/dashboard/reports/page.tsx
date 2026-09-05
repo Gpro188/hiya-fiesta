@@ -151,6 +151,15 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print ID cards for all approved candidates across all teams</p>
           </a>
 
+          <a href={`/print/stage-registrations?eventId=${activeEventId}${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #25D366' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📱</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#059669' }}>Off-Stage & On-Stage Registrations</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(37,211,102,0.15)', color: '#059669', fontWeight: 700 }}>WHATSAPP & PDF</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Off-Stage and On-Stage registrations with live status, 1-click WhatsApp sharing, and clean PDF export.</p>
+          </a>
+
           <a href={`/print/volunteer-id-cards${role === 'ZONE_ADMIN' && userZoneId ? `?zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--primary)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🦺</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--primary)' }}>Volunteer ID Cards</h4>
@@ -288,6 +297,15 @@ export default async function ReportsPage(props: {
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Candidate Schedule Report</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Detailed report of all your assigned candidates, venues, and timings</p>
+          </a>
+
+          <a href={`/print/stage-registrations?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #25D366' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📱</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#059669' }}>Off-Stage & On-Stage Registrations</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(37,211,102,0.15)', color: '#059669', fontWeight: 700 }}>WHATSAPP & PDF</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Full list of your Off-Stage & On-Stage registrations with live status, 1-click WhatsApp text share, and PDF print.</p>
           </a>
 
           {isIdCardsUnlocked ? (

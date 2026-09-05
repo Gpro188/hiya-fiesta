@@ -7,13 +7,6 @@ export async function lookupStudentByUID(uid: string, teamId?: string) {
     if (!uid || uid.trim().length < 3) return { success: false, student: null };
 
     const cleanUid = uid.trim();
-    const student = await prisma.masterStudent.findUnique({
-      where: { uid: cleanUid },
-      include: {
-        institution: { select: { id: true, name: true, code: true } }
-      }
-    });
-
     let currentTeamInstitutionId: string | null = null;
     let currentTeamInstitutionName: string | null = null;
 
@@ -28,29 +21,43 @@ export async function lookupStudentByUID(uid: string, teamId?: string) {
       }
     }
 
+    let student = null;
+    if (currentTeamInstitutionId) {
+      student = await prisma.masterStudent.findFirst({
+        where: { 
+          uid: { equals: cleanUid, mode: "insensitive" }, 
+          institutionId: currentTeamInstitutionId 
+        },
+        include: {
+          institution: { select: { id: true, name: true, code: true } }
+        }
+      });
+    }
+
     if (!student) {
+      // Check if this UID exists under ANY other college in the master directory
+      const otherStudent = await prisma.masterStudent.findFirst({
+        where: { uid: { equals: cleanUid, mode: "insensitive" } },
+        include: {
+          institution: { select: { id: true, name: true, code: true } }
+        }
+      });
+
+      if (otherStudent) {
+        return {
+          success: false,
+          student: otherStudent,
+          isDifferentInstitution: true,
+          studentInstitutionName: otherStudent.institution?.name,
+          error: `Student (${cleanUid} - ${otherStudent.name}) is registered under "${otherStudent.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.`
+        };
+      }
+
       return { 
         success: false, 
         student: null, 
         notFound: true,
         error: "Student UID not found in institution directory. If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC." 
-      };
-    }
-
-    // Check if student belongs to a different institution
-    const isDifferentInstitution = Boolean(
-      currentTeamInstitutionId && 
-      student.institutionId && 
-      currentTeamInstitutionId !== student.institutionId
-    );
-
-    if (isDifferentInstitution) {
-      return {
-        success: false,
-        student,
-        isDifferentInstitution: true,
-        studentInstitutionName: student.institution?.name,
-        error: `Student (${cleanUid} - ${student.name}) is registered under "${student.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.`
       };
     }
 

@@ -32,10 +32,52 @@ export async function bulkImportStudents(studentsData: Array<{
       reason: string;
     }> = [];
 
-    // Track duplicate UIDs inside the uploaded excel sheet itself
-    const seenUidsInUpload = new Map<string, number>();
+    // Helper to resolve institution by cleaned name or code
+    const resolveInstitution = (instNameRaw: string) => {
+      if (!instNameRaw?.trim()) return null;
+      const cleanSearchName = instNameRaw.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
-    studentsData.forEach((item, idx) => {
+      // 1. Exact match on cleaned name or code
+      const exactMatch = institutions.find(inst => {
+        const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        const cleanDbCode = (inst.code || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        return cleanDbName === cleanSearchName || (cleanDbCode && cleanDbCode === cleanSearchName);
+      });
+      if (exactMatch) return exactMatch;
+
+      // 2. Substring match, prioritizing longest (most specific) name
+      const candidates = institutions.filter(inst => {
+        const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        return cleanDbName.includes(cleanSearchName) || cleanSearchName.includes(cleanDbName);
+      });
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => b.name.length - a.name.length);
+        return candidates[0];
+      }
+      return null;
+    };
+
+    // Pre-fetch all existing students in DB matching the UIDs in this upload
+    const validUids = studentsData.map(s => s.uid?.trim().toUpperCase()).filter(Boolean);
+    const existingInDb = await prisma.masterStudent.findMany({
+      where: { uid: { in: validUids } },
+      select: { uid: true, institutionId: true, name: true, institution: { select: { name: true } } }
+    });
+
+    // Key existing DB records by `${institutionId}_${uid}` to scope uniqueness per institution
+    const existingDbMap = new Map<string, { name: string; instName: string }>();
+    existingInDb.forEach(s => {
+      existingDbMap.set(`${s.institutionId}_${s.uid.toUpperCase()}`, { 
+        name: s.name, 
+        instName: s.institution?.name || "Institution" 
+      });
+    });
+
+    // Track duplicate entries inside the uploaded Excel sheet itself, keyed per institution: `${institutionId}_${uid}`
+    const seenInUpload = new Map<string, number>();
+
+    for (let idx = 0; idx < studentsData.length; idx++) {
+      const item = studentsData[idx];
       const rowNum = idx + 2; // header is row 1
       const uidTrimmed = item.uid?.trim().toUpperCase();
 
@@ -47,7 +89,7 @@ export async function bulkImportStudents(studentsData: Array<{
           institutionName: item.institutionName || "-",
           reason: "Missing Student UID"
         });
-        return;
+        continue;
       }
 
       if (!item.name?.trim()) {
@@ -58,7 +100,7 @@ export async function bulkImportStudents(studentsData: Array<{
           institutionName: item.institutionName || "-",
           reason: "Missing Student Name"
         });
-        return;
+        continue;
       }
 
       if (!item.institutionName?.trim()) {
@@ -69,83 +111,12 @@ export async function bulkImportStudents(studentsData: Array<{
           institutionName: "-",
           reason: "Missing Institution Name"
         });
-        return;
-      }
-
-      if (seenUidsInUpload.has(uidTrimmed)) {
-        skippedRecords.push({
-          rowNumber: rowNum,
-          name: item.name,
-          uid: uidTrimmed,
-          institutionName: item.institutionName,
-          reason: `Duplicate UID in Excel (already on Row ${seenUidsInUpload.get(uidTrimmed)})`
-        });
-        return;
-      }
-      seenUidsInUpload.set(uidTrimmed, rowNum);
-    });
-
-    // Check existing students already in database to prevent overwriting / repeating
-    const validUids = studentsData.map(s => s.uid?.trim().toUpperCase()).filter(Boolean);
-    const existingInDb = await prisma.masterStudent.findMany({
-      where: { uid: { in: validUids } },
-      include: { institution: { select: { name: true } } }
-    });
-    const existingUidsMap = new Map<string, { name: string; instName: string }>();
-    existingInDb.forEach(s => {
-      existingUidsMap.set(s.uid, { name: s.name, instName: s.institution?.name || "Institution" });
-    });
-
-    for (let idx = 0; idx < studentsData.length; idx++) {
-      const item = studentsData[idx];
-      const rowNum = idx + 2;
-      const uidTrimmed = item.uid?.trim().toUpperCase();
-
-      if (!uidTrimmed || !item.name?.trim() || !item.institutionName?.trim()) continue;
-
-      // 1. If student UID already exists in database, skip and report as 'Already Uploaded'
-      if (existingUidsMap.has(uidTrimmed)) {
-        const existing = existingUidsMap.get(uidTrimmed)!;
-        skippedRecords.push({
-          rowNumber: rowNum,
-          name: item.name,
-          uid: uidTrimmed,
-          institutionName: item.institutionName,
-          reason: `Already Uploaded (Student already exists under ${existing.instName})`
-        });
         continue;
       }
 
-      // Normalize search name (remove non-alphanumeric, extra spaces)
-      const cleanSearchName = item.institutionName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-      let targetInstitutionId = null;
-      let matchedInstName = "";
-
-      // 1. First priority: Exact match on cleaned name or code
-      const exactMatch = institutions.find(inst => {
-        const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-        const cleanDbCode = (inst.code || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-        return cleanDbName === cleanSearchName || (cleanDbCode && cleanDbCode === cleanSearchName);
-      });
-
-      if (exactMatch) {
-        targetInstitutionId = exactMatch.id;
-        matchedInstName = exactMatch.name;
-      } else {
-        // 2. Fallback: Substring match, prioritizing longest (most specific) name
-        const candidates = institutions.filter(inst => {
-          const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-          return cleanDbName.includes(cleanSearchName) || cleanSearchName.includes(cleanDbName);
-        });
-
-        if (candidates.length > 0) {
-          candidates.sort((a, b) => b.name.length - a.name.length);
-          targetInstitutionId = candidates[0].id;
-          matchedInstName = candidates[0].name;
-        }
-      }
-
-      if (!targetInstitutionId) {
+      // Match institution
+      const matchedInst = resolveInstitution(item.institutionName);
+      if (!matchedInst) {
         skippedRecords.push({
           rowNumber: rowNum,
           name: item.name,
@@ -156,20 +127,50 @@ export async function bulkImportStudents(studentsData: Array<{
         continue;
       }
 
+      // Composite key per institution: `${institutionId}_${uid}`
+      // This allows different institutions to have the same UID, while blocking duplicates in the same institution!
+      const compositeKey = `${matchedInst.id}_${uidTrimmed}`;
+
+      // 1. Check duplicate within the uploaded Excel sheet for this institution
+      if (seenInUpload.has(compositeKey)) {
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Duplicate UID in Excel for "${matchedInst.name}" (already on Row ${seenInUpload.get(compositeKey)})`
+        });
+        continue;
+      }
+      seenInUpload.set(compositeKey, rowNum);
+
+      // 2. Check duplicate in database for this institution
+      if (existingDbMap.has(compositeKey)) {
+        const existing = existingDbMap.get(compositeKey)!;
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Already Uploaded (Student already exists under ${matchedInst.name})`
+        });
+        continue;
+      }
+
       try {
         await prisma.masterStudent.create({
           data: {
             uid: uidTrimmed,
             name: item.name.trim(),
-            institutionId: targetInstitutionId,
+            institutionId: matchedInst.id,
             district: item.district || null,
             phone: item.phone || null,
             stream: (item.stream || "FADHILA").trim().toUpperCase()
           }
         });
 
-        // Remember newly created UID in map to prevent duplicate inserts in the same batch
-        existingUidsMap.set(uidTrimmed, { name: item.name.trim(), instName: matchedInstName });
+        // Remember newly created student in map so subsequent rows in same batch are caught
+        existingDbMap.set(compositeKey, { name: item.name.trim(), instName: matchedInst.name });
         importedCount++;
       } catch (dbErr: any) {
         skippedRecords.push({
@@ -210,9 +211,25 @@ export async function addStudent(data: {
       return { success: false, error: "Unauthorized" };
     }
 
+    const uidTrimmed = data.uid.trim().toUpperCase();
+    const existing = await prisma.masterStudent.findFirst({
+      where: {
+        uid: uidTrimmed,
+        institutionId: data.institutionId
+      },
+      include: { institution: { select: { name: true } } }
+    });
+
+    if (existing) {
+      return { 
+        success: false, 
+        error: `Student with UID "${uidTrimmed}" already exists in ${existing.institution?.name || "this institution"}.` 
+      };
+    }
+
     const student = await prisma.masterStudent.create({
       data: {
-        uid: data.uid.trim(),
+        uid: uidTrimmed,
         name: data.name.trim(),
         institutionId: data.institutionId,
         district: data.district || null,
