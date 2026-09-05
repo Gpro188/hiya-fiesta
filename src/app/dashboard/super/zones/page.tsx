@@ -22,8 +22,42 @@ export default async function MasterZonesPage() {
           teams: {
             select: {
               id: true,
+              name: true,
+              prefixCode: true,
               isAssignmentsConfirmed: true,
-              _count: { select: { candidates: true } }
+              offStageUnlocked: true,
+              onStageUnlocked: true,
+              registrationUnlocked: true,
+              _count: { select: { candidates: true } },
+              candidates: {
+                select: {
+                  id: true,
+                  programs: {
+                    select: {
+                      program: {
+                        select: { stageType: true }
+                      }
+                    }
+                  }
+                }
+              },
+              event: {
+                select: {
+                  name: true,
+                  offStageRegistrationEnd: true,
+                  onStageRegistrationEnd: true,
+                  institutionRegistrationEndDate: true,
+                  registrationEnd: true,
+                  parent: {
+                    select: {
+                      offStageRegistrationEnd: true,
+                      onStageRegistrationEnd: true,
+                      institutionRegistrationEndDate: true,
+                      registrationEnd: true,
+                    }
+                  }
+                }
+              }
             }
           }
         }

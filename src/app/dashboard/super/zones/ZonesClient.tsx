@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
+import RegistrationAccessModal from "@/app/dashboard/teams/RegistrationAccessModal";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [zones, setZones] = useState(initialZones);
@@ -11,6 +12,7 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingZone, setEditingZone] = useState<any | null>(null);
   const [viewingCollegesZone, setViewingCollegesZone] = useState<any | null>(null);
+  const [accessModalTeam, setAccessModalTeam] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedResetZoneId, setSelectedResetZoneId] = useState("ALL");
   const [resetSuccess, setResetSuccess] = useState("");
@@ -435,6 +437,37 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                         const isConfirmed = team?.isAssignmentsConfirmed;
                         const { name: instName, place: instPlace } = formatInstitutionDisplay(inst);
 
+                        const now = new Date();
+                        const offDeadline =
+                          team?.event?.offStageRegistrationEnd ||
+                          team?.event?.parent?.offStageRegistrationEnd ||
+                          team?.event?.institutionRegistrationEndDate ||
+                          team?.event?.parent?.institutionRegistrationEndDate ||
+                          team?.event?.registrationEnd ||
+                          team?.event?.parent?.registrationEnd;
+
+                        const onDeadline =
+                          team?.event?.onStageRegistrationEnd ||
+                          team?.event?.parent?.onStageRegistrationEnd ||
+                          team?.event?.institutionRegistrationEndDate ||
+                          team?.event?.parent?.institutionRegistrationEndDate ||
+                          team?.event?.registrationEnd ||
+                          team?.event?.parent?.registrationEnd;
+
+                        const isOffDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
+                        const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
+
+                        const isOffStageOpen = team?.offStageUnlocked || (!isConfirmed && !isOffDeadlinePassed);
+                        const isOnStageOpen = team?.onStageUnlocked || (!isConfirmed && !isOnDeadlinePassed);
+
+                        const offStageCandidates = team?.candidates?.filter((c: any) =>
+                          c.programs?.some((p: any) => p.program?.stageType === "OFF_STAGE")
+                        ).length || 0;
+
+                        const onStageCandidates = team?.candidates?.filter((c: any) =>
+                          c.programs?.some((p: any) => p.program?.stageType === "ON_STAGE")
+                        ).length || 0;
+
                         return (
                           <tr key={inst.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td style={{ padding: '10px 8px', color: 'var(--text-muted)' }}>{idx + 1}</td>
@@ -450,70 +483,115 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                               )}
                             </td>
                             <td style={{ padding: '10px 8px' }}>
-                              <span style={{ fontWeight: 700, color: candidateCount > 0 ? '#10b981' : 'var(--text-muted)' }}>
+                              <div style={{ fontWeight: 700, color: candidateCount > 0 ? '#10b981' : 'var(--text-muted)' }}>
                                 {candidateCount} candidates
-                              </span>
+                              </div>
+                              {candidateCount > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.72rem', marginTop: '4px' }}>
+                                  <span style={{ color: '#0284c7', fontWeight: 600 }}>🎨 Off-Stage: {offStageCandidates}</span>
+                                  <span style={{ color: '#db2777', fontWeight: 600 }}>🎭 On-Stage: {onStageCandidates}</span>
+                                </div>
+                              )}
                             </td>
                             <td style={{ padding: '10px 8px' }}>
                               {team ? (
-                                isConfirmed ? (
-                                  <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-                                    🔒 Confirmed & Locked
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                  <span style={{
+                                    padding: '2px 7px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    backgroundColor: isOffStageOpen ? 'rgba(14, 165, 233, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                    color: isOffStageOpen ? '#0284c7' : '#ef4444',
+                                    border: `1px solid ${isOffStageOpen ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.25)'}`,
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    🎨 Off-Stage: {team.offStageUnlocked ? '⚡ Zone Override (Open)' : isOffStageOpen ? '🟢 Open' : '🔒 Closed'}
                                   </span>
-                                ) : (
-                                  <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                                    ⚡ Open for Edit
+                                  <span style={{
+                                    padding: '2px 7px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    backgroundColor: isOnStageOpen ? 'rgba(236, 72, 153, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                    color: isOnStageOpen ? '#db2777' : '#ef4444',
+                                    border: `1px solid ${isOnStageOpen ? 'rgba(236, 72, 153, 0.3)' : 'rgba(239, 68, 68, 0.25)'}`,
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    🎭 On-Stage: {team.onStageUnlocked ? '⚡ Zone Override (Open)' : isOnStageOpen ? '🟢 Open' : '🔒 Closed'}
                                   </span>
-                                )
+                                  {isConfirmed && (
+                                    <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700, marginTop: '1px' }}>
+                                      ✓ Submitted & Locked
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>No team yet</span>
                               )}
                             </td>
                             <td style={{ padding: '10px 8px', textAlign: 'right' }}>
                               {team && (
-                                isConfirmed ? (
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                   <button
-                                    onClick={async () => {
-                                      const reason = prompt(`Open registration for "${inst.name}"?\n\nEnter reason / note for opening (e.g. "Name correction", "Add remaining candidates", etc.):`, "Permission granted by Zone Admin for correction");
-                                      if (reason !== null) {
-                                        setActionLoading(true);
-                                        const res = await unlockInstitutionTeam(team.id, reason);
-                                        if (res.success) {
-                                          alert(`✅ ${inst.name} is now OPEN for editing!`);
-                                          window.location.reload();
-                                        } else {
-                                          alert("Failed: " + res.error);
-                                          setActionLoading(false);
-                                        }
-                                      }
-                                    }}
-                                    disabled={actionLoading}
+                                    onClick={() => setAccessModalTeam(team)}
                                     className="btn btn-secondary"
-                                    style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
-                                  >
-                                    🔓 Open for Edit
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={async () => {
-                                      if (confirm(`Lock & confirm registration for "${inst.name}"?`)) {
-                                        setActionLoading(true);
-                                        const res = await lockInstitutionTeam(team.id);
-                                        if (res.success) {
-                                          window.location.reload();
-                                        } else {
-                                          alert("Failed: " + res.error);
-                                          setActionLoading(false);
-                                        }
-                                      }
+                                    style={{
+                                      padding: '3px 8px',
+                                      fontSize: '0.75rem',
+                                      backgroundColor: (team.offStageUnlocked || team.onStageUnlocked) ? 'rgba(16,185,129,0.15)' : 'rgba(142,0,51,0.1)',
+                                      color: (team.offStageUnlocked || team.onStageUnlocked) ? '#059669' : '#8E0033',
+                                      borderColor: (team.offStageUnlocked || team.onStageUnlocked) ? '#10b981' : '#8E0033',
+                                      fontWeight: 700
                                     }}
-                                    disabled={actionLoading}
-                                    className="btn btn-secondary"
-                                    style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', borderColor: '#10b981' }}
+                                    title="Open Off-Stage only, On-Stage only, Both, or Lock registration"
                                   >
-                                    🔒 Lock
+                                    ⚡ Stage Access
                                   </button>
-                                )
+                                  {isConfirmed ? (
+                                    <button
+                                      onClick={async () => {
+                                        const reason = prompt(`Open registration for "${inst.name}"?\n\nEnter reason / note for opening (e.g. "Name correction", "Add remaining candidates", etc.):`, "Permission granted by Zone Admin for correction");
+                                        if (reason !== null) {
+                                          setActionLoading(true);
+                                          const res = await unlockInstitutionTeam(team.id, reason);
+                                          if (res.success) {
+                                            alert(`✅ ${inst.name} is now OPEN for editing!`);
+                                            window.location.reload();
+                                          } else {
+                                            alert("Failed: " + res.error);
+                                            setActionLoading(false);
+                                          }
+                                        }
+                                      }}
+                                      disabled={actionLoading}
+                                      className="btn btn-secondary"
+                                      style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
+                                    >
+                                      🔓 Open All
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm(`Lock & confirm registration for "${inst.name}"?`)) {
+                                          setActionLoading(true);
+                                          const res = await lockInstitutionTeam(team.id);
+                                          if (res.success) {
+                                            window.location.reload();
+                                          } else {
+                                            alert("Failed: " + res.error);
+                                            setActionLoading(false);
+                                          }
+                                        }
+                                      }}
+                                      disabled={actionLoading}
+                                      className="btn btn-secondary"
+                                      style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', borderColor: '#10b981' }}
+                                    >
+                                      🔒 Lock All
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -525,6 +603,15 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
             )}
           </div>
         </div>
+      )}
+
+      {/* Stage Access Control Modal */}
+      {accessModalTeam && (
+        <RegistrationAccessModal
+          team={accessModalTeam}
+          onClose={() => setAccessModalTeam(null)}
+          onUpdated={() => window.location.reload()}
+        />
       )}
     </div>
   );

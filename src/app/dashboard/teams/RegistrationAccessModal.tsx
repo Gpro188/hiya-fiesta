@@ -142,8 +142,8 @@ export default function RegistrationAccessModal({
             borderRadius: "10px",
             padding: "0.85rem",
             marginBottom: "1.25rem",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            display: "flex",
+            flexDirection: "column",
             gap: "0.75rem",
           }}
         >

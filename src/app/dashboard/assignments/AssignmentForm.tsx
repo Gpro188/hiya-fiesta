@@ -266,7 +266,7 @@ export default function AssignmentForm({
       {/* Split Stage Registration Status Banner */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gridTemplateColumns: '1fr',
         gap: 'var(--spacing-md)',
         marginBottom: 'var(--spacing-lg)',
         padding: 'var(--spacing-md)',
@@ -403,18 +403,20 @@ export default function AssignmentForm({
               ))}
             </select>
             <span className="field-helper">Choose a student to view and manage their program assignments.</span>
-            <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span>Category: <strong>{selectedCandidate.category?.name}</strong></span>
-              <span>Individual Limit: <strong style={{ color: currentIndividualCount >= maxIndividualLimit ? 'var(--error)' : 'var(--success)' }}>{currentIndividualCount} / {maxIndividualLimit}</strong></span>
-              <span>
-                (On-Stage: <strong>{currentIndividualOnStage}/{maxIndividualOnStage}</strong>, 
-                Off-Stage: <strong>{currentIndividualOffStage}/{maxIndividualOffStage}</strong>)
-              </span>
-              <span>General Limit: <strong style={{ color: currentGeneralTotal >= maxGeneralTotal ? 'var(--error)' : 'var(--success)' }}>{currentGeneralTotal} / {maxGeneralTotal}</strong></span>
-              <span>
-                (On-Stage: <strong>{currentGeneralOnStage}/{maxGeneralOnStage}</strong>, 
-                Off-Stage: <strong>{currentGeneralOffStage}/{maxGeneralOffStage}</strong>)
-              </span>
+            <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span>Category: <strong>{selectedCandidate.category?.name}</strong></span>
+                <span>Individual Limit: <strong style={{ color: currentIndividualCount >= maxIndividualLimit ? 'var(--error)' : 'var(--success)' }}>{currentIndividualCount} / {maxIndividualLimit}</strong></span>
+                <span>General Limit: <strong style={{ color: currentGeneralTotal >= maxGeneralTotal ? 'var(--error)' : 'var(--success)' }}>{currentGeneralTotal} / {maxGeneralTotal}</strong></span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.8rem', paddingLeft: '2px' }}>
+                <span style={{ color: '#0284c7' }}>
+                  🎨 <strong>Off-Stage:</strong> Individual: <strong>{currentIndividualOffStage}/{maxIndividualOffStage}</strong> • General: <strong>{currentGeneralOffStage}/{maxGeneralOffStage}</strong>
+                </span>
+                <span style={{ color: '#db2777' }}>
+                  🎭 <strong>On-Stage:</strong> Individual: <strong>{currentIndividualOnStage}/{maxIndividualOnStage}</strong> • General: <strong>{currentGeneralOnStage}/{maxGeneralOnStage}</strong>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1255,20 +1257,50 @@ export default function AssignmentForm({
 
             {/* Scrollable Candidate Program List */}
             <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {candidates.filter(c => c.programs.length > 0).map(c => (
-                <div key={c.id} style={{ border: '1px solid #e2e8f0', padding: '14px 16px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
-                  <div style={{ fontWeight: 700, marginBottom: '6px', color: '#0f172a', fontSize: '0.95rem' }}>
-                    {c.name} {c.uid ? `(${c.uid})` : ''} - <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{c.category?.name}</span>
+              {candidates.filter(c => c.programs.length > 0).map(c => {
+                const offStageProgs = c.programs.filter((p: any) => p.program?.stageType === "OFF_STAGE");
+                const onStageProgs = c.programs.filter((p: any) => p.program?.stageType === "ON_STAGE" || !p.program?.stageType);
+
+                return (
+                  <div key={c.id} style={{ border: '1px solid #e2e8f0', padding: '14px 16px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
+                    <div style={{ fontWeight: 700, marginBottom: '8px', color: '#0f172a', fontSize: '0.95rem' }}>
+                      {c.name} {c.uid ? `(${c.uid})` : ''} - <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{c.category?.name}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {offStageProgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🎨</span> OFF-STAGE PROGRAMS:
+                          </div>
+                          <ul style={{ margin: '2px 0 0 0', paddingLeft: '20px', fontSize: '0.85rem', color: '#334155' }}>
+                            {offStageProgs.map((p: any) => (
+                              <li key={p.programId} style={{ marginTop: '2px' }}>
+                                <strong>{p.program.name}</strong> <span style={{ color: '#64748b' }}>({p.program.type})</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {onStageProgs.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#db2777', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🎭</span> ON-STAGE PROGRAMS:
+                          </div>
+                          <ul style={{ margin: '2px 0 0 0', paddingLeft: '20px', fontSize: '0.85rem', color: '#334155' }}>
+                            {onStageProgs.map((p: any) => (
+                              <li key={p.programId} style={{ marginTop: '2px' }}>
+                                <strong>{p.program.name}</strong> <span style={{ color: '#64748b' }}>({p.program.type})</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: '#334155' }}>
-                    {c.programs.map((p: any) => (
-                      <li key={p.programId} style={{ marginTop: '2px' }}>
-                        <strong>{p.program.name}</strong> <span style={{ color: '#64748b' }}>({p.program.type})</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+                );
+              })}
               {candidates.filter(c => c.programs.length > 0).length === 0 && (
                 <div style={{ color: 'var(--warning)', padding: '16px', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: '10px', border: '1px solid rgba(245,158,11,0.3)', fontSize: '0.9rem' }}>
                   ⚠️ You have not assigned any programs to your candidates. If you submit now, your team will have 0 entries.

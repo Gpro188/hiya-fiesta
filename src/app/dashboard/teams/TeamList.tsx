@@ -159,7 +159,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               )}
 
               {/* Off-Stage and On-Stage Status Badges */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', alignItems: 'flex-start' }}>
                 <span style={{ 
                   fontSize: '0.75rem', 
                   padding: '4px 10px', 
