@@ -261,9 +261,10 @@ export default function CandidateForm({
         </div>
 
         <ImageUpload 
-          label="Photo (Compulsory)" 
+          label="Candidate Photo (Compulsory)" 
           folder="candidates" 
           initialUrl={photo}
+          maxSizeKb={500}
           onUploadComplete={(url) => setPhoto(url)} 
         />
         

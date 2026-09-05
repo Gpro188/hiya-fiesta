@@ -7,9 +7,10 @@ interface ImageUploaCSWCps {
   folder?: string;
   label?: string;
   initialUrl?: string | null;
+  maxSizeKb?: number;
 }
 
-export default function ImageUpload({ onUploadComplete, folder = "general", label = "Upload Image", initialUrl }: ImageUploaCSWCps) {
+export default function ImageUpload({ onUploadComplete, folder = "general", label = "Upload Image", initialUrl, maxSizeKb = 500 }: ImageUploaCSWCps) {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -19,9 +20,10 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (limit to 500KB as requested)
-    if (file.size > 500 * 1024) {
-      setError("File is too large. Max size is 500KB to save space.");
+    // Check file size (limit to maxSizeKb, default 500KB)
+    if (file.size > maxSizeKb * 1024) {
+      const fileSizeKb = Math.round(file.size / 1024);
+      setError(`File is too large (${fileSizeKb} KB). Maximum allowed size is ${maxSizeKb} KB. Please compress or resize the photo.`);
       return;
     }
 
@@ -97,17 +99,31 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
 
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>{label}</label>
+        <span style={{ 
+          fontSize: '0.72rem', 
+          fontWeight: 800, 
+          padding: '2px 8px', 
+          borderRadius: '4px', 
+          backgroundColor: 'rgba(220, 38, 38, 0.1)', 
+          color: '#dc2626', 
+          border: '1px solid rgba(220, 38, 38, 0.25)',
+          letterSpacing: '0.3px'
+        }}>
+          MAX SIZE: {maxSizeKb} KB
+        </span>
+      </div>
       <div style={{ position: 'relative' }}>
         {preview && (
-          <div style={{ marginBottom: '12px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', position: 'relative' }}>
-            <img src={preview} alt="Preview" style={{ display: 'block', maxHeight: '150px', maxWidth: '100%', objectFit: 'contain' }} />
+          <div style={{ marginBottom: '10px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', position: 'relative' }}>
+            <img src={preview} alt="Preview" style={{ display: 'block', maxHeight: '140px', maxWidth: '100%', objectFit: 'contain' }} />
             <button
               type="button"
               onClick={() => { setPreview(null); onUploadComplete(""); }}
               style={{
                 position: 'absolute', top: '4px', right: '4px',
-                backgroundColor: 'rgba(0,0,0,0.6)', color: 'white',
+                backgroundColor: 'rgba(0,0,0,0.7)', color: 'white',
                 border: 'none', borderRadius: '50%', width: '24px', height: '24px',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '12px'
@@ -120,7 +136,7 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
         )}
         <input 
           type="file" 
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/jpg"
           onChange={handleUpload}
           disabled={uploading}
           style={{ 
@@ -132,6 +148,14 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
             cursor: uploading ? 'not-allowed' : 'pointer'
           }}
         />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            Formats: JPG, PNG, WebP · Passport / 1:1 square photo recommended
+          </span>
+          <span style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 600 }}>
+            Limit: ≤ {maxSizeKb} KB
+          </span>
+        </div>
         
         {uploading && (
           <div style={{ 
@@ -151,8 +175,21 @@ export default function ImageUpload({ onUploadComplete, folder = "general", labe
           </div>
         )}
 
-        {uploading && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '4px' }}>Uploading: {progress}%</div>}
-        {error && <div style={{ fontSize: '0.7rem', color: 'var(--error)', marginTop: '4px' }}>{error}</div>}
+        {uploading && <div style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: '4px' }}>Uploading: {progress}%</div>}
+        {error && (
+          <div style={{ 
+            fontSize: '0.78rem', 
+            color: '#dc2626', 
+            marginTop: '6px', 
+            padding: '4px 8px', 
+            backgroundColor: 'rgba(220, 38, 38, 0.08)', 
+            borderRadius: '4px',
+            border: '1px solid rgba(220, 38, 38, 0.2)',
+            fontWeight: 600
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     </div>
   );

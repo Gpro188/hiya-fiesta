@@ -23,6 +23,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   });
 
   let userTeamId = null;
+  let userTeam: any = null;
   let categories: any[] = [];
   let teams: any[] = [];
   let masterStudents: any[] = [];
@@ -95,6 +96,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
         }
 
         if (team) {
+          userTeam = team;
           userTeamId = team.id;
 
           // Fetch MasterStudents for this institution
@@ -182,6 +184,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
       uid: true,
       chestNumber: true,
       photoUrl: true,
+      photo: true,
       isApproved: true,
       createdAt: true,
       team: { select: { id: true, name: true, prefixCode: true, flagColor: true, event: { select: { name: true } } } },
@@ -191,6 +194,19 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
       }
     },
     orderBy: { createdAt: 'desc' }
+  });
+
+  // Sort candidates sequentially: by chest number if assigned, else by name
+  candidates.sort((a, b) => {
+    if (a.chestNumber && b.chestNumber) {
+      const numA = parseInt(a.chestNumber, 10);
+      const numB = parseInt(b.chestNumber, 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.chestNumber.localeCompare(b.chestNumber);
+    }
+    if (a.chestNumber) return -1;
+    if (b.chestNumber) return 1;
+    return a.name.localeCompare(b.name);
   });
 
   const isChestNosConfirmed = candidates.some(c => Boolean(c.chestNumber));
@@ -204,6 +220,102 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           Manage students in {userTeamId ? "your institution" : "the event"}. Upload photos and define basic details.
         </p>
       </div>
+
+      {/* Confirmation & Chest Number Status Banner for Institutions */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && userTeam?.isAssignmentsConfirmed && (
+        <div style={{
+          padding: '18px 24px',
+          borderRadius: '12px',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          border: '2px solid #10b981',
+          marginBottom: 'var(--spacing-lg)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08)'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '1.5rem' }}>🎉</span>
+              <strong style={{ fontSize: '1.1rem', color: '#065f46' }}>
+                Official Registration Confirmed by Zone Admin!
+              </strong>
+              {userTeam.magazineCode && (
+                <span style={{ 
+                  fontSize: '0.8rem', 
+                  padding: '3px 10px', 
+                  borderRadius: '6px', 
+                  backgroundColor: '#8E0033', 
+                  color: 'white', 
+                  fontWeight: 800,
+                  letterSpacing: '0.5px' 
+                }}>
+                  MAGAZINE CODE: {userTeam.magazineCode}
+                </span>
+              )}
+            </div>
+            <p style={{ margin: '6px 0 0 0', fontSize: '0.875rem', color: '#047857', maxWidth: '750px', lineHeight: 1.5 }}>
+              All registered students have been officially approved with sequential Chest Numbers. You can now download and print the official Registered Student List and Candidate ID Cards.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <a 
+              href={`/print/candidates?teamId=${userTeamId}`} 
+              target="_blank" 
+              className="btn btn-primary"
+              style={{ 
+                backgroundColor: '#059669', 
+                borderColor: '#059669', 
+                color: 'white', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                fontWeight: 700, 
+                padding: '0.55rem 1.15rem' 
+              }}
+            >
+              <span>📜</span> Print Student List (With Chest Nos)
+            </a>
+            <a 
+              href={`/print/id-cards?teamId=${userTeamId}`} 
+              target="_blank" 
+              className="btn btn-secondary"
+              style={{ 
+                borderColor: '#059669', 
+                color: '#059669', 
+                backgroundColor: '#ffffff',
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                fontWeight: 700, 
+                padding: '0.55rem 1.15rem' 
+              }}
+            >
+              <span>🪪</span> Print All ID Cards
+            </a>
+          </div>
+        </div>
+      )}
+
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !userTeam?.isAssignmentsConfirmed && (
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '10px',
+          backgroundColor: 'rgba(245, 158, 11, 0.08)',
+          border: '1.5px solid rgba(245, 158, 11, 0.4)',
+          marginBottom: 'var(--spacing-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ fontSize: '1.4rem' }}>⏳</span>
+          <div style={{ fontSize: '0.875rem', color: '#92400e', lineHeight: 1.5 }}>
+            <strong>Awaiting Zone Admin Confirmation:</strong> Your registered students and program allocations are recorded. As soon as the Zone Admin reviews and confirms your institution list, official <strong>Chest Numbers</strong> and your <strong>Magazine Code</strong> will be assigned and displayed here.
+          </div>
+        </div>
+      )}
       
       {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
         <CandidateBulkActions teams={teams} categories={categories} />
@@ -282,10 +394,14 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
       <div data-tour="candidates-list" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
           <div>
-            <h3 style={{ margin: 0, color: 'var(--primary)' }}>3. Registered Students</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Showing {candidates.length} registered students</p>
+            <h3 style={{ margin: 0, color: 'var(--primary)' }}>
+              3. Registered Students {isChestNosConfirmed && <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#059669', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '4px', marginLeft: '6px' }}>✓ Chest Numbers Assigned</span>}
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Showing {candidates.length} registered students {isChestNosConfirmed ? "(sorted sequentially by Chest Number)" : ""}
+            </p>
           </div>
-          <div data-tour="candidates-filters" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          <div data-tour="candidates-filters" style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
              <CandidateFilter 
                 teams={teams} 
                 categories={categories} 
@@ -296,8 +412,13 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && fullUser?.eventId && (
               <GenerateChestNumbersButton eventId={fullUser.eventId} />
             )}
-            <a href={`/print/candidates?${fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''}${filterTeamId ? `&teamId=${filterTeamId}` : ''}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.875rem' }}>
-              Print List
+            <a 
+              href={`/print/candidates?${["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) ? `teamId=${userTeamId}` : (filterTeamId ? `teamId=${filterTeamId}` : (fullUser?.eventId ? `eventId=${fullUser.eventId}` : ''))}${filterCategoryId ? `&categoryId=${filterCategoryId}` : ''}`} 
+              target="_blank" 
+              className="btn btn-secondary" 
+              style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <span>📜</span> Print Student List
             </a>
             {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !canPrintCards ? (
               <button 

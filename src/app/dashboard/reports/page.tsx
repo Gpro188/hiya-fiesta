@@ -242,6 +242,42 @@ export default async function ReportsPage(props: {
             <h3 style={{ margin: 0, color: 'var(--primary)' }}>Institution Participation & ID Documents</h3>
           </div>
 
+          <a 
+            href={`/print/candidates?teamId=${team.id}`} 
+            target="_blank" 
+            className="glass-panel" 
+            style={{ 
+              padding: 'var(--spacing-lg)', 
+              display: 'block', 
+              textDecoration: 'none', 
+              transition: 'all 0.2s', 
+              border: team.isAssignmentsConfirmed ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+              backgroundColor: team.isAssignmentsConfirmed ? 'rgba(16, 185, 129, 0.02)' : 'transparent'
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📜</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: team.isAssignmentsConfirmed ? '#10b981' : 'var(--text-primary)' }}>
+                Registered Students List (With Chest Nos)
+              </h4>
+              <span style={{ 
+                fontSize: '0.7rem', 
+                padding: '2px 6px', 
+                borderRadius: '4px', 
+                backgroundColor: team.isAssignmentsConfirmed ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', 
+                color: team.isAssignmentsConfirmed ? '#10b981' : '#d97706', 
+                fontWeight: 700 
+              }}>
+                {team.isAssignmentsConfirmed ? "CHEST NOS ASSIGNED" : "PREVIEW DRAFT"}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              {team.isAssignmentsConfirmed 
+                ? `Official verified list of all students with sequential Chest Numbers and Magazine Code (${team.magazineCode || 'Assigned'}).`
+                : "Official registered student sheet. Final chest numbers will appear once confirmed by Zone Admin."}
+            </p>
+          </a>
+
           <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Team Schedule</h4>

@@ -71,6 +71,7 @@ export default async function DashboardPage() {
           name: true,
           eventId: true,
           isAssignmentsConfirmed: true,
+          magazineCode: true,
           event: { select: { name: true, zone: { select: { name: true } } } },
         },
       });
@@ -555,6 +556,65 @@ export default async function DashboardPage() {
           institutionCode={institutionInfo.code}
           initialLogoUrl={institutionInfo.logoUrl}
         />
+      )}
+
+      {/* Zone Admin Confirmation Alert Banner for Institutions */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && userTeam?.isAssignmentsConfirmed && (
+        <div style={{
+          padding: '16px 20px',
+          borderRadius: '12px',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          border: '2px solid #10b981',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08)'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '1.3rem' }}>🎉</span>
+              <strong style={{ fontSize: '1.05rem', color: '#065f46' }}>
+                Zone Admin Confirmed Your Registration!
+              </strong>
+              {userTeam.magazineCode && (
+                <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: 'white', fontWeight: 800 }}>
+                  MAGAZINE CODE: {userTeam.magazineCode}
+                </span>
+              )}
+            </div>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#047857' }}>
+              Official Chest Numbers have been generated for your candidates. You can now view and print the full student list with chest numbers and ID cards.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Link 
+              href="/dashboard/candidates"
+              className="btn btn-primary"
+              style={{ backgroundColor: '#059669', borderColor: '#059669', color: 'white', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+            >
+              👤 View Students & Chest Nos
+            </Link>
+            <a 
+              href={`/print/candidates?teamId=${userTeam.id}`} 
+              target="_blank" 
+              className="btn btn-secondary"
+              style={{ borderColor: '#059669', color: '#059669', backgroundColor: '#ffffff', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+            >
+              📜 Print Official List
+            </a>
+            <a 
+              href={`/print/id-cards?teamId=${userTeam.id}`} 
+              target="_blank" 
+              className="btn btn-secondary"
+              style={{ borderColor: '#059669', color: '#059669', backgroundColor: '#ffffff', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+            >
+              🪪 Print ID Cards
+            </a>
+          </div>
+        </div>
       )}
 
       {/* Stats Grid with auto-fit reflow */}

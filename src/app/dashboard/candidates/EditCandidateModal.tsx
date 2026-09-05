@@ -90,9 +90,10 @@ export default function EditCandidateModal({ candidate, categories, role, onClos
           )}
 
           <ImageUpload 
-            label="Photo (Optional)" 
+            label="Candidate Photo" 
             folder="candidates" 
             initialUrl={photo}
+            maxSizeKb={500}
             onUploadComplete={(url) => setPhoto(url)} 
           />
 
