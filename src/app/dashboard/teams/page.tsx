@@ -72,20 +72,38 @@ export default async function TeamsPage() {
 
       {role === "ZONE_ADMIN" && (
         <div style={{
-          padding: '12px 18px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(59, 130, 246, 0.08)',
-          border: '1px solid rgba(59, 130, 246, 0.25)',
-          color: '#60a5fa',
-          fontSize: '0.875rem',
+          padding: '14px 20px',
+          borderRadius: '10px',
+          backgroundColor: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          fontSize: '0.88rem',
           marginBottom: 'var(--spacing-md)',
           display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
+          alignItems: 'flex-start',
+          gap: '14px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
         }}>
-          <span style={{ fontSize: '1.4rem' }}>💡</span>
+          <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>💡</span>
           <div>
-            <strong>How to Open Registration for an Individual Institution:</strong> To unlock registration or program assignment for any specific college in your zone, find the college below and click <strong>⚡ Unlock Registration</strong>. You can choose to open <em>Off-Stage only</em>, <em>On-Stage only</em>, or <em>Full Access</em>.
+            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e40af', marginBottom: '6px' }}>
+              How to Open Off-Stage Only or On-Stage Only Registration in Your Zone:
+            </div>
+            <div style={{ color: '#1e293b', lineHeight: 1.6 }}>
+              <div>
+                <strong>1. For an Individual College:</strong> Find the college below and click the crimson button{" "}
+                <span style={{ backgroundColor: '#8E0033', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '0.78rem' }}>
+                  ⚡ Unlock Registration (Off/On-Stage)
+                </span>
+                . In the popup, choose <strong>🎨 Open OFF-STAGE Only</strong> or <strong>🎭 Open ON-STAGE Only</strong>.
+              </div>
+              <div style={{ marginTop: '4px' }}>
+                <strong>2. For All Colleges in the Zone:</strong> Go to{" "}
+                <Link href="/dashboard/settings" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'underline' }}>
+                  Zone Settings
+                </Link>{" "}
+                &rarr; <strong>Split Stage Deadlines</strong> to set different closing dates for Off-Stage vs On-Stage competitions.
+              </div>
+            </div>
           </div>
         </div>
       )}

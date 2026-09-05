@@ -74,14 +74,15 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
 
         return (
         <div key={team.id} style={{ 
-          padding: 'var(--spacing-md)', 
-          border: '1px solid var(--border-color)', 
-          borderLeft: `5px solid ${team.flagColor || 'var(--primary)'}`,
-          borderRadius: 'var(--radius-md)',
+          padding: '16px 20px', 
+          border: '1px solid #e2e8f0', 
+          borderLeft: `5px solid ${team.flagColor || '#8E0033'}`,
+          borderRadius: '10px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
           gap: 'var(--spacing-md)',
           flexWrap: 'wrap'
         }}>
@@ -90,24 +91,27 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               <img 
                 src={team.leaderPhoto} 
                 alt={team.leaderName || "Leader"} 
-                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-color)' }}
+                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0' }}
               />
             )}
             <div>
-              <h4 style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>
-                {team.name} <span style={{ color: 'var(--accent)', fontSize: '0.8rem' }}>Prefix: {team.prefixCode}</span>
+              <h4 style={{ color: '#0f172a', marginBottom: '4px', fontSize: '1.05rem', fontWeight: 800 }}>
+                {team.name}{" "}
+                <span style={{ color: '#8E0033', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#fdf2f8', border: '1px solid #fbcfe8', padding: '2px 8px', borderRadius: '4px' }}>
+                  Prefix: {team.prefixCode}
+                </span>
                 {team.isAssignmentsConfirmed && (
-                  <span style={{ marginLeft: '8px', padding: '2px 6px', backgroundColor: 'var(--success)', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 'bold' }}>LOCKED</span>
+                  <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>LOCKED</span>
                 )}
               </h4>
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                Event: {team.event.name} • Manager: {team.manager?.username || 'None'}
+              <div style={{ fontSize: '0.875rem', color: '#475569' }}>
+                Event: <strong style={{ color: '#1e293b' }}>{team.event.name}</strong> • Manager: <strong style={{ color: '#1e293b' }}>{team.manager?.username || 'None'}</strong>
               </div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                <strong>{team._count.candidates}</strong> Registered Candidates • <strong>{totalPrograms}</strong> Programs Assigned
+              <div style={{ fontSize: '0.875rem', color: '#334155', marginTop: '4px' }}>
+                <strong style={{ color: '#0f172a' }}>{team._count.candidates}</strong> Registered Candidates • <strong style={{ color: '#0f172a' }}>{totalPrograms}</strong> Programs Assigned
               </div>
               {team.leaderName && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#8E0033', fontWeight: 600, marginTop: '4px' }}>
                   Leader: {team.leaderName}
                 </div>
               )}
@@ -116,23 +120,23 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                 <span style={{ 
                   fontSize: '0.75rem', 
-                  padding: '3px 8px', 
-                  borderRadius: '4px', 
-                  fontWeight: 600,
-                  backgroundColor: team.offStageUnlocked ? 'rgba(16, 185, 129, 0.15)' : isOffStageOpen ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: team.offStageUnlocked ? '#10b981' : isOffStageOpen ? '#60a5fa' : '#ef4444',
-                  border: `1px solid ${team.offStageUnlocked ? '#10b981' : isOffStageOpen ? 'rgba(96, 165, 250, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  fontWeight: 700,
+                  backgroundColor: team.offStageUnlocked ? '#ecfdf5' : isOffStageOpen ? '#f0fdf4' : '#fef2f2',
+                  color: team.offStageUnlocked ? '#047857' : isOffStageOpen ? '#15803d' : '#b91c1c',
+                  border: `1px solid ${team.offStageUnlocked ? '#6ee7b7' : isOffStageOpen ? '#86efac' : '#fecaca'}`
                 }}>
                   🎨 Off-Stage: {team.offStageUnlocked ? '⚡ Zone Override (Open)' : isOffStageOpen ? '🟢 Open' : '🔒 Closed'}
                 </span>
                 <span style={{ 
                   fontSize: '0.75rem', 
-                  padding: '3px 8px', 
-                  borderRadius: '4px', 
-                  fontWeight: 600,
-                  backgroundColor: team.onStageUnlocked ? 'rgba(16, 185, 129, 0.15)' : isOnStageOpen ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: team.onStageUnlocked ? '#10b981' : isOnStageOpen ? '#60a5fa' : '#ef4444',
-                  border: `1px solid ${team.onStageUnlocked ? '#10b981' : isOnStageOpen ? 'rgba(96, 165, 250, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  fontWeight: 700,
+                  backgroundColor: team.onStageUnlocked ? '#ecfdf5' : isOnStageOpen ? '#f0fdf4' : '#fef2f2',
+                  color: team.onStageUnlocked ? '#047857' : isOnStageOpen ? '#15803d' : '#b91c1c',
+                  border: `1px solid ${team.onStageUnlocked ? '#6ee7b7' : isOnStageOpen ? '#86efac' : '#fecaca'}`
                 }}>
                   🎭 On-Stage: {team.onStageUnlocked ? '⚡ Zone Override (Open)' : isOnStageOpen ? '🟢 Open' : '🔒 Closed'}
                 </span>
@@ -140,21 +144,21 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
 
               {team.isAssignmentsConfirmed ? (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#047857', fontWeight: 700, padding: '4px 10px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '4px' }}>
                     ✅ Registration Confirmed & Locked (Chest Numbers Assigned)
                   </div>
                   {team.magazineCode && (
-                    <div style={{ fontSize: '0.8rem', color: '#9333ea', fontWeight: 800, padding: '4px 8px', backgroundColor: 'rgba(147, 51, 234, 0.12)', border: '1px solid rgba(147, 51, 234, 0.3)', borderRadius: '4px' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#7e22ce', fontWeight: 800, padding: '4px 10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '4px' }}>
                       📖 Magazine Code: <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{team.magazineCode}</span>
                     </div>
                   )}
                 </div>
               ) : totalPrograms === 0 ? (
-                <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginTop: '8px', fontWeight: 700, padding: '4px 10px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', display: 'inline-block', borderRadius: '4px' }}>
                   🔴 Registration Pending (No programs assigned)
                 </div>
               ) : (
-                <div style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: '8px', fontWeight: 700, padding: '4px 8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', display: 'inline-block', borderRadius: '4px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '8px', fontWeight: 700, padding: '4px 10px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', display: 'inline-block', borderRadius: '4px' }}>
                   🟡 Ready for Zone Approval & Chest Numbers
                 </div>
               )}
@@ -162,12 +166,12 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
           </div>
 
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
               <a 
                 href={`/print/assignments?teamId=${team.id}`} 
                 target="_blank" 
                 className="btn btn-secondary" 
-                style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none' }}
+                style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', textDecoration: 'none', backgroundColor: '#f8fafc', color: '#1e293b', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: 600 }}
               >
                 Review Assignments
               </a>
@@ -176,7 +180,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   href={`/print/off-stage-invigilation?teamId=${team.id}`} 
                   target="_blank" 
                   className="btn btn-secondary" 
-                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none', borderColor: '#8E0033', color: '#8E0033', fontWeight: 600 }}
+                  style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', textDecoration: 'none', borderColor: '#fecdd3', backgroundColor: '#fff1f2', color: '#9f1239', fontWeight: 700, borderRadius: '6px' }}
                   title="Print Off-Stage Invigilation Sheet with candidate photos"
                 >
                   📝 Off-Stage Sheet
@@ -196,7 +200,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                     btn.innerText = "Approve & Generate Chest Nos";
                   }}
                   className="btn btn-primary" 
-                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'var(--success)' }}
+                  style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#059669', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
                 >
                   Approve & Generate Chest Nos
                 </button>
@@ -208,18 +212,24 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
               {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
                 <button 
                   onClick={() => setAccessModalTeam(team)}
-                  className="btn btn-secondary" 
+                  className="btn" 
                   style={{ 
-                    padding: '0.25rem 0.75rem', 
-                    fontSize: '0.8rem', 
-                    backgroundColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(142, 0, 51, 0.15)', 
-                    color: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#10b981' : 'var(--primary)', 
-                    borderColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#10b981' : 'var(--primary)', 
-                    fontWeight: 700 
+                    padding: '0.35rem 0.95rem', 
+                    fontSize: '0.82rem', 
+                    backgroundColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#059669' : '#8E0033', 
+                    color: '#ffffff', 
+                    border: 'none', 
+                    borderRadius: '6px',
+                    fontWeight: 700,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
-                  title="Open Off-Stage, On-Stage, Both, or Lock registration for this institution"
+                  title="Open Off-Stage only, On-Stage only, Both, or Lock registration for this institution"
                 >
-                  {(team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? "🔓 Registration Access (Unlocked)" : "⚡ Unlock Registration"}
+                  {(team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? "🔓 Stage Access (Unlocked)" : "⚡ Unlock Registration (Off/On-Stage)"}
                 </button>
               )}
 
@@ -229,7 +239,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   <button 
                     onClick={() => setEditingTeam(team)}
                     className="btn btn-secondary" 
-                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderRadius: '6px' }}
                   >
                     Edit
                   </button>
@@ -240,17 +250,17 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                       }
                     }}
                     className="btn btn-secondary" 
-                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', color: 'var(--error)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', color: '#dc2626', borderColor: '#fca5a5', borderRadius: '6px' }}
                   >
                     Delete
                   </button>
                 </>
               )}
 
-              <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', borderColor: '#10b981', color: '#10b981', textDecoration: 'none', fontWeight: 600 }}>
+              <a href={`/print/id-cards?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', borderColor: '#a7f3d0', backgroundColor: '#ecfdf5', color: '#047857', textDecoration: 'none', fontWeight: 700, borderRadius: '6px' }}>
                 🪪 Chest Slips & ID Cards
               </a>
-              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', textDecoration: 'none' }}>
+              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', textDecoration: 'none', backgroundColor: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: 600 }}>
                 📑 Candidates Report
               </a>
             </div>

@@ -27,12 +27,13 @@ export default function EventList({ events }: { events: EventType[] }) {
       {events.map((event) => (
         <div key={event.id} style={{ 
           padding: 'var(--spacing-md)', 
-          border: '1px solid var(--border-color)', 
+          border: '1px solid #e2e8f0', 
           borderRadius: 'var(--radius-md)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: 'rgba(15, 23, 42, 0.4)'
+          backgroundColor: '#ffffff',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
         }}>
           <div>
             <h4 style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>{event.name}</h4>

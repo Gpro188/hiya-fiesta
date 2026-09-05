@@ -221,13 +221,14 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
           return (
           <div key={program.id} style={{ 
             padding: 'var(--spacing-md)', 
-            border: isInst ? '1.5px solid #9333ea' : '1px solid var(--border-color)', 
+            border: isInst ? '1.5px solid #9333ea' : '1px solid #e2e8f0', 
             borderLeft: isInst ? '5px solid #9333ea' : undefined,
             borderRadius: 'var(--radius-md)',
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--spacing-sm)',
-            backgroundColor: isInst ? 'rgba(147, 51, 234, 0.05)' : 'rgba(15, 23, 42, 0.4)'
+            backgroundColor: isInst ? '#faf5ff' : '#ffffff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>

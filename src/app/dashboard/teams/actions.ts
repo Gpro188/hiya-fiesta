@@ -294,11 +294,15 @@ export async function updateTeamRegistrationAccess(
     if (accessType === 'OFF_STAGE') {
       updateData = {
         offStageUnlocked: true,
+        onStageUnlocked: false,
+        registrationUnlocked: false,
         isAssignmentsConfirmed: false,
       };
     } else if (accessType === 'ON_STAGE') {
       updateData = {
+        offStageUnlocked: false,
         onStageUnlocked: true,
+        registrationUnlocked: false,
         isAssignmentsConfirmed: false,
       };
     } else if (accessType === 'BOTH') {
