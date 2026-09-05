@@ -85,12 +85,36 @@ export async function bulkImportStudents(studentsData: Array<{
       seenUidsInUpload.set(uidTrimmed, rowNum);
     });
 
+    // Check existing students already in database to prevent overwriting / repeating
+    const validUids = studentsData.map(s => s.uid?.trim().toUpperCase()).filter(Boolean);
+    const existingInDb = await prisma.masterStudent.findMany({
+      where: { uid: { in: validUids } },
+      include: { institution: { select: { name: true } } }
+    });
+    const existingUidsMap = new Map<string, { name: string; instName: string }>();
+    existingInDb.forEach(s => {
+      existingUidsMap.set(s.uid, { name: s.name, instName: s.institution?.name || "Institution" });
+    });
+
     for (let idx = 0; idx < studentsData.length; idx++) {
       const item = studentsData[idx];
       const rowNum = idx + 2;
       const uidTrimmed = item.uid?.trim().toUpperCase();
 
       if (!uidTrimmed || !item.name?.trim() || !item.institutionName?.trim()) continue;
+
+      // 1. If student UID already exists in database, skip and report as 'Already Uploaded'
+      if (existingUidsMap.has(uidTrimmed)) {
+        const existing = existingUidsMap.get(uidTrimmed)!;
+        skippedRecords.push({
+          rowNumber: rowNum,
+          name: item.name,
+          uid: uidTrimmed,
+          institutionName: item.institutionName,
+          reason: `Already Uploaded (Student already exists under ${existing.instName})`
+        });
+        continue;
+      }
 
       // Normalize search name (remove non-alphanumeric, extra spaces)
       const cleanSearchName = item.institutionName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
@@ -133,16 +157,8 @@ export async function bulkImportStudents(studentsData: Array<{
       }
 
       try {
-        await prisma.masterStudent.upsert({
-          where: { uid: uidTrimmed },
-          update: {
-            name: item.name.trim(),
-            institutionId: targetInstitutionId,
-            district: item.district || null,
-            phone: item.phone || null,
-            stream: (item.stream || "FADHILA").trim().toUpperCase(),
-          },
-          create: {
+        await prisma.masterStudent.create({
+          data: {
             uid: uidTrimmed,
             name: item.name.trim(),
             institutionId: targetInstitutionId,
@@ -152,6 +168,8 @@ export async function bulkImportStudents(studentsData: Array<{
           }
         });
 
+        // Remember newly created UID in map to prevent duplicate inserts in the same batch
+        existingUidsMap.set(uidTrimmed, { name: item.name.trim(), instName: matchedInstName });
         importedCount++;
       } catch (dbErr: any) {
         skippedRecords.push({

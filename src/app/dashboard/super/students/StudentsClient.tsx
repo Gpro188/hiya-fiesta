@@ -126,7 +126,15 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
 
         if (allSkipped.length > 0) {
           setSkippedReport(allSkipped);
-          setSuccess(`✅ Finished! Processed ${totalImported} of ${mapped.length} students. ⚠️ ${allSkipped.length} student(s) were NOT added.`);
+          const alreadyUploaded = allSkipped.filter((s: any) => s.reason?.includes("Already Uploaded"));
+          const duplicatesInFile = allSkipped.filter((s: any) => s.reason?.includes("Duplicate UID in Excel"));
+          const errors = allSkipped.filter((s: any) => !s.reason?.includes("Already Uploaded") && !s.reason?.includes("Duplicate UID in Excel"));
+
+          let msg = `✅ Upload processed! Added ${totalImported} new student(s).`;
+          if (alreadyUploaded.length > 0) msg += ` ℹ️ ${alreadyUploaded.length} already uploaded (skipped).`;
+          if (duplicatesInFile.length > 0) msg += ` ⚠️ ${duplicatesInFile.length} duplicates in Excel.`;
+          if (errors.length > 0) msg += ` ❌ ${errors.length} errors/unmatched.`;
+          setSuccess(msg);
         } else {
           setSuccess(`✅ Successfully imported all ${totalImported} student UIDs!`);
           setTimeout(() => window.location.reload(), 1500);
@@ -346,15 +354,15 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <h4 style={{ margin: 0, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>⚠️</span> {skippedReport.length} Students Not Added from Excel
+                  <span>📋</span> {skippedReport.length} Students Skipped / Not Added from Excel
                 </h4>
                 <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  These rows could not be matched with an institution or have duplicate/missing data.
+                  These rows were already uploaded in the database, had duplicate UIDs in Excel, or could not be matched.
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={downloadSkippedReport} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 12px', borderColor: '#dc2626', color: '#dc2626', fontWeight: 700 }}>
-                  📥 Download Error Report (.xlsx)
+                <button onClick={downloadSkippedReport} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 12px', borderColor: '#4b5563', color: 'var(--text-primary)', fontWeight: 700 }}>
+                  📥 Download Report (.xlsx)
                 </button>
                 <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '5px 12px' }}>
                   🔄 Refresh Registry
@@ -370,7 +378,7 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
                     <th style={{ padding: '6px 8px', textAlign: 'left' }}>UID</th>
                     <th style={{ padding: '6px 8px', textAlign: 'left' }}>Student Name</th>
                     <th style={{ padding: '6px 8px', textAlign: 'left' }}>Institution in Excel</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: '#dc2626' }}>Reason Not Added</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: 'var(--text-primary)' }}>Status / Reason</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -380,7 +388,21 @@ export default function StudentsClient({ initialStudents, institutions, zones }:
                       <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 600 }}>{item.uid}</td>
                       <td style={{ padding: '6px 8px', fontWeight: 600 }}>{item.name}</td>
                       <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{item.institutionName}</td>
-                      <td style={{ padding: '6px 8px', color: '#dc2626', fontWeight: 600 }}>{item.reason}</td>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>
+                        {item.reason?.includes("Already Uploaded") ? (
+                          <span style={{ color: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                            ℹ️ {item.reason}
+                          </span>
+                        ) : item.reason?.includes("Duplicate UID") ? (
+                          <span style={{ color: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                            ⚠️ {item.reason}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#dc2626' }}>
+                            ❌ {item.reason}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
