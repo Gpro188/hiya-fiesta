@@ -97,12 +97,27 @@ export async function bulkImportStudents(studentsData: Array<{
       let targetInstitutionId = null;
       let matchedInstName = "";
 
-      for (const inst of institutions) {
+      // 1. First priority: Exact match on cleaned name or code
+      const exactMatch = institutions.find(inst => {
         const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-        if (cleanDbName === cleanSearchName || cleanDbName.includes(cleanSearchName) || cleanSearchName.includes(cleanDbName)) {
-          targetInstitutionId = inst.id;
-          matchedInstName = inst.name;
-          break;
+        const cleanDbCode = (inst.code || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        return cleanDbName === cleanSearchName || (cleanDbCode && cleanDbCode === cleanSearchName);
+      });
+
+      if (exactMatch) {
+        targetInstitutionId = exactMatch.id;
+        matchedInstName = exactMatch.name;
+      } else {
+        // 2. Fallback: Substring match, prioritizing longest (most specific) name
+        const candidates = institutions.filter(inst => {
+          const cleanDbName = inst.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+          return cleanDbName.includes(cleanSearchName) || cleanSearchName.includes(cleanDbName);
+        });
+
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b.name.length - a.name.length);
+          targetInstitutionId = candidates[0].id;
+          matchedInstName = candidates[0].name;
         }
       }
 
