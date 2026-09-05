@@ -50,10 +50,20 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       // Verify UID belongs to their institution
       if (finalUid) {
          const masterStudent = await prisma.masterStudent.findUnique({
-            where: { uid: finalUid }
+            where: { uid: finalUid },
+            include: { institution: { select: { name: true } } }
          });
-         if (!masterStudent || masterStudent.institutionId !== institutionId) {
-            return { success: false, error: "Invalid Student UID or this student does not belong to your institution." };
+         if (!masterStudent) {
+            return { 
+               success: false, 
+               error: "Student UID not found in institution directory. If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC." 
+            };
+         }
+         if (masterStudent.institutionId !== institutionId) {
+            return { 
+               success: false, 
+               error: `This student (${finalUid} - ${masterStudent.name}) is registered under "${masterStudent.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.` 
+            };
          }
       }
     } else {

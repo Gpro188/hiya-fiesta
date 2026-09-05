@@ -14,8 +14,44 @@ export async function lookupStudentByUID(uid: string, teamId?: string) {
       }
     });
 
+    let currentTeamInstitutionId: string | null = null;
+    let currentTeamInstitutionName: string | null = null;
+
+    if (teamId) {
+      const team = await prisma.team.findUnique({
+        where: { id: teamId },
+        select: { institutionId: true, institution: { select: { id: true, name: true } } }
+      });
+      if (team) {
+        currentTeamInstitutionId = team.institutionId;
+        currentTeamInstitutionName = team.institution?.name || null;
+      }
+    }
+
     if (!student) {
-      return { success: false, student: null, error: "UID not found in Master Directory" };
+      return { 
+        success: false, 
+        student: null, 
+        notFound: true,
+        error: "Student UID not found in institution directory. If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC." 
+      };
+    }
+
+    // Check if student belongs to a different institution
+    const isDifferentInstitution = Boolean(
+      currentTeamInstitutionId && 
+      student.institutionId && 
+      currentTeamInstitutionId !== student.institutionId
+    );
+
+    if (isDifferentInstitution) {
+      return {
+        success: false,
+        student,
+        isDifferentInstitution: true,
+        studentInstitutionName: student.institution?.name,
+        error: `Student (${cleanUid} - ${student.name}) is registered under "${student.institution?.name}". If there is an issue in the institution portal (admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC.`
+      };
     }
 
     const candidateWhere: any = { uid: cleanUid };

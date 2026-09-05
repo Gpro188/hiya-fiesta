@@ -67,6 +67,8 @@ export default function CandidateForm({
       setName("");
       setUid("");
       setPhoto("");
+      setUidAlert(null);
+      setUidStatus("");
     } else {
       setError(result.error || "Failed to add candidate");
     }
@@ -76,6 +78,7 @@ export default function CandidateForm({
   const [uid, setUid] = useState("");
   const [searchingUid, setSearchingUid] = useState(false);
   const [uidStatus, setUidStatus] = useState("");
+  const [uidAlert, setUidAlert] = useState<{ type: "warning" | "error" | "info"; message: string } | null>(null);
   const [isUnder20, setIsUnder20] = useState(false);
   const [studentStream, setStudentStream] = useState("");
   const uidLookupTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,6 +94,7 @@ export default function CandidateForm({
     if (trimmed.length >= 4) {
       setSearchingUid(true);
       setUidStatus("Searching UID...");
+      setUidAlert(null);
 
       uidLookupTimerRef.current = setTimeout(async () => {
         try {
@@ -102,9 +106,14 @@ export default function CandidateForm({
             if (res.isAlreadyRegistered) {
               setUidStatus(`🚫 ALREADY ADDED: ${res.student.name} is already registered in this team!`);
               setError(`Student (${res.student.name} - UID: ${trimmed}) is already registered in your candidates list!`);
+              setUidAlert({
+                type: "error",
+                message: `🚫 ALREADY ADDED: Student (${res.student.name} - UID: ${trimmed}) is already registered in your candidates list!`
+              });
             } else {
-              setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name})`);
+              setUidStatus(`✅ Found: ${res.student.name} (${res.student.institution?.name || 'Verified'})`);
               setError("");
+              setUidAlert(null);
             }
             
             const stream = (res.student.stream || "").toUpperCase();
@@ -120,13 +129,29 @@ export default function CandidateForm({
               const matchedCat = categories.find(c => c.name.toUpperCase().includes(stream));
               if (matchedCat) setCategoryId(matchedCat.id);
             }
-          } else {
-            setUidStatus("⚠️ UID not found in Master Directory. You can type name manually.");
+          } else if (res.isDifferentInstitution) {
+            setName("");
             setStudentStream("");
+            setUidStatus(`⚠️ Registered under: ${res.studentInstitutionName || 'Other College'}`);
+            setError("");
+            setUidAlert({
+              type: "warning",
+              message: `⚠️ This student (${trimmed} - ${res.student?.name}) is currently registered under "${res.studentInstitutionName}". If there is an issue in the institution portal (e.g. admission or promotion procedure was not completed for this student), please contact the IT Cell of CSWC.`
+            });
+          } else {
+            setName("");
+            setStudentStream("");
+            setUidStatus("⚠️ Student UID not found in institution directory.");
+            setError("");
+            setUidAlert({
+              type: "warning",
+              message: "⚠️ Student UID not found in your institution directory. If there is an issue in the institution portal (e.g. admission or promotion procedure not completed for this student), please contact the IT Cell of CSWC."
+            });
           }
         } catch (err) {
           console.error("UID Lookup error:", err);
           setUidStatus("⚠️ Lookup error, please try again.");
+          setUidAlert(null);
         } finally {
           setSearchingUid(false);
         }
@@ -135,6 +160,7 @@ export default function CandidateForm({
       setSearchingUid(false);
       setUidStatus("");
       setStudentStream("");
+      setUidAlert(null);
     }
   };
 
@@ -184,6 +210,30 @@ export default function CandidateForm({
         </div>
       )}
       
+      {/* UID Lookup Feedback Alert */}
+      {uidAlert && (
+        <div style={{
+          marginBottom: 'var(--spacing-md)',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          backgroundColor: uidAlert.type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+          border: `1.5px solid ${uidAlert.type === 'error' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.4)'}`,
+          color: uidAlert.type === 'error' ? '#b91c1c' : '#92400e',
+          fontSize: '0.85rem',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+          lineHeight: 1.5
+        }}>
+          <span style={{ fontSize: '1.25rem', marginTop: '-2px' }}>
+            {uidAlert.type === 'error' ? '🚫' : '⚠️'}
+          </span>
+          <div>
+            {uidAlert.message}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1.5fr 1.2fr 1.2fr auto' : '1fr 1.5fr 1.2fr 1fr auto', gap: 'var(--spacing-md)', alignItems: 'end' }}>
         
         {isAdmin ? (
@@ -199,7 +249,17 @@ export default function CandidateForm({
                 placeholder="e.g. FL26CH12"
                 style={{ fontWeight: 700, fontFamily: 'monospace' }}
               />
-              {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
+              {uidStatus && (
+                <span style={{ 
+                  fontSize: '0.72rem', 
+                  display: 'block', 
+                  marginTop: '3px', 
+                  fontWeight: 600, 
+                  color: uidStatus.startsWith('✅') ? 'var(--success)' : (uidStatus.startsWith('🚫') ? 'var(--error)' : '#d97706') 
+                }}>
+                  {uidStatus}
+                </span>
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -227,7 +287,17 @@ export default function CandidateForm({
                 placeholder="e.g. FL26CH12"
                 style={{ fontWeight: 700, fontFamily: 'monospace' }}
               />
-              {uidStatus && <span style={{ fontSize: '0.7rem', display: 'block', marginTop: '2px', color: uidStatus.startsWith('✅') ? 'var(--success)' : 'var(--text-muted)' }}>{uidStatus}</span>}
+              {uidStatus && (
+                <span style={{ 
+                  fontSize: '0.72rem', 
+                  display: 'block', 
+                  marginTop: '3px', 
+                  fontWeight: 600, 
+                  color: uidStatus.startsWith('✅') ? 'var(--success)' : (uidStatus.startsWith('🚫') ? 'var(--error)' : '#d97706') 
+                }}>
+                  {uidStatus}
+                </span>
+              )}
             </div>
             
             <div className="form-group" style={{ marginBottom: 0 }}>
