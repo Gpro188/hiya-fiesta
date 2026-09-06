@@ -57,6 +57,14 @@ export default async function TeamsPage() {
       candidates: {
         select: {
           id: true,
+          chestNumber: true,
+          programs: {
+            select: {
+              program: {
+                select: { stageType: true }
+              }
+            }
+          },
           _count: { select: { programs: true } }
         }
       }

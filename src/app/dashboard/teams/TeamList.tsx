@@ -37,7 +37,12 @@ type TeamType = {
   registrationUnlocked?: boolean;
   magazineCode?: string | null;
   _count: { candidates: number };
-  candidates?: { id: string; _count: { programs: number } }[];
+  candidates?: {
+    id: string;
+    chestNumber?: string | null;
+    _count: { programs: number };
+    programs?: { program: { stageType: string } }[];
+  }[];
 };
 
 export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[], role?: string }) {
@@ -173,6 +178,23 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
           const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
           const isOnStageOpen = team.onStageUnlocked || (!team.isOnStageConfirmed && !isOnDeadlinePassed);
 
+          const offCandidates = team.candidates?.filter(c => c.programs?.some(p => p.program?.stageType === 'OFF_STAGE')) || [];
+          const offCandidatesWithoutChest = offCandidates.filter(c => !c.chestNumber);
+          const hasOffStage = offCandidates.length > 0 || Boolean(team.magazineCode);
+          const isOffStageChestLoaded = hasOffStage 
+            ? (offCandidates.length > 0 ? offCandidatesWithoutChest.length === 0 : Boolean(team.magazineCode))
+            : true;
+
+          const onCandidates = team.candidates?.filter(c => c.programs?.some(p => p.program?.stageType === 'ON_STAGE')) || [];
+          const onCandidatesWithoutChest = onCandidates.filter(c => !c.chestNumber);
+          const hasOnStage = onCandidates.length > 0;
+          const isOnStageChestLoaded = hasOnStage 
+            ? (onCandidatesWithoutChest.length === 0 && Boolean(team.isOnStageConfirmed))
+            : Boolean(team.isOnStageConfirmed);
+
+          const needsOffStageConfirmation = hasOffStage && !isOffStageChestLoaded;
+          const needsOnStageConfirmation = isOffStageChestLoaded && hasOnStage && !isOnStageChestLoaded;
+
           return (
           <div key={team.id} style={{ 
             padding: '16px 20px', 
@@ -248,14 +270,30 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </span>
               </div>
 
-              {team.isAssignmentsConfirmed ? (
+              {isOffStageChestLoaded && isOnStageChestLoaded && (totalPrograms > 0) ? (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
                   <div style={{ fontSize: '0.8rem', color: '#047857', fontWeight: 700, padding: '4px 10px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '4px' }}>
-                    ✅ Registration Confirmed & Locked (Chest Numbers Assigned)
+                    ✅ Registration Confirmed & Locked (Off & On-Stage Chest Nos Assigned)
                   </div>
                   {team.magazineCode && (
                     <div style={{ fontSize: '0.8rem', color: '#7e22ce', fontWeight: 800, padding: '4px 10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '4px' }}>
                       📖 Magazine Code: <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{team.magazineCode}</span>
+                    </div>
+                  )}
+                </div>
+              ) : isOffStageChestLoaded ? (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 700, padding: '4px 10px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '4px' }}>
+                    🎨 Off-Stage Confirmed ({offCandidates.length - offCandidatesWithoutChest.length} / {offCandidates.length} Chest Nos)
+                  </div>
+                  {team.magazineCode && (
+                    <div style={{ fontSize: '0.8rem', color: '#7e22ce', fontWeight: 800, padding: '4px 10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '4px' }}>
+                      📖 Magazine Code: <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{team.magazineCode}</span>
+                    </div>
+                  )}
+                  {hasOnStage && (
+                    <div style={{ fontSize: '0.8rem', color: '#db2777', fontWeight: 700, padding: '4px 10px', backgroundColor: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '4px' }}>
+                      🎭 On-Stage Awaiting Confirmation
                     </div>
                   )}
                 </div>
@@ -265,7 +303,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </div>
               ) : (
                 <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '8px', fontWeight: 700, padding: '4px 10px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', display: 'inline-block', borderRadius: '4px' }}>
-                  🟡 Ready for Zone Approval & Chest Numbers
+                  {team.isAssignmentsConfirmed ? "📥 College Submitted Off-Stage (Ready for Zone Chest Nos)" : "🟡 Off-Stage Pending Zone Confirmation"}
                 </div>
               )}
             </div>
@@ -292,18 +330,24 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   📝 Off-Stage Sheet
                 </a>
               )}
-              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && totalPrograms > 0 && !team.isAssignmentsConfirmed && (
+              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && needsOffStageConfirmation && (
                 <button 
                   onClick={async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true;
                     btn.innerText = "Confirming Off-Stage...";
                     const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "OFF_STAGE"));
-                    if (!result.success) alert(result.error);
-                    else if (result.count === 0) alert("No new candidates to confirm.");
-                    else alert(`Successfully confirmed Off-Stage for ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
-                    btn.disabled = false;
-                    btn.innerText = "🎨 Confirm Off-Stage & Load Chest Nos";
+                    if (!result.success) {
+                      alert(result.error);
+                      btn.disabled = false;
+                      btn.innerText = "🎨 Confirm Off-Stage & Load Chest Nos";
+                    } else if (result.count === 0) {
+                      alert("No new candidates to confirm.");
+                      window.location.reload();
+                    } else {
+                      alert(`Successfully confirmed Off-Stage for ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
+                      window.location.reload();
+                    }
                   }}
                   className="btn btn-primary" 
                   style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#059669', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
@@ -313,17 +357,21 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </button>
               )}
 
-              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && totalPrograms > 0 && team.isAssignmentsConfirmed && !team.isOnStageConfirmed && (
+              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && needsOnStageConfirmation && (
                 <button 
                   onClick={async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true;
                     btn.innerText = "Confirming On-Stage...";
                     const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "ON_STAGE"));
-                    if (!result.success) alert(result.error);
-                    else alert(`Successfully confirmed On-Stage registration! Existing Off-Stage chest numbers are fixed and preserved; newly added students received sequential numbers.`);
-                    btn.disabled = false;
-                    btn.innerText = "🎭 Confirm On-Stage & Load Chest Nos";
+                    if (!result.success) {
+                      alert(result.error);
+                      btn.disabled = false;
+                      btn.innerText = "🎭 Confirm On-Stage & Load Chest Nos";
+                    } else {
+                      alert(`Successfully confirmed On-Stage registration! Existing Off-Stage chest numbers are fixed and preserved; newly added students received sequential numbers.`);
+                      window.location.reload();
+                    }
                   }}
                   className="btn btn-primary" 
                   style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#db2777', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
@@ -333,7 +381,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 </button>
               )}
 
-              {team.isAssignmentsConfirmed && team.isOnStageConfirmed && (
+              {isOffStageChestLoaded && isOnStageChestLoaded && totalPrograms > 0 && (
                 <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#047857', fontWeight: 700, border: '1px solid #a7f3d0' }}>
                   ✅ Fully Confirmed (Off & On-Stage)
                 </span>

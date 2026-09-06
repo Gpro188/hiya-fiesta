@@ -285,12 +285,33 @@ export default async function DashboardPage() {
       const chestNumberCount = t.candidates.filter((c: any) => Boolean(c.chestNumber)).length;
       let offStageCount = 0;
       let onStageCount = 0;
+      let offStageCandidateCount = 0;
+      let offStageChestNumberCount = 0;
+      let onStageCandidateCount = 0;
+      let onStageChestNumberCount = 0;
+
       t.candidates.forEach((c: any) => {
+        let hasOff = false;
+        let hasOn = false;
         c.programs.forEach((p: any) => {
-          if (p.program?.stageType === "OFF_STAGE") offStageCount++;
-          else if (p.program?.stageType === "ON_STAGE") onStageCount++;
+          if (p.program?.stageType === "OFF_STAGE") {
+            offStageCount++;
+            hasOff = true;
+          } else if (p.program?.stageType === "ON_STAGE") {
+            onStageCount++;
+            hasOn = true;
+          }
         });
+        if (hasOff) {
+          offStageCandidateCount++;
+          if (c.chestNumber) offStageChestNumberCount++;
+        }
+        if (hasOn) {
+          onStageCandidateCount++;
+          if (c.chestNumber) onStageChestNumberCount++;
+        }
       });
+
       return {
         id: t.id,
         name: t.name,
@@ -308,6 +329,10 @@ export default async function DashboardPage() {
         chestNumberCount,
         offStageCount,
         onStageCount,
+        offStageCandidateCount,
+        offStageChestNumberCount,
+        onStageCandidateCount,
+        onStageChestNumberCount,
         totalPrograms: offStageCount + onStageCount,
       };
     });

@@ -28,6 +28,10 @@ export interface ZoneTeamStatus {
   chestNumberCount: number;
   offStageCount: number;
   onStageCount: number;
+  offStageCandidateCount?: number;
+  offStageChestNumberCount?: number;
+  onStageCandidateCount?: number;
+  onStageChestNumberCount?: number;
   totalPrograms: number;
 }
 
@@ -51,6 +55,45 @@ export default function ZoneInstitutionStatusTable({
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const getTeamStatusFlags = (team: ZoneTeamStatus) => {
+    const offCandidatesCount = team.offStageCandidateCount ?? (team.offStageCount > 0 ? team.candidateCount : 0);
+    const offChestCount = team.offStageChestNumberCount ?? team.chestNumberCount;
+    const hasOff = offCandidatesCount > 0 || team.isMagazineParticipating;
+    const isOffChestLoaded = hasOff 
+      ? (offCandidatesCount > 0 ? offChestCount >= offCandidatesCount : Boolean(team.magazineCode))
+      : true;
+
+    const onCandidatesCount = team.onStageCandidateCount ?? (team.onStageCount > 0 ? team.candidateCount : 0);
+    const onChestCount = team.onStageChestNumberCount ?? team.chestNumberCount;
+    const hasOn = onCandidatesCount > 0;
+    const isOnChestLoaded = hasOn 
+      ? (onChestCount >= onCandidatesCount && team.isOnStageConfirmed)
+      : team.isOnStageConfirmed;
+
+    const isOffConfirmed = isOffChestLoaded;
+    const isOnConfirmed = isOnChestLoaded;
+
+    const hasPendingOff = hasOff && !isOffChestLoaded;
+    const hasPendingOn = !hasPendingOff && hasOn && !isOnChestLoaded;
+    const isFullyConfirmed = (hasOff ? isOffChestLoaded : true) && (hasOn ? isOnChestLoaded : true) && team.candidateCount > 0;
+
+    return {
+      hasOff,
+      isOffChestLoaded,
+      isOffConfirmed,
+      hasPendingOff,
+      hasOn,
+      isOnChestLoaded,
+      isOnConfirmed,
+      hasPendingOn,
+      isFullyConfirmed,
+      offCandidatesCount,
+      offChestCount,
+      onCandidatesCount,
+      onChestCount,
+    };
+  };
+
   // Filter logic
   const filteredTeams = teams.filter((team) => {
     // Search filter
@@ -71,18 +114,20 @@ export default function ZoneInstitutionStatusTable({
 
     if (!matchesSearch) return false;
 
+    const flags = getTeamStatusFlags(team);
+
     // Status filter
     if (statusFilter === "PENDING_OFF") {
-      return !team.isAssignmentsConfirmed;
+      return flags.hasPendingOff;
     }
     if (statusFilter === "CONFIRMED_OFF") {
-      return team.isAssignmentsConfirmed;
+      return flags.isOffConfirmed;
     }
     if (statusFilter === "PENDING_ON") {
-      return team.isAssignmentsConfirmed && !team.isOnStageConfirmed;
+      return flags.hasPendingOn;
     }
     if (statusFilter === "FULLY_CONFIRMED") {
-      return team.isAssignmentsConfirmed && team.isOnStageConfirmed;
+      return flags.isFullyConfirmed;
     }
 
     return true;
@@ -90,11 +135,11 @@ export default function ZoneInstitutionStatusTable({
 
   // Calculate high-level metrics
   const totalInstitutions = teams.length;
-  const offStageConfirmedCount = teams.filter((t) => t.isAssignmentsConfirmed).length;
-  const onStageConfirmedCount = teams.filter((t) => t.isOnStageConfirmed).length;
-  const pendingOffStageCount = teams.filter((t) => !t.isAssignmentsConfirmed).length;
-  const pendingOnStageCount = teams.filter((t) => t.isAssignmentsConfirmed && !t.isOnStageConfirmed).length;
-  const fullyConfirmedCount = teams.filter((t) => t.isAssignmentsConfirmed && t.isOnStageConfirmed).length;
+  const offStageConfirmedCount = teams.filter((t) => getTeamStatusFlags(t).isOffConfirmed).length;
+  const onStageConfirmedCount = teams.filter((t) => getTeamStatusFlags(t).isOnConfirmed).length;
+  const pendingOffStageCount = teams.filter((t) => getTeamStatusFlags(t).hasPendingOff).length;
+  const pendingOnStageCount = teams.filter((t) => getTeamStatusFlags(t).hasPendingOn).length;
+  const fullyConfirmedCount = teams.filter((t) => getTeamStatusFlags(t).isFullyConfirmed).length;
   const totalCandidates = teams.reduce((sum, t) => sum + t.candidateCount, 0);
   const totalChestNumbers = teams.reduce((sum, t) => sum + t.chestNumberCount, 0);
   const totalProgramAllocations = teams.reduce((sum, t) => sum + t.totalPrograms, 0);
@@ -149,11 +194,16 @@ export default function ZoneInstitutionStatusTable({
     teams.forEach((t, i) => {
       const instName = t.institution?.name || t.name;
       const place = t.institution?.place ? ` (${t.institution.place})` : "";
-      const offStatus = t.isAssignmentsConfirmed ? "✅ Confirmed" : "⏳ Pending";
-      const onStatus = t.isOnStageConfirmed
-        ? "✅ Confirmed"
+      const flags = getTeamStatusFlags(t);
+      const offStatus = flags.isOffConfirmed
+        ? `✅ Confirmed (${flags.offChestCount}/${flags.offCandidatesCount} Chest Nos)`
         : t.isAssignmentsConfirmed
-        ? "⏳ Open/Pending"
+        ? "📥 College Submitted (Ready for Chest Nos)"
+        : "⏳ Pending";
+      const onStatus = flags.isOnConfirmed
+        ? `✅ Confirmed (${flags.onChestCount}/${flags.onCandidatesCount} Chest Nos)`
+        : flags.isOffConfirmed
+        ? "⏳ Ready/Open"
         : "🔒 Not Ready";
 
       text += `${i + 1}. *${instName}${place}* [Prefix: ${t.prefixCode}]\n`;
@@ -537,10 +587,11 @@ export default function ZoneInstitutionStatusTable({
               </tr>
             ) : (
               filteredTeams.map((team) => {
-                const isOffConfirmed = team.isAssignmentsConfirmed;
-                const isOnConfirmed = team.isOnStageConfirmed;
-                const hasPendingOff = team.candidateCount > 0 && !isOffConfirmed;
-                const hasPendingOn = isOffConfirmed && !isOnConfirmed;
+                const flags = getTeamStatusFlags(team);
+                const isOffConfirmed = flags.isOffConfirmed;
+                const isOnConfirmed = flags.isOnConfirmed;
+                const hasPendingOff = flags.hasPendingOff;
+                const hasPendingOn = flags.hasPendingOn;
 
                 return (
                   <tr
@@ -672,7 +723,23 @@ export default function ZoneInstitutionStatusTable({
                             display: "inline-block",
                           }}
                         >
-                          🔒 CONFIRMED
+                          🔒 CONFIRMED ({flags.offChestCount} Chest Nos)
+                        </span>
+                      ) : team.isAssignmentsConfirmed ? (
+                        <span
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: "4px",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            backgroundColor: "rgba(2, 132, 199, 0.15)",
+                            color: "#0284c7",
+                            border: "1px solid rgba(2, 132, 199, 0.3)",
+                            display: "inline-block",
+                          }}
+                          title="College submitted Off-Stage registration. Click Confirm Off-Stage to load chest numbers."
+                        >
+                          📥 SUBMITTED (Ready)
                         </span>
                       ) : team.offStageUnlocked ? (
                         <span
@@ -722,7 +789,23 @@ export default function ZoneInstitutionStatusTable({
                             display: "inline-block",
                           }}
                         >
-                          🔒 CONFIRMED
+                          🔒 CONFIRMED ({flags.onChestCount} Chest Nos)
+                        </span>
+                      ) : team.isOnStageConfirmed ? (
+                        <span
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: "4px",
+                            fontSize: "0.72rem",
+                            fontWeight: 800,
+                            backgroundColor: "rgba(219, 39, 119, 0.15)",
+                            color: "#db2777",
+                            border: "1px solid rgba(219, 39, 119, 0.3)",
+                            display: "inline-block",
+                          }}
+                          title="College submitted On-Stage registration. Click Confirm On-Stage to load chest numbers."
+                        >
+                          📥 SUBMITTED (Ready)
                         </span>
                       ) : team.onStageUnlocked ? (
                         <span
@@ -797,7 +880,7 @@ export default function ZoneInstitutionStatusTable({
                             }}
                             title="Confirm Off-Stage candidates & assign chest numbers strictly to Off-Stage participants"
                           >
-                            {actionLoadingId === `${team.id}-OFF_STAGE` ? "Confirming..." : "🎨 Confirm Off-Stage"}
+                            {actionLoadingId === `${team.id}-OFF_STAGE` ? "Confirming..." : "🎨 Confirm Off-Stage & Load Chest Nos"}
                           </button>
                         )}
 
@@ -818,8 +901,24 @@ export default function ZoneInstitutionStatusTable({
                             }}
                             title="Confirm On-Stage candidates. Students already numbered in Off-Stage keep their chest number permanently. Only new students receive new numbers."
                           >
-                            {actionLoadingId === `${team.id}-ON_STAGE` ? "Confirming..." : "🎭 Confirm On-Stage"}
+                            {actionLoadingId === `${team.id}-ON_STAGE` ? "Confirming..." : "🎭 Confirm On-Stage & Load Chest Nos"}
                           </button>
+                        )}
+
+                        {flags.isFullyConfirmed && (
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              padding: "3px 7px",
+                              borderRadius: "4px",
+                              backgroundColor: "rgba(16,185,129,0.15)",
+                              color: "#059669",
+                              fontWeight: 700,
+                              border: "1px solid rgba(16,185,129,0.3)",
+                            }}
+                          >
+                            ✅ Fully Confirmed
+                          </span>
                         )}
 
                         {/* Print Dropdown / Quick Links */}

@@ -259,6 +259,7 @@ export async function confirmTeamRegistration(teamId: string, stageType?: 'OFF_S
       });
     });
 
+    revalidatePath("/dashboard");
     revalidatePath("/dashboard/teams");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
