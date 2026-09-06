@@ -5,6 +5,7 @@ import Link from "next/link";
 import CustomerGuidelines from "./CustomerGuidelines";
 import InstitutionOnboardingModal from "@/components/InstitutionOnboardingModal";
 import InstitutionProfileButton from "@/components/InstitutionProfileButton";
+import ZoneInstitutionStatusTable, { ZoneTeamStatus } from "./ZoneInstitutionStatusTable";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
     pendingResultsCount: number;
     unscoredProgramsCount: number;
   } | null = null;
+  let zoneTeamsStatusList: ZoneTeamStatus[] = [];
+  let zoneName = "Zone";
 
   // Institution Profile details
   let institutionInfo: any = null;
@@ -168,8 +171,23 @@ export default async function DashboardPage() {
     }
   } else if (role === "ZONE_ADMIN") {
     const zoneEventId = fullUser?.eventId || eventId;
-    const eventFilter = zoneEventId ? { id: zoneEventId } : undefined;
-    const teamFilter = zoneEventId ? { eventId: zoneEventId } : undefined;
+    let teamFilter: any = undefined;
+    if (fullUser?.zoneId) {
+      teamFilter = {
+        OR: [
+          { event: { zoneId: fullUser.zoneId } },
+          { institution: { zoneId: fullUser.zoneId } },
+          ...(zoneEventId ? [{ eventId: zoneEventId }] : [])
+        ]
+      };
+      const z = await prisma.zone.findUnique({
+        where: { id: fullUser.zoneId },
+        select: { name: true }
+      });
+      if (z?.name) zoneName = z.name;
+    } else if (zoneEventId) {
+      teamFilter = { eventId: zoneEventId };
+    }
 
     const [
       zoneTeams,
@@ -185,10 +203,36 @@ export default async function DashboardPage() {
           name: true,
           prefixCode: true,
           isAssignmentsConfirmed: true,
-          _count: { select: { candidates: true } },
+          isOnStageConfirmed: true,
+          offStageUnlocked: true,
+          onStageUnlocked: true,
+          magazineCode: true,
+          isMagazineParticipating: true,
+          eventId: true,
+          institution: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              place: true,
+              district: true,
+            }
+          },
           candidates: {
             select: {
-              _count: { select: { programs: true } }
+              id: true,
+              chestNumber: true,
+              isApproved: true,
+              programs: {
+                select: {
+                  program: {
+                    select: {
+                      id: true,
+                      stageType: true,
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -234,6 +278,39 @@ export default async function DashboardPage() {
         },
       }),
     ]);
+
+    zoneTeamsStatusList = zoneTeams.map((t: any) => {
+      const candidateCount = t.candidates.length;
+      const approvedCount = t.candidates.filter((c: any) => c.isApproved).length;
+      const chestNumberCount = t.candidates.filter((c: any) => Boolean(c.chestNumber)).length;
+      let offStageCount = 0;
+      let onStageCount = 0;
+      t.candidates.forEach((c: any) => {
+        c.programs.forEach((p: any) => {
+          if (p.program?.stageType === "OFF_STAGE") offStageCount++;
+          else if (p.program?.stageType === "ON_STAGE") onStageCount++;
+        });
+      });
+      return {
+        id: t.id,
+        name: t.name,
+        prefixCode: t.prefixCode,
+        isAssignmentsConfirmed: t.isAssignmentsConfirmed,
+        isOnStageConfirmed: t.isOnStageConfirmed,
+        offStageUnlocked: t.offStageUnlocked,
+        onStageUnlocked: t.onStageUnlocked,
+        magazineCode: t.magazineCode,
+        isMagazineParticipating: t.isMagazineParticipating,
+        institution: t.institution,
+        eventId: t.eventId,
+        candidateCount,
+        approvedCount,
+        chestNumberCount,
+        offStageCount,
+        onStageCount,
+        totalPrograms: offStageCount + onStageCount,
+      };
+    });
 
     const confirmedTeams = zoneTeams.filter(t => t.isAssignmentsConfirmed);
     const pendingTeams = zoneTeams.filter(t => !t.isAssignmentsConfirmed);
@@ -812,40 +889,10 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Pending List Audit Diagnostics for Zone Admin */}
-          {zoneData.pendingTeams.length > 0 && (
-            <div className="glass-panel" style={{ marginTop: "1.25rem", padding: "1.25rem", border: "1px solid rgba(245,158,11,0.3)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#d97706", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span>⚠️</span> Pending Institution Confirmations ({zoneData.pendingTeams.length})
-                </h4>
-                <Link href="/dashboard/teams" className="btn btn-sm btn-secondary" style={{ fontSize: "0.75rem" }}>
-                  Go to Teams Management →
-                </Link>
-              </div>
-              <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                The following institutions have registered candidates or programs that require Zone Admin verification to generate Chest Numbers:
-              </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                {zoneData.pendingTeams.map((team: any) => (
-                  <span
-                    key={team.id}
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                      backgroundColor: "rgba(245,158,11,0.1)",
-                      border: "1px solid rgba(245,158,11,0.25)",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      color: "var(--text-primary)"
-                    }}
-                  >
-                    🏢 {team.name} ({team._count.candidates} candidates)
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Detailed Institution Registration Status Table & Controls */}
+          <div style={{ marginTop: "1.5rem" }}>
+            <ZoneInstitutionStatusTable teams={zoneTeamsStatusList} zoneName={zoneName} />
+          </div>
         </div>
       )}
 
