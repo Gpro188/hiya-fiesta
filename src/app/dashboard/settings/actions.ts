@@ -148,6 +148,9 @@ export async function updateEventDeadlines(eventId: string, data: {
   zoneActiveEndTime: string | null;
   stateConfirmEndDate: string | null;
   statusOverride?: string | null;
+  zoneUnlockWindowStart?: string | null;
+  zoneUnlockWindowEnd?: string | null;
+  zoneUnlockMode?: string | null;
 }) {
   try {
     const session = await getServerSession(authOptions);
@@ -161,6 +164,10 @@ export async function updateEventDeadlines(eventId: string, data: {
 
     const effectiveCutoff = data.onStageRegistrationEnd || data.offStageRegistrationEnd || data.institutionRegistrationEndDate;
     const effectiveCutoffDate = effectiveCutoff ? new Date(effectiveCutoff) : null;
+
+    const zoneUnlockStartVal = data.zoneUnlockWindowStart ? new Date(data.zoneUnlockWindowStart) : null;
+    const zoneUnlockEndVal = data.zoneUnlockWindowEnd ? new Date(data.zoneUnlockWindowEnd) : null;
+    const zoneUnlockModeVal = data.zoneUnlockMode || "FIXED_TIME";
 
     const updatedEvent = await prisma.event.update({
       where: { id: eventId },
@@ -178,6 +185,9 @@ export async function updateEventDeadlines(eventId: string, data: {
           zoneActiveStartTime: startDateVal,
           zoneActiveEndTime: endDateVal,
           stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
+          zoneUnlockWindowStart: zoneUnlockStartVal,
+          zoneUnlockWindowEnd: zoneUnlockEndVal,
+          zoneUnlockMode: zoneUnlockModeVal,
         } : {}),
         ...(data.statusOverride ? { statusOverride: data.statusOverride } : {})
       }
@@ -195,6 +205,9 @@ export async function updateEventDeadlines(eventId: string, data: {
           institutionRegistrationEndDate: effectiveCutoffDate,
           offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
           onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
+          zoneUnlockWindowStart: zoneUnlockStartVal,
+          zoneUnlockWindowEnd: zoneUnlockEndVal,
+          zoneUnlockMode: zoneUnlockModeVal,
         }
       });
     }

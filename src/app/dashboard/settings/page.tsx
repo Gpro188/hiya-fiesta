@@ -46,6 +46,9 @@ export default async function SettingsPage() {
       zoneActiveEndTime: true,
       stateConfirmEndDate: true,
       statusOverride: true,
+      zoneUnlockWindowStart: true,
+      zoneUnlockWindowEnd: true,
+      zoneUnlockMode: true,
     },
     orderBy: { createdAt: 'asc' }
   });

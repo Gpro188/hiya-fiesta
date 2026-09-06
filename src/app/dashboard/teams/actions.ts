@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcrypt";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getZoneUnlockStatus } from "@/lib/zoneUnlockUtils";
 
 export async function createTeam(data: any) {
   try {
@@ -287,7 +288,13 @@ export async function updateTeamRegistrationAccess(
 
     const team = await prisma.team.findUnique({ 
       where: { id: teamId },
-      include: { event: true } 
+      include: { 
+        event: {
+          include: {
+            parent: true
+          }
+        }
+      } 
     });
     if (!team) return { success: false, error: "Team not found" };
 
@@ -299,6 +306,17 @@ export async function updateTeamRegistrationAccess(
       });
       if (team.event.zoneId !== fullUser?.zoneId) {
         return { success: false, error: "Unauthorized: You can only manage teams in your assigned zone." };
+      }
+
+      // If opening/unlocking, check Super Admin fixed time window and visibility setting
+      if (accessType !== 'LOCK') {
+        const unlockStatus = getZoneUnlockStatus(team.event);
+        if (!unlockStatus.isAllowed) {
+          return {
+            success: false,
+            error: `Registration unlock is currently closed for Zone Admins. ${unlockStatus.message}`
+          };
+        }
       }
     }
 

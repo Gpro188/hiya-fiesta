@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getZoneUnlockStatus } from "@/lib/zoneUnlockUtils";
 
 export async function addZone(data: { name: string; code: string }) {
   try {
@@ -172,6 +173,26 @@ export async function unlockInstitutionTeam(teamId: string, reason?: string) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        event: {
+          include: { parent: true }
+        }
+      }
+    });
+    if (!team) return { success: false, error: "Team not found" };
+
+    if (session.user.role === "ZONE_ADMIN") {
+      const unlockStatus = getZoneUnlockStatus(team.event);
+      if (!unlockStatus.isAllowed) {
+        return {
+          success: false,
+          error: `Registration unlock is currently closed for Zone Admins. ${unlockStatus.message}`
+        };
+      }
     }
 
     await prisma.team.update({

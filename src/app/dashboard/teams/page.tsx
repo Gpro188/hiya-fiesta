@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import TeamForm from "./TeamForm";
 import TeamList from "./TeamList";
 import Link from "next/link";
+import { getZoneUnlockStatus } from "@/lib/zoneUnlockUtils";
 
 export default async function TeamsPage() {
   const session = await getServerSession(authOptions);
@@ -72,6 +73,15 @@ export default async function TeamsPage() {
     orderBy: { createdAt: 'desc' }
   });
 
+  // Check Zone Unlock permission set by Super Admin
+  const currentEvent = teams[0]?.event || (await prisma.event.findFirst({
+    where: role === "ZONE_ADMIN" && fullUser?.zoneId ? { zoneId: fullUser.zoneId } : undefined,
+    include: { parent: true }
+  }));
+
+  const unlockStatus = getZoneUnlockStatus(currentEvent as any);
+  const isZoneUnlockPermitted = role !== "ZONE_ADMIN" || unlockStatus.isAllowed;
+
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -82,41 +92,71 @@ export default async function TeamsPage() {
       </div>
 
       {role === "ZONE_ADMIN" && (
-        <div style={{
-          padding: '14px 20px',
-          borderRadius: '10px',
-          backgroundColor: '#eff6ff',
-          border: '1.5px solid #bfdbfe',
-          fontSize: '0.88rem',
-          marginBottom: 'var(--spacing-md)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '14px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-        }}>
-          <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>💡</span>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e40af', marginBottom: '6px' }}>
-              How to Open Off-Stage Only or On-Stage Only Registration in Your Zone:
-            </div>
-            <div style={{ color: '#1e293b', lineHeight: 1.6 }}>
-              <div>
-                <strong>1. For an Individual College:</strong> Find the college below and click the crimson button{" "}
-                <span style={{ backgroundColor: '#8E0033', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '0.78rem' }}>
-                  ⚡ Unlock Registration (Off/On-Stage)
+        isZoneUnlockPermitted ? (
+          <div style={{
+            padding: '14px 20px',
+            borderRadius: '10px',
+            backgroundColor: '#eff6ff',
+            border: '1.5px solid #bfdbfe',
+            fontSize: '0.88rem',
+            marginBottom: 'var(--spacing-md)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>💡</span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e40af' }}>
+                  How to Open Off-Stage Only or On-Stage Only Registration in Your Zone:
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}>
+                  ⚡ Unlock Window Active
                 </span>
-                . In the popup, choose <strong>🎨 Open OFF-STAGE Only</strong> or <strong>🎭 Open ON-STAGE Only</strong>.
               </div>
-              <div style={{ marginTop: '4px' }}>
-                <strong>2. For All Colleges in the Zone:</strong> Go to{" "}
-                <Link href="/dashboard/settings" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'underline' }}>
-                  Zone Settings
-                </Link>{" "}
-                &rarr; <strong>Split Stage Deadlines</strong> to set different closing dates for Off-Stage vs On-Stage competitions.
+              <div style={{ color: '#1e293b', lineHeight: 1.6 }}>
+                <div>
+                  <strong>1. For an Individual College:</strong> Find the college below and click the crimson button{" "}
+                  <span style={{ backgroundColor: '#8E0033', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '0.78rem' }}>
+                    ⚡ Unlock Registration (Off/On-Stage)
+                  </span>
+                  . In the popup, choose <strong>🎨 Open OFF-STAGE Only</strong> or <strong>🎭 Open ON-STAGE Only</strong>.
+                </div>
+                <div style={{ marginTop: '4px' }}>
+                  <strong>2. For All Colleges in the Zone:</strong> Go to{" "}
+                  <Link href="/dashboard/settings" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'underline' }}>
+                    Zone Settings
+                  </Link>{" "}
+                  &rarr; <strong>Split Stage Deadlines</strong> to set different closing dates for Off-Stage vs On-Stage competitions.
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{
+            padding: '14px 20px',
+            borderRadius: '10px',
+            backgroundColor: '#fffbeb',
+            border: '1.5px solid #fde68a',
+            fontSize: '0.88rem',
+            marginBottom: 'var(--spacing-md)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>🔒</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#b45309', marginBottom: '4px' }}>
+                Registration Unlock Option is Currently Closed by Super Admin
+              </div>
+              <div style={{ color: '#78350f', lineHeight: 1.5 }}>
+                {unlockStatus.message} Institutions cannot be unlocked for editing by Zone Admins at this time. You can still view confirmed status and load sequential chest numbers below.
+              </div>
+            </div>
+          </div>
+        )
       )}
       
       {events.length === 0 ? (
@@ -141,7 +181,7 @@ export default async function TeamsPage() {
           <div>
             <div data-tour="teams-list" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
               <h3 style={{ marginBottom: 'var(--spacing-md)' }}>All Teams (Registration Status)</h3>
-              <TeamList teams={teams as any} role={role} />
+              <TeamList teams={teams as any} role={role} isZoneUnlockPermitted={isZoneUnlockPermitted} />
             </div>
           </div>
         </div>

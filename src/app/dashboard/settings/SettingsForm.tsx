@@ -25,6 +25,11 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
   const [stateConfirmEndDate, setStateConfirmEndDate] = useState("");
   const [statusOverride, setStatusOverride] = useState("AUTO");
 
+  // Zonal Registration Unlock Control
+  const [zoneUnlockMode, setZoneUnlockMode] = useState("FIXED_TIME");
+  const [zoneUnlockWindowStart, setZoneUnlockWindowStart] = useState("");
+  const [zoneUnlockWindowEnd, setZoneUnlockWindowEnd] = useState("");
+
   // Per-zone custom schedules
   const [zoneSchedules, setZoneSchedules] = useState<Array<{
     id: string;
@@ -62,6 +67,9 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       setZoneActiveEndTime(toLocalISOString(selectedEvent.zoneActiveEndTime || selectedEvent.endDate));
       setStateConfirmEndDate(toLocalISOString(selectedEvent.stateConfirmEndDate));
       setStatusOverride(selectedEvent.statusOverride || "AUTO");
+      setZoneUnlockMode(selectedEvent.zoneUnlockMode || "FIXED_TIME");
+      setZoneUnlockWindowStart(toLocalISOString(selectedEvent.zoneUnlockWindowStart));
+      setZoneUnlockWindowEnd(toLocalISOString(selectedEvent.zoneUnlockWindowEnd));
     }
 
     // Populate zone-specific schedules
@@ -112,7 +120,10 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
       zoneActiveStartTime: toServerIso(zoneActiveStartTime),
       zoneActiveEndTime: toServerIso(zoneActiveEndTime),
       stateConfirmEndDate: toServerIso(stateConfirmEndDate),
-      statusOverride: statusOverride
+      statusOverride: statusOverride,
+      zoneUnlockWindowStart: toServerIso(zoneUnlockWindowStart),
+      zoneUnlockWindowEnd: toServerIso(zoneUnlockWindowEnd),
+      zoneUnlockMode: zoneUnlockMode
     });
 
     // Save per-zone schedules if any
@@ -261,7 +272,110 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
             </div>
           </div>
 
-          {/* BOARD 2: FEST & ZONE COMPETITION DATES */}
+          {/* BOARD 2: ZONAL REGISTRATION UNLOCK PERMISSIONS & TIME WINDOW */}
+          <div style={{
+            border: '2px solid #8E0033',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-lg)',
+            backgroundColor: 'rgba(142, 0, 51, 0.02)',
+            marginBottom: 'var(--spacing-xl)',
+            boxShadow: '0 2px 8px rgba(142, 0, 51, 0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: 'var(--spacing-xs)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.4rem' }}>🔐</span>
+                <h4 style={{ margin: 0, color: '#8E0033', fontSize: '1.15rem', fontWeight: 800 }}>
+                  Board 2: Zonal Portal Registration Unlock Control (Fixed Time & Visibility)
+                </h4>
+              </div>
+              <span style={{
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                backgroundColor: zoneUnlockMode === 'HIDDEN' ? '#fee2e2' : zoneUnlockMode === 'ALWAYS_ALLOWED' ? '#dcfce7' : '#fef3c7',
+                color: zoneUnlockMode === 'HIDDEN' ? '#dc2626' : zoneUnlockMode === 'ALWAYS_ALLOWED' ? '#15803d' : '#b45309',
+                border: `1px solid ${zoneUnlockMode === 'HIDDEN' ? '#fca5a5' : zoneUnlockMode === 'ALWAYS_ALLOWED' ? '#86efac' : '#fde68a'}`
+              }}>
+                {zoneUnlockMode === 'HIDDEN' && '🔒 Option Hidden in Zonal Portal'}
+                {zoneUnlockMode === 'ALWAYS_ALLOWED' && '🔓 Option Always Visible & Allowed'}
+                {zoneUnlockMode === 'FIXED_TIME' && '⏱️ Fixed Time Window Only'}
+              </span>
+            </div>
+            
+            <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Control whether Zonal Admins can see and use the <strong>⚡ Unlock Registration (Off/On-Stage)</strong> option to open registration for institutions. 
+              Set a fixed time window or completely hide the option from all zonal portals.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+              <div className="form-group" style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '10px', border: '1.5px solid #e2e8f0' }}>
+                <label className="form-label" style={{ fontWeight: 800, color: '#1e293b' }}>
+                  Zonal Unlock Permission Mode
+                </label>
+                <select 
+                  className="form-input"
+                  value={zoneUnlockMode}
+                  onChange={(e) => setZoneUnlockMode(e.target.value)}
+                  style={{ fontWeight: 700, borderColor: '#8E0033', borderWidth: '1.5px' }}
+                >
+                  <option value="FIXED_TIME">⏱️ FIXED TIME WINDOW ONLY (Hide before start / after end)</option>
+                  <option value="HIDDEN">🔒 HIDE & DISABLE IN ZONAL PORTAL (Completely Hidden)</option>
+                  <option value="ALWAYS_ALLOWED">🔓 ALWAYS ALLOWED (No Time Restriction)</option>
+                </select>
+                <span className="field-helper" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
+                  {zoneUnlockMode === 'FIXED_TIME' && "Zonal Admins can ONLY unlock registration between the specified Start and End dates below."}
+                  {zoneUnlockMode === 'HIDDEN' && "The unlock button will be completely hidden from all Zonal Admin dashboards and teams lists."}
+                  {zoneUnlockMode === 'ALWAYS_ALLOWED' && "Zonal Admins can unlock registration at any time without restriction."}
+                </span>
+              </div>
+
+              {zoneUnlockMode === 'FIXED_TIME' && (
+                <>
+                  <div className="form-group" style={{ backgroundColor: 'rgba(14, 165, 233, 0.04)', padding: '16px', borderRadius: '10px', border: '1.5px solid rgba(14, 165, 233, 0.3)' }}>
+                    <label className="form-label" style={{ fontWeight: 800, color: '#0284c7' }}>
+                      <span>🟢</span> Unlock Window Start Time
+                    </label>
+                    <input 
+                      type="datetime-local" 
+                      className="form-input" 
+                      value={zoneUnlockWindowStart}
+                      onChange={(e) => setZoneUnlockWindowStart(e.target.value)}
+                      style={{ borderColor: '#0284c7', borderWidth: '1.5px', backgroundColor: '#ffffff', fontWeight: 600 }}
+                    />
+                    <span className="field-helper" style={{ color: '#0369a1', marginTop: '6px', display: 'block', fontSize: '0.8rem' }}>
+                      The earliest date/time when Zonal Admins are permitted to unlock registration.
+                    </span>
+                  </div>
+
+                  <div className="form-group" style={{ backgroundColor: 'rgba(239, 68, 68, 0.04)', padding: '16px', borderRadius: '10px', border: '1.5px solid rgba(239, 68, 68, 0.3)' }}>
+                    <label className="form-label" style={{ fontWeight: 800, color: '#dc2626' }}>
+                      <span>🔴</span> Unlock Window End Time
+                    </label>
+                    <input 
+                      type="datetime-local" 
+                      className="form-input" 
+                      value={zoneUnlockWindowEnd}
+                      onChange={(e) => setZoneUnlockWindowEnd(e.target.value)}
+                      style={{ borderColor: '#dc2626', borderWidth: '1.5px', backgroundColor: '#ffffff', fontWeight: 600 }}
+                    />
+                    <span className="field-helper" style={{ color: '#b91c1c', marginTop: '6px', display: 'block', fontSize: '0.8rem' }}>
+                      The cutoff date/time. Once passed, the unlock option automatically hides from Zonal Admins.
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>ℹ️</span>
+              <span>
+                <strong>Super Admin Notice:</strong> Super Admins and State Admins can always unlock registration at any time from the Super Admin portal, regardless of these zonal restrictions.
+              </span>
+            </div>
+          </div>
+
+          {/* BOARD 3: FEST & ZONE COMPETITION DATES */}
           <div style={{
             border: '2px solid rgba(59, 130, 246, 0.3)',
             borderRadius: 'var(--radius-lg)',

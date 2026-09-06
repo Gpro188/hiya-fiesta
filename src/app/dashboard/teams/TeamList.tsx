@@ -45,7 +45,7 @@ type TeamType = {
   }[];
 };
 
-export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[], role?: string }) {
+export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted = true }: { teams: TeamType[], role?: string, isZoneUnlockPermitted?: boolean }) {
   const [editingTeam, setEditingTeam] = useState<TeamType | null>(null);
   const [accessModalTeam, setAccessModalTeam] = useState<TeamType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -390,7 +390,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
 
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
               {/* Dedicated Stage Unlock / Access Control for Zone Admins & Admins */}
-              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
+              {(["ADMIN", "SUPER_ADMIN"].includes(role) || (role === "ZONE_ADMIN" && isZoneUnlockPermitted)) && (
                 <button 
                   onClick={() => setAccessModalTeam(team)}
                   className="btn" 

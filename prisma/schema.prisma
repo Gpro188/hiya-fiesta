@@ -105,6 +105,9 @@ model Event {
   registrationStart              DateTime?
   offStageRegistrationEnd        DateTime?
   onStageRegistrationEnd         DateTime?
+  zoneUnlockWindowStart          DateTime?
+  zoneUnlockWindowEnd            DateTime?
+  zoneUnlockMode                 String?          @default("FIXED_TIME")
   statusOverride                 String           @default("AUTO")
   customDomain                   String?
   categories                     Category[]
