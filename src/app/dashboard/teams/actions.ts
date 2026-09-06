@@ -98,7 +98,7 @@ export async function deleteTeam(id: string) {
   }
 }
 
-export async function confirmTeamRegistration(teamId: string) {
+export async function confirmTeamRegistration(teamId: string, stageType?: 'OFF_STAGE' | 'ON_STAGE' | 'ALL') {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
@@ -136,6 +136,22 @@ export async function confirmTeamRegistration(teamId: string) {
         assignedMagazineCode = `MAG-${String(nextMagNum).padStart(2, '0')}`;
       }
 
+      // Determine update fields based on stageType
+      const updateTeamData: any = {
+        isMagazineParticipating: true,
+        magazineCode: assignedMagazineCode
+      };
+
+      if (stageType === 'OFF_STAGE') {
+        updateTeamData.isAssignmentsConfirmed = true;
+      } else if (stageType === 'ON_STAGE') {
+        updateTeamData.isOnStageConfirmed = true;
+        updateTeamData.isAssignmentsConfirmed = true;
+      } else {
+        updateTeamData.isAssignmentsConfirmed = true;
+        updateTeamData.isOnStageConfirmed = true;
+      }
+
       // Find all candidates for this team that have at least one program assigned
       const candidatesToApprove = await tx.candidate.findMany({
         where: {
@@ -152,11 +168,7 @@ export async function confirmTeamRegistration(teamId: string) {
       if (candidatesToApprove.length === 0) {
         await tx.team.update({
           where: { id: teamId },
-          data: { 
-            isAssignmentsConfirmed: true,
-            isMagazineParticipating: true,
-            magazineCode: assignedMagazineCode
-          }
+          data: updateTeamData
         });
         return;
       }
@@ -240,11 +252,7 @@ export async function confirmTeamRegistration(teamId: string) {
       // Mark the team assignments confirmed
       await tx.team.update({
         where: { id: teamId },
-        data: { 
-          isAssignmentsConfirmed: true,
-          isMagazineParticipating: true,
-          magazineCode: assignedMagazineCode
-        }
+        data: updateTeamData
       });
     });
 
@@ -273,9 +281,9 @@ export async function updateTeamRegistrationAccess(
       return { success: false, error: "Unauthorized" };
     }
 
-    const team = await prisma.team.findUnique({
+    const team = await prisma.team.findUnique({ 
       where: { id: teamId },
-      include: { event: true }
+      include: { event: true } 
     });
     if (!team) return { success: false, error: "Team not found" };
 
@@ -295,15 +303,16 @@ export async function updateTeamRegistrationAccess(
       updateData = {
         offStageUnlocked: true,
         onStageUnlocked: false,
-        registrationUnlocked: false,
+        registrationUnlocked: true,
         isAssignmentsConfirmed: false,
       };
     } else if (accessType === 'ON_STAGE') {
       updateData = {
-        offStageUnlocked: false,
-        onStageUnlocked: true,
-        registrationUnlocked: false,
-        isAssignmentsConfirmed: false,
+        offStageUnlocked: false,     // Off-Stage REMAINS 100% LOCKED!
+        onStageUnlocked: true,       // On-Stage is unlocked!
+        registrationUnlocked: true,
+        isAssignmentsConfirmed: true, // Keep Off-Stage LOCKED!
+        isOnStageConfirmed: false,   // Unlock On-Stage
       };
     } else if (accessType === 'BOTH') {
       updateData = {
@@ -311,6 +320,7 @@ export async function updateTeamRegistrationAccess(
         onStageUnlocked: true,
         registrationUnlocked: true,
         isAssignmentsConfirmed: false,
+        isOnStageConfirmed: false,
       };
     } else if (accessType === 'LOCK') {
       updateData = {
@@ -318,6 +328,7 @@ export async function updateTeamRegistrationAccess(
         onStageUnlocked: false,
         registrationUnlocked: false,
         isAssignmentsConfirmed: true,
+        isOnStageConfirmed: true,
       };
     }
 
@@ -346,6 +357,73 @@ export async function updateTeamRegistrationAccess(
   } catch (error: any) {
     console.error("Failed to update team registration access:", error);
     return { success: false, error: error.message || "Failed to update registration access" };
+  }
+}
+
+export async function bulkUnlockOnStageForZone(zoneIdOrEventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    let teamWhere: any = {
+      OR: [
+        { eventId: zoneIdOrEventId },
+        { event: { zoneId: zoneIdOrEventId } },
+        { event: { parentId: zoneIdOrEventId } }
+      ]
+    };
+
+    if (session.user.role === "ZONE_ADMIN") {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { zoneId: true, eventId: true }
+      });
+      if (fullUser?.zoneId) {
+        teamWhere = { event: { zoneId: fullUser.zoneId } };
+      }
+    }
+
+    const teams = await prisma.team.findMany({
+      where: teamWhere,
+      select: { id: true, name: true, isAssignmentsConfirmed: true }
+    });
+
+    if (teams.length === 0) {
+      return { success: false, error: "No teams found in this zone." };
+    }
+
+    await prisma.team.updateMany({
+      where: {
+        id: { in: teams.map(t => t.id) }
+      },
+      data: {
+        onStageUnlocked: true,
+        isOnStageConfirmed: false,
+        offStageUnlocked: false, // Strictly keep Off-Stage locked
+        registrationUnlocked: true
+      }
+    });
+
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Zone Admin",
+        action: "BULK_OPEN_ON_STAGE",
+        entityType: "EVENT",
+        entityId: zoneIdOrEventId,
+        reason: `Bulk opened On-Stage registration for ${teams.length} teams while keeping Off-Stage strictly locked.`
+      }
+    }).catch(e => console.warn("Audit log non-fatal:", e));
+
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/candidates");
+    return { success: true, count: teams.length };
+  } catch (error: any) {
+    console.error("Failed to bulk unlock On-Stage:", error);
+    return { success: false, error: error.message || "Failed to bulk open On-Stage" };
   }
 }
 

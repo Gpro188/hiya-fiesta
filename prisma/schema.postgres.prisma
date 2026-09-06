@@ -150,6 +150,7 @@ model Team {
   leaderName             String?
   leaderPhoto            String?
   isAssignmentsConfirmed Boolean            @default(false)
+  isOnStageConfirmed     Boolean            @default(false)
   offStageUnlocked       Boolean            @default(false)
   onStageUnlocked        Boolean            @default(false)
   registrationUnlocked   Boolean            @default(false)

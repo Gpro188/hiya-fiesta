@@ -114,11 +114,18 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           const generalEnd = zoneEvent.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.parent?.registrationEnd;
 
           const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-          const isAnyStageOpen = (!offEnd || now <= offEnd) || (!onEnd || now <= onEnd) || (!generalEnd || now <= generalEnd);
+          const isOffStageOpen = !offEnd || now <= offEnd;
+          const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
+          const isGeneralOpen = !generalEnd || now <= generalEnd;
+          const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
 
-          if (team.isAssignmentsConfirmed && !isUnlocked) {
+          const isOffStageConfirmed = team.isAssignmentsConfirmed;
+          const isOnStageConfirmed = team.isOnStageConfirmed;
+          const isBothConfirmed = isOffStageConfirmed && (isOnStageConfirmed || !isOnStageOpen);
+
+          if (isBothConfirmed && !isUnlocked) {
             isRegistrationOpen = false;
-            registrationStatusMessage = "Registration is confirmed and locked by the Zone Admin. Please contact your Zone Admin to unlock for any corrections.";
+            registrationStatusMessage = "All registrations are confirmed and locked by the Zone Admin. Please contact your Zone Admin to unlock for any corrections.";
           } else if (start && now < start) {
             isRegistrationOpen = false;
             registrationStatusMessage = `Registration will open on ${start.toLocaleString()}.`;

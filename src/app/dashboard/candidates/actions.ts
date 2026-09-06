@@ -31,16 +31,21 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       teamInstitutionId = team.institutionId;
       
       const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-      if (team.isAssignmentsConfirmed && !isUnlocked) {
-        return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
-      }
       
       const now = new Date();
       const start = team.event.registrationStart || team.event.parent?.registrationStart;
       const offEnd = team.event.offStageRegistrationEnd || team.event.parent?.offStageRegistrationEnd;
       const onEnd = team.event.onStageRegistrationEnd || team.event.parent?.onStageRegistrationEnd;
       const generalEnd = team.event.institutionRegistrationEndDate || team.event.registrationEnd || team.event.parent?.institutionRegistrationEndDate || team.event.parent?.registrationEnd;
-      const isAnyStageOpen = (!offEnd || now <= offEnd) || (!onEnd || now <= onEnd) || (!generalEnd || now <= generalEnd);
+      const isOffStageOpen = !offEnd || now <= offEnd;
+      const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
+      const isGeneralOpen = !generalEnd || now <= generalEnd;
+      const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
+
+      const isBothConfirmed = team.isAssignmentsConfirmed && (team.isOnStageConfirmed || !isOnStageOpen);
+      if (isBothConfirmed && !isUnlocked) {
+        return { success: false, error: "All registrations are confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
+      }
 
       if (start && now < start) {
         return { success: false, error: `Registration opens on ${start.toLocaleString()}` };
@@ -216,14 +221,19 @@ export async function deleteCandidate(id: string) {
       }) : null;
       if (team) {
         const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-        if (team.isAssignmentsConfirmed && !isUnlocked) {
-          return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
-        }
         const now = new Date();
         const offEnd = team.event.offStageRegistrationEnd || team.event.parent?.offStageRegistrationEnd;
         const onEnd = team.event.onStageRegistrationEnd || team.event.parent?.onStageRegistrationEnd;
         const generalEnd = team.event.institutionRegistrationEndDate || team.event.registrationEnd || team.event.parent?.institutionRegistrationEndDate || team.event.parent?.registrationEnd;
-        const isAnyStageOpen = (!offEnd || now <= offEnd) || (!onEnd || now <= onEnd) || (!generalEnd || now <= generalEnd);
+        const isOffStageOpen = !offEnd || now <= offEnd;
+        const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
+        const isGeneralOpen = !generalEnd || now <= generalEnd;
+        const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
+
+        const isBothConfirmed = team.isAssignmentsConfirmed && (team.isOnStageConfirmed || !isOnStageOpen);
+        if (isBothConfirmed && !isUnlocked) {
+          return { success: false, error: "All registrations are confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
+        }
         if (!isUnlocked && !isAnyStageOpen) {
           return { success: false, error: "Registration deadline has passed. Cannot delete candidate." };
         }

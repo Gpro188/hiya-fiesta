@@ -67,7 +67,7 @@ export async function assignProgram(candidateId: string, programId: string) {
         if (isOffStage) {
           if (!team.offStageUnlocked) {
             if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked." };
+              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked. Off-Stage programs cannot be added or modified." };
             }
             if (offDeadline && now > new Date(offDeadline)) {
               return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
@@ -75,8 +75,8 @@ export async function assignProgram(candidateId: string, programId: string) {
           }
         } else if (isOnStage) {
           if (!team.onStageUnlocked) {
-            if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked." };
+            if (team.isOnStageConfirmed) {
+              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked. On-Stage programs cannot be modified." };
             }
             if (onDeadline && now > new Date(onDeadline)) {
               return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
@@ -85,7 +85,7 @@ export async function assignProgram(candidateId: string, programId: string) {
         } else {
           // Programs without explicit stage or general programs
           if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
-            if (team.isAssignmentsConfirmed) {
+            if (team.isAssignmentsConfirmed && team.isOnStageConfirmed) {
               return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
             }
             const generalEnd =
@@ -240,7 +240,7 @@ export async function unassignProgram(candidateId: string, programId: string) {
         if (isOffStage) {
           if (!team.offStageUnlocked) {
             if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked." };
+              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked. Off-Stage programs cannot be removed." };
             }
             if (offDeadline && now > new Date(offDeadline)) {
               return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Cannot remove assignment.` };
@@ -248,8 +248,8 @@ export async function unassignProgram(candidateId: string, programId: string) {
           }
         } else if (isOnStage) {
           if (!team.onStageUnlocked) {
-            if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked." };
+            if (team.isOnStageConfirmed) {
+              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked. On-Stage programs cannot be removed." };
             }
             if (onDeadline && now > new Date(onDeadline)) {
               return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Cannot remove assignment.` };
@@ -257,7 +257,7 @@ export async function unassignProgram(candidateId: string, programId: string) {
           }
         } else {
           if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
-            if (team.isAssignmentsConfirmed) {
+            if (team.isAssignmentsConfirmed && team.isOnStageConfirmed) {
               return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
             }
             const generalEnd =
@@ -282,28 +282,37 @@ export async function unassignProgram(candidateId: string, programId: string) {
     });
 
     revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/candidates");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to unassign program:", error);
-    if (error.code === 'P2025') {
-      return { success: false, error: "Assignment not found or already removed." };
-    }
-    return { success: false, error: error.message || "Failed to unassign program." };
+    return { success: false, error: error.message || "Failed to unassign program" };
   }
 }
 
 
-export async function confirmTeamAssignments(teamId: string) {
+export async function confirmTeamAssignments(teamId: string, stageType?: 'OFF_STAGE' | 'ON_STAGE' | 'ALL') {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
+    const updateData: any = {};
+    if (stageType === 'OFF_STAGE') {
+      updateData.isAssignmentsConfirmed = true;
+    } else if (stageType === 'ON_STAGE') {
+      updateData.isOnStageConfirmed = true;
+    } else {
+      updateData.isAssignmentsConfirmed = true;
+      updateData.isOnStageConfirmed = true;
+    }
+
     await prisma.team.update({
       where: { id: teamId },
-      data: { isAssignmentsConfirmed: true }
+      data: updateData
     });
 
     revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/teams");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to confirm assignments:", error);

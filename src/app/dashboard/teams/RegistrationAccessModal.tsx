@@ -8,6 +8,7 @@ interface TeamProps {
   name: string;
   prefixCode: string;
   isAssignmentsConfirmed: boolean;
+  isOnStageConfirmed?: boolean;
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   registrationUnlocked?: boolean;
@@ -166,7 +167,7 @@ export default function RegistrationAccessModal({
             <div style={{ fontSize: "0.85rem", fontWeight: 700 }}>
               {team.onStageUnlocked ? (
                 <span style={{ color: "#10b981" }}>⚡ Unlocked (Zone Override)</span>
-              ) : team.isAssignmentsConfirmed ? (
+              ) : team.isOnStageConfirmed ? (
                 <span style={{ color: "#ef4444" }}>🔒 Locked (Confirmed)</span>
               ) : isOnDeadlinePassed ? (
                 <span style={{ color: "#ef4444" }}>🔒 Closed by Deadline</span>
@@ -252,7 +253,7 @@ export default function RegistrationAccessModal({
                 <div>
                   <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#60a5fa" }}>🎭 Open ON-STAGE Only</div>
                   <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginTop: "2px" }}>
-                    Institution can add, remove, and modify ON-STAGE program assignments. OFF-STAGE programs will remain locked if closed.
+                    Institution can add, remove, and modify ON-STAGE program assignments. Previously confirmed OFF-STAGE programs and chest numbers remain strictly locked and safe.
                   </div>
                 </div>
               </label>

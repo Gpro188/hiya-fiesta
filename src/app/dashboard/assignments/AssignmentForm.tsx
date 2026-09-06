@@ -14,6 +14,7 @@ export default function AssignmentForm({
   initialCandidateId, 
   teamId, 
   isAssignmentsConfirmed = false,
+  isOnStageConfirmed = false,
   isMagazineParticipating = false,
   magazineCode = null,
   teamName = "",
@@ -33,6 +34,7 @@ export default function AssignmentForm({
   initialCandidateId?: string, 
   teamId?: string | null, 
   isAssignmentsConfirmed?: boolean,
+  isOnStageConfirmed?: boolean,
   isMagazineParticipating?: boolean,
   magazineCode?: string | null,
   teamName?: string,
@@ -57,6 +59,7 @@ export default function AssignmentForm({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmingStage, setConfirmingStage] = useState<"OFF_STAGE" | "ON_STAGE" | "ALL">("OFF_STAGE");
   const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
@@ -546,7 +549,7 @@ export default function AssignmentForm({
                           onClick={() => handleAssign(program.id)}
                           className="btn btn-primary" 
                           style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
-                          disabled={!canAssign || loading || isAssignmentsConfirmed}
+                          disabled={!canAssign || loading || !isStageOpen}
                         >
                           {isStageOpen ? "Assign" : "Locked"}
                         </button>
@@ -588,10 +591,10 @@ export default function AssignmentForm({
                           onClick={() => handleUnassign(p.programId)}
                           className="btn btn-secondary" 
                           style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: isStageOpen ? 'var(--error)' : 'var(--text-muted)' }}
-                          disabled={loading || isAssignmentsConfirmed || !isStageOpen}
-                          title={!isStageOpen ? "Registration for this stage is closed" : undefined}
+                          disabled={loading || !isStageOpen}
+                          title={!isStageOpen ? "Registration for this stage is closed/locked" : undefined}
                         >
-                          {isStageOpen ? "Remove" : "🔒 Closed"}
+                          {isStageOpen ? "Remove" : "🔒 Locked"}
                         </button>
                       </div>
                     );
@@ -640,7 +643,7 @@ export default function AssignmentForm({
                   {magazineCode ? ` Official Magazine Code to write on cover: ${magazineCode}` : ' Code will be assigned upon Zone Admin approval.'}
                 </p>
               </div>
-              {!isAssignmentsConfirmed && (
+              {!isAssignmentsConfirmed && isOffStageOpen && (
                 <div>
                   {isMagazineParticipating ? (
                     <button
@@ -870,7 +873,7 @@ export default function AssignmentForm({
                             onClick={() => handleAssignCandidate(candidate.id, selectedProgram.id)}
                             className="btn btn-primary"
                             style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
-                            disabled={!canAssign || loading || isAssignmentsConfirmed}
+                            disabled={!canAssign || loading || !isStageOpen}
                           >
                             {isStageOpen ? "Assign" : "Locked"}
                           </button>
@@ -910,10 +913,10 @@ export default function AssignmentForm({
                           onClick={() => handleUnassignCandidate(c.id, selectedProgram.id)}
                           className="btn btn-secondary" 
                           style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: isStageOpen ? 'var(--error)' : 'var(--text-muted)' }}
-                          disabled={loading || isAssignmentsConfirmed || !isStageOpen}
-                          title={!isStageOpen ? "Registration for this stage is closed" : undefined}
+                          disabled={loading || !isStageOpen}
+                          title={!isStageOpen ? "Registration for this stage is closed/locked" : undefined}
                         >
-                          {isStageOpen ? "Remove" : "🔒 Closed"}
+                          {isStageOpen ? "Remove" : "🔒 Locked"}
                         </button>
                       </div>
                       );
@@ -1170,7 +1173,7 @@ export default function AssignmentForm({
                               </div>
                             )}
                           </div>
-                          {!isAssignmentsConfirmed && (
+                          {!isAssignmentsConfirmed && isOffStageOpen && (
                             <button
                               type="button"
                               onClick={() => handleToggleMagazine(!isMagazineParticipating)}
@@ -1219,26 +1222,56 @@ export default function AssignmentForm({
       </div>
       
       {teamId && (
-        <div style={{ marginTop: 'var(--spacing-xl)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)' }}>
+        <div style={{ marginTop: 'var(--spacing-xl)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
           <button 
             className="btn btn-secondary"
             onClick={() => window.open(`/print/assignments?teamId=${teamId}`, '_blank')}
-            style={{ padding: 'var(--spacing-sm) var(--spacing-xl)', fontSize: '1rem' }}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-lg)', fontSize: '0.9rem' }}
           >
             🖨️ Print List
           </button>
+
+          {/* Off-Stage Status / Action */}
           {!isAssignmentsConfirmed ? (
+            isOffStageOpen && (
+              <button 
+                className="btn btn-primary"
+                onClick={() => { setConfirmingStage("OFF_STAGE"); setShowConfirmModal(true); }}
+                disabled={loading}
+                style={{ padding: 'var(--spacing-sm) var(--spacing-lg)', fontSize: '0.9rem', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+              >
+                🎨 Confirm Off-Stage to Zone
+              </button>
+            )
+          ) : (
+            <div style={{ padding: '6px 14px', color: '#0369a1', fontWeight: 600, border: '1px solid #bae6fd', borderRadius: '6px', backgroundColor: '#f0f9ff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔒</span> Off-Stage Confirmed & Locked
+            </div>
+          )}
+
+          {/* On-Stage Status / Action */}
+          {isOnStageConfirmed ? (
+            <div style={{ padding: '6px 14px', color: '#be185d', fontWeight: 600, border: '1px solid #fbcfe8', borderRadius: '6px', backgroundColor: '#fdf2f8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔒</span> On-Stage Confirmed & Locked
+            </div>
+          ) : isOnStageOpen ? (
             <button 
               className="btn btn-primary"
-              onClick={() => setShowConfirmModal(true)}
+              onClick={() => { setConfirmingStage("ON_STAGE"); setShowConfirmModal(true); }}
               disabled={loading}
-              style={{ padding: 'var(--spacing-sm) var(--spacing-xl)', fontSize: '1rem', backgroundColor: 'var(--success)' }}
+              style={{ padding: 'var(--spacing-sm) var(--spacing-lg)', fontSize: '0.9rem', backgroundColor: '#db2777', borderColor: '#db2777' }}
             >
-              Confirm & Submit to Zone
+              🎭 Confirm On-Stage to Zone
             </button>
-          ) : (
-            <div style={{ padding: 'var(--spacing-sm) var(--spacing-xl)', color: 'var(--success)', fontWeight: 600, border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(16,185,129,0.1)' }}>
-              ✅ Assignments Submitted & Locked
+          ) : isAssignmentsConfirmed ? (
+            <div style={{ padding: '6px 14px', color: '#b45309', fontWeight: 600, border: '1px solid #fde68a', borderRadius: '6px', backgroundColor: '#fffbeb', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⏳</span> On-Stage Registration Pending Start
+            </div>
+          ) : null}
+
+          {isAssignmentsConfirmed && isOnStageConfirmed && (
+            <div style={{ padding: '6px 14px', color: 'var(--success)', fontWeight: 700, border: '1px solid var(--success)', borderRadius: '6px', backgroundColor: 'rgba(16,185,129,0.1)', fontSize: '0.85rem' }}>
+              ✅ All Registrations Confirmed
             </div>
           )}
         </div>
@@ -1279,11 +1312,14 @@ export default function AssignmentForm({
             {/* Modal Header */}
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#ffffff' }}>
               <div>
-                <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🔒</span> Review & Confirm Final Assignments
+                <h3 style={{ margin: 0, color: confirmingStage === "OFF_STAGE" ? '#0284c7' : '#db2777', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🔒</span> {confirmingStage === "OFF_STAGE" ? "Review & Confirm Off-Stage Registration" : "Review & Confirm On-Stage Registration"}
                 </h3>
-                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
-                  Please review the final list of assigned candidates and their programs. <strong>This action cannot be undone online!</strong>
+                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                  {confirmingStage === "OFF_STAGE" 
+                    ? "Please review your Off-Stage entries. Once confirmed, Off-Stage programs are strictly locked and submitted to the Zone Admin to generate chest numbers and print invigilation sheets. On-Stage registration will open separately."
+                    : "Please review your On-Stage entries. Once confirmed, On-Stage programs are locked and submitted to the Zone Admin. Your previously confirmed Off-Stage data and chest numbers remain untouched."
+                  }
                 </p>
               </div>
               <button 
@@ -1382,12 +1418,12 @@ export default function AssignmentForm({
                 </button>
                 <button 
                   className="btn btn-primary"
-                  style={{ backgroundColor: 'var(--success)', fontSize: '0.85rem', fontWeight: 700 }}
+                  style={{ backgroundColor: confirmingStage === "OFF_STAGE" ? '#0284c7' : '#db2777', borderColor: confirmingStage === "OFF_STAGE" ? '#0284c7' : '#db2777', fontSize: '0.85rem', fontWeight: 700 }}
                   disabled={loading}
                   onClick={async () => {
                     setLoading(true);
                     const { confirmTeamAssignments } = await import('./actions');
-                    const res = await confirmTeamAssignments(teamId!);
+                    const res = await confirmTeamAssignments(teamId!, confirmingStage);
                     if (res.success) {
                       window.location.reload();
                     } else {
@@ -1397,7 +1433,7 @@ export default function AssignmentForm({
                     }
                   }}
                 >
-                  {loading ? "Submitting..." : "✅ Yes, Lock and Submit"}
+                  {loading ? "Submitting..." : `✅ Yes, Lock & Submit ${confirmingStage === "OFF_STAGE" ? "Off-Stage" : "On-Stage"}`}
                 </button>
               </div>
             </div>

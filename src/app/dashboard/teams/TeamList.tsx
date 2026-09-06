@@ -10,7 +10,9 @@ type TeamType = {
   id: string;
   name: string;
   prefixCode: string;
+  eventId?: string;
   event: { 
+    id?: string;
     name: string;
     offStageRegistrationEnd?: string | Date | null;
     onStageRegistrationEnd?: string | Date | null;
@@ -29,6 +31,7 @@ type TeamType = {
   leaderPhoto: string | null;
   flagColor: string | null;
   isAssignmentsConfirmed: boolean;
+  isOnStageConfirmed?: boolean;
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   registrationUnlocked?: boolean;
@@ -41,6 +44,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
   const [editingTeam, setEditingTeam] = useState<TeamType | null>(null);
   const [accessModalTeam, setAccessModalTeam] = useState<TeamType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   if (teams.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>No teams created yet.</div>;
@@ -66,6 +70,66 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+      {/* Zone Admin Bulk Action Bar */}
+      {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && teams.length > 0 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          padding: '12px 18px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '4px'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🎭</span> On-Stage Batch Control
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+              Open On-Stage registration for all colleges in this zone at once. Previously confirmed Off-Stage registrations remain strictly locked!
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (!confirm("Are you sure you want to open On-Stage registration for all colleges in this zone? All confirmed Off-Stage registrations will remain strictly locked!")) {
+                return;
+              }
+              setBulkLoading(true);
+              const { bulkUnlockOnStageForZone } = await import("./actions");
+              const res = await bulkUnlockOnStageForZone(teams[0]?.eventId || teams[0]?.event?.id || "");
+              if (res.success) {
+                alert(`✅ Successfully opened On-Stage registration for ${res.count} institutions! Off-Stage registrations remain strictly locked.`);
+                window.location.reload();
+              } else {
+                alert(res.error || "Failed to bulk open On-Stage.");
+                setBulkLoading(false);
+              }
+            }}
+            disabled={bulkLoading}
+            className="btn"
+            style={{
+              padding: '0.45rem 1.1rem',
+              fontSize: '0.84rem',
+              fontWeight: 800,
+              backgroundColor: '#db2777',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(219,39,119,0.2)'
+            }}
+          >
+            {bulkLoading ? "Opening..." : "🎭 Open On-Stage for All Teams"}
+          </button>
+        </div>
+      )}
+
       {/* Team Search Bar */}
       <div style={{ marginBottom: '4px' }}>
         <input
@@ -107,7 +171,7 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
           const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
 
           const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
-          const isOnStageOpen = team.onStageUnlocked || (!team.isAssignmentsConfirmed && !isOnDeadlinePassed);
+          const isOnStageOpen = team.onStageUnlocked || (!team.isOnStageConfirmed && !isOnDeadlinePassed);
 
           return (
           <div key={team.id} style={{ 
@@ -233,11 +297,11 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   onClick={async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true;
-                    btn.innerText = "Approving...";
-                    const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id));
+                    btn.innerText = "Approving Off-Stage...";
+                    const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "OFF_STAGE"));
                     if (!result.success) alert(result.error);
                     else if (result.count === 0) alert("No new candidates to confirm.");
-                    else alert(`Successfully confirmed ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
+                    else alert(`Successfully confirmed Off-Stage for ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
                     btn.disabled = false;
                     btn.innerText = "Approve & Generate Chest Nos";
                   }}
@@ -246,6 +310,32 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                 >
                   Approve & Generate Chest Nos
                 </button>
+              )}
+
+              {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && totalPrograms > 0 && team.isAssignmentsConfirmed && !team.isOnStageConfirmed && (
+                <button 
+                  onClick={async (e) => {
+                    const btn = e.currentTarget;
+                    btn.disabled = true;
+                    btn.innerText = "Confirming On-Stage...";
+                    const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "ON_STAGE"));
+                    if (!result.success) alert(result.error);
+                    else alert(`Successfully confirmed On-Stage registration! Any new candidates received sequential chest numbers.`);
+                    btn.disabled = false;
+                    btn.innerText = "🎭 Confirm On-Stage";
+                  }}
+                  className="btn btn-primary" 
+                  style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#db2777', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
+                  title="Confirm On-Stage candidates and assign sequential chest numbers to any newly registered students"
+                >
+                  🎭 Confirm On-Stage
+                </button>
+              )}
+
+              {team.isAssignmentsConfirmed && team.isOnStageConfirmed && (
+                <span style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#047857', fontWeight: 700, border: '1px solid #a7f3d0' }}>
+                  ✅ Fully Confirmed (Off & On-Stage)
+                </span>
               )}
             </div>
 

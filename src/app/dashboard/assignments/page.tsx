@@ -139,16 +139,27 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
   const isOffStageDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
   const isOnStageDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
 
-  const isOffStageOpen = isAdmin || (currentTeam?.offStageUnlocked || (!currentTeam?.isAssignmentsConfirmed && !isOffStageDeadlinePassed));
-  const isOnStageOpen = isAdmin || (currentTeam?.onStageUnlocked || (!currentTeam?.isAssignmentsConfirmed && !isOnStageDeadlinePassed));
+  const isOffStageConfirmed = Boolean(currentTeam?.isAssignmentsConfirmed);
+  const isOnStageConfirmed = Boolean(currentTeam?.isOnStageConfirmed);
+
+  const isOffStageOpen = isAdmin || Boolean(
+    currentTeam?.offStageUnlocked || 
+    (!isOffStageConfirmed && !isOffStageDeadlinePassed)
+  );
+
+  const isOnStageOpen = isAdmin || Boolean(
+    currentTeam?.onStageUnlocked || 
+    (!isOnStageConfirmed && !isOnStageDeadlinePassed)
+  );
 
   if (!isAdmin && currentTeam) {
-    if (currentTeam.isAssignmentsConfirmed && !currentTeam.offStageUnlocked && !currentTeam.onStageUnlocked) {
+    if (!isOffStageOpen && !isOnStageOpen) {
       isAssignmentOpen = false;
-      assignmentStatusMessage = "Program assignments have been submitted to the Zone and are now locked.";
-    } else if (!isOffStageOpen && !isOnStageOpen) {
-      isAssignmentOpen = false;
-      assignmentStatusMessage = "Both Off-Stage and On-Stage registration deadlines have passed. Contact your Zone Admin to request access.";
+      if (isOffStageConfirmed && isOnStageConfirmed) {
+        assignmentStatusMessage = "All program assignments (Off-Stage & On-Stage) have been confirmed and locked.";
+      } else {
+        assignmentStatusMessage = "Registration is currently closed for both Off-Stage and On-Stage. Contact your Zone Admin to request access.";
+      }
     } else {
       isAssignmentOpen = true;
     }
@@ -386,11 +397,29 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
         </div>
       ) : (
         <div data-tour="assignments-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '8px' }}>
             <h3 style={{ margin: 0 }}>Assign Candidates to Programs</h3>
-            {isAssignmentsConfirmed && (
-              <span style={{ padding: '4px 8px', backgroundColor: 'var(--success)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>CONFIRMED</span>
-            )}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {isOffStageConfirmed ? (
+                <span style={{ padding: '4px 8px', backgroundColor: '#0284c7', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                  🎨 OFF-STAGE CONFIRMED
+                </span>
+              ) : (
+                <span style={{ padding: '4px 8px', backgroundColor: isOffStageOpen ? '#e0f2fe' : '#fee2e2', color: isOffStageOpen ? '#0369a1' : '#b91c1c', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  🎨 Off-Stage: {isOffStageOpen ? 'Open' : 'Closed'}
+                </span>
+              )}
+
+              {isOnStageConfirmed ? (
+                <span style={{ padding: '4px 8px', backgroundColor: '#db2777', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                  🎭 ON-STAGE CONFIRMED
+                </span>
+              ) : (
+                <span style={{ padding: '4px 8px', backgroundColor: isOnStageOpen ? '#fce7f3' : '#fee2e2', color: isOnStageOpen ? '#be185d' : '#b91c1c', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  🎭 On-Stage: {isOnStageOpen ? 'Open' : 'Closed'}
+                </span>
+              )}
+            </div>
           </div>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)', fontSize: '0.85rem' }}>
             Select a candidate below to see available programs and make assignments. Validations enforce category rules and entry limits.
@@ -402,7 +431,8 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             statusMessage={assignmentStatusMessage}
             initialCandidateId={searchParams.candidateId}
             teamId={teamId}
-            isAssignmentsConfirmed={isAssignmentsConfirmed}
+            isAssignmentsConfirmed={isOffStageConfirmed}
+            isOnStageConfirmed={isOnStageConfirmed}
             isMagazineParticipating={currentTeam?.isMagazineParticipating || false}
             magazineCode={currentTeam?.magazineCode || null}
             teamName={currentTeam?.name || ""}
