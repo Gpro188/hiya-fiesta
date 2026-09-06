@@ -103,17 +103,18 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       if (existingByUid) {
         return { success: false, error: `Duplicate registration: Student (${existingByUid.name} - UID: ${finalUid}) is already added to candidates!` };
       }
-    }
-
-    // Also block duplicate candidate name in the same team
-    const existingByName = await prisma.candidate.findFirst({
-      where: {
-        teamId: data.teamId,
-        name: { equals: data.name.trim(), mode: "insensitive" }
+    } else {
+      // Only block duplicate candidate name if NO UID is provided (manual candidate entry without UID)
+      const existingByName = await prisma.candidate.findFirst({
+        where: {
+          teamId: data.teamId,
+          name: { equals: data.name.trim(), mode: "insensitive" },
+          uid: null
+        }
+      });
+      if (existingByName) {
+        return { success: false, error: `Duplicate registration: Candidate "${data.name.trim()}" without UID is already registered in this team!` };
       }
-    });
-    if (existingByName) {
-      return { success: false, error: `Duplicate registration: Candidate "${data.name.trim()}" is already registered in this team!` };
     }
 
     await prisma.candidate.create({
