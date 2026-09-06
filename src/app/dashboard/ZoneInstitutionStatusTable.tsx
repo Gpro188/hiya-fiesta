@@ -795,9 +795,9 @@ export default function ZoneInstitutionStatusTable({
                               color: "#fff",
                               fontWeight: 700,
                             }}
-                            title="Confirm Off-Stage candidates & assign chest numbers"
+                            title="Confirm Off-Stage candidates & assign chest numbers strictly to Off-Stage participants"
                           >
-                            {actionLoadingId === `${team.id}-OFF_STAGE` ? "Confirming..." : "Approve Off-Stage"}
+                            {actionLoadingId === `${team.id}-OFF_STAGE` ? "Confirming..." : "🎨 Confirm Off-Stage"}
                           </button>
                         )}
 
@@ -816,9 +816,9 @@ export default function ZoneInstitutionStatusTable({
                               color: "#fff",
                               fontWeight: 700,
                             }}
-                            title="Confirm On-Stage candidates & assign chest numbers"
+                            title="Confirm On-Stage candidates. Students already numbered in Off-Stage keep their chest number permanently. Only new students receive new numbers."
                           >
-                            {actionLoadingId === `${team.id}-ON_STAGE` ? "Confirming..." : "Confirm On-Stage"}
+                            {actionLoadingId === `${team.id}-ON_STAGE` ? "Confirming..." : "🎭 Confirm On-Stage"}
                           </button>
                         )}
 

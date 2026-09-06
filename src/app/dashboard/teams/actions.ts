@@ -152,13 +152,16 @@ export async function confirmTeamRegistration(teamId: string, stageType?: 'OFF_S
         updateTeamData.isOnStageConfirmed = true;
       }
 
-      // Find all candidates for this team that have at least one program assigned
+      // When confirming OFF_STAGE, ONLY load candidates who are registered for OFF_STAGE programs!
+      // When confirming ON_STAGE or ALL, load candidates registered for programs
+      const programStageFilter = stageType === 'OFF_STAGE'
+        ? { some: { program: { stageType: 'OFF_STAGE' } } }
+        : { some: {} };
+
       const candidatesToApprove = await tx.candidate.findMany({
         where: {
           teamId,
-          programs: {
-            some: {} // At least one program assigned
-          }
+          programs: programStageFilter
         },
         include: {
           category: true

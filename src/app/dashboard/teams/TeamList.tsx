@@ -297,18 +297,19 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                   onClick={async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true;
-                    btn.innerText = "Approving Off-Stage...";
+                    btn.innerText = "Confirming Off-Stage...";
                     const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "OFF_STAGE"));
                     if (!result.success) alert(result.error);
                     else if (result.count === 0) alert("No new candidates to confirm.");
                     else alert(`Successfully confirmed Off-Stage for ${result.count} candidates and assigned Magazine Code: ${result.magazineCode || 'Assigned'}.`);
                     btn.disabled = false;
-                    btn.innerText = "Approve & Generate Chest Nos";
+                    btn.innerText = "🎨 Confirm Off-Stage & Load Chest Nos";
                   }}
                   className="btn btn-primary" 
                   style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#059669', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
+                  title="Confirm Off-Stage candidates and assign sequential chest numbers to Off-Stage participants"
                 >
-                  Approve & Generate Chest Nos
+                  🎨 Confirm Off-Stage & Load Chest Nos
                 </button>
               )}
 
@@ -320,15 +321,15 @@ export default function TeamList({ teams, role = "ADMIN" }: { teams: TeamType[],
                     btn.innerText = "Confirming On-Stage...";
                     const result = await import("./actions").then(m => m.confirmTeamRegistration(team.id, "ON_STAGE"));
                     if (!result.success) alert(result.error);
-                    else alert(`Successfully confirmed On-Stage registration! Any new candidates received sequential chest numbers.`);
+                    else alert(`Successfully confirmed On-Stage registration! Existing Off-Stage chest numbers are fixed and preserved; newly added students received sequential numbers.`);
                     btn.disabled = false;
-                    btn.innerText = "🎭 Confirm On-Stage";
+                    btn.innerText = "🎭 Confirm On-Stage & Load Chest Nos";
                   }}
                   className="btn btn-primary" 
                   style={{ padding: '0.35rem 0.85rem', fontSize: '0.82rem', backgroundColor: '#db2777', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: 700 }}
-                  title="Confirm On-Stage candidates and assign sequential chest numbers to any newly registered students"
+                  title="Confirm On-Stage candidates. Students already numbered in Off-Stage KEEP their exact chest number. Only newly added students receive new chest numbers."
                 >
-                  🎭 Confirm On-Stage
+                  🎭 Confirm On-Stage & Load Chest Nos
                 </button>
               )}
 
