@@ -287,17 +287,51 @@ export default async function ReportsPage(props: {
             </p>
           </a>
 
-          <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Team Schedule</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print a simple schedule of your team's programs</p>
-          </a>
-          
-          <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Candidate Schedule Report</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Detailed report of all your assigned candidates, venues, and timings</p>
-          </a>
+          {isSchedulePublished ? (
+            <>
+              <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #3b82f6' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>On-Stage Program Schedule</h4>
+                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#2563eb', fontWeight: 700 }}>PUBLISHED</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official schedule of your team's On-Stage programs with venues and timings.</p>
+              </a>
+              
+              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>On-Stage Candidate Schedule Report</h4>
+                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.15)', color: '#8E0033', fontWeight: 700 }}>PUBLISHED</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Detailed report of your assigned candidates for On-Stage programs, venues, and timings.</p>
+              </a>
+            </>
+          ) : (
+            <>
+              <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--text-muted)' }}>On-Stage Program Schedule</h4>
+                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', fontWeight: 700 }}>AWAITING PUBLICATION</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Will be unlocked and printable once the Zone Admin finalizes stage timings and publishes the official On-Stage schedule.
+                </p>
+              </div>
+
+              <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--text-muted)' }}>On-Stage Candidate Schedule Report</h4>
+                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', fontWeight: 700 }}>AWAITING PUBLICATION</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Detailed candidate venue and timing sheet will be available once the Zone Admin publishes the schedule.
+                </p>
+              </div>
+            </>
+          )}
 
           <a href={`/print/stage-registrations?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #25D366' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📱</div>

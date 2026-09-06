@@ -16,20 +16,57 @@ export default async function PrintInstitutionReportPage(props: {
 
   const team = await prisma.team.findUnique({
     where: { id: teamId },
-    include: { institution: true }
+    include: { 
+      institution: true,
+      event: {
+        include: { parent: true }
+      }
+    }
   });
 
   if (!team) {
     return <div style={{ padding: '40px' }}>Team not found.</div>;
   }
 
+  const isSchedulePublished = team.event?.statusOverride === "SCHEDULE_PUBLISHED" || 
+    team.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
+
+  if (!isSchedulePublished) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', fontFamily: 'system-ui, sans-serif', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>🔒</div>
+        <h2 style={{ color: '#b45309', marginBottom: '8px' }}>On-Stage Candidate Schedule Report Not Yet Published</h2>
+        <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6 }}>
+          The official On-Stage program schedule is currently being finalized by the Zone Admin. 
+          Candidate schedule reports will become available immediately after the Zone Admin updates and publishes the final timings.
+        </p>
+        <div style={{ marginTop: '24px' }}>
+          <a href="/dashboard/schedule" style={{ padding: '8px 16px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>
+            &larr; Back to Schedule Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const settings = await getSettings(team.eventId);
 
+  // Fetch only candidates registered for ON-STAGE programs
   const candidates = await prisma.candidate.findMany({
-    where: { teamId },
+    where: { 
+      teamId,
+      programs: {
+        some: {
+          program: { stageType: "ON_STAGE" }
+        }
+      }
+    },
     include: {
       category: true,
       programs: {
+        where: {
+          program: { stageType: "ON_STAGE" }
+        },
         include: { program: true }
       }
     },
@@ -40,7 +77,7 @@ export default async function PrintInstitutionReportPage(props: {
     <div style={{ padding: '40px', backgroundColor: 'white', color: 'black', minHeight: '100vh' }}>
       <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid black', paddingBottom: '20px' }}>
         <h1 style={{ margin: '0 0 5px 0' }}>{settings.festName}</h1>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', textTransform: 'uppercase' }}>Institution Candidate Schedule Report</h2>
+        <h2 style={{ margin: 0, fontSize: '1.2rem', textTransform: 'uppercase' }}>Institution On-Stage Candidate Schedule Report</h2>
         <p style={{ margin: '5px 0 0 0', fontStyle: 'italic' }}>{team.institution?.name || team.name}</p>
       </div>
 

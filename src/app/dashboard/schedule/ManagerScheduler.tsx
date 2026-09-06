@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function ManagerScheduler({ initialPrograms, teamId }: { initialPrograms: any[], teamId: string }) {
+export default function ManagerScheduler({ initialPrograms, teamId, isSchedulePublished }: { initialPrograms: any[], teamId: string, isSchedulePublished?: boolean }) {
   const [programs, setPrograms] = useState(initialPrograms);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
@@ -50,13 +50,15 @@ export default function ManagerScheduler({ initialPrograms, teamId }: { initialP
             </select>
           </div>
         </div>
-        <button 
-          className="btn btn-secondary"
-          onClick={() => window.print()}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          🖨️ Print View
-        </button>
+        {isSchedulePublished && (
+          <button 
+            className="btn btn-secondary"
+            onClick={() => window.print()}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            🖨️ Print View
+          </button>
+        )}
       </div>
 
       <div className="print-area">

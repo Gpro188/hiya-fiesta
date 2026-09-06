@@ -159,9 +159,12 @@ export default async function SchedulePage(props: {
     const isSchedulePublished = team.event?.statusOverride === "SCHEDULE_PUBLISHED" || 
       team.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
 
-    // Fetch all programs of the event
+    // Fetch only ON-STAGE programs of the event (off-stage does not have stage scheduling)
     const programs = await prisma.program.findMany({
-      where: { eventId: team.eventId },
+      where: { 
+        eventId: team.eventId,
+        stageType: "ON_STAGE"
+      },
       include: {
         category: true,
         assignments: {
@@ -174,10 +177,10 @@ export default async function SchedulePage(props: {
 
     return (
       <div className="animate-fade-in">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Team Festival Schedule</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>On-Stage Program Schedule</h1>
               {isSchedulePublished ? (
                 <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
                   ✅ FINAL SCHEDULE PUBLISHED
@@ -190,20 +193,26 @@ export default async function SchedulePage(props: {
             </div>
             <p className="page-description" style={{ marginBottom: 0 }}>
               {isSchedulePublished 
-                ? "Final program timeline and assigned candidate slots are confirmed. Candidate ID cards are now available." 
-                : "Schedule is currently being finalized by the Zone Admin / Super Admin. Candidate time slots and ID cards will be active once published."}
+                ? "Final On-Stage program timeline and assigned candidate slots are confirmed." 
+                : "On-Stage schedule is currently being finalized by the Zone Admin. Schedule printing and candidate slot reports will be available once the Zone Admin publishes the official schedule."}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Print Team Schedule
-            </a>
-            <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Candidate Schedule Report
-            </a>
-          </div>
+          {isSchedulePublished ? (
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+              <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                🖨️ Print On-Stage Schedule
+              </a>
+              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                📑 On-Stage Candidate Schedule Report
+              </a>
+            </div>
+          ) : (
+            <div style={{ padding: '8px 14px', borderRadius: '6px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: '0.82rem', fontWeight: 600 }}>
+              🔒 Schedule printing will be available once the Zone Admin publishes the finalized On-Stage timings.
+            </div>
+          )}
         </div>
-        <ManagerScheduler initialPrograms={programs as any} teamId={team.id} />
+        <ManagerScheduler initialPrograms={programs as any} teamId={team.id} isSchedulePublished={isSchedulePublished} />
       </div>
     );
   }
