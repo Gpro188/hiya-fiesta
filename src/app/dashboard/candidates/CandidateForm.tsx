@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { addCandidate } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
@@ -166,6 +166,16 @@ export default function CandidateForm({
 
   const isShareeaStream = studentStream.includes("SHAREE") || studentStream.includes("SHARI");
 
+  useEffect(() => {
+    const handleCustomSelect = (e: any) => {
+      if (e.detail?.uid) {
+        handleUidLookup(e.detail.uid);
+      }
+    };
+    window.addEventListener("select-student-uid", handleCustomSelect);
+    return () => window.removeEventListener("select-student-uid", handleCustomSelect);
+  }, [selectedTeamId, categories]);
+
   const handleUnder20Toggle = (checked: boolean) => {
     setIsUnder20(checked);
     if (checked) {
@@ -179,7 +189,7 @@ export default function CandidateForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form id="candidate-registration-form" onSubmit={handleSubmit}>
       {error && (
         <div style={{ color: 'var(--error)', marginBottom: 'var(--spacing-sm)', padding: 'var(--spacing-xs)', border: '1px solid var(--error)', borderRadius: 'var(--radius-md)' }}>
           {error}

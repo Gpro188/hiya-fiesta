@@ -7,6 +7,7 @@ import CandidateList from "./CandidateList";
 import CandidateFilter from "./CandidateFilter";
 import CandidateBulkActions from "./CandidateBulkActions";
 import GenerateChestNumbersButton from "./GenerateChestNumbersButton";
+import InstitutionStudentDirectory from "./InstitutionStudentDirectory";
 
 export default async function CandidatesPage(props: { searchParams: Promise<{ teamId?: string, categoryId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -331,81 +332,15 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
       {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && (
         <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
           <div style={{ marginBottom: 'var(--spacing-md)' }}>
-            <h3 style={{ margin: 0, color: 'var(--primary)' }}>1. Available Students</h3>
+            <h3 style={{ margin: 0, color: 'var(--primary)' }}>1. Institution Student Directory & Candidate Status</h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              These students are available to be registered. Copy a UID and paste it in the form below.
+              Complete list of students enrolled under your college in the master directory. Click &quot;Register UID&quot; on any available student to quickly add them as a festival candidate below.
             </p>
           </div>
-          {masterStudents.length === 0 ? (
-            <div style={{
-              padding: '16px 20px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(245, 158, 11, 0.08)',
-              border: '1.5px solid rgba(245, 158, 11, 0.35)',
-              color: '#92400e',
-              fontSize: '0.88rem',
-              lineHeight: 1.6
-            }}>
-              <strong>⚠️ No students found in your institution directory:</strong> If your students are not appearing or you cannot find a student by UID, their <strong>admission or promotion procedure</strong> in the institution portal might not be completed. Please ensure all student admissions and promotions are processed in the institution portal, or contact the <strong>IT Cell of CSWC</strong>.
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 'var(--spacing-md)' }}>
-                {(() => {
-                  const unadded = masterStudents.filter(ms => !candidates.some(c => c.uid === ms.uid));
-                  if (unadded.length === 0) {
-                    return <div style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>All students have been registered!</div>;
-                  }
-                  const streams = Array.from(new Set(unadded.map(s => s.stream || 'Other')));
-                  
-                  return streams.map(stream => (
-                    <div key={stream} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                      <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                        {stream} Students
-                      </div>
-                      <div style={{ overflowX: 'auto', maxHeight: '350px' }}>
-                        <table className="data-table" style={{ fontSize: '0.875rem', width: '100%', margin: 0 }}>
-                          <thead>
-                            <tr>
-                              <th style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-color)', zIndex: 1 }}>UID</th>
-                              <th style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-color)', zIndex: 1 }}>Name</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {unadded.filter(s => (s.stream || 'Other') === stream).map(student => (
-                              <tr key={student.uid}>
-                                <td style={{ fontWeight: 700, fontFamily: 'monospace', color: 'var(--primary)', width: '110px' }}>{student.uid}</td>
-                                <td>{student.name}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-
-              {/* Helpful notice about missing students */}
-              <div style={{
-                marginTop: 'var(--spacing-md)',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                fontSize: '0.82rem',
-                color: '#1e40af',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>ℹ️</span>
-                <div>
-                  <strong>Can't find a student?</strong> If any student is missing from your institution list or not found during UID search, ensure their <strong>admission or promotion procedure</strong> has been completed in the institution portal. If the issue persists, please contact the <strong>IT Cell of CSWC</strong>.
-                </div>
-              </div>
-            </>
-          )}
+          <InstitutionStudentDirectory 
+            masterStudents={masterStudents} 
+            candidates={candidates} 
+          />
         </div>
       )}
 
