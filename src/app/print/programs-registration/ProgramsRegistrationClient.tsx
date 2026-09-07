@@ -681,16 +681,36 @@ export default function ProgramsRegistrationClient({
                     <th
                       key={inst.id}
                       style={{
-                        padding: "6px 3px",
+                        padding: "4px 3px",
                         textAlign: "center",
-                        minWidth: "40px",
+                        minWidth: "52px",
                         backgroundColor: "#e2e8f0",
                         color: "#0f172a",
                         fontSize: "0.74rem",
+                        lineHeight: 1.15,
+                        verticalAlign: "bottom",
                       }}
                       title={`${inst.code} - ${inst.name}${inst.place ? ` (${inst.place})` : ""}`}
                     >
-                      {inst.code}
+                      <div style={{ fontWeight: 900, color: "#8E0033", fontFamily: "monospace", fontSize: "0.78rem" }}>
+                        {inst.code}
+                      </div>
+                      {inst.place && (
+                        <div
+                          style={{
+                            fontSize: "0.62rem",
+                            color: "#475569",
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                            maxWidth: "75px",
+                          }}
+                          title={inst.place}
+                        >
+                          {inst.place}
+                        </div>
+                      )}
                     </th>
                   ))
                 )}
@@ -769,25 +789,28 @@ export default function ProgramsRegistrationClient({
                           {program.name}
                         </div>
 
-                        {/* Institution Breakdown Pills (Always visible for easy reading) */}
+                        {/* Institution Breakdown Pills (Shows Code & Place with Count) */}
                         {registeredCollegesInScope.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
                             {registeredCollegesInScope.map((code) => {
+                              const matchP = zoneParticipants.find((p) => p.institutionCode === code);
+                              const place = matchP?.institutionPlace || zoneInstitutions.find((i) => i.code === code)?.place;
                               const countForCode = zoneParticipants.filter((p) => p.institutionCode === code).length;
                               return (
                                 <span
                                   key={code}
                                   style={{
                                     fontSize: "0.68rem",
-                                    padding: "1px 5px",
+                                    padding: "1px 6px",
                                     borderRadius: "3px",
                                     backgroundColor: "#f1f5f9",
                                     color: "#334155",
                                     fontWeight: 600,
-                                    border: "1px solid #e2e8f0",
+                                    border: "1px solid #cbd5e1",
                                   }}
                                 >
-                                  <strong>{code}</strong>: {countForCode}
+                                  <strong style={{ color: "#8E0033", fontFamily: "monospace" }}>{code}</strong>
+                                  {place ? ` (${place})` : ""}: <strong style={{ color: "#0f172a" }}>{countForCode}</strong>
                                 </span>
                               );
                             })}
@@ -958,14 +981,16 @@ export default function ProgramsRegistrationClient({
                     <td
                       key={inst.id}
                       style={{
-                        padding: "6px 3px",
+                        padding: "5px 3px",
                         textAlign: "center",
                         color: "#0f172a",
                         fontWeight: 900,
                         backgroundColor: "#e2e8f0",
+                        lineHeight: 1.15,
                       }}
                     >
-                      {(totals as any).instTotals?.[inst.id] || 0}
+                      <div style={{ fontSize: "0.82rem" }}>{(totals as any).instTotals?.[inst.id] || 0}</div>
+                      <div style={{ fontSize: "0.6rem", color: "#64748b", fontFamily: "monospace" }}>{inst.code}</div>
                     </td>
                   ))
                 )}
