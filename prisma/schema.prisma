@@ -160,6 +160,10 @@ model Team {
   offStageUnlocked       Boolean            @default(false)
   onStageUnlocked        Boolean            @default(false)
   registrationUnlocked   Boolean            @default(false)
+  offStageUnlockStart    DateTime?
+  offStageUnlockEnd      DateTime?
+  onStageUnlockStart     DateTime?
+  onStageUnlockEnd       DateTime?
   magazineCode           String?
   isMagazineParticipating Boolean           @default(false)
   candidates             Candidate[]

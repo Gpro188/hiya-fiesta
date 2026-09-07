@@ -277,8 +277,12 @@ export async function confirmTeamRegistration(teamId: string, stageType?: 'OFF_S
 
 export async function updateTeamRegistrationAccess(
   teamId: string, 
-  accessType: 'OFF_STAGE' | 'ON_STAGE' | 'BOTH' | 'LOCK',
-  reason?: string
+  accessType: 'OFF_STAGE' | 'ON_STAGE' | 'BOTH' | 'LOCK', 
+  reason?: string,
+  scheduleWindow?: {
+    startDate?: string | null;
+    endDate?: string | null;
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -286,7 +290,7 @@ export async function updateTeamRegistrationAccess(
       return { success: false, error: "Unauthorized" };
     }
 
-    const team = await prisma.team.findUnique({ 
+    const team = await prisma.team.findUnique({
       where: { id: teamId },
       include: { 
         event: {
@@ -320,18 +324,29 @@ export async function updateTeamRegistrationAccess(
       }
     }
 
+    const unlockStart = scheduleWindow?.startDate ? new Date(scheduleWindow.startDate) : null;
+    const unlockEnd = scheduleWindow?.endDate ? new Date(scheduleWindow.endDate) : null;
+
     let updateData: any = {};
     if (accessType === 'OFF_STAGE') {
       updateData = {
         offStageUnlocked: true,
+        offStageUnlockStart: unlockStart,
+        offStageUnlockEnd: unlockEnd,
         onStageUnlocked: false,
+        onStageUnlockStart: null,
+        onStageUnlockEnd: null,
         registrationUnlocked: true,
         isAssignmentsConfirmed: false,
       };
     } else if (accessType === 'ON_STAGE') {
       updateData = {
         offStageUnlocked: false,     // Off-Stage REMAINS 100% LOCKED!
+        offStageUnlockStart: null,
+        offStageUnlockEnd: null,
         onStageUnlocked: true,       // On-Stage is unlocked!
+        onStageUnlockStart: unlockStart,
+        onStageUnlockEnd: unlockEnd,
         registrationUnlocked: true,
         isAssignmentsConfirmed: true, // Keep Off-Stage LOCKED!
         isOnStageConfirmed: false,   // Unlock On-Stage
@@ -339,7 +354,11 @@ export async function updateTeamRegistrationAccess(
     } else if (accessType === 'BOTH') {
       updateData = {
         offStageUnlocked: true,
+        offStageUnlockStart: unlockStart,
+        offStageUnlockEnd: unlockEnd,
         onStageUnlocked: true,
+        onStageUnlockStart: unlockStart,
+        onStageUnlockEnd: unlockEnd,
         registrationUnlocked: true,
         isAssignmentsConfirmed: false,
         isOnStageConfirmed: false,
@@ -347,7 +366,11 @@ export async function updateTeamRegistrationAccess(
     } else if (accessType === 'LOCK') {
       updateData = {
         offStageUnlocked: false,
+        offStageUnlockStart: null,
+        offStageUnlockEnd: null,
         onStageUnlocked: false,
+        onStageUnlockStart: null,
+        onStageUnlockEnd: null,
         registrationUnlocked: false,
         isAssignmentsConfirmed: true,
         isOnStageConfirmed: true,
@@ -359,6 +382,10 @@ export async function updateTeamRegistrationAccess(
       data: updateData
     });
 
+    const scheduleLog = unlockStart || unlockEnd 
+      ? ` [Schedule: ${unlockStart ? unlockStart.toLocaleString() : 'Now'} to ${unlockEnd ? unlockEnd.toLocaleString() : 'Indefinite'}]`
+      : '';
+
     // Record audit log
     await prisma.systemAuditLog.create({
       data: {
@@ -367,7 +394,7 @@ export async function updateTeamRegistrationAccess(
         action: `SET_REGISTRATION_ACCESS_${accessType}`,
         entityType: "TEAM",
         entityId: teamId,
-        reason: reason || `Registration access set to ${accessType} by ${session.user.role}`
+        reason: (reason || `Registration access set to ${accessType} by ${session.user.role}`) + scheduleLog
       }
     }).catch(err => console.warn("Audit log creation non-fatal error:", err));
 

@@ -35,6 +35,10 @@ type TeamType = {
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   registrationUnlocked?: boolean;
+  offStageUnlockStart?: string | Date | null;
+  offStageUnlockEnd?: string | Date | null;
+  onStageUnlockStart?: string | Date | null;
+  onStageUnlockEnd?: string | Date | null;
   magazineCode?: string | null;
   _count: { candidates: number };
   candidates?: {
@@ -75,7 +79,7 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-      {/* Zone Admin Bulk Action Bar */}
+      {/* Zone Admin Action Bar: Scheduling & Batch Control */}
       {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && teams.length > 0 && (
         <div style={{
           display: 'flex',
@@ -83,55 +87,81 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
-          padding: '12px 18px',
+          padding: '14px 18px',
           backgroundColor: '#f8fafc',
-          borderRadius: '10px',
+          borderRadius: '12px',
           border: '1px solid #e2e8f0',
-          marginBottom: '4px'
+          marginBottom: '6px'
         }}>
           <div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🎭</span> On-Stage Batch Control
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚙️</span> Registration Access & Time Schedule Control
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
-              Open On-Stage registration for all colleges in this zone at once. Previously confirmed Off-Stage registrations remain strictly locked!
+            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>
+              Open Off-Stage or On-Stage registration for any specific institution with custom Start & End times, or batch open On-Stage for all.
             </div>
           </div>
-          <button
-            onClick={async () => {
-              if (!confirm("Are you sure you want to open On-Stage registration for all colleges in this zone? All confirmed Off-Stage registrations will remain strictly locked!")) {
-                return;
-              }
-              setBulkLoading(true);
-              const { bulkUnlockOnStageForZone } = await import("./actions");
-              const res = await bulkUnlockOnStageForZone(teams[0]?.eventId || teams[0]?.event?.id || "");
-              if (res.success) {
-                alert(`✅ Successfully opened On-Stage registration for ${res.count} institutions! Off-Stage registrations remain strictly locked.`);
-                window.location.reload();
-              } else {
-                alert(res.error || "Failed to bulk open On-Stage.");
-                setBulkLoading(false);
-              }
-            }}
-            disabled={bulkLoading}
-            className="btn"
-            style={{
-              padding: '0.45rem 1.1rem',
-              fontSize: '0.84rem',
-              fontWeight: 800,
-              backgroundColor: '#db2777',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 4px rgba(219,39,119,0.2)'
-            }}
-          >
-            {bulkLoading ? "Opening..." : "🎭 Open On-Stage for All Teams"}
-          </button>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {(["ADMIN", "SUPER_ADMIN"].includes(role) || (role === "ZONE_ADMIN" && isZoneUnlockPermitted)) && (
+              <button
+                onClick={() => setAccessModalTeam(teams[0])}
+                className="btn"
+                style={{
+                  padding: '0.45rem 1.15rem',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  backgroundColor: '#8E0033',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(142,0,51,0.2)'
+                }}
+              >
+                <span>⏱️</span> Select Institution & Schedule Time
+              </button>
+            )}
+
+            <button
+              onClick={async () => {
+                if (!confirm("Are you sure you want to open On-Stage registration for all colleges in this zone? All confirmed Off-Stage registrations will remain strictly locked!")) {
+                  return;
+                }
+                setBulkLoading(true);
+                const { bulkUnlockOnStageForZone } = await import("./actions");
+                const res = await bulkUnlockOnStageForZone(teams[0]?.eventId || teams[0]?.event?.id || "");
+                if (res.success) {
+                  alert(`✅ Successfully opened On-Stage registration for ${res.count} institutions! Off-Stage registrations remain strictly locked.`);
+                  window.location.reload();
+                } else {
+                  alert(res.error || "Failed to bulk open On-Stage.");
+                  setBulkLoading(false);
+                }
+              }}
+              disabled={bulkLoading}
+              className="btn"
+              style={{
+                padding: '0.45rem 1.1rem',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                backgroundColor: '#db2777',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 4px rgba(219,39,119,0.2)'
+              }}
+            >
+              {bulkLoading ? "Opening..." : "🎭 Open On-Stage for All Teams"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -189,8 +219,28 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
             ? (onCandidatesWithoutChest.length === 0 && Boolean(team.isOnStageConfirmed))
             : Boolean(team.isOnStageConfirmed);
 
-          const isOffStageOpen = team.offStageUnlocked || (!isOffStageChestLoaded && !isOffDeadlinePassed);
-          const isOnStageOpen = team.onStageUnlocked || (!isOnStageChestLoaded && !isOnDeadlinePassed);
+          // 3. Timed Unlock Windows & Scheduled Overrides
+          const isOffStageActiveSchedule = Boolean(
+            (team.offStageUnlockStart || team.offStageUnlockEnd) &&
+            (!team.offStageUnlockStart || now >= new Date(team.offStageUnlockStart)) &&
+            (!team.offStageUnlockEnd || now <= new Date(team.offStageUnlockEnd))
+          );
+          const isOffStagePendingSchedule = Boolean(team.offStageUnlockStart && now < new Date(team.offStageUnlockStart));
+          const isOffStageExpiredSchedule = Boolean(team.offStageUnlockEnd && now > new Date(team.offStageUnlockEnd));
+
+          const isOnStageActiveSchedule = Boolean(
+            (team.onStageUnlockStart || team.onStageUnlockEnd) &&
+            (!team.onStageUnlockStart || now >= new Date(team.onStageUnlockStart)) &&
+            (!team.onStageUnlockEnd || now <= new Date(team.onStageUnlockEnd))
+          );
+          const isOnStagePendingSchedule = Boolean(team.onStageUnlockStart && now < new Date(team.onStageUnlockStart));
+          const isOnStageExpiredSchedule = Boolean(team.onStageUnlockEnd && now > new Date(team.onStageUnlockEnd));
+
+          const isOffStageUnlocked = team.registrationUnlocked || isOffStageActiveSchedule || (team.offStageUnlocked && !isOffStageExpiredSchedule);
+          const isOnStageUnlocked = team.registrationUnlocked || isOnStageActiveSchedule || (team.onStageUnlocked && !isOnStageExpiredSchedule);
+
+          const isOffStageOpen = isOffStageUnlocked || (!isOffStageChestLoaded && !isOffDeadlinePassed);
+          const isOnStageOpen = isOnStageUnlocked || (!isOnStageChestLoaded && !isOnDeadlinePassed);
 
           const needsOffStageConfirmation = hasOffStage && !isOffStageChestLoaded;
           const needsOnStageConfirmation = isOffStageChestLoaded && hasOnStage && !isOnStageChestLoaded;
@@ -225,6 +275,8 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
                   </span>
                   {isOffStageChestLoaded && isOnStageChestLoaded && totalPrograms > 0 ? (
                     <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>ZONE CONFIRMED</span>
+                  ) : (isOffStageActiveSchedule || isOnStageActiveSchedule) ? (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#10b981', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>⏱️ TIMED UNLOCK ACTIVE</span>
                   ) : isOffDeadlinePassed && isOnDeadlinePassed && !team.offStageUnlocked && !team.onStageUnlocked ? (
                     <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#dc2626', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>DEADLINE PASSED</span>
                   ) : team.isAssignmentsConfirmed ? (
@@ -249,28 +301,53 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
               )}
 
               {/* Off-Stage and On-Stage Status Badges */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px', alignItems: 'flex-start' }}>
                 <span style={{ 
                   fontSize: '0.75rem', 
                   padding: '4px 10px', 
                   borderRadius: '6px', 
                   fontWeight: 700,
-                  backgroundColor: team.offStageUnlocked ? '#ecfdf5' : isOffStageOpen ? '#f0fdf4' : '#fef2f2',
-                  color: team.offStageUnlocked ? '#047857' : isOffStageOpen ? '#15803d' : '#b91c1c',
-                  border: `1px solid ${team.offStageUnlocked ? '#6ee7b7' : isOffStageOpen ? '#86efac' : '#fecaca'}`
+                  backgroundColor: isOffStageActiveSchedule ? '#ecfdf5' : isOffStagePendingSchedule ? '#fffbeb' : team.offStageUnlocked ? '#ecfdf5' : isOffStageOpen ? '#f0fdf4' : '#fef2f2',
+                  color: isOffStageActiveSchedule ? '#047857' : isOffStagePendingSchedule ? '#b45309' : team.offStageUnlocked ? '#047857' : isOffStageOpen ? '#15803d' : '#b91c1c',
+                  border: `1px solid ${isOffStageActiveSchedule ? '#6ee7b7' : isOffStagePendingSchedule ? '#fde68a' : team.offStageUnlocked ? '#6ee7b7' : isOffStageOpen ? '#86efac' : '#fecaca'}`
                 }}>
-                  🎨 Off-Stage: {team.offStageUnlocked ? '⚡ Zone Override (Open)' : isOffStageOpen ? '🟢 Open' : '🔒 Closed'}
+                  🎨 Off-Stage: {
+                    isOffStageActiveSchedule 
+                      ? `⏱️ Scheduled Open (until ${new Date(team.offStageUnlockEnd!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${new Date(team.offStageUnlockEnd!).toLocaleDateString([], { month: 'short', day: 'numeric' })})`
+                      : isOffStagePendingSchedule
+                      ? `⌛ Scheduled (starts ${new Date(team.offStageUnlockStart!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+                      : isOffStageExpiredSchedule
+                      ? '🔒 Schedule Expired (Closed)'
+                      : team.offStageUnlocked 
+                      ? '⚡ Zone Override (Open)' 
+                      : isOffStageOpen 
+                      ? '🟢 Open' 
+                      : '🔒 Closed'
+                  }
                 </span>
+
                 <span style={{ 
                   fontSize: '0.75rem', 
                   padding: '4px 10px', 
                   borderRadius: '6px', 
                   fontWeight: 700,
-                  backgroundColor: team.onStageUnlocked ? '#ecfdf5' : isOnStageOpen ? '#f0fdf4' : '#fef2f2',
-                  color: team.onStageUnlocked ? '#047857' : isOnStageOpen ? '#15803d' : '#b91c1c',
-                  border: `1px solid ${team.onStageUnlocked ? '#6ee7b7' : isOnStageOpen ? '#86efac' : '#fecaca'}`
+                  backgroundColor: isOnStageActiveSchedule ? '#ecfdf5' : isOnStagePendingSchedule ? '#fffbeb' : team.onStageUnlocked ? '#ecfdf5' : isOnStageOpen ? '#f0fdf4' : '#fef2f2',
+                  color: isOnStageActiveSchedule ? '#047857' : isOnStagePendingSchedule ? '#b45309' : team.onStageUnlocked ? '#047857' : isOnStageOpen ? '#15803d' : '#b91c1c',
+                  border: `1px solid ${isOnStageActiveSchedule ? '#6ee7b7' : isOnStagePendingSchedule ? '#fde68a' : team.onStageUnlocked ? '#6ee7b7' : isOnStageOpen ? '#86efac' : '#fecaca'}`
                 }}>
-                  🎭 On-Stage: {team.onStageUnlocked ? '⚡ Zone Override (Open)' : isOnStageOpen ? '🟢 Open' : '🔒 Closed'}
+                  🎭 On-Stage: {
+                    isOnStageActiveSchedule 
+                      ? `⏱️ Scheduled Open (until ${new Date(team.onStageUnlockEnd!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${new Date(team.onStageUnlockEnd!).toLocaleDateString([], { month: 'short', day: 'numeric' })})`
+                      : isOnStagePendingSchedule
+                      ? `⌛ Scheduled (starts ${new Date(team.onStageUnlockStart!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+                      : isOnStageExpiredSchedule
+                      ? '🔒 Schedule Expired (Closed)'
+                      : team.onStageUnlocked 
+                      ? '⚡ Zone Override (Open)' 
+                      : isOnStageOpen 
+                      ? '🟢 Open' 
+                      : '🔒 Closed'
+                  }
                 </span>
               </div>
 
@@ -401,7 +478,7 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
                   style={{ 
                     padding: '0.35rem 0.95rem', 
                     fontSize: '0.82rem', 
-                    backgroundColor: (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#059669' : '#8E0033', 
+                    backgroundColor: (isOffStageActiveSchedule || isOnStageActiveSchedule) ? '#059669' : (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? '#047857' : '#8E0033', 
                     color: '#ffffff', 
                     border: 'none', 
                     borderRadius: '6px',
@@ -412,9 +489,13 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
                     alignItems: 'center',
                     gap: '6px'
                   }}
-                  title="Open Off-Stage only, On-Stage only, Both, or Lock registration for this institution"
+                  title="Select stage (Off/On) and schedule start & end time for this institution"
                 >
-                  {(team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) ? "🔓 Stage Access (Unlocked)" : "⚡ Unlock Registration (Off/On-Stage)"}
+                  {(isOffStageActiveSchedule || isOnStageActiveSchedule) 
+                    ? "⏱️ Timed Unlock Active" 
+                    : (team.offStageUnlocked || team.onStageUnlocked || team.registrationUnlocked) 
+                    ? "🔓 Stage Access (Unlocked)" 
+                    : "⚡ Schedule / Unlock"}
                 </button>
               )}
 
@@ -463,9 +544,13 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
 
       {accessModalTeam && (
         <RegistrationAccessModal
-          team={accessModalTeam}
+          team={accessModalTeam as any}
+          teams={teams as any}
           onClose={() => setAccessModalTeam(null)}
-          onUpdated={() => setAccessModalTeam(null)}
+          onUpdated={() => {
+            setAccessModalTeam(null);
+            window.location.reload();
+          }}
         />
       )}
     </div>

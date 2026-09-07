@@ -40,6 +40,10 @@ export interface TeamWithRegistrationData {
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   registrationUnlocked?: boolean;
+  offStageUnlockStart?: Date | string | null;
+  offStageUnlockEnd?: Date | string | null;
+  onStageUnlockStart?: Date | string | null;
+  onStageUnlockEnd?: Date | string | null;
   magazineCode?: string | null;
   event?: TeamRegistrationEvent | null;
   candidates?: CandidateWithStage[] | null;
@@ -63,6 +67,16 @@ export function getRegistrationLockStatus(
       isZoneConfirmedOnStage: false,
       isCollegeSubmittedOffStage: Boolean(team?.isAssignmentsConfirmed),
       isCollegeSubmittedOnStage: Boolean(team?.isOnStageConfirmed),
+      isOffStageScheduleActive: false,
+      isOffStageUnlockPending: false,
+      isOffStageUnlockExpired: false,
+      isOnStageScheduleActive: false,
+      isOnStageUnlockPending: false,
+      isOnStageUnlockExpired: false,
+      offStageUnlockStart: null,
+      offStageUnlockEnd: null,
+      onStageUnlockStart: null,
+      onStageUnlockEnd: null,
       offDeadline: null,
       onDeadline: null,
       generalDeadline: null,
@@ -127,14 +141,40 @@ export function getRegistrationLockStatus(
   // On-stage is confirmed by Zone Admin if on-stage candidates have chest numbers AND isOnStageConfirmed is true
   const isZoneConfirmedOnStage = Boolean(hasOnStageChestNumber && team?.isOnStageConfirmed);
 
-  // 3. Admin Unlock Overrides
-  const isOffStageUnlocked = Boolean(team?.offStageUnlocked || team?.registrationUnlocked);
-  const isOnStageUnlocked = Boolean(team?.onStageUnlocked || team?.registrationUnlocked);
+  // 3. Admin Unlock Overrides & Institution-Specific Scheduled Timed Windows
+  const isOffStageUnlockExpired = team?.offStageUnlockEnd ? now > new Date(team.offStageUnlockEnd) : false;
+  const isOffStageUnlockPending = team?.offStageUnlockStart ? now < new Date(team.offStageUnlockStart) : false;
+  const isOffStageScheduleActive = Boolean(
+    (team?.offStageUnlockStart || team?.offStageUnlockEnd) &&
+    !isOffStageUnlockPending &&
+    !isOffStageUnlockExpired
+  );
+
+  const isOnStageUnlockExpired = team?.onStageUnlockEnd ? now > new Date(team.onStageUnlockEnd) : false;
+  const isOnStageUnlockPending = team?.onStageUnlockStart ? now < new Date(team.onStageUnlockStart) : false;
+  const isOnStageScheduleActive = Boolean(
+    (team?.onStageUnlockStart || team?.onStageUnlockEnd) &&
+    !isOnStageUnlockPending &&
+    !isOnStageUnlockExpired
+  );
+
+  const isOffStageUnlocked = Boolean(
+    team?.registrationUnlocked ||
+    isOffStageScheduleActive ||
+    (team?.offStageUnlocked && !isOffStageUnlockExpired)
+  );
+
+  const isOnStageUnlocked = Boolean(
+    team?.registrationUnlocked ||
+    isOnStageScheduleActive ||
+    (team?.onStageUnlocked && !isOnStageUnlockExpired)
+  );
+
   const isGlobalUnlocked = Boolean(team?.registrationUnlocked);
 
   // 4. Determine Openness:
   // An institution can edit if:
-  // - Admin unlocked it, OR
+  // - Admin unlocked it (permanent or scheduled window currently active), OR
   // - Current time is within scheduled registration window (!deadlinePassed) AND Zone Admin hasn't finalized it (!isZoneConfirmed)
   const isOffStageOpen =
     !isNotStarted &&
@@ -161,8 +201,13 @@ export function getRegistrationLockStatus(
   let statusMessage = "";
   if (isNotStarted && startDate) {
     statusMessage = `Registration will open on ${startDate.toLocaleString()}.`;
+  } else if (isOffStageUnlockPending || isOnStageUnlockPending) {
+    const pendingTime = team?.offStageUnlockStart || team?.onStageUnlockStart;
+    statusMessage = `Your institution's scheduled registration unlock window will open on ${new Date(pendingTime!).toLocaleString()}.`;
   } else if (!isCandidateRegistrationOpen) {
-    if (hasAnyChestNumber || isZoneConfirmedOffStage || isZoneConfirmedOnStage) {
+    if (isOffStageUnlockExpired && isOnStageUnlockExpired) {
+      statusMessage = "Your institution's scheduled registration unlock window has ended. Contact your Zone Admin.";
+    } else if (hasAnyChestNumber || isZoneConfirmedOffStage || isZoneConfirmedOnStage) {
       statusMessage =
         "Official Registration has been confirmed by the Zone Admin with Chest Numbers assigned. Contact your Zone Admin if an unlock is required.";
     } else {
@@ -187,6 +232,16 @@ export function getRegistrationLockStatus(
     isOffStageUnlocked,
     isOnStageUnlocked,
     isGlobalUnlocked,
+    isOffStageScheduleActive,
+    isOffStageUnlockPending,
+    isOffStageUnlockExpired,
+    isOnStageScheduleActive,
+    isOnStageUnlockPending,
+    isOnStageUnlockExpired,
+    offStageUnlockStart: team?.offStageUnlockStart ? new Date(team.offStageUnlockStart) : null,
+    offStageUnlockEnd: team?.offStageUnlockEnd ? new Date(team.offStageUnlockEnd) : null,
+    onStageUnlockStart: team?.onStageUnlockStart ? new Date(team.onStageUnlockStart) : null,
+    onStageUnlockEnd: team?.onStageUnlockEnd ? new Date(team.onStageUnlockEnd) : null,
     offDeadline,
     onDeadline,
     generalDeadline,
