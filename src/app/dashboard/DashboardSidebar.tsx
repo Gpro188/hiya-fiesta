@@ -91,6 +91,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "🖨️",
           href: "/dashboard/reports",
         },
+        {
+          name: "Program Reg Counts",
+          subtitle: "Candidate & college counts",
+          icon: "📊",
+          href: "/print/programs-registration",
+          highlight: true,
+        },
       ],
     });
 
@@ -179,6 +186,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "📜",
           href: "/dashboard/programs",
         },
+        {
+          name: "Program Reg Counts",
+          subtitle: "Candidate & college counts",
+          icon: "📊",
+          href: "/print/programs-registration",
+          highlight: true,
+        },
       ],
     });
   } else if (role === "ADMIN") {
@@ -227,6 +241,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "All printables & schedules",
           icon: "🖨️",
           href: "/dashboard/reports",
+        },
+        {
+          name: "Program Reg Counts",
+          subtitle: "Candidate & college counts",
+          icon: "📊",
+          href: "/print/programs-registration",
+          highlight: true,
         },
         {
           name: "Settings",

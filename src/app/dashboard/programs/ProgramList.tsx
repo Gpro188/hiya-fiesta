@@ -293,11 +293,26 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                     </span>
                   )}
                 </h4>
-                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  Event: {program.event.name} • Assignments: {program._count.assignments}
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
+                  <span>Event: <strong>{program.event.name}</strong></span>
+                  <span>•</span>
+                  <span style={{ 
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px', 
+                    borderRadius: '4px', 
+                    fontSize: '0.78rem', 
+                    fontWeight: 800, 
+                    backgroundColor: program._count.assignments > 0 ? 'rgba(142,0,51,0.1)' : '#f1f5f9',
+                    color: program._count.assignments > 0 ? '#8E0033' : '#64748b',
+                    border: `1px solid ${program._count.assignments > 0 ? 'rgba(142,0,51,0.25)' : '#cbd5e1'}`
+                  }}>
+                    👥 {program._count.assignments} Candidates Registered
+                  </span>
                   {program.judges && program.judges.length > 0 && (
-                     <span style={{ marginLeft: '12px', color: 'var(--brand)' }}>
-                       Judges: {program.judges.map(j => j.username).join(", ")}
+                     <span style={{ color: 'var(--brand)' }}>
+                       • Judges: {program.judges.map(j => j.username).join(", ")}
                      </span>
                   )}
                 </div>

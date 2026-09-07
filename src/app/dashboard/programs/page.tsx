@@ -58,20 +58,42 @@ export default async function ProgramsPage() {
             Define all competition programs. Set types (Individual/Group), categories, time limits, and candidate limits per team.
           </p>
         </div>
-        <a 
-          href="/program_manual.pdf" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          Download Program Manual
-        </a>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a
+            href="/print/programs-registration"
+            target="_blank"
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.55rem 1.15rem',
+              fontSize: '0.86rem',
+              fontWeight: 800,
+              backgroundColor: '#8E0033',
+              color: '#ffffff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              boxShadow: '0 2px 6px rgba(142,0,51,0.2)'
+            }}
+          >
+            <span>📊</span> Programs with Registered Counts
+          </a>
+          <a 
+            href="/program_manual.pdf" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Program Manual
+          </a>
+        </div>
       </div>
       
       {events.length === 0 ? (

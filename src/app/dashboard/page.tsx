@@ -557,6 +557,7 @@ export default async function DashboardPage() {
       { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" },
       { label: "Manage Schedule", href: "/dashboard/schedule", icon: "📅", color: "#10b981" },
       { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
+      { label: "Program Reg Counts", href: "/print/programs-registration", icon: "📊", color: "#8b5cf6" },
       { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
     );
   } else if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam) {

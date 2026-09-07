@@ -70,6 +70,17 @@ export default async function ReportsPage(props: {
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs & Guidelines (PDF Prints)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a href="/print/programs-registration" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📊</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: '#8E0033' }}>Programs with Registered Counts</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontWeight: 800 }}>LIVE COUNTS</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master list of all programs with candidate counts, participating colleges, and printable report.</p>
+            </a>
+          )}
+
           <a href={`/print/programs?eventId=${activeEventId}&categoryId=ALL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>All Programs & Guidelines</h4>
