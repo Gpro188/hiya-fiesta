@@ -3,16 +3,25 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 
+export interface InstitutionItem {
+  id: string;
+  code: string;
+  name: string;
+  place: string | null;
+}
+
 export interface ZoneItem {
   id: string;
   name: string;
   code: string;
+  institutions: InstitutionItem[];
 }
 
 export interface ProgramParticipant {
   candidateId: string;
   candidateName: string;
   chestNumber: string | null;
+  institutionId?: string | null;
   institutionCode: string;
   institutionName: string;
   institutionPlace: string | null;
@@ -32,6 +41,7 @@ export interface ProgramRegistrationItem {
   candidatesCount: number;
   institutionsCount: number;
   zoneCounts: Record<string, number>;
+  institutionCounts: Record<string, number>;
   participants: ProgramParticipant[];
 }
 
@@ -50,21 +60,33 @@ export default function ProgramsRegistrationClient({
   zones,
   overview,
   festName = "HIYA FIESTA 2026",
+  userZoneId,
 }: {
   programs: ProgramRegistrationItem[];
   zones: ZoneItem[];
   overview: ProgramsOverview;
   festName?: string;
+  userZoneId?: string;
 }) {
+  const [selectedZoneId, setSelectedZoneId] = useState<string>(userZoneId || "ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterStage, setFilterStage] = useState<string>("ALL");
   const [filterType, setFilterType] = useState<string>("ALL");
-  const [filterZone, setFilterZone] = useState<string>("ALL");
+  const [onlyRegisteredInZone, setOnlyRegisteredInZone] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"CODE" | "NAME" | "MOST_REGISTERED" | "LEAST_REGISTERED">("CODE");
   const [printOrientation, setPrintOrientation] = useState<"LANDSCAPE" | "PORTRAIT">("LANDSCAPE");
   const [selectedProgramModal, setSelectedProgramModal] = useState<ProgramRegistrationItem | null>(null);
-  const [modalZoneFilter, setModalZoneFilter] = useState<string>("ALL");
+  const [modalInstFilter, setModalInstFilter] = useState<string>("ALL");
+
+  const currentZone = useMemo(() => {
+    if (selectedZoneId === "ALL") return null;
+    return zones.find((z) => z.id === selectedZoneId) || null;
+  }, [selectedZoneId, zones]);
+
+  const zoneInstitutions = useMemo(() => {
+    return currentZone?.institutions || [];
+  }, [currentZone]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -82,8 +104,12 @@ export default function ProgramsRegistrationClient({
       if (filterStage !== "ALL" && p.stageType !== filterStage) return false;
       // Type filter
       if (filterType !== "ALL" && p.type !== filterType) return false;
-      // Specific Zone filter: only show programs that have at least 1 registration in that zone
-      if (filterZone !== "ALL" && (!p.zoneCounts[filterZone] || p.zoneCounts[filterZone] === 0)) return false;
+
+      // When specific zone is selected
+      if (selectedZoneId !== "ALL") {
+        const zoneCount = p.zoneCounts[selectedZoneId] || 0;
+        if (onlyRegisteredInZone && zoneCount === 0) return false;
+      }
 
       // Search query
       if (searchQuery.trim()) {
@@ -98,11 +124,14 @@ export default function ProgramsRegistrationClient({
 
     // Sorting
     list.sort((a, b) => {
+      const aCount = selectedZoneId === "ALL" ? a.candidatesCount : a.zoneCounts[selectedZoneId] || 0;
+      const bCount = selectedZoneId === "ALL" ? b.candidatesCount : b.zoneCounts[selectedZoneId] || 0;
+
       if (sortBy === "MOST_REGISTERED") {
-        return b.candidatesCount - a.candidatesCount;
+        return bCount - aCount;
       }
       if (sortBy === "LEAST_REGISTERED") {
-        return a.candidatesCount - b.candidatesCount;
+        return aCount - bCount;
       }
       if (sortBy === "NAME") {
         return a.name.localeCompare(b.name);
@@ -117,28 +146,51 @@ export default function ProgramsRegistrationClient({
     });
 
     return list;
-  }, [programs, filterCategory, filterStage, filterType, filterZone, searchQuery, sortBy]);
+  }, [programs, filterCategory, filterStage, filterType, selectedZoneId, onlyRegisteredInZone, searchQuery, sortBy]);
 
-  // Compute live column totals for filtered programs
-  const columnTotals = useMemo(() => {
-    const zTotals: Record<string, number> = {};
-    zones.forEach((z) => {
-      zTotals[z.id] = 0;
-    });
-    let grandCandidates = 0;
-
-    filteredPrograms.forEach((p) => {
-      grandCandidates += p.candidatesCount;
+  // Compute live column totals
+  const totals = useMemo(() => {
+    if (selectedZoneId === "ALL") {
+      const zTotals: Record<string, number> = {};
       zones.forEach((z) => {
-        zTotals[z.id] += p.zoneCounts[z.id] || 0;
+        zTotals[z.id] = 0;
       });
-    });
+      let grand = 0;
 
-    return {
-      zoneTotals: zTotals,
-      grandCandidates,
-    };
-  }, [filteredPrograms, zones]);
+      filteredPrograms.forEach((p) => {
+        grand += p.candidatesCount;
+        zones.forEach((z) => {
+          zTotals[z.id] += p.zoneCounts[z.id] || 0;
+        });
+      });
+
+      return {
+        zoneTotals: zTotals,
+        grandCandidates: grand,
+      };
+    } else {
+      // Zone Institution Breakdown totals
+      const instTotals: Record<string, number> = {};
+      zoneInstitutions.forEach((inst) => {
+        instTotals[inst.id] = 0;
+      });
+      let zoneGrand = 0;
+
+      filteredPrograms.forEach((p) => {
+        const countInZone = p.zoneCounts[selectedZoneId] || 0;
+        zoneGrand += countInZone;
+
+        zoneInstitutions.forEach((inst) => {
+          instTotals[inst.id] += p.institutionCounts[inst.id] || 0;
+        });
+      });
+
+      return {
+        instTotals,
+        zoneGrand,
+      };
+    }
+  }, [filteredPrograms, selectedZoneId, zones, zoneInstitutions]);
 
   const printTimestamp = new Date().toLocaleString("en-IN", {
     dateStyle: "medium",
@@ -162,9 +214,6 @@ export default function ProgramsRegistrationClient({
           }
           .no-print {
             display: none !important;
-          }
-          .print-header {
-            display: block !important;
           }
           .table-container {
             overflow: visible !important;
@@ -203,14 +252,6 @@ export default function ProgramsRegistrationClient({
             font-size: 8pt !important;
             font-weight: 700 !important;
             color: #000000 !important;
-          }
-          .zone-num {
-            font-weight: 800 !important;
-            color: #0f172a !important;
-          }
-          .zero-val {
-            color: #94a3b8 !important;
-            font-weight: normal !important;
           }
           .signoff-section {
             page-break-inside: avoid !important;
@@ -269,15 +310,60 @@ export default function ProgramsRegistrationClient({
             </Link>
             <span style={{ color: "#cbd5e1" }}>|</span>
             <span style={{ fontSize: "0.82rem", color: "#8E0033", fontWeight: 800 }}>
-              8-Zone Master Breakdown
+              {selectedZoneId === "ALL" ? "8-Zone Matrix Summary" : `${currentZone?.name} Institution Breakdown`}
             </span>
           </div>
           <h2 style={{ margin: "2px 0 0 0", fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>
-            📊 Programs Master List with Zonal Registration Counts
+            📊 Programs Registration Counts & Institution Breakdown
           </h2>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {/* PRIMARY ZONE SELECTOR */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "#8E0033" }}>View Mode:</label>
+            <select
+              value={selectedZoneId}
+              onChange={(e) => setSelectedZoneId(e.target.value)}
+              style={{
+                padding: "0.45rem 0.85rem",
+                borderRadius: "6px",
+                border: "2px solid #8E0033",
+                fontSize: "0.84rem",
+                fontWeight: 800,
+                backgroundColor: selectedZoneId === "ALL" ? "#fdf2f8" : "#eff6ff",
+                color: selectedZoneId === "ALL" ? "#8E0033" : "#1d4ed8",
+                cursor: "pointer",
+              }}
+            >
+              <option value="ALL">🌐 All 8 Zones Matrix (State Summary)</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  📍 {z.name} Zone ({z.institutions.length} Institutions Breakdown)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* If Zone Selected: Toggle to show all or only registered in zone */}
+          {selectedZoneId !== "ALL" && (
+            <select
+              value={onlyRegisteredInZone ? "REGISTERED" : "ALL"}
+              onChange={(e) => setOnlyRegisteredInZone(e.target.value === "REGISTERED")}
+              style={{
+                padding: "0.45rem 0.75rem",
+                borderRadius: "6px",
+                border: "1.5px solid #cbd5e1",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <option value="REGISTERED">Only Registered in {currentZone?.code}</option>
+              <option value="ALL">All Festival Programs</option>
+            </select>
+          )}
+
           {/* Category Filter */}
           <select
             value={filterCategory}
@@ -335,28 +421,6 @@ export default function ProgramsRegistrationClient({
             <option value="GENERAL">⭐ General Only</option>
           </select>
 
-          {/* Zone Filter */}
-          <select
-            value={filterZone}
-            onChange={(e) => setFilterZone(e.target.value)}
-            style={{
-              padding: "0.45rem 0.75rem",
-              borderRadius: "6px",
-              border: "1.5px solid #cbd5e1",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              backgroundColor: filterZone !== "ALL" ? "#eff6ff" : "#f8fafc",
-              color: filterZone !== "ALL" ? "#1d4ed8" : "#0f172a",
-            }}
-          >
-            <option value="ALL">🌐 All 8 Zones</option>
-            {zones.map((z) => (
-              <option key={z.id} value={z.id}>
-                📍 {z.name} ({z.code})
-              </option>
-            ))}
-          </select>
-
           {/* Print Orientation */}
           <select
             value={printOrientation}
@@ -372,8 +436,8 @@ export default function ProgramsRegistrationClient({
             }}
             title="Choose orientation for Print / PDF export"
           >
-            <option value="LANDSCAPE">📄 Landscape (Recommended for 8 Zones)</option>
-            <option value="PORTRAIT">📄 Portrait (Compact)</option>
+            <option value="LANDSCAPE">📄 Landscape (Recommended)</option>
+            <option value="PORTRAIT">📄 Portrait</option>
           </select>
 
           {/* Sort By */}
@@ -407,7 +471,7 @@ export default function ProgramsRegistrationClient({
               borderRadius: "6px",
               border: "1.5px solid #cbd5e1",
               fontSize: "0.82rem",
-              width: "180px",
+              width: "170px",
             }}
           />
 
@@ -436,13 +500,13 @@ export default function ProgramsRegistrationClient({
       </div>
 
       {/* Document Content */}
-      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "1.25rem 1.5rem" }}>
-        {/* Document Header (Clean & Official) */}
+      <div style={{ maxWidth: "1450px", margin: "0 auto", padding: "1.25rem 1.5rem" }}>
+        {/* Document Header */}
         <div
           style={{
             borderBottom: "2.5px solid #8E0033",
             paddingBottom: "0.75rem",
-            marginBottom: "1rem",
+            marginBottom: "0.85rem",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
@@ -452,16 +516,20 @@ export default function ProgramsRegistrationClient({
         >
           <div>
             <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#8E0033", textTransform: "uppercase", letterSpacing: "1px" }}>
-              STATE ARTS FESTIVAL 2026 • OFFICIAL MASTER ALLOCATION SHEET
+              STATE ARTS FESTIVAL 2026 • OFFICIAL MASTER REGISTRATION SHEET
             </div>
             <h1 style={{ margin: "2px 0 2px 0", fontSize: "1.6rem", fontWeight: 900, color: "#0f172a" }}>
               {festName}
             </h1>
             <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#475569" }}>
-              Program-wise Zonal Candidate Registration Master Pack
+              {selectedZoneId === "ALL"
+                ? "Program-wise Zonal Candidate Registration Master Pack (All 8 Zones)"
+                : `Program-wise Institution Registration Breakdown: ${currentZone?.name} Zone (${currentZone?.code})`}
             </h2>
             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              Live registration numbers across all 8 Regional Zones, individual candidates, general teams, and participating colleges.
+              {selectedZoneId === "ALL"
+                ? "Live candidate registrations across all 8 Regional Zones, individual candidates, and general teams."
+                : `Detailed program allocations for all ${zoneInstitutions.length} participating institutions in ${currentZone?.name} Zone.`}
             </div>
           </div>
 
@@ -473,124 +541,215 @@ export default function ProgramsRegistrationClient({
               Filter: <strong>{filterCategory === "ALL" ? "All Categories" : filterCategory}</strong> | <strong>{filterStage === "ALL" ? "All Stages" : filterStage}</strong> | <strong>{filterType === "ALL" ? "All Types" : filterType}</strong>
             </div>
             <div>
-              Zone Scope: <strong>{filterZone === "ALL" ? "All 8 Regional Zones" : zones.find((z) => z.id === filterZone)?.name}</strong>
+              Scope:{" "}
+              <strong style={{ color: "#8E0033" }}>
+                {selectedZoneId === "ALL" ? "All 8 Regional Zones" : `${currentZone?.name} Zone (${zoneInstitutions.length} Institutions)`}
+              </strong>
             </div>
           </div>
         </div>
 
-        {/* Quick Zonal Summary Bar (Screen & Print) */}
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1.5px solid #cbd5e1",
-            borderRadius: "6px",
-            padding: "8px 12px",
-            marginBottom: "1rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "8px",
-            fontSize: "0.8rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div>
-              <strong>Programs:</strong> <span style={{ color: "#0f172a", fontWeight: 800 }}>{filteredPrograms.length}</span> / {overview.totalPrograms}
+        {/* Institution Legend (When a specific zone is selected) */}
+        {selectedZoneId !== "ALL" && currentZone && (
+          <div
+            style={{
+              backgroundColor: "#f8fafc",
+              border: "1.5px solid #cbd5e1",
+              borderRadius: "6px",
+              padding: "8px 12px",
+              marginBottom: "1rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: "4px", display: "flex", justifyContent: "space-between" }}>
+              <span>🏫 {currentZone.name} ZONE PARTICIPATING INSTITUTIONS CODE KEY ({zoneInstitutions.length} Colleges):</span>
+              <span style={{ color: "#64748b" }}>Match column code headers below</span>
             </div>
-            <span>•</span>
-            <div>
-              <strong>Total Registrations:</strong> <span style={{ color: "#8E0033", fontWeight: 900 }}>{columnTotals.grandCandidates}</span>
-            </div>
-            <span>•</span>
-            <div>
-              <strong>Individual:</strong> {overview.totalIndivPrograms} | <strong>General:</strong> {overview.totalGeneralPrograms}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {zoneInstitutions.map((inst) => (
+                <div
+                  key={inst.id}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "4px",
+                    padding: "2px 8px",
+                    fontSize: "0.72rem",
+                  }}
+                >
+                  <strong style={{ color: "#8E0033", fontFamily: "monospace" }}>{inst.code}</strong>: {inst.name}
+                  {inst.place ? ` (${inst.place})` : ""}
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* 8-Zone Mini Quick Breakdown */}
-          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
-            {zones.map((z) => (
-              <span
-                key={z.id}
-                style={{
-                  display: "inline-block",
-                  padding: "2px 7px",
-                  borderRadius: "4px",
-                  backgroundColor: filterZone === z.id ? "#8E0033" : "#ffffff",
-                  color: filterZone === z.id ? "#ffffff" : "#0f172a",
-                  border: "1px solid #cbd5e1",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-                onClick={() => setFilterZone(filterZone === z.id ? "ALL" : z.id)}
-                title={`Click to filter: ${z.name}`}
-              >
-                {z.code}: <strong>{columnTotals.zoneTotals[z.id] || 0}</strong>
-              </span>
-            ))}
+        {/* Quick Zonal Summary Bar (When ALL zones view is active) */}
+        {selectedZoneId === "ALL" && (
+          <div
+            style={{
+              backgroundColor: "#f8fafc",
+              border: "1.5px solid #cbd5e1",
+              borderRadius: "6px",
+              padding: "8px 12px",
+              marginBottom: "1rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "8px",
+              fontSize: "0.8rem",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div>
+                <strong>Programs:</strong> <span style={{ color: "#0f172a", fontWeight: 800 }}>{filteredPrograms.length}</span> / {overview.totalPrograms}
+              </div>
+              <span>•</span>
+              <div>
+                <strong>Total Registrations:</strong> <span style={{ color: "#8E0033", fontWeight: 900 }}>{(totals as any).grandCandidates}</span>
+              </div>
+              <span>•</span>
+              <div>
+                <strong>Individual:</strong> {overview.totalIndivPrograms} | <strong>General:</strong> {overview.totalGeneralPrograms}
+              </div>
+            </div>
+
+            {/* Clickable Zone Switcher Pills */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+              {zones.map((z) => (
+                <button
+                  key={z.id}
+                  type="button"
+                  onClick={() => setSelectedZoneId(z.id)}
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    backgroundColor: "#ffffff",
+                    color: "#0f172a",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                  title={`Switch to institution breakdown for ${z.name}`}
+                >
+                  {z.code}: <strong>{(totals as any).zoneTotals?.[z.id] || 0}</strong> &rarr;
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Programs 8-Zone Matrix Table */}
+        {/* MAIN DATA TABLE: Conditionally renders 8-Zone Matrix OR Single Zone Institution Breakdown */}
         <div className="table-container" style={{ overflowX: "auto", border: "1px solid #cbd5e1", borderRadius: "6px" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
             <thead>
               <tr style={{ backgroundColor: "#f1f5f9", borderBottom: "2px solid #94a3b8" }}>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "30px" }}>#</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "45px" }}>Code</th>
-                <th style={{ padding: "6px 8px", textAlign: "left" }}>Program Name</th>
+                <th style={{ padding: "6px 8px", textAlign: "left" }}>Program Name & Registered Colleges</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "75px" }}>Category</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "55px" }}>Type</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "65px" }}>Stage</th>
 
-                {/* 8 Regional Zone Columns */}
-                {zones.map((z) => (
-                  <th
-                    key={z.id}
-                    style={{
-                      padding: "6px 3px",
-                      textAlign: "center",
-                      width: "42px",
-                      backgroundColor: filterZone === z.id ? "#fef3c7" : "#e2e8f0",
-                      color: "#0f172a",
-                      fontSize: "0.74rem",
-                    }}
-                    title={`${z.name} Zone`}
-                  >
-                    {z.code}
-                  </th>
-                ))}
+                {/* DYNAMIC COLUMNS */}
+                {selectedZoneId === "ALL" ? (
+                  // 8 REGIONAL ZONE COLUMNS
+                  zones.map((z) => (
+                    <th
+                      key={z.id}
+                      style={{
+                        padding: "6px 3px",
+                        textAlign: "center",
+                        width: "42px",
+                        backgroundColor: "#e2e8f0",
+                        color: "#0f172a",
+                        fontSize: "0.74rem",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setSelectedZoneId(z.id)}
+                      title={`Click to view ${z.name} Institutions Breakdown`}
+                    >
+                      {z.code}
+                    </th>
+                  ))
+                ) : (
+                  // INSTITUTIONS OF THE SELECTED ZONE
+                  zoneInstitutions.map((inst) => (
+                    <th
+                      key={inst.id}
+                      style={{
+                        padding: "6px 3px",
+                        textAlign: "center",
+                        minWidth: "40px",
+                        backgroundColor: "#e2e8f0",
+                        color: "#0f172a",
+                        fontSize: "0.74rem",
+                      }}
+                      title={`${inst.code} - ${inst.name}${inst.place ? ` (${inst.place})` : ""}`}
+                    >
+                      {inst.code}
+                    </th>
+                  ))
+                )}
 
-                {/* Total Column */}
+                {/* TOTAL COLUMN */}
                 <th
                   style={{
                     padding: "6px 5px",
                     textAlign: "center",
-                    width: "55px",
+                    width: "60px",
                     backgroundColor: "#fdf2f8",
                     color: "#8E0033",
                     fontWeight: 900,
                   }}
                 >
-                  TOTAL
+                  {selectedZoneId === "ALL" ? "TOTAL" : `${currentZone?.code} TOTAL`}
                 </th>
-                <th style={{ padding: "6px 4px", textAlign: "center", width: "55px" }}>Colleges</th>
+
+                {selectedZoneId === "ALL" && (
+                  <th style={{ padding: "6px 4px", textAlign: "center", width: "55px" }}>Colleges</th>
+                )}
+
                 <th className="no-print" style={{ padding: "6px 4px", textAlign: "center", width: "70px" }}>
                   Action
                 </th>
               </tr>
             </thead>
+
             <tbody>
               {filteredPrograms.length === 0 ? (
                 <tr>
-                  <td colSpan={10 + zones.length} style={{ padding: "24px", textAlign: "center", color: "#64748b" }}>
+                  <td
+                    colSpan={
+                      selectedZoneId === "ALL"
+                        ? 10 + zones.length
+                        : 8 + zoneInstitutions.length
+                    }
+                    style={{ padding: "24px", textAlign: "center", color: "#64748b" }}
+                  >
                     No competition programs match the selected filter criteria.
                   </td>
                 </tr>
               ) : (
                 filteredPrograms.map((program, idx) => {
+                  const zoneParticipants =
+                    selectedZoneId === "ALL"
+                      ? program.participants
+                      : program.participants.filter((part) => part.zoneId === selectedZoneId);
+
+                  // Calculate distinct registered colleges in current view
+                  const registeredCollegesInScope = Array.from(
+                    new Set(zoneParticipants.map((p) => p.institutionCode).filter(Boolean))
+                  );
+
+                  const totalCountInRow =
+                    selectedZoneId === "ALL"
+                      ? program.candidatesCount
+                      : program.zoneCounts[selectedZoneId] || 0;
+
                   return (
                     <tr
                       key={program.id}
@@ -609,6 +768,31 @@ export default function ProgramsRegistrationClient({
                         <div className="prog-name" style={{ fontWeight: 700, color: "#0f172a" }}>
                           {program.name}
                         </div>
+
+                        {/* Institution Breakdown Pills (Always visible for easy reading) */}
+                        {registeredCollegesInScope.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
+                            {registeredCollegesInScope.map((code) => {
+                              const countForCode = zoneParticipants.filter((p) => p.institutionCode === code).length;
+                              return (
+                                <span
+                                  key={code}
+                                  style={{
+                                    fontSize: "0.68rem",
+                                    padding: "1px 5px",
+                                    borderRadius: "3px",
+                                    backgroundColor: "#f1f5f9",
+                                    color: "#334155",
+                                    fontWeight: 600,
+                                    border: "1px solid #e2e8f0",
+                                  }}
+                                >
+                                  <strong>{code}</strong>: {countForCode}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "4px 4px", textAlign: "center" }}>
                         <span
@@ -657,26 +841,47 @@ export default function ProgramsRegistrationClient({
                         </span>
                       </td>
 
-                      {/* 8 Regional Zone Values */}
-                      {zones.map((z) => {
-                        const cnt = program.zoneCounts[z.id] || 0;
-                        return (
-                          <td
-                            key={z.id}
-                            style={{
-                              padding: "4px 3px",
-                              textAlign: "center",
-                              backgroundColor: filterZone === z.id ? "#fffbeb" : "transparent",
-                              fontWeight: cnt > 0 ? 800 : 400,
-                              color: cnt > 0 ? "#0f172a" : "#cbd5e1",
-                            }}
-                          >
-                            {cnt > 0 ? cnt : "-"}
-                          </td>
-                        );
-                      })}
+                      {/* DYNAMIC CELL VALUES */}
+                      {selectedZoneId === "ALL" ? (
+                        // 8 Regional Zone Values
+                        zones.map((z) => {
+                          const cnt = program.zoneCounts[z.id] || 0;
+                          return (
+                            <td
+                              key={z.id}
+                              style={{
+                                padding: "4px 3px",
+                                textAlign: "center",
+                                fontWeight: cnt > 0 ? 800 : 400,
+                                color: cnt > 0 ? "#0f172a" : "#cbd5e1",
+                              }}
+                            >
+                              {cnt > 0 ? cnt : "-"}
+                            </td>
+                          );
+                        })
+                      ) : (
+                        // Individual Institutions in Selected Zone
+                        zoneInstitutions.map((inst) => {
+                          const instCount = program.institutionCounts[inst.id] || 0;
+                          return (
+                            <td
+                              key={inst.id}
+                              style={{
+                                padding: "4px 3px",
+                                textAlign: "center",
+                                fontWeight: instCount > 0 ? 800 : 400,
+                                color: instCount > 0 ? "#0f172a" : "#cbd5e1",
+                                backgroundColor: instCount > 0 ? "#f8fafc" : "transparent",
+                              }}
+                            >
+                              {instCount > 0 ? instCount : "-"}
+                            </td>
+                          );
+                        })
+                      )}
 
-                      {/* Total Candidates Column */}
+                      {/* Total Candidates in Row */}
                       <td
                         style={{
                           padding: "4px 4px",
@@ -684,16 +889,17 @@ export default function ProgramsRegistrationClient({
                           backgroundColor: "#fdf2f8",
                           fontWeight: 900,
                           fontSize: "0.82rem",
-                          color: program.candidatesCount > 0 ? "#8E0033" : "#94a3b8",
+                          color: totalCountInRow > 0 ? "#8E0033" : "#94a3b8",
                         }}
                       >
-                        {program.candidatesCount}
+                        {totalCountInRow}
                       </td>
 
-                      {/* Participating Colleges Column */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, color: "#475569" }}>
-                        {program.institutionsCount}
-                      </td>
+                      {selectedZoneId === "ALL" && (
+                        <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, color: "#475569" }}>
+                          {program.institutionsCount}
+                        </td>
+                      )}
 
                       {/* Action Button */}
                       <td className="no-print" style={{ padding: "4px 4px", textAlign: "center" }}>
@@ -701,7 +907,7 @@ export default function ProgramsRegistrationClient({
                           type="button"
                           onClick={() => {
                             setSelectedProgramModal(program);
-                            setModalZoneFilter("ALL");
+                            setModalInstFilter("ALL");
                           }}
                           style={{
                             padding: "3px 8px",
@@ -723,30 +929,48 @@ export default function ProgramsRegistrationClient({
               )}
             </tbody>
 
-            {/* Table Footer: Column Sums for Each Zone */}
+            {/* Table Footer: Column Sums */}
             <tfoot>
               <tr style={{ backgroundColor: "#f1f5f9", fontWeight: 900, borderTop: "2px solid #94a3b8" }}>
                 <td colSpan={6} style={{ padding: "6px 8px", textAlign: "right", color: "#0f172a", fontSize: "0.78rem" }}>
                   TOTAL REGISTERED CANDIDATES ({filteredPrograms.length} Programs):
                 </td>
 
-                {/* Each Zone Column Sum */}
-                {zones.map((z) => (
-                  <td
-                    key={z.id}
-                    style={{
-                      padding: "6px 3px",
-                      textAlign: "center",
-                      color: "#0f172a",
-                      fontWeight: 900,
-                      backgroundColor: filterZone === z.id ? "#fef3c7" : "#e2e8f0",
-                    }}
-                  >
-                    {columnTotals.zoneTotals[z.id] || 0}
-                  </td>
-                ))}
+                {selectedZoneId === "ALL" ? (
+                  // Sums for 8 Zones
+                  zones.map((z) => (
+                    <td
+                      key={z.id}
+                      style={{
+                        padding: "6px 3px",
+                        textAlign: "center",
+                        color: "#0f172a",
+                        fontWeight: 900,
+                        backgroundColor: "#e2e8f0",
+                      }}
+                    >
+                      {(totals as any).zoneTotals?.[z.id] || 0}
+                    </td>
+                  ))
+                ) : (
+                  // Sums for Each Institution in the Zone
+                  zoneInstitutions.map((inst) => (
+                    <td
+                      key={inst.id}
+                      style={{
+                        padding: "6px 3px",
+                        textAlign: "center",
+                        color: "#0f172a",
+                        fontWeight: 900,
+                        backgroundColor: "#e2e8f0",
+                      }}
+                    >
+                      {(totals as any).instTotals?.[inst.id] || 0}
+                    </td>
+                  ))
+                )}
 
-                {/* Grand Total Candidates */}
+                {/* Grand Total Column */}
                 <td
                   style={{
                     padding: "6px 5px",
@@ -757,18 +981,24 @@ export default function ProgramsRegistrationClient({
                     fontSize: "0.85rem",
                   }}
                 >
-                  {columnTotals.grandCandidates}
+                  {selectedZoneId === "ALL" ? (totals as any).grandCandidates : (totals as any).zoneGrand}
                 </td>
 
-                <td colSpan={2} style={{ padding: "6px 4px", textAlign: "center", fontSize: "0.72rem", color: "#64748b" }}>
-                  {filteredPrograms.reduce((sum, p) => sum + p.institutionsCount, 0)} Coll. Reg
-                </td>
+                {selectedZoneId === "ALL" ? (
+                  <td colSpan={2} style={{ padding: "6px 4px", textAlign: "center", fontSize: "0.72rem", color: "#64748b" }}>
+                    {filteredPrograms.reduce((sum, p) => sum + p.institutionsCount, 0)} Coll. Reg
+                  </td>
+                ) : (
+                  <td className="no-print" style={{ padding: "6px 4px", textAlign: "center", fontSize: "0.72rem", color: "#64748b" }}>
+                    -
+                  </td>
+                )}
               </tr>
             </tfoot>
           </table>
         </div>
 
-        {/* Master Summary Sign-Off Section (Prints cleanly at bottom) */}
+        {/* Master Summary Sign-Off Section */}
         <div
           className="signoff-section"
           style={{
@@ -783,7 +1013,9 @@ export default function ProgramsRegistrationClient({
         >
           <div>
             <div style={{ borderBottom: "1px dashed #94a3b8", height: "32px", marginBottom: "6px" }} />
-            <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#0f172a" }}>Program Committee Head</div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#0f172a" }}>
+              {selectedZoneId === "ALL" ? "State Program Committee" : `${currentZone?.name} Zone Coordinator`}
+            </div>
             <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Signature & Date</div>
           </div>
 
@@ -885,12 +1117,12 @@ export default function ProgramsRegistrationClient({
               </button>
             </div>
 
-            {/* Zone Filter Inside Modal */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
-              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>Filter by Zone:</label>
+            {/* Filter Inside Modal */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>Filter Institution:</label>
               <select
-                value={modalZoneFilter}
-                onChange={(e) => setModalZoneFilter(e.target.value)}
+                value={modalInstFilter}
+                onChange={(e) => setModalInstFilter(e.target.value)}
                 style={{
                   padding: "0.35rem 0.7rem",
                   borderRadius: "6px",
@@ -900,12 +1132,14 @@ export default function ProgramsRegistrationClient({
                   backgroundColor: "#f8fafc",
                 }}
               >
-                <option value="ALL">All Zones ({selectedProgramModal.participants.length})</option>
-                {zones.map((z) => {
-                  const count = selectedProgramModal.zoneCounts[z.id] || 0;
+                <option value="ALL">All Institutions ({selectedProgramModal.participants.length})</option>
+                {Array.from(
+                  new Set(selectedProgramModal.participants.map((p) => p.institutionName))
+                ).map((name) => {
+                  const cnt = selectedProgramModal.participants.filter((p) => p.institutionName === name).length;
                   return (
-                    <option key={z.id} value={z.id}>
-                      {z.name} ({count})
+                    <option key={name} value={name}>
+                      {name} ({cnt})
                     </option>
                   );
                 })}
@@ -920,14 +1154,14 @@ export default function ProgramsRegistrationClient({
                     <th style={{ padding: "8px 10px", textAlign: "center", width: "40px" }}>#</th>
                     <th style={{ padding: "8px 10px", textAlign: "center", width: "75px" }}>Chest No</th>
                     <th style={{ padding: "8px 10px", textAlign: "left" }}>Candidate Name</th>
-                    <th style={{ padding: "8px 10px", textAlign: "center", width: "65px" }}>Coll. Code</th>
+                    <th style={{ padding: "8px 10px", textAlign: "center", width: "65px" }}>Code</th>
                     <th style={{ padding: "8px 10px", textAlign: "left" }}>Institution & Location</th>
                     <th style={{ padding: "8px 10px", textAlign: "center", width: "100px" }}>Zone</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedProgramModal.participants
-                    .filter((part) => modalZoneFilter === "ALL" || part.zoneId === modalZoneFilter)
+                    .filter((part) => modalInstFilter === "ALL" || part.institutionName === modalInstFilter)
                     .map((part, pIdx) => (
                       <tr
                         key={part.candidateId}
