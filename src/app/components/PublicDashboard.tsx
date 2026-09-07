@@ -29,6 +29,7 @@ export default function PublicDashboard({
     }
   }>({ latestResults: [], leaderboard: [], teams: [], topStars: [], categoryStars: {} });
   const [loading, setLoading] = useState(true);
+  const [selectedChampion, setSelectedChampion] = useState<any | null>(null);
 
   useEffect(() => {
     if (!activeEventId) return;
@@ -46,6 +47,16 @@ export default function PublicDashboard({
     const interval = setInterval(fetchData, 45000);
     return () => clearInterval(interval);
   }, [activeEventId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedChampion(null);
+    };
+    if (selectedChampion) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedChampion]);
 
   // Client-side filtering for simple search
   const filteredResults = data.latestResults.filter(res => 
@@ -1295,122 +1306,205 @@ export default function PublicDashboard({
             </div>
           )}
 
-          {/* HALL OF FAME TAB */}
+          {/* HALL OF FAME TAB - CATEGORY CHAMPIONS (TOP 3) */}
           {!searchQuery && activeTab === "hall" && (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', 
-              gap: '28px' 
-            }} className="dashboard-grid">
-              
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '1.25rem' }}>👑</span>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                    Overall Top 5 Stars
-                  </h2>
+            <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                gap: '12px', 
+                marginBottom: '24px',
+                background: 'linear-gradient(135deg, #fdf2f8 0%, #ffffff 100%)',
+                padding: '20px 24px',
+                borderRadius: '16px',
+                border: '1px solid #fbcfe8'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '1.6rem' }}>🏆</span>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#881337', margin: 0, fontFamily: "'Fraunces', serif" }}>
+                      Category Champions
+                    </h2>
+                  </div>
+                  <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                    Top 3 stars in each category. Click any champion to view their complete results and point calculation breakdown.
+                  </p>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {data.topStars.map((star, i) => (
-                    <div 
-                      key={star.id} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '16px', 
-                        padding: '16px 20px', 
-                        background: '#FFFFFF', 
-                        borderRadius: '16px', 
-                        border: i === 0 ? '2px solid #F59E0B' : '1px solid #E2E8F0',
-                        boxShadow: '0 4px 12px -2px rgba(0,0,0,0.04)'
-                      }}
-                    >
-                      <div style={{ 
-                        fontSize: '1.3rem', 
-                        fontWeight: 900, 
-                        color: i === 0 ? '#F59E0B' : '#64748B', 
-                        width: '32px',
-                        fontFamily: 'JetBrains Mono, monospace'
-                      }}>
-                        #{i+1}
-                      </div>
-                      <div style={{ 
-                        width: '46px', 
-                        height: '46px', 
-                        borderRadius: '50%', 
-                        border: `2px solid ${star.teamColor || '#881337'}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: '#F8FAFC',
-                        fontSize: '1.2rem'
-                      }}>
-                        ⭐
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0F172A' }}>{star.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                          <span style={{ color: star.teamColor || '#881337', fontWeight: 700 }}>{star.teamName}</span> • {star.categoryName}
-                        </div>
-                      </div>
-                      <div style={{ 
-                        fontWeight: 900, 
-                        fontSize: '1.2rem', 
-                        color: '#0F172A',
-                        fontFamily: 'JetBrains Mono, monospace'
-                      }}>
-                        {star.points} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>pts</span>
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: 700, color: '#be185d', background: '#ffffff', padding: '6px 14px', borderRadius: '20px', border: '1px solid #fbcfe8' }}>
+                  <span>✨ Top 3 Ranked per Category</span>
                 </div>
               </div>
 
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '1.25rem' }}>🎖️</span>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                    Category Champions
-                  </h3>
+              {Object.keys(data.categoryStars).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', color: '#64748B' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🎖️</div>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1E293B' }}>No Published Results Yet</div>
+                  <div style={{ fontSize: '0.88rem', marginTop: '6px' }}>Category champions will appear here once competition results are officially published.</div>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {Object.entries(data.categoryStars).map(([name, stars]) => (
+              ) : (
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+                  gap: '24px' 
+                }}>
+                  {Object.entries(data.categoryStars).map(([catName, stars]) => (
                     <div 
-                      key={name} 
+                      key={catName} 
                       style={{ 
                         background: '#FFFFFF',
-                        borderRadius: '16px',
-                        padding: '18px',
-                        border: '1px solid #E2E8F0',
-                        boxShadow: '0 4px 12px -2px rgba(0,0,0,0.04)'
+                        borderRadius: '20px',
+                        padding: '22px',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 8px 24px -4px rgba(0,0,0,0.05)',
+                        display: 'flex',
+                        flexDirection: 'column'
                       }}
                     >
-                      <h4 style={{ 
-                        margin: '0 0 12px 0', 
-                        color: '#881337', 
-                        borderBottom: '1px solid #F1F5F9', 
-                        paddingBottom: '8px',
-                        fontSize: '0.95rem',
-                        fontWeight: 800
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: '2px solid #f1f5f9'
                       }}>
-                        {name}
-                      </h4>
-                      {stars.map((s, i) => (
-                        <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', padding: '4px 0' }}>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <span style={{ color: '#94A3B8', fontWeight: 700 }}>{i+1}.</span>
-                            <span style={{ fontWeight: 700, color: '#1E293B' }}>{s.name}</span>
-                          </div>
-                          <span style={{ fontWeight: 800, color: '#0F172A' }}>{s.points} pts</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>🎓</span>
+                          <h3 style={{ 
+                            margin: 0, 
+                            color: '#881337', 
+                            fontSize: '1.12rem',
+                            fontWeight: 800,
+                            letterSpacing: '0.02em',
+                            fontFamily: "'Fraunces', serif"
+                          }}>
+                            {catName}
+                          </h3>
                         </div>
-                      ))}
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700, 
+                          color: '#475569', 
+                          background: '#f8fafc', 
+                          border: '1px solid #cbd5e1', 
+                          padding: '3px 9px', 
+                          borderRadius: '12px' 
+                        }}>
+                          Top 3 Stars
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                        {stars.map((s, i) => {
+                          const medalIcons = ['🥇', '🥈', '🥉'];
+                          const medalBorder = i === 0 ? '#F59E0B' : i === 1 ? '#94A3B8' : '#D97706';
+                          const medalBg = i === 0 ? '#FEF3C7' : i === 1 ? '#F1F5F9' : '#FFEDD5';
+
+                          return (
+                            <div 
+                              key={s.id} 
+                              onClick={() => setSelectedChampion(s)}
+                              role="button"
+                              tabIndex={0}
+                              title="Click to view all results and point breakdown"
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                padding: '12px 14px',
+                                borderRadius: '12px',
+                                background: i === 0 ? 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)' : '#f8fafc',
+                                border: `1.5px solid ${i === 0 ? '#fde68a' : '#e2e8f0'}`,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                              }}
+                              className="category-champion-row"
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                <div style={{ 
+                                  width: '32px', 
+                                  height: '32px', 
+                                  borderRadius: '50%', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  background: medalBg,
+                                  border: `1px solid ${medalBorder}`,
+                                  fontSize: '1rem',
+                                  flexShrink: 0
+                                }}>
+                                  {medalIcons[i]}
+                                </div>
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ 
+                                    fontWeight: 700, 
+                                    color: '#0f172a', 
+                                    fontSize: '0.92rem',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {s.name}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: '0.75rem', 
+                                    color: '#64748b', 
+                                    marginTop: '2px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    {s.chestNumber && (
+                                      <span style={{ 
+                                        fontWeight: 700, 
+                                        background: '#e2e8f0', 
+                                        color: '#334155', 
+                                        padding: '1px 5px', 
+                                        borderRadius: '4px',
+                                        fontSize: '0.7rem' 
+                                      }}>
+                                        #{s.chestNumber}
+                                      </span>
+                                    )}
+                                    <span style={{ 
+                                      color: s.teamColor || '#881337', 
+                                      fontWeight: 600,
+                                      maxWidth: '160px',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}>
+                                      {s.teamName}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                                <span style={{ 
+                                  fontWeight: 800, 
+                                  color: '#0f172a', 
+                                  fontSize: '1.05rem',
+                                  fontFamily: "'IBM Plex Mono', monospace"
+                                }}>
+                                  {s.points} <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>pts</span>
+                                </span>
+                                <span style={{ fontSize: '0.7rem', color: '#0284c7', fontWeight: 600, marginTop: '2px' }}>
+                                  View breakdown ➔
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-
+              )}
             </div>
           )}
 
@@ -1487,8 +1581,318 @@ export default function PublicDashboard({
         </>
       )}
 
+      {/* ── Champion Detailed Results & Point Breakdown Modal ── */}
+      {selectedChampion && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 9999
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedChampion(null);
+          }}
+        >
+          <div 
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '24px',
+              maxWidth: '680px',
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+              animation: 'fadeSlideUp 0.25s ease-out'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #881337 0%, #4c0519 100%)',
+              color: '#FFFFFF',
+              padding: '24px 28px',
+              position: 'relative'
+            }}>
+              <button 
+                onClick={() => setSelectedChampion(null)}
+                style={{
+                  position: 'absolute',
+                  top: '18px',
+                  right: '18px',
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  color: '#ffffff',
+                  fontSize: '1.2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+              >
+                ✕
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ 
+                  background: 'rgba(255,255,255,0.2)', 
+                  padding: '3px 10px', 
+                  borderRadius: '20px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: 700,
+                  letterSpacing: '0.04em'
+                }}>
+                  🏆 CATEGORY CHAMPION
+                </span>
+                <span style={{ 
+                  background: '#F59E0B', 
+                  color: '#78350F', 
+                  padding: '3px 10px', 
+                  borderRadius: '20px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: 800 
+                }}>
+                  {selectedChampion.categoryName}
+                </span>
+              </div>
+
+              <h2 style={{ margin: '0 0 6px 0', fontSize: '1.6rem', fontWeight: 800, fontFamily: "'Fraunces', serif" }}>
+                {selectedChampion.name}
+              </h2>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.88rem', opacity: 0.95 }}>
+                {selectedChampion.chestNumber && (
+                  <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                    Chest #{selectedChampion.chestNumber}
+                  </span>
+                )}
+                <span>🏛️ {selectedChampion.teamName}</span>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px 28px', overflowY: 'auto', flex: 1 }}>
+              
+              {/* Summary Score Ribbon */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+                gap: '12px', 
+                marginBottom: '24px' 
+              }}>
+                <div style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '14px', padding: '14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#be185d', fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {selectedChampion.points}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#881337', textTransform: 'uppercase', marginTop: '2px' }}>
+                    Total Points
+                  </div>
+                </div>
+
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#15803d', fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {selectedChampion.results?.length || 0}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginTop: '2px' }}>
+                    Programs Won
+                  </div>
+                </div>
+
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#1d4ed8', fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {selectedChampion.results?.filter((r: any) => r.rank === 1).length || 0}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase', marginTop: '2px' }}>
+                    1st Positions
+                  </div>
+                </div>
+              </div>
+
+              {/* Point Type Rule Guide */}
+              <div style={{ 
+                background: '#f8fafc', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: '12px', 
+                padding: '10px 16px', 
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                fontSize: '0.78rem',
+                color: '#475569'
+              }}>
+                <span style={{ fontWeight: 700, color: '#0f172a' }}>📊 Point Types:</span>
+                <span><strong>Rank:</strong> 1st=5 pts, 2nd=3 pts, 3rd=1 pt</span>
+                <span>•</span>
+                <span><strong>Grade:</strong> A=5 pts, B=3 pts, C=1 pt</span>
+              </div>
+
+              {/* Program Results List */}
+              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📜</span> All Results & Point Breakdown
+              </h4>
+
+              {(!selectedChampion.results || selectedChampion.results.length === 0) ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                  No published individual results recorded yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {selectedChampion.results.map((res: any, idx: number) => {
+                    const rankBadge = res.rank === 1 ? '🥇 1st Rank' : res.rank === 2 ? '🥈 2nd Rank' : res.rank === 3 ? '🥉 3rd Rank' : null;
+                    const stageLabel = res.stageType === 'OFF_STAGE' ? '🎨 Off-Stage' : '🎭 On-Stage';
+
+                    return (
+                      <div 
+                        key={res.id || idx}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '14px',
+                          padding: '16px 18px',
+                          background: '#FFFFFF',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a' }}>
+                              {res.programCode && <span style={{ color: '#881337', marginRight: '6px' }}>[{res.programCode}]</span>}
+                              {res.programName}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.72rem', background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                {stageLabel}
+                              </span>
+                              {rankBadge && (
+                                <span style={{ 
+                                  fontSize: '0.75rem', 
+                                  background: res.rank === 1 ? '#fef3c7' : res.rank === 2 ? '#f1f5f9' : '#ffedd5', 
+                                  color: res.rank === 1 ? '#92400e' : res.rank === 2 ? '#334155' : '#9a3412', 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontWeight: 800 
+                                }}>
+                                  {rankBadge}
+                                </span>
+                              )}
+                              {res.grade && (
+                                <span style={{ 
+                                  fontSize: '0.75rem', 
+                                  background: '#dcfce7', 
+                                  color: '#166534', 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontWeight: 800 
+                                }}>
+                                  Grade {res.grade}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ 
+                            background: '#fdf2f8', 
+                            border: '1px solid #fbcfe8', 
+                            padding: '6px 12px', 
+                            borderRadius: '10px', 
+                            textAlign: 'right' 
+                          }}>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#be185d', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              +{res.points} <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#881337' }}>PTS</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Detailed Point Type Formula */}
+                        <div style={{ 
+                          background: '#f8fafc', 
+                          border: '1px solid #e2e8f0', 
+                          borderRadius: '8px', 
+                          padding: '8px 12px', 
+                          fontSize: '0.8rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '6px'
+                        }}>
+                          <span style={{ color: '#64748b', fontWeight: 600 }}>
+                            Point Type: <strong style={{ color: '#0f172a' }}>{res.pointType}</strong>
+                          </span>
+                          <span style={{ color: '#0369a1', fontWeight: 700 }}>
+                            {res.rankPoints > 0 ? `Rank: ${res.rankPoints} pts` : ''} 
+                            {res.rankPoints > 0 && res.gradePoints > 0 ? ' + ' : ''}
+                            {res.gradePoints > 0 ? `Grade: ${res.gradePoints} pts` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 28px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: '#fafafa'
+            }}>
+              <button 
+                onClick={() => setSelectedChampion(null)}
+                style={{
+                  background: '#881337',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 22px',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Responsive Breakpoint Styles */}
       <style jsx>{`
+        .category-champion-row:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px -2px rgba(136, 19, 55, 0.12) !important;
+          border-color: #f472b6 !important;
+        }
+        @keyframes fadeSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(16px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
         @media (max-width: 840px) {
           .dashboard-grid {
             grid-template-columns: 1fr !important;

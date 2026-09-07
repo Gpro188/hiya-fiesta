@@ -59,7 +59,7 @@ const getCachedPublicEventData = unstable_cache(
         }
       }),
 
-      // 3. Get All Published Results for Leaderboard
+      // 3. Get All Published Results for Leaderboard & Category Champions
       prisma.result.findMany({
         where: {
           OR: [
@@ -70,10 +70,48 @@ const getCachedPublicEventData = unstable_cache(
           isPublished: true
         },
         select: {
-          id: true, points: true, candidateId: true, teamId: true,
-          candidate: { select: { id: true, name: true, teamId: true, team: { select: { id: true, name: true, flagColor: true, institution: { select: { logoUrl: true } } } }, category: { select: { id: true, name: true } } } },
-          team: { select: { id: true, name: true, flagColor: true, institution: { select: { logoUrl: true } } } },
-          program: { select: { type: true } }
+          id: true, 
+          points: true, 
+          rank: true,
+          grade: true,
+          candidateId: true, 
+          teamId: true,
+          candidate: { 
+            select: { 
+              id: true, 
+              name: true, 
+              chestNumber: true,
+              teamId: true, 
+              team: { 
+                select: { 
+                  id: true, 
+                  name: true, 
+                  prefixCode: true, 
+                  flagColor: true, 
+                  institution: { select: { logoUrl: true, name: true, place: true } } 
+                } 
+              }, 
+              category: { select: { id: true, name: true } } 
+            } 
+          },
+          team: { 
+            select: { 
+              id: true, 
+              name: true, 
+              prefixCode: true, 
+              flagColor: true, 
+              institution: { select: { logoUrl: true, name: true, place: true } } 
+            } 
+          },
+          program: { 
+            select: { 
+              id: true, 
+              name: true, 
+              programCode: true, 
+              type: true, 
+              stageType: true 
+            } 
+          }
         }
       }),
 
@@ -178,38 +216,111 @@ const getCachedPublicEventData = unstable_cache(
     });
     const leaderboard = Object.values(teamScores).sort((a, b) => b.points - a.points);
 
-    // --- Individual Top 5 Stars (Overall) ---
-    const candidateScores: Record<string, { id: string, name: string, teamName: string, teamColor: string | null, points: number, categoryName: string }> = {};
+    // --- Category Top 3 Champions with Detailed Results & Point Types ---
+    const candidateScores: Record<string, { 
+      id: string, 
+      name: string, 
+      chestNumber: string | null,
+      teamName: string, 
+      teamPrefix: string | null,
+      teamColor: string | null, 
+      categoryName: string,
+      points: number,
+      results: Array<{
+        id: string,
+        programName: string,
+        programCode: string | null,
+        stageType: string | null,
+        rank: number | null,
+        grade: string | null,
+        points: number,
+        rankPoints: number,
+        gradePoints: number,
+        pointType: string
+      }>
+    }> = {};
+
     allPublishedResults.forEach(res => {
       if (!res.candidate) return; // Only count individual stars
-      if (res.program?.type !== "INDIVIDUAL") return; // Do not count group or general programs towards Kalathilakam
+      if (res.program?.type !== "INDIVIDUAL") return; // Do not count group or general programs towards individual stars
       
       const candId = res.candidate.id;
       if (!candidateScores[candId]) {
         candidateScores[candId] = {
           id: candId,
           name: res.candidate.name,
-          teamName: res.candidate.team.name,
-          teamColor: res.candidate.team.flagColor,
-          categoryName: res.candidate.category.name,
-          points: 0
+          chestNumber: res.candidate.chestNumber || null,
+          teamName: res.candidate.team?.name || "Team",
+          teamPrefix: res.candidate.team?.prefixCode || null,
+          teamColor: res.candidate.team?.flagColor || null,
+          categoryName: res.candidate.category?.name || "General",
+          points: 0,
+          results: []
         };
       }
       candidateScores[candId].points += res.points;
+
+      // Calculate rank and grade points breakdown
+      const rankPts = res.rank === 1 ? 5 : res.rank === 2 ? 3 : res.rank === 3 ? 1 : 0;
+      const gradePts = res.grade === "A" ? 5 : res.grade === "B" ? 3 : res.grade === "C" ? 1 : 0;
+      
+      const parts: string[] = [];
+      if (res.rank) {
+        const rankSuffix = res.rank === 1 ? '1st' : res.rank === 2 ? '2nd' : '3rd';
+        parts.push(`${rankSuffix} Rank (${rankPts} pts)`);
+      }
+      if (res.grade) {
+        parts.push(`Grade ${res.grade} (${gradePts} pts)`);
+      }
+      const pointType = parts.length > 0 ? parts.join(" + ") : `${res.points} pts`;
+
+      candidateScores[candId].results.push({
+        id: res.id,
+        programName: res.program?.name || "Program",
+        programCode: res.program?.programCode || null,
+        stageType: res.program?.stageType || null,
+        rank: res.rank,
+        grade: res.grade,
+        points: res.points,
+        rankPoints: rankPts,
+        gradePoints: gradePts,
+        pointType: pointType
+      });
     });
+
     const topStars = Object.values(candidateScores).sort((a, b) => b.points - a.points).slice(0, 5);
 
-    // --- Category Top 5 Stars ---
+    // --- Category Top 3 Champions ---
     const categoryStars: Record<string, any[]> = {};
 
     categories.forEach(cat => {
       const catScores = Object.values(candidateScores)
-        .filter(c => c.categoryName === cat.name)
+        .filter(c => c.categoryName.toLowerCase().trim() === cat.name.toLowerCase().trim())
         .sort((a, b) => b.points - a.points)
-        .slice(0, 5);
+        .slice(0, 3); // Restrict to Top 3 of each category
       
+      catScores.forEach(cs => {
+        cs.results.sort((a: any, b: any) => (a.rank || 99) - (b.rank || 99) || b.points - a.points);
+      });
+
       if (catScores.length > 0) {
         categoryStars[cat.name] = catScores;
+      }
+    });
+
+    // Also include any categories present in candidateScores that weren't in categories table
+    Object.values(candidateScores).forEach(c => {
+      if (c.categoryName && !categoryStars[c.categoryName]) {
+        const catScores = Object.values(candidateScores)
+          .filter(cand => cand.categoryName.toLowerCase().trim() === c.categoryName.toLowerCase().trim())
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 3);
+        catScores.forEach(cs => {
+          cs.results.sort((a: any, b: any) => (a.rank || 99) - (b.rank || 99) || b.points - a.points);
+        });
+        if (catScores.length > 0) {
+          categoryStars[c.categoryName] = catScores;
+        }
       }
     });
 
