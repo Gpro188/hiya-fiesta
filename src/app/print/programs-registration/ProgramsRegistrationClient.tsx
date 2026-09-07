@@ -649,7 +649,7 @@ export default function ProgramsRegistrationClient({
               <tr style={{ backgroundColor: "#f1f5f9", borderBottom: "2px solid #94a3b8" }}>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "30px" }}>#</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "45px" }}>Code</th>
-                <th style={{ padding: "6px 8px", textAlign: "left" }}>Program Name & Registered Colleges</th>
+                <th style={{ padding: "6px 8px", textAlign: "left" }}>Program Name</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "75px" }}>Category</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "55px" }}>Type</th>
                 <th style={{ padding: "6px 4px", textAlign: "center", width: "65px" }}>Stage</th>
@@ -788,34 +788,6 @@ export default function ProgramsRegistrationClient({
                         <div className="prog-name" style={{ fontWeight: 700, color: "#0f172a" }}>
                           {program.name}
                         </div>
-
-                        {/* Institution Breakdown Pills (Shows Code & Place with Count) */}
-                        {registeredCollegesInScope.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
-                            {registeredCollegesInScope.map((code) => {
-                              const matchP = zoneParticipants.find((p) => p.institutionCode === code);
-                              const place = matchP?.institutionPlace || zoneInstitutions.find((i) => i.code === code)?.place;
-                              const countForCode = zoneParticipants.filter((p) => p.institutionCode === code).length;
-                              return (
-                                <span
-                                  key={code}
-                                  style={{
-                                    fontSize: "0.68rem",
-                                    padding: "1px 6px",
-                                    borderRadius: "3px",
-                                    backgroundColor: "#f1f5f9",
-                                    color: "#334155",
-                                    fontWeight: 600,
-                                    border: "1px solid #cbd5e1",
-                                  }}
-                                >
-                                  <strong style={{ color: "#8E0033", fontFamily: "monospace" }}>{code}</strong>
-                                  {place ? ` (${place})` : ""}: <strong style={{ color: "#0f172a" }}>{countForCode}</strong>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
                       </td>
                       <td style={{ padding: "4px 4px", textAlign: "center" }}>
                         <span
