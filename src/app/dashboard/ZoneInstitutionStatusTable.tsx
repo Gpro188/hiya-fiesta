@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { confirmTeamRegistration } from "./teams/actions";
+import RegistrationAccessModal from "./teams/RegistrationAccessModal";
 
 export interface ZoneTeamStatus {
   id: string;
@@ -13,6 +14,11 @@ export interface ZoneTeamStatus {
   isOnStageConfirmed: boolean;
   offStageUnlocked: boolean;
   onStageUnlocked: boolean;
+  registrationUnlocked?: boolean;
+  offStageUnlockStart?: string | Date | null;
+  offStageUnlockEnd?: string | Date | null;
+  onStageUnlockStart?: string | Date | null;
+  onStageUnlockEnd?: string | Date | null;
   magazineCode: string | null;
   isMagazineParticipating: boolean;
   institution?: {
@@ -49,6 +55,7 @@ export default function ZoneInstitutionStatusTable({
     "ALL" | "PENDING_OFF" | "CONFIRMED_OFF" | "PENDING_ON" | "FULLY_CONFIRMED"
   >("ALL");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [scheduleModalTeam, setScheduleModalTeam] = useState<ZoneTeamStatus | null>(null);
   const [toastMessage, setToastMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -327,6 +334,28 @@ export default function ZoneInstitutionStatusTable({
           >
             <span>{copied ? "✅" : "📲"}</span>
             {copied ? "Copied Status to Clipboard!" : "Copy WhatsApp Summary"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setScheduleModalTeam(teams[0] || null)}
+            className="btn"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "0.45rem 1.1rem",
+              fontSize: "0.82rem",
+              fontWeight: 800,
+              backgroundColor: "#8E0033",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              boxShadow: "0 2px 4px rgba(142,0,51,0.2)"
+            }}
+          >
+            <span>⏱️</span> Select Institution & Schedule Time
           </button>
 
           <Link
@@ -939,6 +968,27 @@ export default function ZoneInstitutionStatusTable({
                           📜 List
                         </a>
 
+                        {/* Quick Schedule / Unlock Modal Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setScheduleModalTeam(team)}
+                          className="btn btn-secondary"
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "0.72rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontWeight: 700,
+                            backgroundColor: (team.offStageUnlocked || team.onStageUnlocked) ? "#ecfdf5" : "#fff",
+                            color: (team.offStageUnlocked || team.onStageUnlocked) ? "#047857" : "#8E0033",
+                            borderColor: (team.offStageUnlocked || team.onStageUnlocked) ? "#a7f3d0" : "#fbcfe8",
+                          }}
+                          title="Open Off-Stage or On-Stage registration and set schedule window for this institution"
+                        >
+                          <span>⏱️</span> {(team.offStageUnlocked || team.onStageUnlocked) ? "Active Schedule" : "Schedule"}
+                        </button>
+
                         <a
                           href={`/print/id-cards?teamId=${team.id}`}
                           target="_blank"
@@ -964,6 +1014,18 @@ export default function ZoneInstitutionStatusTable({
           </tbody>
         </table>
       </div>
+
+      {scheduleModalTeam && (
+        <RegistrationAccessModal
+          team={scheduleModalTeam as any}
+          teams={teams as any}
+          onClose={() => setScheduleModalTeam(null)}
+          onUpdated={() => {
+            setScheduleModalTeam(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

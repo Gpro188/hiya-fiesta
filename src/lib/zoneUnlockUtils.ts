@@ -58,9 +58,9 @@ export function getZoneUnlockStatus(event: {
 
   if (!windowStart && !windowEnd) {
     return {
-      isAllowed: false,
+      isAllowed: true,
       mode: 'FIXED_TIME',
-      message: 'Fixed time window has not been set by Super Admin yet.',
+      message: 'Registration unlock & scheduling is open for Zone Admins.',
       windowStart: null,
       windowEnd: null,
     };
