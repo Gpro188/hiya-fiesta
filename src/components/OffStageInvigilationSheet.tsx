@@ -193,6 +193,35 @@ export default function OffStageInvigilationSheet({
                   <div>
                     <strong>ZONE:</strong> <span style={{ fontWeight: 700 }}>{inst.zoneName || "Regional Zone"}</span>
                   </div>
+                  <div style={{ marginTop: "4px" }}>
+                    <strong>STATUS:</strong>{" "}
+                    {catGroup.rows.some(r => Boolean(r.chestNumber)) ? (
+                      <span style={{ 
+                        fontWeight: 800, 
+                        color: "#047857", 
+                        backgroundColor: "#ecfdf5", 
+                        border: "1px solid #a7f3d0", 
+                        padding: "2px 8px", 
+                        borderRadius: "4px", 
+                        fontSize: "0.75rem",
+                        letterSpacing: "0.5px"
+                      }}>
+                        ✅ CONFIRMED (Chest Numbers Assigned)
+                      </span>
+                    ) : (
+                      <span style={{ 
+                        fontWeight: 700, 
+                        color: "#b45309", 
+                        backgroundColor: "#fffbeb", 
+                        border: "1px solid #fde68a", 
+                        padding: "2px 8px", 
+                        borderRadius: "4px", 
+                        fontSize: "0.75rem" 
+                      }}>
+                        ⏳ PENDING CONFIRMATION
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ textAlign: "right" }}>
@@ -372,8 +401,38 @@ export default function OffStageInvigilationSheet({
                         <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontFamily: "monospace", fontSize: "0.8rem", color: "#334155" }}>
                           {row.candidateUid || "—"}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 800, fontSize: "0.88rem", color: "#8E0033" }}>
-                          {row.chestNumber || "—"}
+                        <td style={{ border: "1px solid #0f172a", padding: "4px 4px", textAlign: "center" }}>
+                          {row.chestNumber ? (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                backgroundColor: "#fdf2f4",
+                                border: "1.5px solid #8E0033",
+                                color: "#8E0033",
+                                fontWeight: 900,
+                                fontSize: "0.92rem",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                letterSpacing: "0.5px",
+                              }}
+                            >
+                              {row.chestNumber}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                border: "1px dashed #94a3b8",
+                                color: "#94a3b8",
+                                padding: "2px 4px",
+                                borderRadius: "3px",
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              PENDING
+                            </span>
+                          )}
                         </td>
                         <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontSize: "0.75rem" }}>
                           <div style={{ color: "#475569" }}>___:___ to ___:___</div>

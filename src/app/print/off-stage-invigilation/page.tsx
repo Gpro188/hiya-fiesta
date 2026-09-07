@@ -166,12 +166,19 @@ export default async function PrintOffStageInvigilationPage(props: {
       a.categoryName.localeCompare(b.categoryName)
     );
 
-    // Sort rows within each category by programName, then chestNumber/candidateName
+    // Sort rows within each category by chestNumber (if assigned), then programName, then candidateName
     categories.forEach((cat) => {
       cat.rows.sort((a, b) => {
+        if (a.chestNumber && b.chestNumber) {
+          const numA = parseInt(a.chestNumber, 10);
+          const numB = parseInt(b.chestNumber, 10);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return a.chestNumber.localeCompare(b.chestNumber);
+        }
+        if (a.chestNumber) return -1;
+        if (b.chestNumber) return 1;
         const progComp = a.programName.localeCompare(b.programName);
         if (progComp !== 0) return progComp;
-        if (a.chestNumber && b.chestNumber) return a.chestNumber.localeCompare(b.chestNumber);
         return a.candidateName.localeCompare(b.candidateName);
       });
     });

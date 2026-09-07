@@ -112,6 +112,20 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
+          name: "Chest Number Hub",
+          subtitle: "Pending confirm & print roster",
+          icon: "🎫",
+          href: "/print/chest-numbers",
+          highlight: true,
+        },
+        {
+          name: "Zonal Off-Stage Valuation",
+          subtitle: "Photos & marks sheet",
+          icon: "📝",
+          href: "/print/zonal-offstage-valuation",
+          highlight: true,
+        },
+        {
           name: "Master Institutions",
           subtitle: "Upload & Zone mappings",
           icon: "🏫",
@@ -241,6 +255,20 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "All printables & schedules",
           icon: "🖨️",
           href: "/dashboard/reports",
+        },
+        {
+          name: "Chest Number Hub",
+          subtitle: "Pending confirm & print roster",
+          icon: "🎫",
+          href: "/print/chest-numbers",
+          highlight: true,
+        },
+        {
+          name: "Zonal Off-Stage Valuation",
+          subtitle: "Photos & marks sheet",
+          icon: "📝",
+          href: "/print/zonal-offstage-valuation",
+          highlight: true,
         },
         {
           name: "Program Reg Counts",

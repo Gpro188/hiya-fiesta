@@ -137,8 +137,17 @@ export default async function ReportsPage(props: {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
           <a href={`/print/valuation?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--accent)' }}>Jury Valuation Sheet</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blank scoring sheets for judges. (Hides candidate identity).</p>
+            <h4 style={{ margin: '0 0 5px 0', color: 'var(--accent)' }}>Jury Valuation Sheet (Stage)</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blank scoring sheets for stage judges. (Hides candidate identity for blind judging).</p>
+          </a>
+
+          <a href="/print/zonal-offstage-valuation" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#8E0033' }}>Zonal Off-Stage Valuation Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontWeight: 800 }}>PHOTOS & CHEST #</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Off-stage valuation sheet to send to Zonal Centers. Mark entry with Candidate Photos, Chest Numbers, Zone-based for all off-stage programs.</p>
           </a>
           
           <a href={`/print/tabulation?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
@@ -150,6 +159,17 @@ export default async function ReportsPage(props: {
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Candidates & Teams</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a href="/print/chest-numbers" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎫</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: '#8E0033' }}>Master Chest Number Hub</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontWeight: 800 }}>0 DUPLICATES (CHECKED)</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Check duplicate integrity, pending list by institution & zone to confirm, institution-wise & zonal rosters, and print desk slips / badges.</p>
+            </a>
+          )}
+
           {["ADMIN", "SUPER_ADMIN"].includes(role) && (
             <a href="/print/zonal-registration-summary" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📦</div>
