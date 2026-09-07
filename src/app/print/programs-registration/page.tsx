@@ -6,6 +6,7 @@ import { getSettings } from "@/lib/settings";
 import ProgramsRegistrationClient, {
   ProgramRegistrationItem,
   ProgramsOverview,
+  ZoneItem,
 } from "./ProgramsRegistrationClient";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,34 @@ export default async function ProgramsRegistrationReportPage() {
   });
   const settings = await getSettings(stateEvent?.id);
 
-  // Fetch all programs with category and assignments
+  // Fetch all 8 regional zones
+  const rawZones = await prisma.zone.findMany({
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" },
+  });
+
+  // Define preferred regional sort order for festival:
+  // North to South: Kasaragod -> Kannur -> Kozhikode -> Malappuram West -> Malappuram East -> Palakkad -> Thrissur -> Karnataka
+  const zoneOrder: Record<string, number> = {
+    KSG: 1,
+    KNR: 2,
+    KKD: 3,
+    MPW: 4,
+    MPE: 5,
+    PLK: 6,
+    TCR: 7,
+    KAR: 8,
+  };
+
+  const allZones: ZoneItem[] = rawZones
+    .map((z) => ({
+      id: z.id,
+      name: z.name,
+      code: z.code,
+    }))
+    .sort((a, b) => (zoneOrder[a.code] || 99) - (zoneOrder[b.code] || 99));
+
+  // Fetch all programs with category and candidate assignments
   const programs = await prisma.program.findMany({
     include: {
       category: { select: { name: true } },
@@ -58,7 +86,12 @@ export default async function ProgramsRegistrationReportPage() {
                       code: true,
                       name: true,
                       place: true,
-                      zone: { select: { name: true } },
+                      zone: { select: { id: true, name: true, code: true } },
+                    },
+                  },
+                  event: {
+                    select: {
+                      zone: { select: { id: true, name: true, code: true } },
                     },
                   },
                 },
@@ -77,12 +110,34 @@ export default async function ProgramsRegistrationReportPage() {
   let totalOnStage = 0;
   let totalOffStage = 0;
 
+  const zoneTotalRegistrations: Record<string, number> = {};
+  allZones.forEach((z) => {
+    zoneTotalRegistrations[z.id] = 0;
+  });
+
   const items: ProgramRegistrationItem[] = programs.map((p) => {
-    // If ZONE_ADMIN, filter participants to only candidates in that zone
+    const zoneCounts: Record<string, number> = {};
+    allZones.forEach((z) => {
+      zoneCounts[z.id] = 0;
+    });
+
     let participants = p.assignments
       .filter((a) => Boolean(a.candidate))
       .map((a) => {
         const c = a.candidate;
+        const assignedZone =
+          c.team?.institution?.zone || c.team?.event?.zone || null;
+
+        const zoneId = assignedZone?.id || "UNKNOWN";
+        const zoneName = assignedZone?.name || "Unknown Zone";
+        const zoneCode = assignedZone?.code || "UNK";
+
+        // Increment count for this zone
+        if (assignedZone?.id && zoneCounts[assignedZone.id] !== undefined) {
+          zoneCounts[assignedZone.id]++;
+          zoneTotalRegistrations[assignedZone.id]++;
+        }
+
         return {
           candidateId: c.id,
           candidateName: c.name,
@@ -90,18 +145,19 @@ export default async function ProgramsRegistrationReportPage() {
           institutionCode: c.team?.institution?.code || c.team?.prefixCode || "-",
           institutionName: c.team?.institution?.name || c.team?.name || "-",
           institutionPlace: c.team?.institution?.place || null,
-          zoneName: c.team?.institution?.zone?.name || null,
+          zoneId,
+          zoneName,
+          zoneCode,
         };
       });
 
     if (role === "ZONE_ADMIN" && fullUser?.zoneId) {
-      // Find zone name
-      participants = participants.filter((part) => {
-        return part.zoneName?.toLowerCase().includes(session.user.name?.toLowerCase() || "");
-      });
+      participants = participants.filter((part) => part.zoneId === fullUser.zoneId);
     }
 
-    const distinctInstCodes = new Set(participants.map((part) => part.institutionCode).filter(Boolean));
+    const distinctInstCodes = new Set(
+      participants.map((part) => part.institutionCode).filter(Boolean)
+    );
 
     totalCandidateRegistrations += participants.length;
     if (p.type === "GENERAL") {
@@ -126,6 +182,7 @@ export default async function ProgramsRegistrationReportPage() {
       duration: p.duration,
       candidatesCount: participants.length,
       institutionsCount: distinctInstCodes.size,
+      zoneCounts,
       participants,
     };
   });
@@ -137,11 +194,13 @@ export default async function ProgramsRegistrationReportPage() {
     totalGeneralPrograms,
     totalOnStagePrograms: totalOnStage,
     totalOffStagePrograms: totalOffStage,
+    zoneTotalRegistrations,
   };
 
   return (
     <ProgramsRegistrationClient
       programs={items}
+      zones={allZones}
       overview={overview}
       festName={settings.festName || "HIYA FIESTA 2026"}
     />
