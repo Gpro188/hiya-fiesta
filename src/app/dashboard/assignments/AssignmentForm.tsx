@@ -23,6 +23,8 @@ export default function AssignmentForm({
   isOnStageOpen = true,
   offStageDeadline = null,
   onStageDeadline = null,
+  isZoneConfirmedOffStage = false,
+  isZoneConfirmedOnStage = false,
   offStageUnlocked = false,
   onStageUnlocked = false,
   role = "INSTITUTION_MANAGER"
@@ -50,6 +52,8 @@ export default function AssignmentForm({
   isOnStageOpen?: boolean;
   offStageDeadline?: string | null;
   onStageDeadline?: string | null;
+  isZoneConfirmedOffStage?: boolean;
+  isZoneConfirmedOnStage?: boolean;
   offStageUnlocked?: boolean;
   onStageUnlocked?: boolean;
   role?: string;
@@ -1232,8 +1236,8 @@ export default function AssignmentForm({
           </button>
 
           {/* Off-Stage Status / Action */}
-          {!isAssignmentsConfirmed ? (
-            isOffStageOpen && (
+          {isOffStageOpen ? (
+            !isAssignmentsConfirmed ? (
               <button 
                 className="btn btn-primary"
                 onClick={() => { setConfirmingStage("OFF_STAGE"); setShowConfirmModal(true); }}
@@ -1242,36 +1246,62 @@ export default function AssignmentForm({
               >
                 🎨 Confirm Off-Stage to Zone
               </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ padding: '6px 14px', color: '#0369a1', fontWeight: 600, border: '1px solid #bae6fd', borderRadius: '6px', backgroundColor: '#f0f9ff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📥</span> Off-Stage Submitted (Editable until deadline)
+                </div>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => { setConfirmingStage("OFF_STAGE"); setShowConfirmModal(true); }}
+                  disabled={loading}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#0284c7', color: '#0284c7' }}
+                >
+                  Re-Submit Off-Stage
+                </button>
+              </div>
             )
           ) : (
-            <div style={{ padding: '6px 14px', color: '#0369a1', fontWeight: 600, border: '1px solid #bae6fd', borderRadius: '6px', backgroundColor: '#f0f9ff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔒</span> Off-Stage Confirmed & Locked
+            <div style={{ padding: '6px 14px', color: '#b91c1c', fontWeight: 600, border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fef2f2', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔒</span> {isZoneConfirmedOffStage ? "Off-Stage Confirmed by Zone (Chest Nos Assigned)" : "Off-Stage Closed (Deadline Passed)"}
             </div>
           )}
 
           {/* On-Stage Status / Action */}
-          {isOnStageConfirmed ? (
-            <div style={{ padding: '6px 14px', color: '#be185d', fontWeight: 600, border: '1px solid #fbcfe8', borderRadius: '6px', backgroundColor: '#fdf2f8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔒</span> On-Stage Confirmed & Locked
+          {isOnStageOpen ? (
+            !isOnStageConfirmed ? (
+              <button 
+                className="btn btn-primary"
+                onClick={() => { setConfirmingStage("ON_STAGE"); setShowConfirmModal(true); }}
+                disabled={loading}
+                style={{ padding: 'var(--spacing-sm) var(--spacing-lg)', fontSize: '0.9rem', backgroundColor: '#db2777', borderColor: '#db2777' }}
+              >
+                🎭 Confirm On-Stage to Zone
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ padding: '6px 14px', color: '#be185d', fontWeight: 600, border: '1px solid #fbcfe8', borderRadius: '6px', backgroundColor: '#fdf2f8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📥</span> On-Stage Submitted (Editable until deadline)
+                </div>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => { setConfirmingStage("ON_STAGE"); setShowConfirmModal(true); }}
+                  disabled={loading}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#db2777', color: '#db2777' }}
+                >
+                  Re-Submit On-Stage
+                </button>
+              </div>
+            )
+          ) : (
+            <div style={{ padding: '6px 14px', color: '#b91c1c', fontWeight: 600, border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fef2f2', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔒</span> {isZoneConfirmedOnStage ? "On-Stage Confirmed by Zone (Chest Nos Assigned)" : "On-Stage Closed (Deadline Passed)"}
             </div>
-          ) : isOnStageOpen ? (
-            <button 
-              className="btn btn-primary"
-              onClick={() => { setConfirmingStage("ON_STAGE"); setShowConfirmModal(true); }}
-              disabled={loading}
-              style={{ padding: 'var(--spacing-sm) var(--spacing-lg)', fontSize: '0.9rem', backgroundColor: '#db2777', borderColor: '#db2777' }}
-            >
-              🎭 Confirm On-Stage to Zone
-            </button>
-          ) : isAssignmentsConfirmed ? (
-            <div style={{ padding: '6px 14px', color: '#b45309', fontWeight: 600, border: '1px solid #fde68a', borderRadius: '6px', backgroundColor: '#fffbeb', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>⏳</span> On-Stage Registration Pending Start
-            </div>
-          ) : null}
+          )}
 
           {isAssignmentsConfirmed && isOnStageConfirmed && (
             <div style={{ padding: '6px 14px', color: 'var(--success)', fontWeight: 700, border: '1px solid var(--success)', borderRadius: '6px', backgroundColor: 'rgba(16,185,129,0.1)', fontSize: '0.85rem' }}>
-              ✅ All Registrations Confirmed
+              ✅ Registrations Submitted
             </div>
           )}
         </div>
@@ -1317,8 +1347,8 @@ export default function AssignmentForm({
                 </h3>
                 <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem', lineHeight: 1.5 }}>
                   {confirmingStage === "OFF_STAGE" 
-                    ? "Please review your Off-Stage entries. Once confirmed, Off-Stage programs are strictly locked and submitted to the Zone Admin to generate chest numbers and print invigilation sheets. On-Stage registration will open separately."
-                    : "Please review your On-Stage entries. Once confirmed, On-Stage programs are locked and submitted to the Zone Admin. Your previously confirmed Off-Stage data and chest numbers remain untouched."
+                    ? "Please review your Off-Stage entries. Once submitted, your registration is forwarded to the Zone Admin. You can continue updating entries anytime until the registration deadline or until the Zone Admin generates official Chest Numbers."
+                    : "Please review your On-Stage entries. Once submitted, your registration is forwarded to the Zone Admin. You can continue updating entries anytime until the registration deadline or until the Zone Admin generates official Chest Numbers."
                   }
                 </p>
               </div>
@@ -1433,7 +1463,7 @@ export default function AssignmentForm({
                     }
                   }}
                 >
-                  {loading ? "Submitting..." : `✅ Yes, Lock & Submit ${confirmingStage === "OFF_STAGE" ? "Off-Stage" : "On-Stage"}`}
+                  {loading ? "Submitting..." : `✅ Yes, Submit ${confirmingStage === "OFF_STAGE" ? "Off-Stage" : "On-Stage"} to Zone`}
                 </button>
               </div>
             </div>

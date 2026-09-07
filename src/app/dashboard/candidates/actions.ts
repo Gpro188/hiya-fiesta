@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
 export async function addCandidate(data: { name: string, categoryId: string, teamId: string, photo?: string, uid?: string }) {
   try {
@@ -30,28 +31,21 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
       if (!team) return { success: false, error: "Team not found" };
       teamInstitutionId = team.institutionId;
       
-      const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-      
-      const now = new Date();
-      const start = team.event.registrationStart || team.event.parent?.registrationStart;
-      const offEnd = team.event.offStageRegistrationEnd || team.event.parent?.offStageRegistrationEnd;
-      const onEnd = team.event.onStageRegistrationEnd || team.event.parent?.onStageRegistrationEnd;
-      const generalEnd = team.event.institutionRegistrationEndDate || team.event.registrationEnd || team.event.parent?.institutionRegistrationEndDate || team.event.parent?.registrationEnd;
-      const isOffStageOpen = !offEnd || now <= offEnd;
-      const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
-      const isGeneralOpen = !generalEnd || now <= generalEnd;
-      const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
+      const teamCandidatesForLock = await prisma.candidate.findMany({
+        where: { teamId: team.id },
+        select: {
+          id: true,
+          chestNumber: true,
+          programs: {
+            select: { program: { select: { stageType: true } } }
+          }
+        }
+      });
 
-      const isBothConfirmed = team.isAssignmentsConfirmed && (team.isOnStageConfirmed || !isOnStageOpen);
-      if (isBothConfirmed && !isUnlocked) {
-        return { success: false, error: "All registrations are confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
-      }
+      const lockStatus = getRegistrationLockStatus(team, null, teamCandidatesForLock, false);
 
-      if (start && now < start) {
-        return { success: false, error: `Registration opens on ${start.toLocaleString()}` };
-      }
-      if (!isUnlocked && !isAnyStageOpen) {
-        return { success: false, error: "Registration deadlines for Off-Stage and On-Stage programs have passed. Please contact your Zone Admin." };
+      if (!lockStatus.isCandidateRegistrationOpen) {
+        return { success: false, error: lockStatus.statusMessage || "Registration is currently locked. Contact your Zone Admin." };
       }
 
       // Verify UID belongs to their institution
@@ -221,22 +215,21 @@ export async function deleteCandidate(id: string) {
         include: { event: { include: { parent: true } } }
       }) : null;
       if (team) {
-        const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-        const now = new Date();
-        const offEnd = team.event.offStageRegistrationEnd || team.event.parent?.offStageRegistrationEnd;
-        const onEnd = team.event.onStageRegistrationEnd || team.event.parent?.onStageRegistrationEnd;
-        const generalEnd = team.event.institutionRegistrationEndDate || team.event.registrationEnd || team.event.parent?.institutionRegistrationEndDate || team.event.parent?.registrationEnd;
-        const isOffStageOpen = !offEnd || now <= offEnd;
-        const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
-        const isGeneralOpen = !generalEnd || now <= generalEnd;
-        const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
+        const teamCandidatesForLock = await prisma.candidate.findMany({
+          where: { teamId: team.id },
+          select: {
+            id: true,
+            chestNumber: true,
+            programs: {
+              select: { program: { select: { stageType: true } } }
+            }
+          }
+        });
 
-        const isBothConfirmed = team.isAssignmentsConfirmed && (team.isOnStageConfirmed || !isOnStageOpen);
-        if (isBothConfirmed && !isUnlocked) {
-          return { success: false, error: "All registrations are confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
-        }
-        if (!isUnlocked && !isAnyStageOpen) {
-          return { success: false, error: "Registration deadline has passed. Cannot delete candidate." };
+        const lockStatus = getRegistrationLockStatus(team, null, teamCandidatesForLock, false);
+
+        if (!lockStatus.isCandidateRegistrationOpen) {
+          return { success: false, error: lockStatus.statusMessage || "Registration is closed. Cannot delete candidate." };
         }
       }
 

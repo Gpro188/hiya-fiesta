@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
+import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
 export async function assignProgram(candidateId: string, programId: string) {
   try {
@@ -38,64 +39,53 @@ export async function assignProgram(candidateId: string, programId: string) {
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
       const team = candidate.team;
       if (team) {
-        const now = new Date();
-        const event = team.event;
         const isOffStage = program.stageType === "OFF_STAGE";
         const isOnStage = program.stageType === "ON_STAGE";
 
-        const offDeadline =
-          event?.offStageRegistrationEnd ||
-          event?.parent?.offStageRegistrationEnd ||
-          event?.institutionRegistrationEndDate ||
-          event?.parent?.institutionRegistrationEndDate ||
-          event?.registrationEnd ||
-          event?.parent?.registrationEnd;
+        const teamCandidates = await prisma.candidate.findMany({
+          where: { teamId: team.id },
+          select: {
+            id: true,
+            chestNumber: true,
+            programs: {
+              select: {
+                program: {
+                  select: { stageType: true }
+                }
+              }
+            }
+          }
+        });
 
-        const onDeadline =
-          event?.onStageRegistrationEnd ||
-          event?.parent?.onStageRegistrationEnd ||
-          event?.institutionRegistrationEndDate ||
-          event?.parent?.institutionRegistrationEndDate ||
-          event?.registrationEnd ||
-          event?.parent?.registrationEnd;
+        const lockStatus = getRegistrationLockStatus(team, null, teamCandidates, false);
 
-        const start = event?.assignmentStart || event?.parent?.assignmentStart || event?.registrationStart || event?.parent?.registrationStart;
-        if (start && now < new Date(start)) {
-          return { success: false, error: `Program registration opens on ${new Date(start).toLocaleString()}` };
+        if (lockStatus.isNotStarted && lockStatus.startDate) {
+          return { success: false, error: `Program registration opens on ${lockStatus.startDate.toLocaleString()}` };
         }
 
         if (isOffStage) {
-          if (!team.offStageUnlocked) {
-            if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked. Off-Stage programs cannot be added or modified." };
+          if (!lockStatus.isOffStageOpen) {
+            if (lockStatus.isZoneConfirmedOffStage) {
+              return { success: false, error: "Off-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Contact your Zone Admin to request an unlock." };
             }
-            if (offDeadline && now > new Date(offDeadline)) {
-              return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
+            if (lockStatus.isOffStageDeadlinePassed) {
+              return { success: false, error: `Off-Stage registration closed on ${lockStatus.offDeadline?.toLocaleString()}. Contact your Zone Admin to request access.` };
             }
+            return { success: false, error: "Off-Stage registration is currently locked." };
           }
         } else if (isOnStage) {
-          if (!team.onStageUnlocked) {
-            if (team.isOnStageConfirmed) {
-              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked. On-Stage programs cannot be modified." };
+          if (!lockStatus.isOnStageOpen) {
+            if (lockStatus.isZoneConfirmedOnStage) {
+              return { success: false, error: "On-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Contact your Zone Admin to request an unlock." };
             }
-            if (onDeadline && now > new Date(onDeadline)) {
-              return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Contact your Zone Admin to request access.` };
+            if (lockStatus.isOnStageDeadlinePassed) {
+              return { success: false, error: `On-Stage registration closed on ${lockStatus.onDeadline?.toLocaleString()}. Contact your Zone Admin to request access.` };
             }
+            return { success: false, error: "On-Stage registration is currently locked." };
           }
         } else {
-          // Programs without explicit stage or general programs
-          if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
-            if (team.isAssignmentsConfirmed && team.isOnStageConfirmed) {
-              return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
-            }
-            const generalEnd =
-              event?.institutionRegistrationEndDate ||
-              event?.parent?.institutionRegistrationEndDate ||
-              event?.registrationEnd ||
-              event?.parent?.registrationEnd;
-            if (generalEnd && now > new Date(generalEnd)) {
-              return { success: false, error: "Registration deadline has passed." };
-            }
+          if (!lockStatus.isOffStageOpen && !lockStatus.isOnStageOpen) {
+            return { success: false, error: "Registration deadline has passed. Contact your Zone Admin to request an unlock." };
           }
         }
       }
@@ -216,58 +206,49 @@ export async function unassignProgram(candidateId: string, programId: string) {
 
       const team = candidate.team;
       if (team) {
-        const now = new Date();
-        const event = team.event;
         const isOffStage = program.stageType === "OFF_STAGE";
         const isOnStage = program.stageType === "ON_STAGE";
 
-        const offDeadline =
-          event?.offStageRegistrationEnd ||
-          event?.parent?.offStageRegistrationEnd ||
-          event?.institutionRegistrationEndDate ||
-          event?.parent?.institutionRegistrationEndDate ||
-          event?.registrationEnd ||
-          event?.parent?.registrationEnd;
+        const teamCandidates = await prisma.candidate.findMany({
+          where: { teamId: team.id },
+          select: {
+            id: true,
+            chestNumber: true,
+            programs: {
+              select: {
+                program: {
+                  select: { stageType: true }
+                }
+              }
+            }
+          }
+        });
 
-        const onDeadline =
-          event?.onStageRegistrationEnd ||
-          event?.parent?.onStageRegistrationEnd ||
-          event?.institutionRegistrationEndDate ||
-          event?.parent?.institutionRegistrationEndDate ||
-          event?.registrationEnd ||
-          event?.parent?.registrationEnd;
+        const lockStatus = getRegistrationLockStatus(team, null, teamCandidates, false);
 
         if (isOffStage) {
-          if (!team.offStageUnlocked) {
-            if (team.isAssignmentsConfirmed) {
-              return { success: false, error: "Off-Stage assignments have been submitted to the Zone and are now locked. Off-Stage programs cannot be removed." };
+          if (!lockStatus.isOffStageOpen) {
+            if (lockStatus.isZoneConfirmedOffStage) {
+              return { success: false, error: "Off-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Cannot remove assignment without Zone Admin unlock." };
             }
-            if (offDeadline && now > new Date(offDeadline)) {
-              return { success: false, error: `Off-Stage registration closed on ${new Date(offDeadline).toLocaleString()}. Cannot remove assignment.` };
+            if (lockStatus.isOffStageDeadlinePassed) {
+              return { success: false, error: `Off-Stage registration closed on ${lockStatus.offDeadline?.toLocaleString()}. Cannot remove assignment.` };
             }
+            return { success: false, error: "Off-Stage registration is currently locked." };
           }
         } else if (isOnStage) {
-          if (!team.onStageUnlocked) {
-            if (team.isOnStageConfirmed) {
-              return { success: false, error: "On-Stage assignments have been submitted to the Zone and are now locked. On-Stage programs cannot be removed." };
+          if (!lockStatus.isOnStageOpen) {
+            if (lockStatus.isZoneConfirmedOnStage) {
+              return { success: false, error: "On-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Cannot remove assignment without Zone Admin unlock." };
             }
-            if (onDeadline && now > new Date(onDeadline)) {
-              return { success: false, error: `On-Stage registration closed on ${new Date(onDeadline).toLocaleString()}. Cannot remove assignment.` };
+            if (lockStatus.isOnStageDeadlinePassed) {
+              return { success: false, error: `On-Stage registration closed on ${lockStatus.onDeadline?.toLocaleString()}. Cannot remove assignment.` };
             }
+            return { success: false, error: "On-Stage registration is currently locked." };
           }
         } else {
-          if (!team.offStageUnlocked && !team.onStageUnlocked && !team.registrationUnlocked) {
-            if (team.isAssignmentsConfirmed && team.isOnStageConfirmed) {
-              return { success: false, error: "Program assignments have been submitted to the Zone and are locked." };
-            }
-            const generalEnd =
-              event?.institutionRegistrationEndDate ||
-              event?.parent?.institutionRegistrationEndDate ||
-              event?.registrationEnd ||
-              event?.parent?.registrationEnd;
-            if (generalEnd && now > new Date(generalEnd)) {
-              return { success: false, error: "Registration deadline has passed. Cannot remove assignment." };
-            }
+          if (!lockStatus.isOffStageOpen && !lockStatus.isOnStageOpen) {
+            return { success: false, error: "Registration deadline has passed. Cannot remove assignment." };
           }
         }
       }
@@ -337,23 +318,22 @@ export async function toggleMagazineParticipation(teamId: string, participating:
     if (!team) return { success: false, error: "Team not found" };
 
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
-      if (team.isAssignmentsConfirmed) {
-        return { success: false, error: "Assignments are already confirmed and locked by the Zone Admin." };
-      }
-
-      const now = new Date();
-      const event = team.event;
-      // Magazine is Off-Stage
-      const offDeadline =
-        event?.offStageRegistrationEnd ||
-        event?.parent?.offStageRegistrationEnd ||
-        event?.institutionRegistrationEndDate ||
-        event?.parent?.institutionRegistrationEndDate ||
-        event?.registrationEnd ||
-        event?.parent?.registrationEnd;
-
-      if (!team.offStageUnlocked && offDeadline && now > new Date(offDeadline)) {
-        return { success: false, error: "Off-stage / Magazine registration deadline has passed." };
+      const teamCandidates = await prisma.candidate.findMany({
+        where: { teamId: team.id },
+        select: {
+          id: true,
+          chestNumber: true,
+          programs: {
+            select: { program: { select: { stageType: true } } }
+          }
+        }
+      });
+      const lockStatus = getRegistrationLockStatus(team, null, teamCandidates, false);
+      if (!lockStatus.isOffStageOpen) {
+        if (lockStatus.isZoneConfirmedOffStage) {
+          return { success: false, error: "Magazine participation has already been confirmed by the Zone Admin with Chest Numbers / Magazine Code assigned." };
+        }
+        return { success: false, error: "Off-stage / Magazine registration deadline has passed. Contact your Zone Admin." };
       }
     }
 

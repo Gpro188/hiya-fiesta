@@ -6,6 +6,7 @@ import { getSettings } from "@/lib/settings";
 import AssignmentForm from "./AssignmentForm";
 import Link from "next/link";
 import { isInstitutionProgram } from "@/lib/programUtils";
+import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
 export default async function AssignmentsPage(props: { searchParams: Promise<{ candidateId?: string, teamId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -117,54 +118,6 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     }
   }
 
-  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
-  const now = new Date();
-
-  const offDeadline =
-    currentTeam?.event?.offStageRegistrationEnd ||
-    currentTeam?.event?.parent?.offStageRegistrationEnd ||
-    currentTeam?.event?.institutionRegistrationEndDate ||
-    currentTeam?.event?.parent?.institutionRegistrationEndDate ||
-    currentTeam?.event?.registrationEnd ||
-    currentTeam?.event?.parent?.registrationEnd;
-
-  const onDeadline =
-    currentTeam?.event?.onStageRegistrationEnd ||
-    currentTeam?.event?.parent?.onStageRegistrationEnd ||
-    currentTeam?.event?.institutionRegistrationEndDate ||
-    currentTeam?.event?.parent?.institutionRegistrationEndDate ||
-    currentTeam?.event?.registrationEnd ||
-    currentTeam?.event?.parent?.registrationEnd;
-
-  const isOffStageDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
-  const isOnStageDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
-
-  const isOffStageConfirmed = Boolean(currentTeam?.isAssignmentsConfirmed);
-  const isOnStageConfirmed = Boolean(currentTeam?.isOnStageConfirmed);
-
-  const isOffStageOpen = isAdmin || Boolean(
-    currentTeam?.offStageUnlocked || 
-    (!isOffStageConfirmed && !isOffStageDeadlinePassed)
-  );
-
-  const isOnStageOpen = isAdmin || Boolean(
-    currentTeam?.onStageUnlocked || 
-    (!isOnStageConfirmed && !isOnStageDeadlinePassed)
-  );
-
-  if (!isAdmin && currentTeam) {
-    if (!isOffStageOpen && !isOnStageOpen) {
-      isAssignmentOpen = false;
-      if (isOffStageConfirmed && isOnStageConfirmed) {
-        assignmentStatusMessage = "All program assignments (Off-Stage & On-Stage) have been confirmed and locked.";
-      } else {
-        assignmentStatusMessage = "Registration is currently closed for both Off-Stage and On-Stage. Contact your Zone Admin to request access.";
-      }
-    } else {
-      isAssignmentOpen = true;
-    }
-  }
-
   // Candidates scoped to team
   const whereClause: any = {};
   if (teamId) {
@@ -210,6 +163,34 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     },
     orderBy: { name: 'asc' }
   });
+
+  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+  const lockStatus = getRegistrationLockStatus(currentTeam, null, candidates as any, isAdmin);
+  const {
+    isOffStageOpen,
+    isOnStageOpen,
+    isOffStageDeadlinePassed,
+    isOnStageDeadlinePassed,
+    isZoneConfirmedOffStage,
+    isZoneConfirmedOnStage,
+    isCollegeSubmittedOffStage,
+    isCollegeSubmittedOnStage,
+    offDeadline,
+    onDeadline,
+  } = lockStatus;
+
+  if (!isAdmin && currentTeam) {
+    if (!isOffStageOpen && !isOnStageOpen) {
+      isAssignmentOpen = false;
+      if (isZoneConfirmedOffStage && isZoneConfirmedOnStage) {
+        assignmentStatusMessage = "All program assignments have been confirmed by the Zone Admin with Chest Numbers assigned.";
+      } else {
+        assignmentStatusMessage = "Registration is currently closed for both Off-Stage and On-Stage. Contact your Zone Admin to request access.";
+      }
+    } else {
+      isAssignmentOpen = true;
+    }
+  }
 
   const eventIdsToSearch = [zoneEventId, parentEventId, session.user.eventId].filter(Boolean) as string[];
   const programs = await prisma.program.findMany({
@@ -400,23 +381,31 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '8px' }}>
             <h3 style={{ margin: 0 }}>Assign Candidates to Programs</h3>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {isOffStageConfirmed ? (
+              {isZoneConfirmedOffStage ? (
                 <span style={{ padding: '4px 8px', backgroundColor: '#0284c7', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                  🎨 OFF-STAGE CONFIRMED
+                  🎨 OFF-STAGE: CONFIRMED BY ZONE
+                </span>
+              ) : isCollegeSubmittedOffStage ? (
+                <span style={{ padding: '4px 8px', backgroundColor: isOffStageOpen ? '#e0f2fe' : '#fef3c7', color: isOffStageOpen ? '#0369a1' : '#b45309', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                  🎨 Off-Stage: {isOffStageOpen ? '🟢 Open (Submitted)' : '🔒 Closed'}
                 </span>
               ) : (
                 <span style={{ padding: '4px 8px', backgroundColor: isOffStageOpen ? '#e0f2fe' : '#fee2e2', color: isOffStageOpen ? '#0369a1' : '#b91c1c', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
-                  🎨 Off-Stage: {isOffStageOpen ? 'Open' : 'Closed'}
+                  🎨 Off-Stage: {isOffStageOpen ? '🟢 Open' : '🔒 Closed'}
                 </span>
               )}
 
-              {isOnStageConfirmed ? (
+              {isZoneConfirmedOnStage ? (
                 <span style={{ padding: '4px 8px', backgroundColor: '#db2777', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                  🎭 ON-STAGE CONFIRMED
+                  🎭 ON-STAGE: CONFIRMED BY ZONE
+                </span>
+              ) : isCollegeSubmittedOnStage ? (
+                <span style={{ padding: '4px 8px', backgroundColor: isOnStageOpen ? '#fce7f3' : '#fef3c7', color: isOnStageOpen ? '#be185d' : '#b45309', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                  🎭 On-Stage: {isOnStageOpen ? '🟢 Open (Submitted)' : '🔒 Closed'}
                 </span>
               ) : (
                 <span style={{ padding: '4px 8px', backgroundColor: isOnStageOpen ? '#fce7f3' : '#fee2e2', color: isOnStageOpen ? '#be185d' : '#b91c1c', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
-                  🎭 On-Stage: {isOnStageOpen ? 'Open' : 'Closed'}
+                  🎭 On-Stage: {isOnStageOpen ? '🟢 Open' : '🔒 Closed'}
                 </span>
               )}
             </div>
@@ -431,8 +420,10 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
             statusMessage={assignmentStatusMessage}
             initialCandidateId={searchParams.candidateId}
             teamId={teamId}
-            isAssignmentsConfirmed={isOffStageConfirmed}
-            isOnStageConfirmed={isOnStageConfirmed}
+            isAssignmentsConfirmed={isCollegeSubmittedOffStage}
+            isOnStageConfirmed={isCollegeSubmittedOnStage}
+            isZoneConfirmedOffStage={isZoneConfirmedOffStage}
+            isZoneConfirmedOnStage={isZoneConfirmedOnStage}
             isMagazineParticipating={currentTeam?.isMagazineParticipating || false}
             magazineCode={currentTeam?.magazineCode || null}
             teamName={currentTeam?.name || ""}

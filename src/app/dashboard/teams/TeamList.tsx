@@ -175,9 +175,6 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
           const isOffDeadlinePassed = offDeadline ? now > new Date(offDeadline) : false;
           const isOnDeadlinePassed = onDeadline ? now > new Date(onDeadline) : false;
 
-          const isOffStageOpen = team.offStageUnlocked || (!team.isAssignmentsConfirmed && !isOffDeadlinePassed);
-          const isOnStageOpen = team.onStageUnlocked || (!team.isOnStageConfirmed && !isOnDeadlinePassed);
-
           const offCandidates = team.candidates?.filter(c => c.programs?.some(p => p.program?.stageType === 'OFF_STAGE')) || [];
           const offCandidatesWithoutChest = offCandidates.filter(c => !c.chestNumber);
           const hasOffStage = offCandidates.length > 0 || Boolean(team.magazineCode);
@@ -191,6 +188,9 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
           const isOnStageChestLoaded = hasOnStage 
             ? (onCandidatesWithoutChest.length === 0 && Boolean(team.isOnStageConfirmed))
             : Boolean(team.isOnStageConfirmed);
+
+          const isOffStageOpen = team.offStageUnlocked || (!isOffStageChestLoaded && !isOffDeadlinePassed);
+          const isOnStageOpen = team.onStageUnlocked || (!isOnStageChestLoaded && !isOnDeadlinePassed);
 
           const needsOffStageConfirmation = hasOffStage && !isOffStageChestLoaded;
           const needsOnStageConfirmation = isOffStageChestLoaded && hasOnStage && !isOnStageChestLoaded;
@@ -223,9 +223,13 @@ export default function TeamList({ teams, role = "ADMIN", isZoneUnlockPermitted 
                   <span style={{ color: '#8E0033', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#fdf2f8', border: '1px solid #fbcfe8', padding: '2px 8px', borderRadius: '4px' }}>
                     Prefix: {team.prefixCode}
                   </span>
-                  {team.isAssignmentsConfirmed && (
-                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>LOCKED</span>
-                  )}
+                  {isOffStageChestLoaded && isOnStageChestLoaded && totalPrograms > 0 ? (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#059669', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>ZONE CONFIRMED</span>
+                  ) : isOffDeadlinePassed && isOnDeadlinePassed && !team.offStageUnlocked && !team.onStageUnlocked ? (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#dc2626', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>DEADLINE PASSED</span>
+                  ) : team.isAssignmentsConfirmed ? (
+                    <span style={{ marginLeft: '8px', padding: '2px 8px', backgroundColor: '#0284c7', color: 'white', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 800 }}>SUBMITTED (OPEN)</span>
+                  ) : null}
                 </h4>
                 {instPlace && (
                   <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>

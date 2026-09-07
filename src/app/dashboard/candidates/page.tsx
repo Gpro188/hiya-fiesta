@@ -8,6 +8,7 @@ import CandidateFilter from "./CandidateFilter";
 import CandidateBulkActions from "./CandidateBulkActions";
 import GenerateChestNumbersButton from "./GenerateChestNumbersButton";
 import InstitutionStudentDirectory from "./InstitutionStudentDirectory";
+import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
 export default async function CandidatesPage(props: { searchParams: Promise<{ teamId?: string, categoryId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -108,32 +109,20 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
 
           // Auto-Sync block removed to prevent automatic candidate registration
 
-          const now = new Date();
-          const start = zoneEvent.registrationStart || zoneEvent.parent?.registrationStart;
-          const offEnd = zoneEvent.offStageRegistrationEnd || zoneEvent.parent?.offStageRegistrationEnd;
-          const onEnd = zoneEvent.onStageRegistrationEnd || zoneEvent.parent?.onStageRegistrationEnd;
-          const generalEnd = zoneEvent.institutionRegistrationEndDate || zoneEvent.registrationEnd || zoneEvent.parent?.institutionRegistrationEndDate || zoneEvent.parent?.registrationEnd;
+          const teamCandidatesForLock = await prisma.candidate.findMany({
+            where: { teamId: team.id },
+            select: {
+              id: true,
+              chestNumber: true,
+              programs: {
+                select: { program: { select: { stageType: true } } }
+              }
+            }
+          });
 
-          const isUnlocked = team.registrationUnlocked || team.offStageUnlocked || team.onStageUnlocked;
-          const isOffStageOpen = !offEnd || now <= offEnd;
-          const isOnStageOpen = (!onEnd || now <= onEnd) && !team.isOnStageConfirmed;
-          const isGeneralOpen = !generalEnd || now <= generalEnd;
-          const isAnyStageOpen = isOffStageOpen || isOnStageOpen || isGeneralOpen;
-
-          const isOffStageConfirmed = team.isAssignmentsConfirmed;
-          const isOnStageConfirmed = team.isOnStageConfirmed;
-          const isBothConfirmed = isOffStageConfirmed && (isOnStageConfirmed || !isOnStageOpen);
-
-          if (isBothConfirmed && !isUnlocked) {
-            isRegistrationOpen = false;
-            registrationStatusMessage = "All registrations are confirmed and locked by the Zone Admin. Please contact your Zone Admin to unlock for any corrections.";
-          } else if (start && now < start) {
-            isRegistrationOpen = false;
-            registrationStatusMessage = `Registration will open on ${start.toLocaleString()}.`;
-          } else if (!isUnlocked && !isAnyStageOpen) {
-            isRegistrationOpen = false;
-            registrationStatusMessage = "Registration deadlines for Off-Stage and On-Stage programs have passed. Please contact your Zone Admin.";
-          }
+          const lockStatus = getRegistrationLockStatus(team, zoneEvent, teamCandidatesForLock, false);
+          isRegistrationOpen = lockStatus.isCandidateRegistrationOpen;
+          registrationStatusMessage = lockStatus.statusMessage;
 
           isSchedulePublished = zoneEvent.statusOverride === "SCHEDULE_PUBLISHED" || 
             Boolean(zoneEvent.parent && zoneEvent.parent.statusOverride === "SCHEDULE_PUBLISHED");
