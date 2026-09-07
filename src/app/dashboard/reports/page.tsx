@@ -139,6 +139,17 @@ export default async function ReportsPage(props: {
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Candidates & Teams</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a href="/print/zonal-registration-summary" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📦</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: '#8E0033' }}>Zonal Registration Pack</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontWeight: 800 }}>SUPER ADMIN MASTER PACK</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print & pack zone-wise registered institutions list, streams/categories, candidate counts, and individual vs general programs breakdown.</p>
+            </a>
+          )}
+
           <a href={`/print/candidates?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>👥</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Candidates List</h4>

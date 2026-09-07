@@ -378,13 +378,34 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                   Unlock individual colleges for re-editing / correcting candidate data, or lock and confirm their registrations.
                 </p>
               </div>
-              <button 
-                onClick={() => { setViewingCollegesZone(null); setCollegeSearch(""); }} 
-                className="btn btn-secondary"
-                style={{ padding: '4px 10px', fontSize: '0.85rem' }}
-              >
-                ✕ Close
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <a
+                  href={`/print/zonal-registration-summary?zoneId=${viewingCollegesZone.id}`}
+                  target="_blank"
+                  className="btn"
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    backgroundColor: '#8E0033',
+                    color: '#ffffff',
+                    borderRadius: '6px',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>📦</span> Print Zone Pack
+                </a>
+                <button 
+                  onClick={() => { setViewingCollegesZone(null); setCollegeSearch(""); }} 
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
             </div>
 
             {/* Filter Search */}

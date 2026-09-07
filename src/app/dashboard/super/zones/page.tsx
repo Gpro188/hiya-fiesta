@@ -123,11 +123,33 @@ export default async function MasterZonesPage() {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Master Zones & Registration Progress</h1>
-        <p className="page-description">
-          Monitor real-time institution registration percentages, zone confirmation rates, result publication status, and perform festival test resets.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: 'var(--spacing-lg)' }}>
+        <div>
+          <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Master Zones & Registration Progress</h1>
+          <p className="page-description" style={{ margin: 0 }}>
+            Monitor real-time institution registration percentages, zone confirmation rates, result publication status, and perform festival test resets.
+          </p>
+        </div>
+        <a
+          href="/print/zonal-registration-summary"
+          target="_blank"
+          className="btn"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '0.55rem 1.25rem',
+            fontSize: '0.88rem',
+            fontWeight: 800,
+            backgroundColor: '#8E0033',
+            color: '#ffffff',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            boxShadow: '0 2px 6px rgba(142,0,51,0.25)'
+          }}
+        >
+          <span>📦</span> Print Zonal Registration Pack
+        </a>
       </div>
 
       <ZonesClient initialZones={zones} />
