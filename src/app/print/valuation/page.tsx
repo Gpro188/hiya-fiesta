@@ -5,10 +5,11 @@ import PrintButton from "@/components/PrintButton";
 export const dynamic = "force-dynamic";
 
 export default async function PrintValuationPage(props: {
-  searchParams: Promise<{ eventId?: string; programId?: string; stageType?: string }>;
+  searchParams: Promise<{ eventId?: string; programId?: string; stageType?: string; orientation?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
+  const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
@@ -38,39 +39,42 @@ export default async function PrintValuationPage(props: {
 
   const programs = await prisma.program.findMany({
     where: whereClause,
-    orderBy: [
-      { stageType: "asc" },
-      { category: { name: "asc" } },
-      { programCode: "asc" },
-      { name: "asc" },
-    ],
     include: {
       category: true,
       assignments: {
         include: {
           candidate: {
             include: {
-              category: true,
-              institution: { include: { zone: true } },
+              institution: {
+                include: {
+                  zone: true,
+                },
+              },
               team: {
                 include: {
-                  institution: { include: { zone: true } },
-                  event: { include: { zone: true } },
+                  institution: true,
+                  event: true,
                 },
               },
             },
           },
         },
-        orderBy: [{ slotNumber: "asc" }],
       },
     },
+    orderBy: [{ programCode: "asc" }, { name: "asc" }],
   });
 
-  const targetZoneId = activeEv?.zoneId || null;
+  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
 
   return (
-    <div style={{ padding: "30px 40px", backgroundColor: "white", color: "#0f172a", minHeight: "100vh", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      {/* ── Screen Controls Header ── */}
+    <div style={{
+      maxWidth: orientation === "landscape" ? "1240px" : "960px",
+      margin: "0 auto",
+      padding: "20px 16px",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      color: "#0f172a",
+    }}>
+      {/* ── Screen Action Bar ── */}
       <div className="no-print" style={{
         position: "sticky",
         top: 0,
@@ -79,38 +83,91 @@ export default async function PrintValuationPage(props: {
         color: "#f8fafc",
         padding: "14px 20px",
         borderRadius: "8px",
-        marginBottom: "24px",
+        marginBottom: "20px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "12px",
       }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800 }}>
-            OFFICIAL JURY VALUATION & MARK ENTRY SHEETS
-          </h1>
-          <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
-            {activeEv?.name || settings.festName} • Total Programs: {programs.length}
-          </p>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800 }}>
+              OFFICIAL JURY VALUATION & MARK ENTRY SHEETS
+            </h1>
+            <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
+              {activeEv?.name || settings.festName} • Total Programs: {programs.length}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            {/* Print Orientation Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.75rem", color: "#cbd5e1", fontWeight: 700 }}>Layout:</span>
+              <a
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=landscape`}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: orientation === "landscape" ? "2px solid #38bdf8" : "1px solid #475569",
+                  backgroundColor: orientation === "landscape" ? "#0284c7" : "#334155",
+                  color: "#ffffff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                📃 Landscape (Default)
+              </a>
+              <a
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=portrait`}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: orientation === "portrait" ? "2px solid #38bdf8" : "1px solid #475569",
+                  backgroundColor: orientation === "portrait" ? "#0284c7" : "#334155",
+                  color: "#ffffff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                📄 Portrait
+              </a>
+            </div>
+
+            <PrintButton label={`Print All Valuation Sheets (${programs.length})`} />
+            <a
+              href="/dashboard/reports"
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#475569",
+                color: "#ffffff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+              }}
+            >
+              Back to Reports
+            </a>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <PrintButton label={`Print All Valuation Sheets (${programs.length})`} />
-          <a
-            href="/dashboard/reports"
-            style={{
-              padding: "6px 12px",
-              backgroundColor: "#475569",
-              color: "#ffffff",
-              borderRadius: "6px",
-              textDecoration: "none",
-              fontSize: "0.82rem",
-              fontWeight: 600,
-            }}
-          >
-            Back to Reports
-          </a>
+
+        <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #334155", display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#94a3b8" }}>
+          <div>
+            💡 <strong>Landscape Printing:</strong> Pre-configured in <em>Landscape</em> for wide evaluation columns. In the browser print dialog, verify <em>Layout</em> is set to <strong>Landscape</strong>.
+          </div>
+          <div style={{ color: "#38bdf8", fontWeight: 700 }}>
+            Active Print Layout: <span style={{ textTransform: "capitalize" }}>{orientation}</span>
+          </div>
         </div>
       </div>
 
@@ -257,19 +314,19 @@ export default async function PrintValuationPage(props: {
                   No candidate assignments registered for this program.
                 </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: orientation === "landscape" ? "0.84rem" : "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "26px" }}>Sl</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "80px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "42px" }}>Photo</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "30px" }}>Sl</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "80px" }}>Chest No.</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "46px" }}>Photo</th>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>Candidate Name & UID</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: "70px" }}>Inst. Code</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "70px" }}>Maximum Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Grade</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Place</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: "85px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: orientation === "landscape" ? "85px" : "70px" }}>Inst. Code</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "70px" }}>Maximum Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "110px" : "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Grade</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Place</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: orientation === "landscape" ? "130px" : "85px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,7 +521,7 @@ export default async function PrintValuationPage(props: {
             .valuation-sheet-page {
               box-shadow: none !important;
               border: none !important;
-              padding: 4mm 6mm !important;
+              padding: ${orientation === "landscape" ? "5mm 8mm" : "4mm 6mm"} !important;
               margin: 0 !important;
               page-break-after: always !important;
               break-after: page !important;
@@ -478,8 +535,8 @@ export default async function PrintValuationPage(props: {
               page-break-inside: avoid;
             }
             @page {
-              size: A4 portrait;
-              margin: 4mm;
+              size: A4 ${orientation};
+              margin: ${orientation === "landscape" ? "6mm 8mm" : "4mm"};
             }
           }
         `,

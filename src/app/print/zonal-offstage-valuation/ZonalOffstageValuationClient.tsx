@@ -62,6 +62,7 @@ export default function ZonalOffstageValuationClient({
     initialProgramId || "ALL"
   );
   const [filterConfirmedOnly, setFilterConfirmedOnly] = useState<boolean>(false);
+  const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
 
   // Active Zone data
   const activeZone = zonalData.find((z) => z.zoneId === selectedZoneId) || zonalData[0];
@@ -172,72 +173,125 @@ export default function ZonalOffstageValuationClient({
               </select>
             </div>
 
-            {/* Filter Confirmed Only Toggle */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "14px" }}>
-              <input
-                type="checkbox"
-                id="confOnly"
-                checked={filterConfirmedOnly}
-                onChange={(e) => setFilterConfirmedOnly(e.target.checked)}
-                style={{ cursor: "pointer", width: "16px", height: "16px" }}
-              />
-              <label htmlFor="confOnly" style={{ fontSize: "0.75rem", color: "#cbd5e1", cursor: "pointer", fontWeight: 600 }}>
-                Confirmed Only
-              </label>
-            </div>
+              {/* Filter Confirmed Only Toggle */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <input
+                  type="checkbox"
+                  id="confOnly"
+                  checked={filterConfirmedOnly}
+                  onChange={(e) => setFilterConfirmedOnly(e.target.checked)}
+                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                />
+                <label htmlFor="confOnly" style={{ fontSize: "0.75rem", color: "#cbd5e1", cursor: "pointer", fontWeight: 600 }}>
+                  Confirmed Only
+                </label>
+              </div>
 
-            <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
-              <PrintButton label={`Print Valuation Sheets (${visiblePrograms.length})`} />
-              <a
-                href="/dashboard/reports"
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: "#475569",
-                  color: "#f8fafc",
-                  borderRadius: "6px",
-                  textDecoration: "none",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                Back to Reports
-              </a>
+              {/* Print Orientation Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "0.75rem", color: "#cbd5e1", fontWeight: 700 }}>Print Layout:</span>
+                <button
+                  type="button"
+                  onClick={() => setOrientation("landscape")}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: "5px",
+                    border: orientation === "landscape" ? "2px solid #38bdf8" : "1px solid #475569",
+                    backgroundColor: orientation === "landscape" ? "#0284c7" : "#334155",
+                    color: "#ffffff",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  📃 Landscape (Default)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrientation("portrait")}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: "5px",
+                    border: orientation === "portrait" ? "2px solid #38bdf8" : "1px solid #475569",
+                    backgroundColor: orientation === "portrait" ? "#0284c7" : "#334155",
+                    color: "#ffffff",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  📄 Portrait
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <PrintButton label={`Print Valuation Sheets (${visiblePrograms.length})`} />
+                <a
+                  href="/dashboard/reports"
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "#475569",
+                    color: "#f8fafc",
+                    borderRadius: "6px",
+                    textDecoration: "none",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  Back to Reports
+                </a>
+              </div>
             </div>
           </div>
+
+          {/* Zone Summary & Landscape Tip Banner */}
+          {activeZone && (
+            <div style={{ maxWidth: "1280px", margin: "10px auto 0", paddingTop: "10px", borderTop: "1px solid #334155" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", fontSize: "0.78rem", marginBottom: "6px" }}>
+                <div>
+                  <span style={{ color: "#94a3b8" }}>Selected Zone: </span>
+                  <strong style={{ color: "#38bdf8" }}>{activeZone.zoneName} ({activeZone.zoneCode})</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#94a3b8" }}>Total Off-Stage Programs: </span>
+                  <strong style={{ color: "#ffffff" }}>{activeZone.programs.length}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#94a3b8" }}>Total Candidates Registered: </span>
+                  <strong style={{ color: "#ffffff" }}>{totalCandidatesInZone}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#94a3b8" }}>Confirmed with Chest Numbers: </span>
+                  <strong style={{ color: "#4ade80" }}>{confirmedCandidatesInZone}</strong>
+                  {totalCandidatesInZone > confirmedCandidatesInZone && (
+                    <span style={{ color: "#fbbf24", marginLeft: "6px" }}>
+                      ({totalCandidatesInZone - confirmedCandidatesInZone} pending)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.75rem", color: "#94a3b8" }}>
+                <div>
+                  💡 <strong>Landscape Printing:</strong> Set to <em>Landscape</em> by default for wide mark-entry columns. In the browser print dialog, verify <em>Layout</em> is set to <strong>Landscape</strong>.
+                </div>
+                <div style={{ color: "#38bdf8", fontWeight: 700 }}>
+                  Active Print Layout: <span style={{ textTransform: "capitalize" }}>{orientation}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Zone Summary Banner */}
-        {activeZone && (
-          <div style={{ maxWidth: "1280px", margin: "10px auto 0", paddingTop: "10px", borderTop: "1px solid #334155", display: "flex", flexWrap: "wrap", gap: "20px", fontSize: "0.78rem" }}>
-            <div>
-              <span style={{ color: "#94a3b8" }}>Selected Zone: </span>
-              <strong style={{ color: "#38bdf8" }}>{activeZone.zoneName} ({activeZone.zoneCode})</strong>
-            </div>
-            <div>
-              <span style={{ color: "#94a3b8" }}>Total Off-Stage Programs: </span>
-              <strong style={{ color: "#ffffff" }}>{activeZone.programs.length}</strong>
-            </div>
-            <div>
-              <span style={{ color: "#94a3b8" }}>Total Candidates Registered: </span>
-              <strong style={{ color: "#ffffff" }}>{totalCandidatesInZone}</strong>
-            </div>
-            <div>
-              <span style={{ color: "#94a3b8" }}>Confirmed with Chest Numbers: </span>
-              <strong style={{ color: "#4ade80" }}>{confirmedCandidatesInZone}</strong>
-              {totalCandidatesInZone > confirmedCandidatesInZone && (
-                <span style={{ color: "#fbbf24", marginLeft: "6px" }}>
-                  ({totalCandidatesInZone - confirmedCandidatesInZone} pending)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* ── Printable Sheets Area ── */}
-      <div style={{ maxWidth: "1100px", margin: "24px auto", padding: "0 16px" }}>
+      <div style={{ maxWidth: orientation === "landscape" ? "1240px" : "960px", margin: "24px auto", padding: "0 16px" }}>
         {visiblePrograms.length === 0 ? (
           <div style={{ padding: "60px 20px", textAlign: "center", backgroundColor: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
             <h3 style={{ color: "#64748b" }}>No off-stage registrations found for this selection.</h3>
@@ -348,19 +402,19 @@ export default function ZonalOffstageValuationClient({
                 </div>
 
                 {/* ── Candidates Mark Entry Table ── */}
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: orientation === "landscape" ? "0.84rem" : "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "26px" }}>Sl</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "80px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "42px" }}>Photo</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "30px" }}>Sl</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "80px" }}>Chest No.</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "46px" }}>Photo</th>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>Candidate Name & UID</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: "70px" }}>Inst. Code</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "70px" }}>Maximum Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Grade</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Place</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: "85px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: orientation === "landscape" ? "85px" : "70px" }}>Inst. Code</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "70px" }}>Maximum Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "110px" : "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Grade</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Place</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: orientation === "landscape" ? "130px" : "85px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -560,7 +614,7 @@ export default function ZonalOffstageValuationClient({
             .valuation-sheet-page {
               box-shadow: none !important;
               border: none !important;
-              padding: 4mm 6mm !important;
+              padding: ${orientation === "landscape" ? "5mm 8mm" : "4mm 6mm"} !important;
               margin: 0 !important;
               page-break-after: always !important;
               break-after: page !important;
@@ -574,8 +628,8 @@ export default function ZonalOffstageValuationClient({
               page-break-inside: avoid;
             }
             @page {
-              size: A4 portrait;
-              margin: 4mm;
+              size: A4 ${orientation};
+              margin: ${orientation === "landscape" ? "6mm 8mm" : "4mm"};
             }
           }
         `,
