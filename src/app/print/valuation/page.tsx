@@ -169,15 +169,15 @@ export default async function PrintValuationPage(props: {
               }}
             >
               {/* ── Sheet Header ── */}
-              <div style={{ textAlign: "center", marginBottom: "16px", borderBottom: "2.5px solid #0f172a", paddingBottom: "14px" }}>
-                <div style={{ fontSize: "1.35rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#8E0033" }}>
+              <div style={{ textAlign: "center", marginBottom: "10px", borderBottom: "2px solid #0f172a", paddingBottom: "8px" }}>
+                <div style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#8E0033" }}>
                   {settings.festName}
                 </div>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#475569", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "2px" }}>
                   OFFICIAL JURY VALUATION & MARK ENTRY RECORD
                 </div>
                 {activeEv && (
-                  <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                  <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
                     {activeEv.name} {activeEv.zone ? `(${activeEv.zone.name})` : ""}
                   </div>
                 )}
@@ -187,89 +187,89 @@ export default async function PrintValuationPage(props: {
               <div style={{
                 display: "grid",
                 gridTemplateColumns: "1.8fr 1fr",
-                gap: "16px",
+                gap: "12px",
                 backgroundColor: "#f8fafc",
                 border: "1.5px solid #0f172a",
                 borderRadius: "4px",
-                padding: "12px 16px",
-                marginBottom: "14px",
-                fontSize: "0.86rem",
+                padding: "8px 12px",
+                marginBottom: "8px",
+                fontSize: "0.82rem",
               }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
                     <span style={{
                       backgroundColor: "#8E0033",
                       color: "#ffffff",
-                      padding: "2px 8px",
+                      padding: "2px 6px",
                       borderRadius: "3px",
                       fontWeight: 900,
-                      fontSize: "0.82rem",
+                      fontSize: "0.8rem",
                       fontFamily: "monospace",
                     }}>
                       CODE: {program.programCode || "P"}
                     </span>
-                    <strong style={{ fontSize: "1.1rem", color: "#0f172a" }}>
+                    <strong style={{ fontSize: "1.02rem", color: "#0f172a" }}>
                       {program.name}
                     </strong>
                   </div>
-                  <div style={{ color: "#334155", fontSize: "0.82rem", marginTop: "4px" }}>
+                  <div style={{ color: "#334155", fontSize: "0.78rem", marginTop: "2px" }}>
                     <strong>Category:</strong> <span style={{ fontWeight: 700 }}>{program.category?.name || "General"}</span> • <strong>Stage:</strong> {program.stageType} • <strong>Type:</strong> {program.type}
                   </div>
                 </div>
 
-                <div style={{ textAlign: "right", borderLeft: "1px solid #cbd5e1", paddingLeft: "16px" }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a" }}>
-                    Stage / Venue: {program.venue || "Main Stage"}
+                <div style={{ textAlign: "right", borderLeft: "1px solid #cbd5e1", paddingLeft: "12px" }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>
+                    Stage: {program.venue || "Main Stage"}
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: "#475569", marginTop: "2px" }}>
-                    Duration: <strong>{program.duration} Minutes</strong> • Max Score: <strong>100</strong>
+                  <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "1px" }}>
+                    Duration: <strong>{program.duration} Min</strong> • Max: <strong>100</strong>
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "2px" }}>
-                    Total Candidates: <strong>{candidateAssignments.length}</strong>
+                  <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: "1px" }}>
+                    Candidates in Zone: <strong>{candidateAssignments.length}</strong>
                   </div>
                 </div>
               </div>
 
               {/* ── Valuation Protocol Banner ── */}
               <div style={{
-                padding: "6px 12px",
+                padding: "4px 10px",
                 backgroundColor: "#fef2f2",
                 border: "1px solid #fecaca",
                 borderRadius: "4px",
-                fontSize: "0.75rem",
+                fontSize: "0.72rem",
                 color: "#991b1b",
-                marginBottom: "14px",
+                marginBottom: "8px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
               }}>
                 <span>
-                  <strong>Valuation Protocol:</strong> Verify candidate performance with official <strong>Chest Number</strong> and candidate photo. Enter marks in ink without overwriting.
+                  <strong>Valuation Protocol:</strong> Verify candidate scripts with official <strong>Chest Number</strong> and candidate photo. Marks must be entered in ink without overwriting.
                 </span>
                 <span>
-                  <strong>Columns:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
+                  <strong>Evaluation:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
                 </span>
               </div>
 
               {/* ── Candidates Valuation Table ── */}
               {candidateAssignments.length === 0 ? (
-                <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", fontStyle: "italic", border: "1px dashed #cbd5e1", borderRadius: "4px", marginBottom: "16px" }}>
+                <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontStyle: "italic", border: "1px dashed #cbd5e1", borderRadius: "4px", marginBottom: "10px" }}>
                   No candidate assignments registered for this program.
                 </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", border: "1.5px solid #0f172a", marginBottom: "16px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "28px" }}>Sl</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "85px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "50px" }}>Photo</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left" }}>Candidate Name & UID</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left", width: "190px" }}>Institution</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "90px" }}>Maximum Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "95px", backgroundColor: "#1e293b" }}>Obtained Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "65px" }}>Grade</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "65px" }}>Place</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", textAlign: "left", width: "100px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "26px" }}>Sl</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "80px" }}>Chest No.</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "42px" }}>Photo</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>Candidate Name & UID</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: "70px" }}>Inst. Code</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "70px" }}>Maximum Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Grade</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "48px" }}>Place</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: "85px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -278,10 +278,10 @@ export default async function PrintValuationPage(props: {
                       const inst = c.institution || c.team?.institution;
                       return (
                         <tr key={assignment.id} style={{ borderBottom: "1px solid #94a3b8" }}>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 700 }}>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center", fontWeight: 700 }}>
                             {idx + 1}
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }}>
                             {c.chestNumber ? (
                               <span style={{
                                 display: "inline-block",
@@ -289,29 +289,29 @@ export default async function PrintValuationPage(props: {
                                 border: "1.5px solid #8E0033",
                                 color: "#8E0033",
                                 fontWeight: 900,
-                                fontSize: "0.95rem",
-                                padding: "2px 8px",
-                                borderRadius: "4px",
+                                fontSize: "0.9rem",
+                                padding: "2px 6px",
+                                borderRadius: "3px",
                                 letterSpacing: "0.5px",
                               }}>
                                 {c.chestNumber}
                               </span>
                             ) : (
-                              <span style={{ color: "#94a3b8", fontSize: "0.72rem", fontStyle: "italic" }}>
+                              <span style={{ color: "#94a3b8", fontSize: "0.68rem", fontStyle: "italic" }}>
                                 [PENDING]
                               </span>
                             )}
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "4px 2px", textAlign: "center", verticalAlign: "middle" }}>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 2px", textAlign: "center", verticalAlign: "middle" }}>
                             {c.photo || c.photoUrl ? (
                               <img
                                 src={(c.photo || c.photoUrl) as string}
                                 alt={c.name}
                                 style={{
-                                  width: "38px",
-                                  height: "46px",
+                                  width: "30px",
+                                  height: "36px",
                                   objectFit: "cover",
-                                  borderRadius: "3px",
+                                  borderRadius: "2px",
                                   border: "1px solid #334155",
                                   display: "block",
                                   margin: "0 auto",
@@ -319,11 +319,11 @@ export default async function PrintValuationPage(props: {
                               />
                             ) : (
                               <div style={{
-                                width: "38px",
-                                height: "46px",
+                                width: "30px",
+                                height: "36px",
                                 backgroundColor: "#f1f5f9",
                                 border: "1px dashed #94a3b8",
-                                borderRadius: "3px",
+                                borderRadius: "2px",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
@@ -331,51 +331,45 @@ export default async function PrintValuationPage(props: {
                                 margin: "0 auto",
                                 color: "#94a3b8",
                               }}>
-                                <span style={{ fontSize: "0.75rem", lineHeight: 1 }}>👤</span>
-                                <span style={{ fontSize: "0.45rem", fontWeight: 700, marginTop: "2px" }}>NO PIC</span>
+                                <span style={{ fontSize: "0.7rem", lineHeight: 1 }}>👤</span>
                               </div>
                             )}
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 8px" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.85rem" }}>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 6px" }}>
+                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>
                               {c.name}
                             </div>
-                            <div style={{ fontSize: "0.74rem", color: "#64748b", fontFamily: "monospace", marginTop: "2px" }}>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontFamily: "monospace", marginTop: "1px" }}>
                               UID: {c.uid || "—"}
                             </div>
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 8px", fontSize: "0.78rem" }}>
-                            <div style={{ fontWeight: 700, color: "#0f172a" }}>
-                              {inst?.name || c.team?.name || "Unknown"}
-                            </div>
-                            {inst?.code && (
-                              <span style={{
-                                display: "inline-block",
-                                backgroundColor: "#f1f5f9",
-                                color: "#475569",
-                                padding: "1px 5px",
-                                borderRadius: "3px",
-                                fontSize: "0.7rem",
-                                fontWeight: 700,
-                                fontFamily: "monospace",
-                                marginTop: "2px",
-                              }}>
-                                CODE: {inst.code} {inst.place ? `• ${inst.place}` : ""}
-                              </span>
-                            )}
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }} title={inst?.name || c.team?.name || ""}>
+                            <span style={{
+                              display: "inline-block",
+                              backgroundColor: "#f1f5f9",
+                              border: "1px solid #cbd5e1",
+                              color: "#0f172a",
+                              fontWeight: 800,
+                              fontFamily: "monospace",
+                              fontSize: "0.82rem",
+                              padding: "2px 6px",
+                              borderRadius: "3px",
+                            }}>
+                              {inst?.code || "—"}
+                            </span>
                           </td>
                           {/* Maximum Score */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
                             100
                           </td>
                           {/* Blank Score Entry Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", backgroundColor: "#fafafa" }}></td>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center", backgroundColor: "#fafafa" }}></td>
                           {/* Blank Grade Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center" }}></td>
                           {/* Blank Place Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center" }}></td>
                           {/* Blank Remarks Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }}></td>
                         </tr>
                       );
                     })}
@@ -387,59 +381,61 @@ export default async function PrintValuationPage(props: {
               <div style={{
                 border: "1.5px solid #0f172a",
                 borderRadius: "4px",
-                padding: "12px 16px",
+                padding: "8px 12px",
                 backgroundColor: "#fafafa",
-                fontSize: "0.82rem",
+                fontSize: "0.78rem",
+                pageBreakInside: "avoid",
+                breakInside: "avoid",
               }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "14px", paddingBottom: "10px", borderBottom: "1px dashed #cbd5e1" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "8px", paddingBottom: "6px", borderBottom: "1px dashed #cbd5e1" }}>
                   <div>
                     <strong>Total Candidates:</strong> {candidateAssignments.length}
                   </div>
                   <div>
-                    <strong>Total Evaluated:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "40px", minHeight: "16px" }}></span>
+                    <strong>Total Evaluated:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "35px", minHeight: "14px" }}></span>
                   </div>
                   <div>
-                    <strong>Total Absent:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "40px", minHeight: "16px" }}></span>
+                    <strong>Total Absent:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "35px", minHeight: "14px" }}></span>
                   </div>
                   <div>
-                    <strong>Date of Valuation:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "70px", minHeight: "16px" }}></span>
+                    <strong>Date of Valuation:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "60px", minHeight: "14px" }}></span>
                   </div>
                 </div>
 
                 <div style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr 1.2fr 0.9fr",
-                  gap: "16px",
+                  gap: "12px",
                   alignItems: "flex-end",
-                  paddingTop: "6px",
+                  paddingTop: "2px",
                 }}>
                   <div>
-                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "22px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 700 }}>Signature of 1st Evaluator / Judge</div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Name: _________________</div>
+                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>1st Evaluator / Judge</div>
+                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
                   </div>
 
                   <div>
-                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "22px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 700 }}>Signature of 2nd Evaluator / Judge</div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Name: _________________</div>
+                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>2nd Evaluator / Judge</div>
+                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
                   </div>
 
                   <div>
-                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "22px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 700 }}>Chief Examiner / Valuation Head</div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Verification Signature</div>
+                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>Chief Examiner / Head</div>
+                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Verification Signature</div>
                   </div>
 
                   <div style={{ textAlign: "center" }}>
                     <div style={{
                       border: "1px dashed #94a3b8",
-                      height: "46px",
+                      height: "38px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       color: "#94a3b8",
-                      fontSize: "0.68rem",
+                      fontSize: "0.65rem",
                       textTransform: "uppercase",
                     }}>
                       Official Seal
@@ -468,14 +464,22 @@ export default async function PrintValuationPage(props: {
             .valuation-sheet-page {
               box-shadow: none !important;
               border: none !important;
-              padding: 8mm 10mm !important;
+              padding: 4mm 6mm !important;
               margin: 0 !important;
               page-break-after: always !important;
               break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            table {
+              page-break-inside: auto;
+            }
+            tr {
+              page-break-inside: avoid;
             }
             @page {
               size: A4 portrait;
-              margin: 6mm;
+              margin: 4mm;
             }
           }
         `,
