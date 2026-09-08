@@ -342,7 +342,7 @@ export default function ZonalOffstageValuationClient({
                     <strong>Valuation Protocol:</strong> Verify candidate scripts with official <strong>Chest Number</strong> and candidate photo. Marks must be entered in ink without overwriting.
                   </span>
                   <span>
-                    <strong>Evaluation:</strong> Criteria 1 (40) + Criteria 2 (30) + Criteria 3 (30) = <strong>100</strong>
+                    <strong>Evaluation:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
                   </span>
                 </div>
 
@@ -354,27 +354,22 @@ export default function ZonalOffstageValuationClient({
                       <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "85px" }}>Chest No.</th>
                       <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "50px" }}>Photo</th>
                       <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left" }}>Candidate Name & UID</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left", width: "180px" }}>Institution</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "70px" }}>
-                        Crit. 1<br /><span style={{ fontSize: "0.7rem", fontWeight: 400 }}>(40)</span>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left", width: "190px" }}>Institution</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "90px" }}>
+                        Maximum Score
                       </th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "70px" }}>
-                        Crit. 2<br /><span style={{ fontSize: "0.7rem", fontWeight: 400 }}>(30)</span>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", width: "95px", backgroundColor: "#1e293b" }}>
+                        Obtained Score
                       </th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "70px" }}>
-                        Crit. 3<br /><span style={{ fontSize: "0.7rem", fontWeight: 400 }}>(30)</span>
-                      </th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "75px", backgroundColor: "#1e293b" }}>
-                        Total<br /><span style={{ fontSize: "0.7rem", fontWeight: 400 }}>(100)</span>
-                      </th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "60px" }}>Grade</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", textAlign: "left", width: "95px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "65px" }}>Grade</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "65px" }}>Place</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "8px 6px", textAlign: "left", width: "100px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {candidates.length === 0 ? (
                       <tr>
-                        <td colSpan={11} style={{ padding: "24px", textAlign: "center", color: "#64748b" }}>
+                        <td colSpan={10} style={{ padding: "24px", textAlign: "center", color: "#64748b" }}>
                           No candidates registered for this program in this zone.
                         </td>
                       </tr>
@@ -467,12 +462,17 @@ export default function ZonalOffstageValuationClient({
                               </span>
                             )}
                           </td>
-                          {/* Blank Score Entry Cells */}
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
-                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          {/* Maximum Score */}
+                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
+                            100
+                          </td>
+                          {/* Blank Obtained Score Cell */}
                           <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", backgroundColor: "#fafafa" }}></td>
+                          {/* Blank Grade Cell */}
                           <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          {/* Blank Place Cell */}
+                          <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
+                          {/* Blank Remarks Cell */}
                           <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center" }}></td>
                         </tr>
                       ))
