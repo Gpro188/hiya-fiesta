@@ -67,11 +67,20 @@ export default function BulkIdCardsClient({
           alignItems: "flex-start",
         }}
       >
-        {candidates.map((candidate) => (
-          <div key={candidate.id} className="id-card-print-item">
-            <CandidateIdCard candidate={candidate} settings={settings} />
-          </div>
-        ))}
+        {candidates.map((candidate) => {
+          const isSchedulePublished =
+            candidate.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
+            candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
+          return (
+            <div key={candidate.id} className="id-card-print-item">
+              <CandidateIdCard
+                candidate={candidate}
+                settings={settings}
+                isSchedulePublished={isSchedulePublished}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {candidates.length === 0 && (

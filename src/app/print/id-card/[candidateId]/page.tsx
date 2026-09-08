@@ -11,27 +11,38 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
     where: { id: resolvedParams.candidateId },
     include: {
       team: {
-        include: { event: true }
+        include: {
+          event: {
+            include: { parent: true },
+          },
+        },
       },
       institution: true,
       category: true,
       programs: {
         include: { program: true },
-        orderBy: { program: { name: "asc" } }
-      }
-    }
+        orderBy: { program: { name: "asc" } },
+      },
+    },
   });
 
   if (!candidate) notFound();
 
   const settings = await getSettings(candidate.team?.eventId);
+  const isSchedulePublished =
+    candidate.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
+    candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
 
   return (
     <div style={{ padding: "40px 20px", backgroundColor: "#f3f4f6", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       
       {/* Centered ID Card Container */}
       <div id="print-area">
-        <CandidateIdCard candidate={candidate as any} settings={settings} />
+        <CandidateIdCard
+          candidate={candidate as any}
+          settings={settings}
+          isSchedulePublished={isSchedulePublished}
+        />
       </div>
 
       {/* Action Buttons */}

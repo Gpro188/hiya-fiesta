@@ -10,7 +10,16 @@ export type CandidateIdCardProps = {
     photo?: string | null;
     photoUrl?: string | null;
     category?: { name: string };
-    team?: { name: string; flagColor?: string | null; prefixCode?: string; event?: { name: string } };
+    team?: {
+      name: string;
+      flagColor?: string | null;
+      prefixCode?: string;
+      event?: {
+        name: string;
+        statusOverride?: string;
+        parent?: { statusOverride?: string } | null;
+      };
+    };
     institution?: { name: string } | null;
     programs?: Array<{
       id: string;
@@ -21,6 +30,7 @@ export type CandidateIdCardProps = {
         programCode?: string | null;
         venue?: string | null;
         startTime?: string | Date | null;
+        stageType?: string | null;
       };
     }>;
   };
@@ -29,29 +39,53 @@ export type CandidateIdCardProps = {
     festMoto?: string;
   };
   eventName?: string;
+  isSchedulePublished?: boolean;
 };
 
 function ProgramItem({
   program,
   isCenter = false,
+  isSchedulePublished = false,
 }: {
   program: any;
   isCenter?: boolean;
+  isSchedulePublished?: boolean;
 }) {
-  const displayTime = program.scheduledTime || program.program?.startTime;
-  const formattedTime = displayTime
-    ? `${new Date(displayTime).toLocaleDateString([], {
-        day: "2-digit",
-        month: "short",
-      })} ${new Date(displayTime).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
-    : null;
+  const stageType = (program?.program?.stageType || program?.stageType || "ON_STAGE").toUpperCase();
+  const isOffStage = stageType === "OFF_STAGE" || stageType.includes("OFF");
 
-  const subText = formattedTime
-    ? `${formattedTime}${program.program?.venue ? ` • ${program.program.venue}` : ""}`
-    : "As per Syllabus and Mark list";
+  let subText = "";
+  let subTextColor = "#e11d48";
+
+  if (isOffStage) {
+    // Off-stage programs NEVER have time schedule or stage venue on the ID card
+    subText = "OFF STAGE";
+    subTextColor = "#64748b";
+  } else if (!isSchedulePublished) {
+    // Before schedule is published, on-stage programs do not reveal time/venue
+    subText = "ON STAGE";
+    subTextColor = "#4f46e5";
+  } else {
+    // On-stage programs with published schedule: show official time and venue
+    const displayTime = program?.scheduledTime || program?.program?.startTime;
+    const formattedTime = displayTime
+      ? `${new Date(displayTime).toLocaleDateString([], {
+          day: "2-digit",
+          month: "short",
+        })} ${new Date(displayTime).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`
+      : null;
+
+    if (formattedTime) {
+      subText = `${formattedTime}${program?.program?.venue ? ` • ${program.program.venue}` : ""}`;
+      subTextColor = "#e11d48";
+    } else {
+      subText = "ON STAGE";
+      subTextColor = "#4f46e5";
+    }
+  }
 
   return (
     <div
@@ -74,16 +108,18 @@ function ProgramItem({
           whiteSpace: "normal",
         }}
       >
-        {program.program?.name}
+        {program?.program?.name || program?.name}
       </div>
       <div
         style={{
           fontSize: isCenter ? "0.48rem" : "0.44rem",
-          color: "#e11d48",
-          fontWeight: 600,
+          color: subTextColor,
+          fontWeight: 700,
           lineHeight: 1.15,
           marginTop: "1px",
           wordBreak: "break-word",
+          letterSpacing: isOffStage ? "0.4px" : "normal",
+          textTransform: isOffStage ? "uppercase" : "none",
         }}
       >
         {subText}
@@ -92,7 +128,12 @@ function ProgramItem({
   );
 }
 
-export default function CandidateIdCard({ candidate, settings, eventName }: CandidateIdCardProps) {
+export default function CandidateIdCard({
+  candidate,
+  settings,
+  eventName,
+  isSchedulePublished: propIsSchedulePublished,
+}: CandidateIdCardProps) {
   const photoSrc = candidate.photo || candidate.photoUrl;
   const teamName = candidate.institution?.name || candidate.team?.name || "INSTITUTION";
   const categoryName = candidate.category?.name || "FADHILA";
@@ -101,6 +142,12 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
   const list = allPrograms.slice(0, 5);
   const count = list.length;
   const eventTitle = eventName || candidate.team?.event?.name || settings?.festName || "HIYA FIESTA 2026";
+
+  const isSchedulePublished =
+    propIsSchedulePublished !== undefined
+      ? propIsSchedulePublished
+      : (candidate.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
+         candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED");
 
   return (
     <div
@@ -388,7 +435,7 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
         )}
 
         {/* 1 Program: Centered Layout */}
-        {count === 1 && <ProgramItem program={list[0]} isCenter={true} />}
+        {count === 1 && <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} />}
 
         {/* 2 Programs: Vertically Stacked with Divider */}
         {count === 2 && (
@@ -401,7 +448,7 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
               alignItems: "center",
             }}
           >
-            <ProgramItem program={list[0]} isCenter={true} />
+            <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} />
             <div
               style={{
                 width: "50%",
@@ -409,7 +456,7 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                 backgroundColor: "rgba(142, 0, 51, 0.15)",
               }}
             />
-            <ProgramItem program={list[1]} isCenter={true} />
+            <ProgramItem program={list[1]} isCenter={true} isSchedulePublished={isSchedulePublished} />
           </div>
         )}
 
@@ -436,10 +483,10 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[0]} />
+                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[1]} />
+                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
               </div>
             </div>
             <div
@@ -450,7 +497,7 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                 paddingTop: "3px",
               }}
             >
-              <ProgramItem program={list[2]} isCenter={true} />
+              <ProgramItem program={list[2]} isCenter={true} isSchedulePublished={isSchedulePublished} />
             </div>
           </div>
         )}
@@ -472,10 +519,10 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                 paddingRight: "4px",
               }}
             >
-              <ProgramItem program={list[0]} />
+              <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
             </div>
             <div style={{ paddingLeft: "4px" }}>
-              <ProgramItem program={list[1]} />
+              <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
             </div>
             <div
               style={{
@@ -483,10 +530,10 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                 paddingRight: "4px",
               }}
             >
-              <ProgramItem program={list[2]} />
+              <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} />
             </div>
             <div style={{ paddingLeft: "4px" }}>
-              <ProgramItem program={list[3]} />
+              <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} />
             </div>
           </div>
         )}
@@ -515,10 +562,10 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[0]} />
+                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[1]} />
+                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
               </div>
               <div
                 style={{
@@ -526,10 +573,10 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[2]} />
+                <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[3]} />
+                <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} />
               </div>
             </div>
             <div
@@ -540,7 +587,7 @@ export default function CandidateIdCard({ candidate, settings, eventName }: Cand
                 paddingTop: "2px",
               }}
             >
-              <ProgramItem program={list[4]} isCenter={true} />
+              <ProgramItem program={list[4]} isCenter={true} isSchedulePublished={isSchedulePublished} />
             </div>
           </div>
         )}

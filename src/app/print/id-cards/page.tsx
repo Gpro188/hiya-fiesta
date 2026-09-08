@@ -48,7 +48,11 @@ export default async function BulkIdCardsPage({ searchParams }: { searchParams: 
     where: whereClause,
     include: {
       team: {
-        include: { event: true }
+        include: {
+          event: {
+            include: { parent: true },
+          },
+        },
       },
       institution: true,
       category: true,
