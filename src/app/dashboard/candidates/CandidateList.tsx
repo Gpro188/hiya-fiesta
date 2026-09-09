@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { deleteCandidate, approveCandidate } from "./actions";
 import EditCandidateModal from "./EditCandidateModal";
+import DirectCandidateReplacementModal from "./DirectCandidateReplacementModal";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 type CandidateType = {
@@ -31,6 +32,7 @@ export default function CandidateList({
   isSchedulePublished?: boolean 
 }) {
   const [editingCandidate, setEditingCandidate] = useState<CandidateType | null>(null);
+  const [replacementModalCandidateId, setReplacementModalCandidateId] = useState<string | null>(null);
 
   if (candidates.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>No candidates registered yet.</div>;
@@ -236,8 +238,27 @@ export default function CandidateList({
                       </a>
                     )}
 
-                    {/* Only allow editing if not approved (for Manager) or always (for Admin) */}
-                    {(role === "ADMIN" || !candidate.isApproved) && (
+                    {/* Direct Candidate Replacement for Super Admin & Admin */}
+                    {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+                      <button 
+                        onClick={() => setReplacementModalCandidateId(candidate.id)}
+                        className="btn btn-secondary" 
+                        style={{ 
+                          padding: '0.2rem 0.5rem', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700, 
+                          backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                          color: '#d97706', 
+                          borderColor: '#f59e0b' 
+                        }}
+                        title="Directly replace this candidate with another student"
+                      >
+                        🔄 Replace
+                      </button>
+                    )}
+
+                    {/* Only allow editing if not approved (for Manager) or always (for Admin / Super Admin) */}
+                    {(["ADMIN", "SUPER_ADMIN"].includes(role) || !candidate.isApproved) && (
                       <button 
                         onClick={() => setEditingCandidate(candidate)}
                         className="btn btn-secondary" 
@@ -247,8 +268,8 @@ export default function CandidateList({
                       </button>
                     )}
                     
-                    {/* Only allow deletion if not approved yet or if Admin */}
-                    {(!candidate.isApproved || role === "ADMIN") && (
+                    {/* Only allow deletion if not approved yet or if Admin / Super Admin */}
+                    {(!candidate.isApproved || ["ADMIN", "SUPER_ADMIN"].includes(role)) && (
                       <button 
                         onClick={async () => {
                           if (confirm(`Are you sure you want to delete "${candidate.name}"?`)) {
@@ -298,6 +319,14 @@ export default function CandidateList({
           categories={categories}
           role={role}
           onClose={() => setEditingCandidate(null)} 
+        />
+      )}
+
+      {replacementModalCandidateId && (
+        <DirectCandidateReplacementModal
+          initialCandidateId={replacementModalCandidateId}
+          onClose={() => setReplacementModalCandidateId(null)}
+          onReplaced={() => window.location.reload()}
         />
       )}
     </div>

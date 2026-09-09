@@ -5,6 +5,7 @@ import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, 
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 import RegistrationAccessModal from "@/app/dashboard/teams/RegistrationAccessModal";
 import ZonalReplacementSessionModal from "./ZonalReplacementSessionModal";
+import DirectCandidateReplacementModal from "@/app/dashboard/candidates/DirectCandidateReplacementModal";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [zones, setZones] = useState(initialZones);
@@ -15,6 +16,8 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [viewingCollegesZone, setViewingCollegesZone] = useState<any | null>(null);
   const [accessModalTeam, setAccessModalTeam] = useState<any | null>(null);
   const [sessionModalZoneId, setSessionModalZoneId] = useState<string | null>(null);
+  const [directReplaceModalOpen, setDirectReplaceModalOpen] = useState(false);
+  const [directReplaceCandidateId, setDirectReplaceCandidateId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedResetZoneId, setSelectedResetZoneId] = useState("ALL");
   const [resetSuccess, setResetSuccess] = useState("");
@@ -187,6 +190,23 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => { setDirectReplaceCandidateId(null); setDirectReplaceModalOpen(true); }} 
+              className="btn btn-secondary" 
+              style={{ 
+                fontSize: '0.85rem', 
+                fontWeight: 700, 
+                borderColor: '#f59e0b', 
+                color: '#d97706', 
+                backgroundColor: 'rgba(245, 158, 11, 0.12)', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '6px' 
+              }}
+              title="Directly replace any candidate in any zone with a new student"
+            >
+              <span>🔄</span> Direct Candidate Replacement
+            </button>
             <button 
               onClick={() => setSessionModalZoneId("ALL")} 
               className="btn btn-secondary" 
@@ -693,6 +713,17 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
           initialZoneId={sessionModalZoneId}
           onClose={() => setSessionModalZoneId(null)}
           onUpdated={() => window.location.reload()}
+        />
+      )}
+
+      {/* Direct Candidate Replacement Modal */}
+      {directReplaceModalOpen && (
+        <DirectCandidateReplacementModal
+          initialCandidateId={directReplaceCandidateId}
+          initialZoneId="ALL"
+          zones={zones}
+          onClose={() => { setDirectReplaceModalOpen(false); setDirectReplaceCandidateId(null); }}
+          onReplaced={() => window.location.reload()}
         />
       )}
     </div>

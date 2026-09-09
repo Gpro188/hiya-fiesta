@@ -436,3 +436,238 @@ export async function generateChestNumbers(eventId: string) {
     return { success: false, error: error.message || "Failed to generate chest numbers" };
   }
 }
+
+export async function searchCandidatesForReplacement(query: string, zoneId?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, candidates: [], error: "Unauthorized" };
+    }
+
+    const q = query.trim();
+    const where: any = {};
+
+    if (zoneId && zoneId !== "ALL") {
+      where.team = {
+        event: { zoneId }
+      };
+    }
+
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { uid: { contains: q, mode: "insensitive" } },
+        { chestNumber: { contains: q, mode: "insensitive" } },
+        { team: { name: { contains: q, mode: "insensitive" } } },
+        { team: { prefixCode: { contains: q, mode: "insensitive" } } },
+        { team: { institution: { name: { contains: q, mode: "insensitive" } } } },
+        { team: { institution: { code: { contains: q, mode: "insensitive" } } } },
+      ];
+    }
+
+    const candidates = await prisma.candidate.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        uid: true,
+        chestNumber: true,
+        photo: true,
+        photoUrl: true,
+        isApproved: true,
+        category: { select: { id: true, name: true } },
+        team: {
+          select: {
+            id: true,
+            name: true,
+            prefixCode: true,
+            institutionId: true,
+            institution: { select: { id: true, name: true, code: true, place: true } },
+            event: {
+              select: {
+                id: true,
+                name: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            }
+          }
+        },
+        programs: {
+          select: {
+            id: true,
+            program: {
+              select: { id: true, name: true, stageType: true, programCode: true }
+            }
+          }
+        }
+      },
+      take: 60,
+      orderBy: { name: "asc" }
+    });
+
+    return { success: true, candidates };
+  } catch (error: any) {
+    console.error("searchCandidatesForReplacement error:", error);
+    return { success: false, candidates: [], error: error.message || "Failed to search candidates" };
+  }
+}
+
+export async function getReplacementCandidateDetails(candidateId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+      include: {
+        category: true,
+        team: {
+          include: {
+            institution: true,
+            event: { include: { zone: true } },
+            candidates: {
+              select: { id: true, uid: true, name: true, chestNumber: true }
+            }
+          }
+        },
+        programs: {
+          include: { program: true }
+        }
+      }
+    });
+
+    if (!candidate) return { success: false, error: "Candidate not found" };
+
+    const institutionId = candidate.institutionId || candidate.team.institutionId;
+
+    let availableStudents: any[] = [];
+    if (institutionId) {
+      const registeredUids = new Set(
+        candidate.team.candidates
+          .map(c => c.uid?.trim().toUpperCase())
+          .filter(Boolean)
+      );
+
+      const allMasterStudents = await prisma.masterStudent.findMany({
+        where: { institutionId },
+        orderBy: { name: "asc" }
+      });
+
+      availableStudents = allMasterStudents.filter(
+        s => !registeredUids.has(s.uid.trim().toUpperCase()) || s.uid.trim().toUpperCase() === candidate.uid?.trim().toUpperCase()
+      );
+    }
+
+    return {
+      success: true,
+      candidate,
+      availableStudents,
+    };
+  } catch (error: any) {
+    console.error("getReplacementCandidateDetails error:", error);
+    return { success: false, error: error.message || "Failed to get candidate details" };
+  }
+}
+
+export async function directReplaceCandidate(data: {
+  candidateId: string;
+  newStudentUid?: string;
+  newName: string;
+  newPhoto?: string;
+  reason?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: data.candidateId },
+      include: {
+        team: {
+          include: {
+            institution: true,
+            event: { include: { zone: true } },
+            candidates: { select: { id: true, uid: true, name: true } }
+          }
+        },
+        programs: { include: { program: true } }
+      }
+    });
+
+    if (!candidate) return { success: false, error: "Candidate not found" };
+
+    const finalUid = data.newStudentUid ? data.newStudentUid.trim().toUpperCase() : null;
+    const finalName = data.newName.trim();
+
+    if (!finalName) {
+      return { success: false, error: "Replacement candidate name is required." };
+    }
+
+    if (finalUid) {
+      const existingInTeam = candidate.team.candidates.find(
+        c => c.id !== candidate.id && c.uid?.trim().toUpperCase() === finalUid
+      );
+      if (existingInTeam) {
+        return {
+          success: false,
+          error: `Student UID ${finalUid} is already registered as candidate "${existingInTeam.name}" in this team.`
+        };
+      }
+    }
+
+    const oldName = candidate.name;
+    const oldUid = candidate.uid;
+    const chestNumber = candidate.chestNumber;
+    const teamName = candidate.team.name;
+    const zoneName = candidate.team.event?.zone?.name || "Zone";
+
+    const updated = await prisma.candidate.update({
+      where: { id: data.candidateId },
+      data: {
+        name: finalName,
+        uid: finalUid,
+        ...(data.newPhoto ? { photo: data.newPhoto, photoUrl: data.newPhoto } : {}),
+        isApproved: true,
+      }
+    });
+
+    const auditReason = `Super Admin direct replacement in ${teamName} (${zoneName}): Replaced [${oldName}${oldUid ? ` (UID: ${oldUid})` : ''}] with [${finalName}${finalUid ? ` (UID: ${finalUid})` : ''}] (Chest #${chestNumber || 'None'}). Reason: ${data.reason || 'Direct Super Admin replacement'}`;
+
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: "SUPER_ADMIN_DIRECT_CANDIDATE_REPLACEMENT",
+        entityType: "CANDIDATE",
+        entityId: candidate.id,
+        reason: auditReason
+      }
+    }).catch(err => console.warn("Audit log non-fatal error:", err));
+
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/print/id-cards");
+    revalidatePath("/print/assignments");
+    revalidatePath("/print/chest-numbers");
+
+    return {
+      success: true,
+      candidate: updated,
+      oldName,
+      newName: finalName,
+      chestNumber,
+      teamName,
+      zoneName
+    };
+  } catch (error: any) {
+    console.error("directReplaceCandidate error:", error);
+    return { success: false, error: error.message || "Failed to replace candidate" };
+  }
+}
+

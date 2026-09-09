@@ -5,15 +5,21 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 export default function CandidateFilter({ 
   teams, 
   categories, 
+  zones = [],
   currentTeamId, 
   currentCategoryId,
-  showTeamFilter
+  currentZoneId,
+  showTeamFilter,
+  showZoneFilter = false,
 }: { 
   teams: any[], 
   categories: any[], 
+  zones?: any[],
   currentTeamId?: string, 
   currentCategoryId?: string,
-  showTeamFilter: boolean
+  currentZoneId?: string,
+  showTeamFilter: boolean,
+  showZoneFilter?: boolean,
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -26,11 +32,27 @@ export default function CandidateFilter({
     } else {
       params.delete(key);
     }
+    // If zone changed, clear team filter
+    if (key === "zoneId") {
+      params.delete("teamId");
+    }
     router.push(`${pathname}?${params.toString()}`);
   };
 
   return (
-    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+      {showZoneFilter && zones.length > 0 && (
+        <select 
+          className="form-input" 
+          value={currentZoneId || ""} 
+          onChange={(e) => handleFilterChange('zoneId', e.target.value)}
+          style={{ padding: '0.4rem', fontSize: '0.8rem', minWidth: '150px', borderColor: '#3b82f6', fontWeight: 600 }}
+        >
+          <option value="">🌐 All Zones</option>
+          {zones.map(z => <option key={z.id} value={z.id}>{z.name} ({z.code})</option>)}
+        </select>
+      )}
+
       {showTeamFilter && (
         <select 
           className="form-input" 
@@ -53,7 +75,7 @@ export default function CandidateFilter({
         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
 
-      {(currentTeamId || currentCategoryId) && (
+      {(currentTeamId || currentCategoryId || currentZoneId) && (
         <button 
           onClick={() => router.push(pathname)}
           className="btn btn-secondary" 
@@ -65,3 +87,4 @@ export default function CandidateFilter({
     </div>
   );
 }
+

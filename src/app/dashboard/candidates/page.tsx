@@ -10,10 +10,10 @@ import GenerateChestNumbersButton from "./GenerateChestNumbersButton";
 import InstitutionStudentDirectory from "./InstitutionStudentDirectory";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
-export default async function CandidatesPage(props: { searchParams: Promise<{ teamId?: string, categoryId?: string }> }) {
+export default async function CandidatesPage(props: { searchParams: Promise<{ teamId?: string, categoryId?: string, zoneId?: string }> }) {
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
-  const { teamId: filterTeamId, categoryId: filterCategoryId } = searchParams;
+  const { teamId: filterTeamId, categoryId: filterCategoryId, zoneId: filterZoneId } = searchParams;
 
   if (!session || (!["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role))) {
     redirect("/dashboard");
@@ -32,6 +32,10 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   let isRegistrationOpen = true;
   let registrationStatusMessage = "";
   let isSchedulePublished = true;
+
+  const zones = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role)
+    ? await prisma.zone.findMany({ select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } })
+    : [];
 
   const userEventId = session.user.eventId;
   const categoryTeamWhere: any = userEventId ? {
@@ -107,8 +111,6 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             orderBy: { name: 'asc' }
           });
 
-          // Auto-Sync block removed to prevent automatic candidate registration
-
           const teamCandidatesForLock = await prisma.candidate.findMany({
             where: { teamId: team.id },
             select: {
@@ -132,30 +134,28 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   } else {
     let teamWhere: any = {};
 
-    if (["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
-      if (fullUser?.eventId) {
-        teamWhere = { event: { parentId: fullUser.eventId } };
+    if (["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      if (filterZoneId) {
+        teamWhere = { event: { zoneId: filterZoneId } };
       }
-      
       teams = await prisma.team.findMany({
         where: teamWhere,
+        select: { id: true, name: true },
         orderBy: { name: 'asc' }
       });
-      
-      let eventWhere: any = {};
-      if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
-        eventWhere = { zoneId: fullUser.zoneId };
-      } else if (fullUser?.eventId) {
-        eventWhere = {
-          OR: [
-            { id: fullUser.eventId },
-            { parentId: fullUser.eventId }
-          ]
-        };
-      }
-      
+
       categories = await prisma.category.findMany({
-        where: { event: eventWhere },
+        orderBy: { name: 'asc' }
+      });
+    } else if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
+      teams = await prisma.team.findMany({
+        where: { event: { zoneId: fullUser.zoneId } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' }
+      });
+
+      categories = await prisma.category.findMany({
+        where: { event: { zoneId: fullUser.zoneId } },
         orderBy: { name: 'asc' }
       });
     }
@@ -165,7 +165,13 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
     whereClause.teamId = userTeamId || "none";
   } else {
-    if (session.user.eventId) {
+    if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
+      whereClause.team = { event: { zoneId: fullUser.zoneId } };
+    } else if (["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      if (filterZoneId) {
+        whereClause.team = { event: { zoneId: filterZoneId } };
+      }
+    } else if (session.user.eventId) {
       whereClause.team = { eventId: session.user.eventId };
     }
     if (filterTeamId) whereClause.teamId = filterTeamId;
@@ -371,9 +377,12 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
              <CandidateFilter 
                 teams={teams} 
                 categories={categories} 
+                zones={zones}
                 currentTeamId={filterTeamId} 
                 currentCategoryId={filterCategoryId}
+                currentZoneId={filterZoneId}
                 showTeamFilter={["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)}
+                showZoneFilter={["ADMIN", "SUPER_ADMIN"].includes(session.user.role)}
              />
             {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && fullUser?.eventId && (
               <GenerateChestNumbersButton eventId={fullUser.eventId} />
