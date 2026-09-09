@@ -184,8 +184,8 @@ export default function CandidateIdCard({
     <div
       className="candidate-id-card"
       style={{
-        width: "360px",
-        height: "600px",
+        width: "350px",
+        height: "550px",
         position: "relative",
         borderRadius: "18px",
         overflow: "hidden",
@@ -200,6 +200,22 @@ export default function CandidateIdCard({
         boxSizing: "border-box",
       }}
     >
+      {/* Background Template Image (Rendered as an img element so print engines NEVER strip it even if background graphics is turned off) */}
+      <img
+        src="/hiya-id-blank.png"
+        alt=""
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "fill",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
+
       {/* Curved SVG Text "CANDIDATE CARD" centered precisely inside the purple arc */}
       <svg
         viewBox="0 0 661 1039"
@@ -231,14 +247,14 @@ export default function CandidateIdCard({
         </text>
       </svg>
 
-      {/* Circular Candidate Photo Container */}
+      {/* Circular Candidate Photo Container (Concentric with background arc circle at top: 24.8%, width: 35%) */}
       <div
         style={{
           position: "absolute",
-          top: "23.5%",
+          top: "24.8%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "34%",
+          width: "35%",
           aspectRatio: "1/1",
           borderRadius: "50%",
           overflow: "hidden",

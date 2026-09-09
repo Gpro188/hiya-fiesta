@@ -18,9 +18,11 @@ export default function BulkIdCardsClient({
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("MAX");
   const [showCutBorders, setShowCutBorders] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<"SHEET" | "GRID">("SHEET");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState("");
 
   // Determine capacity per sheet
-  // A4 MAX: 5 cards (3 portrait on top, 2 landscape on bottom) - A4 Landscape
+  // A4 MAX: 5 cards (3 portrait top + 2 landscape bottom) - A4 Landscape
   // A4 GRID: 4 cards (2x2 portrait grid) - A4 Portrait
   // A3 MAX: 10 cards (5x2 portrait grid) - A3 Landscape
   // A3 GRID: 9 cards (3x3 portrait grid) - A3 Portrait
@@ -41,24 +43,30 @@ export default function BulkIdCardsClient({
     return chunks;
   }, [candidates, cardsPerSheet]);
 
-  // Page setup parameters for CSS
+  // Page setup parameters for CSS and PDF export
   const pageConfig = useMemo(() => {
     if (paperSize === "A4") {
       if (layoutMode === "MAX") {
         return {
           size: "A4 landscape",
-          margin: "3mm 4mm",
-          sheetWidth: "28.9cm",
-          sheetHeight: "20.4cm",
+          isLandscape: true,
+          margin: "4mm 5mm",
+          sheetWidthMm: 297,
+          sheetHeightMm: 210,
+          sheetWidthCss: "28.7cm",
+          sheetHeightCss: "20.2cm",
           orientationName: "A4 Landscape",
           desc: "5 Cards / Sheet (3 Portrait Top + 2 Landscape Bottom)",
         };
       } else {
         return {
           size: "A4 portrait",
+          isLandscape: false,
           margin: "8mm",
-          sheetWidth: "19.4cm",
-          sheetHeight: "28.1cm",
+          sheetWidthMm: 210,
+          sheetHeightMm: 297,
+          sheetWidthCss: "19.4cm",
+          sheetHeightCss: "28.1cm",
           orientationName: "A4 Portrait",
           desc: "4 Cards / Sheet (2 × 2 Portrait Grid)",
         };
@@ -67,18 +75,24 @@ export default function BulkIdCardsClient({
       if (layoutMode === "MAX") {
         return {
           size: "A3 landscape",
+          isLandscape: true,
           margin: "6mm",
-          sheetWidth: "40.8cm",
-          sheetHeight: "28.5cm",
+          sheetWidthMm: 420,
+          sheetHeightMm: 297,
+          sheetWidthCss: "40.8cm",
+          sheetHeightCss: "28.5cm",
           orientationName: "A3 Landscape",
           desc: "10 Cards / Sheet (5 × 2 Portrait Grid)",
         };
       } else {
         return {
           size: "A3 portrait",
+          isLandscape: false,
           margin: "8mm",
-          sheetWidth: "28.1cm",
-          sheetHeight: "40.4cm",
+          sheetWidthMm: 297,
+          sheetHeightMm: 420,
+          sheetWidthCss: "28.1cm",
+          sheetHeightCss: "40.4cm",
           orientationName: "A3 Portrait",
           desc: "9 Cards / Sheet (3 × 3 Portrait Grid)",
         };
@@ -86,18 +100,82 @@ export default function BulkIdCardsClient({
     }
   }, [paperSize, layoutMode]);
 
+  // High-Resolution Direct PDF Download Handler
+  const handleDownloadPdf = async () => {
+    try {
+      setIsGeneratingPdf(true);
+      setPdfProgress("Loading PDF generator...");
+      const { jsPDF } = await import("jspdf");
+      const { toPng } = await import("html-to-image");
+
+      const pdf = new jsPDF({
+        orientation: pageConfig.isLandscape ? "landscape" : "portrait",
+        unit: "mm",
+        format: paperSize.toLowerCase() as "a4" | "a3",
+      });
+
+      const sheetEls = document.querySelectorAll<HTMLElement>(".print-sheet");
+      if (sheetEls.length === 0) {
+        throw new Error("No print sheets found.");
+      }
+
+      for (let i = 0; i < sheetEls.length; i++) {
+        setPdfProgress(`Rendering sheet ${i + 1} of ${sheetEls.length}...`);
+        const sheet = sheetEls[i];
+        const imgData = await toPng(sheet, {
+          quality: 0.98,
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          filter: (node) => {
+            if (node instanceof HTMLElement && node.classList.contains("no-print")) {
+              return false;
+            }
+            return true;
+          },
+        });
+
+        if (i > 0) {
+          pdf.addPage(
+            paperSize.toLowerCase() as "a4" | "a3",
+            pageConfig.isLandscape ? "landscape" : "portrait"
+          );
+        }
+
+        pdf.addImage(
+          imgData,
+          "PNG",
+          0,
+          0,
+          pageConfig.sheetWidthMm,
+          pageConfig.sheetHeightMm,
+          undefined,
+          "FAST"
+        );
+      }
+
+      setPdfProgress("Saving PDF file...");
+      pdf.save(`Candidate_ID_Cards_${paperSize}_${layoutMode}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Could not generate PDF file automatically. Please use the Print All Cards button and select 'Save as PDF'.");
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress("");
+    }
+  };
+
   return (
     <div
       className="bulk-id-cards-container"
       style={{
         padding: "24px",
-        backgroundColor: "#f8fafc",
+        backgroundColor: "#ffffff",
         minHeight: "100vh",
         color: "#0f172a",
         fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      {/* Top Action & Setup Bar */}
+      {/* Top Action & Configuration Toolbar */}
       <div
         className="no-print"
         style={{
@@ -105,14 +183,14 @@ export default function BulkIdCardsClient({
           backgroundColor: "#ffffff",
           padding: "20px 24px",
           borderRadius: "14px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
           border: "1px solid #e2e8f0",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
         }}
       >
-        {/* Title & Primary Action */}
+        {/* Title & Primary Action Buttons */}
         <div
           style={{
             display: "flex",
@@ -123,7 +201,7 @@ export default function BulkIdCardsClient({
           }}
         >
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "1.35rem", fontWeight: 800, margin: 0, color: "#111827" }}>
                 Bulk ID Card Printing
               </h1>
@@ -138,17 +216,44 @@ export default function BulkIdCardsClient({
                   border: "1px solid #bfdbfe",
                 }}
               >
-                Fixed Card: 7.5 cm × 12.5 cm
+                Fixed Physical Card: 7.5 cm (W) × 12.5 cm (H)
               </span>
             </div>
             <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "4px 0 0 0" }}>
-              {candidates.length} candidates • {pages.length} {pages.length === 1 ? "page" : "pages"} on{" "}
-              {pageConfig.orientationName} ({cardsPerSheet} cards/sheet)
+              {candidates.length} candidates • {pages.length} {pages.length === 1 ? "sheet" : "sheets"} on{" "}
+              <strong>{pageConfig.orientationName}</strong> ({cardsPerSheet} cards/sheet)
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            {/* Download PDF Button */}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || candidates.length === 0}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                backgroundColor: isGeneratingPdf ? "#94a3b8" : "#0284c7",
+                color: "#ffffff",
+                fontWeight: 700,
+                border: "none",
+                borderRadius: "8px",
+                cursor: isGeneratingPdf ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
+                transition: "all 0.2s",
+              }}
+            >
+              <span>{isGeneratingPdf ? "⏳" : "📥"}</span>
+              <span>{isGeneratingPdf ? pdfProgress : "Download PDF"}</span>
+            </button>
+
+            {/* Print All Cards Button */}
             <PrintButton label="Print All Cards" color="#8E0033" />
+
+            {/* Back Button */}
             <button
               onClick={() => window.history.back()}
               style={{
@@ -180,7 +285,6 @@ export default function BulkIdCardsClient({
             borderTop: "1px solid #f1f5f9",
           }}
         >
-          {/* Controls Left Group */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "20px" }}>
             {/* Paper Size Selector */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -292,7 +396,7 @@ export default function BulkIdCardsClient({
           {/* View Mode Toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#64748b" }}>
-              Preview:
+              View:
             </span>
             <div
               style={{
@@ -336,12 +440,43 @@ export default function BulkIdCardsClient({
             </div>
           </div>
         </div>
+
+        {/* Helpful Orientation Banner for Native Browser Printing */}
+        {pageConfig.isLandscape && (
+          <div
+            style={{
+              backgroundColor: "#fef3c7",
+              border: "1px solid #fde68a",
+              color: "#92400e",
+              borderRadius: "8px",
+              padding: "8px 14px",
+              fontSize: "0.80rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span>💡</span>
+            <span>
+              <strong>Printer Setting:</strong> When using the Print button, make sure your printer dialog layout is set to <strong>Landscape</strong> (or use the <strong>Download PDF</strong> button for an instant pre-formatted file).
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Main Print / Preview Content Area */}
       {viewMode === "SHEET" ? (
         /* Sheet by Sheet Preview */
-        <div className="sheets-wrapper" style={{ display: "flex", flexDirection: "column", gap: "32px", alignItems: "center" }}>
+        <div
+          className="sheets-wrapper"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "32px",
+            alignItems: "center",
+            backgroundColor: "#ffffff",
+          }}
+        >
           {pages.map((pageCandidates, pageIdx) => {
             return (
               <div
@@ -349,7 +484,7 @@ export default function BulkIdCardsClient({
                 className={`print-sheet print-sheet-${paperSize.toLowerCase()}-${layoutMode.toLowerCase()}`}
                 style={{
                   backgroundColor: "#ffffff",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
                   borderRadius: "8px",
                   border: "1px solid #e2e8f0",
                   boxSizing: "border-box",
@@ -388,7 +523,7 @@ export default function BulkIdCardsClient({
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
-                      gap: "6mm",
+                      gap: "4mm",
                     }}
                   >
                     {/* Top Row: Up to 3 Portrait Cards */}
@@ -419,14 +554,14 @@ export default function BulkIdCardsClient({
                       })}
                     </div>
 
-                    {/* Bottom Row: Up to 2 Landscape (Rotated) Cards */}
+                    {/* Bottom Row: Up to 2 Landscape (Rotated 90deg) Cards */}
                     {pageCandidates.length > 3 && (
                       <div
                         className="row-bottom-landscape"
                         style={{
                           display: "flex",
                           justifyContent: "center",
-                          gap: "10mm",
+                          gap: "8mm",
                         }}
                       >
                         {pageCandidates.slice(3, 5).map((candidate) => {
@@ -489,6 +624,7 @@ export default function BulkIdCardsClient({
             gap: "24px",
             justifyContent: "center",
             alignItems: "flex-start",
+            backgroundColor: "#ffffff",
           }}
         >
           {candidates.map((candidate) => {
@@ -535,7 +671,7 @@ export default function BulkIdCardsClient({
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        /* Screen Card Slot Sizes (Scale down 360x600 to 283.46x472.44px = 7.5cm x 12.5cm) */
+        /* Screen Card Slot Sizes: 7.5cm W x 12.5cm H */
         .card-slot-portrait {
           width: 7.5cm;
           height: 12.5cm;
@@ -548,9 +684,9 @@ export default function BulkIdCardsClient({
           border: 1px dashed #cbd5e1;
         }
         .card-slot-portrait .candidate-id-card {
-          width: 360px !important;
-          height: 600px !important;
-          transform: scale(0.787402) !important;
+          width: 350px !important;
+          height: 550px !important;
+          transform: scale(calc(7.5cm / 350px), calc(12.5cm / 550px)) !important;
           transform-origin: top left !important;
           box-shadow: none !important;
         }
@@ -568,9 +704,9 @@ export default function BulkIdCardsClient({
           border: 1px dashed #cbd5e1;
         }
         .card-slot-landscape .candidate-id-card {
-          width: 360px !important;
-          height: 600px !important;
-          transform: translate(12.5cm, 0) rotate(90deg) scale(0.787402) !important;
+          width: 350px !important;
+          height: 550px !important;
+          transform: translate(12.5cm, 0) rotate(90deg) scale(calc(7.5cm / 350px), calc(12.5cm / 550px)) !important;
           transform-origin: top left !important;
           box-shadow: none !important;
         }
@@ -592,7 +728,7 @@ export default function BulkIdCardsClient({
           grid-template-columns: repeat(5, 7.5cm);
         }
 
-        /* PRINT STYLES - PURE WHITE BACKGROUND, NO GRAY, FIXED 7.5cm x 12.5cm SIZES */
+        /* PRINT STYLES - GUARANTEED GRAPHICS & PURE WHITE PAPER BACKGROUND */
         @media print {
           @page {
             size: ${pageConfig.size};
@@ -602,7 +738,7 @@ export default function BulkIdCardsClient({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          html, body, div, main, .bulk-id-cards-container, .sheets-wrapper {
+          html, body, #__next, .bulk-id-cards-container, .sheets-wrapper {
             background: #ffffff !important;
             background-color: #ffffff !important;
             margin: 0 !important;
@@ -621,8 +757,8 @@ export default function BulkIdCardsClient({
             margin: 0 auto !important;
             background: #ffffff !important;
             background-color: #ffffff !important;
-            width: ${pageConfig.sheetWidth} !important;
-            height: ${pageConfig.sheetHeight} !important;
+            width: ${pageConfig.sheetWidthCss} !important;
+            height: ${pageConfig.sheetHeightCss} !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: center !important;
@@ -646,7 +782,7 @@ export default function BulkIdCardsClient({
           .row-bottom-landscape {
             display: flex !important;
             justify-content: center !important;
-            gap: 10mm !important;
+            gap: 8mm !important;
             width: 100% !important;
             height: 7.5cm !important;
           }
@@ -655,6 +791,7 @@ export default function BulkIdCardsClient({
             break-inside: avoid !important;
             width: 7.5cm !important;
             height: 12.5cm !important;
+            background: #ffffff !important;
           }
           .card-slot-portrait.with-cut-border {
             border: 1px dashed #94a3b8 !important;
@@ -664,6 +801,7 @@ export default function BulkIdCardsClient({
             break-inside: avoid !important;
             width: 12.5cm !important;
             height: 7.5cm !important;
+            background: #ffffff !important;
           }
           .card-slot-landscape.with-cut-border {
             border: 1px dashed #94a3b8 !important;
