@@ -184,8 +184,8 @@ export default function CandidateIdCard({
     <div
       className="candidate-id-card"
       style={{
-        width: "350px",
-        height: "550px",
+        width: "360px",
+        height: "600px",
         position: "relative",
         borderRadius: "18px",
         overflow: "hidden",
@@ -231,14 +231,14 @@ export default function CandidateIdCard({
         </text>
       </svg>
 
-      {/* Circular Candidate Photo Container (Shifted slightly up for clean distance) */}
+      {/* Circular Candidate Photo Container */}
       <div
         style={{
           position: "absolute",
-          top: "24.6%",
+          top: "23.5%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "34.5%",
+          width: "34%",
           aspectRatio: "1/1",
           borderRadius: "50%",
           overflow: "hidden",
@@ -271,7 +271,7 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "48.2%",
+          top: "46.5%",
           left: "6%",
           right: "6%",
           textAlign: "center",
@@ -350,7 +350,7 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "65.0%",
+          top: "64.0%",
           left: "10%",
           right: "10%",
           display: "grid",
@@ -443,8 +443,8 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "75.0%",
-          bottom: "7%",
+          top: "74.5%",
+          bottom: "6%",
           left: "12%",
           right: "12%",
           display: "flex",

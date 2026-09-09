@@ -34,7 +34,7 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
     candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
 
   return (
-    <div style={{ padding: "40px 20px", backgroundColor: "#f3f4f6", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ padding: "40px 20px", backgroundColor: "#ffffff", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       
       {/* Centered ID Card Container */}
       <div id="print-area">
@@ -54,14 +54,32 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .id-card-print-item {
+          width: 7.5cm;
+          height: 12.5cm;
+          overflow: hidden;
+          position: relative;
+          background: #ffffff;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+          border-radius: 6px;
+        }
+        .id-card-print-item .candidate-id-card {
+          width: 360px !important;
+          height: 600px !important;
+          transform: scale(0.787402) !important;
+          transform-origin: top left !important;
+          box-shadow: none !important;
+        }
+
         @media print {
           @page {
             size: A4 portrait;
             margin: 10mm;
           }
           .no-print { display: none !important; }
-          body { 
-            background: white !important; 
+          html, body, div, main { 
+            background: #ffffff !important; 
+            background-color: #ffffff !important; 
             margin: 0 !important; 
             padding: 0 !important; 
           }
@@ -75,21 +93,21 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
           .id-card-print-item {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            width: 5.6cm !important;
-            height: 8.8cm !important;
+            width: 7.5cm !important;
+            height: 12.5cm !important;
             overflow: hidden !important;
             position: relative !important;
             margin: 0 auto !important;
+            border: 1px dashed #94a3b8 !important;
+            box-shadow: none !important;
           }
           .id-card-print-item .candidate-id-card,
           .candidate-id-card { 
-            width: 350px !important;
-            height: 550px !important;
-            transform: scale(0.604724) !important;
+            width: 360px !important;
+            height: 600px !important;
+            transform: scale(0.787402) !important;
             transform-origin: top left !important;
             box-shadow: none !important; 
-            border: 1px solid #e5e7eb !important;
-            border-radius: 20px !important;
             margin: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
