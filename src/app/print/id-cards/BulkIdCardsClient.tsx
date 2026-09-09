@@ -130,13 +130,18 @@ export default function BulkIdCardsClient({
             break-inside: avoid !important;
             width: 5.6cm !important;
             height: 8.8cm !important;
+            overflow: hidden !important;
+            position: relative !important;
           }
+          .id-card-print-item .candidate-id-card,
           .candidate-id-card { 
-            width: 5.6cm !important;
-            height: 8.8cm !important;
+            width: 350px !important;
+            height: 550px !important;
+            transform: scale(0.604724) !important;
+            transform-origin: top left !important;
             box-shadow: none !important; 
             border: 1px solid #e5e7eb !important;
-            border-radius: 4mm !important;
+            border-radius: 20px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             page-break-inside: avoid !important;

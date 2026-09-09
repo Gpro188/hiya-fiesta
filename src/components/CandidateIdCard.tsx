@@ -149,6 +149,37 @@ export default function CandidateIdCard({
       : (candidate.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
          candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED");
 
+  const candName = candidate.name || "";
+  const nameFontSize =
+    candName.length > 22
+      ? "0.85rem"
+      : candName.length > 16
+      ? "0.94rem"
+      : "1.04rem";
+
+  const teamFontSize =
+    teamName.length > 28
+      ? "0.58rem"
+      : teamName.length > 20
+      ? "0.62rem"
+      : "0.66rem";
+
+  const eventFontSize =
+    eventTitle.length > 25
+      ? "0.54rem"
+      : eventTitle.length > 18
+      ? "0.60rem"
+      : eventTitle.length > 13
+      ? "0.68rem"
+      : "0.76rem";
+
+  const categoryFontSize =
+    categoryName.length > 14
+      ? "0.65rem"
+      : categoryName.length > 10
+      ? "0.72rem"
+      : "0.78rem";
+
   return (
     <div
       className="candidate-id-card"
@@ -240,7 +271,7 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "49.0%",
+          top: "48.2%",
           left: "6%",
           right: "6%",
           textAlign: "center",
@@ -273,13 +304,13 @@ export default function CandidateIdCard({
         {/* Candidate Name in Bold Indigo/Purple */}
         <div
           style={{
-            fontSize: "1.05rem",
+            fontSize: nameFontSize,
             fontWeight: 900,
             color: "#312e81",
             textTransform: "uppercase",
-            letterSpacing: "0.4px",
+            letterSpacing: "0.3px",
             lineHeight: 1.15,
-            marginTop: "4px",
+            marginTop: "3px",
             maxWidth: "100%",
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -295,14 +326,14 @@ export default function CandidateIdCard({
         {/* Institution / Team Name in Bold Black/Charcoal */}
         <div
           style={{
-            fontSize: "0.68rem",
+            fontSize: teamFontSize,
             fontWeight: 800,
             color: "#1f2937",
             textTransform: "uppercase",
-            letterSpacing: "0.4px",
-            lineHeight: 1.2,
+            letterSpacing: "0.3px",
+            lineHeight: 1.18,
             marginTop: "2px",
-            maxWidth: "92%",
+            maxWidth: "94%",
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -319,11 +350,11 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "64.2%",
-          left: "12%",
-          right: "12%",
+          top: "65.0%",
+          left: "10%",
+          right: "10%",
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "minmax(0, 0.95fr) minmax(0, 1.05fr)",
           alignItems: "center",
           zIndex: 4,
         }}
@@ -333,12 +364,12 @@ export default function CandidateIdCard({
           style={{
             textAlign: "left",
             borderRight: "1px solid rgba(0, 0, 0, 0.12)",
-            paddingRight: "10px",
+            paddingRight: "8px",
           }}
         >
           <div
             style={{
-              fontSize: "0.55rem",
+              fontSize: "0.52rem",
               fontWeight: 800,
               color: "#4f46e5",
               letterSpacing: "0.5px",
@@ -350,14 +381,16 @@ export default function CandidateIdCard({
           </div>
           <div
             style={{
-              fontSize: "0.80rem",
+              fontSize: categoryFontSize,
               fontWeight: 900,
               color: "#000000",
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
+              letterSpacing: "0.4px",
               lineHeight: 1.15,
               marginTop: "2px",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
             title={categoryName}
           >
@@ -369,12 +402,12 @@ export default function CandidateIdCard({
         <div
           style={{
             textAlign: "right",
-            paddingLeft: "10px",
+            paddingLeft: "8px",
           }}
         >
           <div
             style={{
-              fontSize: "0.55rem",
+              fontSize: "0.52rem",
               fontWeight: 800,
               color: "#4f46e5",
               letterSpacing: "0.5px",
@@ -386,17 +419,18 @@ export default function CandidateIdCard({
           </div>
           <div
             style={{
-              fontSize: "0.80rem",
+              fontSize: eventFontSize,
               fontWeight: 900,
               color: "#000000",
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              lineHeight: 1.15,
+              letterSpacing: "0.25px",
+              lineHeight: 1.12,
               marginTop: "2px",
-              whiteSpace: "nowrap",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: "115px",
+              wordBreak: "break-word",
             }}
             title={eventTitle}
           >
@@ -409,10 +443,10 @@ export default function CandidateIdCard({
       <div
         style={{
           position: "absolute",
-          top: "74.2%",
+          top: "75.0%",
           bottom: "7%",
-          left: "14%",
-          right: "14%",
+          left: "12%",
+          right: "12%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",

@@ -38,11 +38,13 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
       
       {/* Centered ID Card Container */}
       <div id="print-area">
-        <CandidateIdCard
-          candidate={candidate as any}
-          settings={settings}
-          isSchedulePublished={isSchedulePublished}
-        />
+        <div className="id-card-print-item">
+          <CandidateIdCard
+            candidate={candidate as any}
+            settings={settings}
+            isSchedulePublished={isSchedulePublished}
+          />
+        </div>
       </div>
 
       {/* Action Buttons */}
@@ -64,22 +66,35 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
             padding: 0 !important; 
           }
           #print-area {
-            display: flex;
-            justifyContent: center;
-            align-items: center;
-            min-height: 100vh;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            min-height: 100vh !important;
+            padding: 0 !important;
           }
-          .candidate-id-card { 
+          .id-card-print-item {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
             width: 5.6cm !important;
             height: 8.8cm !important;
+            overflow: hidden !important;
+            position: relative !important;
+            margin: 0 auto !important;
+          }
+          .id-card-print-item .candidate-id-card,
+          .candidate-id-card { 
+            width: 350px !important;
+            height: 550px !important;
+            transform: scale(0.604724) !important;
+            transform-origin: top left !important;
             box-shadow: none !important; 
             border: 1px solid #e5e7eb !important;
-            border-radius: 4mm !important;
-            margin: 0 auto;
+            border-radius: 20px !important;
+            margin: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}} />
