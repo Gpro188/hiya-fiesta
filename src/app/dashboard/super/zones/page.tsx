@@ -28,6 +28,11 @@ export default async function MasterZonesPage() {
               offStageUnlocked: true,
               onStageUnlocked: true,
               registrationUnlocked: true,
+              offStageUnlockStart: true,
+              offStageUnlockEnd: true,
+              onStageUnlockStart: true,
+              onStageUnlockEnd: true,
+              isOnStageConfirmed: true,
               _count: { select: { candidates: true } },
               candidates: {
                 select: {
@@ -65,6 +70,11 @@ export default async function MasterZonesPage() {
       events: {
         select: {
           id: true,
+          name: true,
+          offStageRegistrationEnd: true,
+          onStageRegistrationEnd: true,
+          registrationStart: true,
+          registrationEnd: true,
           programs: {
             select: {
               id: true,
@@ -78,11 +88,33 @@ export default async function MasterZonesPage() {
     orderBy: { name: 'asc' }
   });
 
+  const now = new Date();
+
   const zones = rawZones.map(zone => {
     const totalInsts = zone.institutions.length;
     let registeredInsts = 0;
     let confirmedInsts = 0;
     let totalCandidates = 0;
+    let isOffStageSessionActive = false;
+    let isOnStageSessionActive = false;
+    let offStageSessionEnd: Date | null = null;
+    let onStageSessionEnd: Date | null = null;
+
+    // Check sessions from zone events
+    zone.events.forEach(ev => {
+      if (ev.offStageRegistrationEnd && new Date(ev.offStageRegistrationEnd) > now) {
+        isOffStageSessionActive = true;
+        if (!offStageSessionEnd || new Date(ev.offStageRegistrationEnd) > offStageSessionEnd) {
+          offStageSessionEnd = new Date(ev.offStageRegistrationEnd);
+        }
+      }
+      if (ev.onStageRegistrationEnd && new Date(ev.onStageRegistrationEnd) > now) {
+        isOnStageSessionActive = true;
+        if (!onStageSessionEnd || new Date(ev.onStageRegistrationEnd) > onStageSessionEnd) {
+          onStageSessionEnd = new Date(ev.onStageRegistrationEnd);
+        }
+      }
+    });
 
     zone.institutions.forEach(inst => {
       const hasCandidates = inst.teams.some(t => t._count.candidates > 0);
@@ -91,6 +123,19 @@ export default async function MasterZonesPage() {
       if (isConfirmed) confirmedInsts++;
       inst.teams.forEach(t => {
         totalCandidates += t._count.candidates;
+        // Check active unlock windows on teams
+        if (t.offStageUnlockEnd && new Date(t.offStageUnlockEnd) > now && (!t.offStageUnlockStart || now >= new Date(t.offStageUnlockStart))) {
+          isOffStageSessionActive = true;
+          if (!offStageSessionEnd || new Date(t.offStageUnlockEnd) > offStageSessionEnd) {
+            offStageSessionEnd = new Date(t.offStageUnlockEnd);
+          }
+        }
+        if (t.onStageUnlockEnd && new Date(t.onStageUnlockEnd) > now && (!t.onStageUnlockStart || now >= new Date(t.onStageUnlockStart))) {
+          isOnStageSessionActive = true;
+          if (!onStageSessionEnd || new Date(t.onStageUnlockEnd) > onStageSessionEnd) {
+            onStageSessionEnd = new Date(t.onStageUnlockEnd);
+          }
+        }
       });
     });
 
@@ -117,7 +162,11 @@ export default async function MasterZonesPage() {
       confirmationPercentage,
       totalPrograms,
       scoredPrograms,
-      resultsPercentage
+      resultsPercentage,
+      isOffStageSessionActive,
+      isOnStageSessionActive,
+      offStageSessionEnd,
+      onStageSessionEnd,
     };
   });
 

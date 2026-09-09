@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 import RegistrationAccessModal from "@/app/dashboard/teams/RegistrationAccessModal";
+import ZonalReplacementSessionModal from "./ZonalReplacementSessionModal";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [zones, setZones] = useState(initialZones);
@@ -13,6 +14,7 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [editingZone, setEditingZone] = useState<any | null>(null);
   const [viewingCollegesZone, setViewingCollegesZone] = useState<any | null>(null);
   const [accessModalTeam, setAccessModalTeam] = useState<any | null>(null);
+  const [sessionModalZoneId, setSessionModalZoneId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedResetZoneId, setSelectedResetZoneId] = useState("ALL");
   const [resetSuccess, setResetSuccess] = useState("");
@@ -184,9 +186,29 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
               Real-time breakdown of registration progress and result evaluation by zone.
             </p>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
-            ➕ Add New Zone
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => setSessionModalZoneId("ALL")} 
+              className="btn btn-secondary" 
+              style={{ 
+                fontSize: '0.85rem', 
+                fontWeight: 700, 
+                borderColor: '#8E0033', 
+                color: '#ffffff', 
+                backgroundColor: '#8E0033', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(142,0,51,0.3)' 
+              }}
+              title="Open or change replacement session for all zones or individual zones"
+            >
+              <span>⏱️</span> Zonal Replacement Sessions
+            </button>
+            <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
+              ➕ Add New Zone
+            </button>
+          </div>
         </div>
       </div>
 
@@ -212,7 +234,21 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                 {zones.map((zone) => (
                   <tr key={zone.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '12px 8px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {zone.name}
+                      <div>{zone.name}</div>
+                      {(zone.isOffStageSessionActive || zone.isOnStageSessionActive) && (
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                          {zone.isOffStageSessionActive && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(14, 165, 233, 0.15)', color: '#0284c7', border: '1px solid rgba(14, 165, 233, 0.3)' }} title={`Off-Stage replacement session open${zone.offStageSessionEnd ? ' until ' + new Date(zone.offStageSessionEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}>
+                              🎨 Off-Stage Open
+                            </span>
+                          )}
+                          {zone.isOnStageSessionActive && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(236, 72, 153, 0.15)', color: '#db2777', border: '1px solid rgba(236, 72, 153, 0.3)' }} title={`On-Stage replacement session open${zone.onStageSessionEnd ? ' until ' + new Date(zone.onStageSessionEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}>
+                              🎭 On-Stage Open
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{zone.code}</td>
                     <td>
@@ -275,6 +311,21 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                     </td>
                     <td style={{ textAlign: 'right', paddingRight: '8px' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button 
+                          onClick={() => setSessionModalZoneId(zone.id)}
+                          className="btn btn-secondary" 
+                          style={{ 
+                            padding: '3px 8px', 
+                            fontSize: '0.75rem', 
+                            backgroundColor: (zone.isOffStageSessionActive || zone.isOnStageSessionActive) ? 'rgba(16,185,129,0.15)' : 'rgba(142,0,51,0.1)', 
+                            color: (zone.isOffStageSessionActive || zone.isOnStageSessionActive) ? '#059669' : '#8E0033', 
+                            borderColor: (zone.isOffStageSessionActive || zone.isOnStageSessionActive) ? '#10b981' : '#8E0033',
+                            fontWeight: 700
+                          }}
+                          title="Open or change replacement session for Off-Stage and On-Stage in this zone"
+                        >
+                          ⏱️ Replacement Session
+                        </button>
                         <button 
                           onClick={() => setViewingCollegesZone(zone)}
                           className="btn btn-secondary" 
@@ -631,6 +682,16 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
         <RegistrationAccessModal
           team={accessModalTeam}
           onClose={() => setAccessModalTeam(null)}
+          onUpdated={() => window.location.reload()}
+        />
+      )}
+
+      {/* Zonal Replacement Session Modal */}
+      {sessionModalZoneId !== null && (
+        <ZonalReplacementSessionModal
+          zones={zones}
+          initialZoneId={sessionModalZoneId}
+          onClose={() => setSessionModalZoneId(null)}
           onUpdated={() => window.location.reload()}
         />
       )}

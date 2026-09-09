@@ -159,18 +159,20 @@ export function getRegistrationLockStatus(
   );
 
   const isOffStageUnlocked = Boolean(
-    team?.registrationUnlocked ||
     isOffStageScheduleActive ||
-    (team?.offStageUnlocked && !isOffStageUnlockExpired)
+    (team?.offStageUnlocked && !isOffStageUnlockExpired) ||
+    (team?.registrationUnlocked && !team?.offStageUnlockEnd)
   );
 
   const isOnStageUnlocked = Boolean(
-    team?.registrationUnlocked ||
     isOnStageScheduleActive ||
-    (team?.onStageUnlocked && !isOnStageUnlockExpired)
+    (team?.onStageUnlocked && !isOnStageUnlockExpired) ||
+    (team?.registrationUnlocked && !team?.onStageUnlockEnd)
   );
 
-  const isGlobalUnlocked = Boolean(team?.registrationUnlocked);
+  const isGlobalUnlocked = Boolean(
+    team?.registrationUnlocked && !isOffStageUnlockExpired && !isOnStageUnlockExpired
+  );
 
   // 4. Determine Openness:
   // An institution can edit if:

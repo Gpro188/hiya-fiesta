@@ -158,17 +158,29 @@ export async function updateCandidate(id: string, data: { name: string, category
         where: fullUser.eventId 
           ? { institutionId: fullUser.institutionId, eventId: fullUser.eventId }
           : { institutionId: fullUser.institutionId },
-        include: { event: true }
+        include: { event: { include: { parent: true } } }
       }) : null;
-      if (team && team.isAssignmentsConfirmed) {
-        return { success: false, error: "Registration is confirmed and locked by the Zone Admin. Contact the Zone Admin to request an edit unlock." };
-      }
-      if (team && team.event.registrationEnd && new Date() > team.event.registrationEnd) {
-        return { success: false, error: "Registration deadline has passed. Cannot edit candidate." };
-      }
-      
-      if (candidate.isApproved && data.isApproved !== false) {
-        return { success: false, error: "Cannot edit an approved candidate" };
+
+      if (team) {
+        const teamCandidatesForLock = await prisma.candidate.findMany({
+          where: { teamId: team.id },
+          select: {
+            id: true,
+            chestNumber: true,
+            programs: {
+              select: { program: { select: { stageType: true } } }
+            }
+          }
+        });
+
+        const lockStatus = getRegistrationLockStatus(team, null, teamCandidatesForLock, false);
+
+        if (!lockStatus.isCandidateRegistrationOpen) {
+          return {
+            success: false,
+            error: lockStatus.statusMessage || "Registration is locked. Contact your Zone Admin or Super Admin to request an unlock."
+          };
+        }
       }
     }
 

@@ -238,3 +238,179 @@ export async function lockInstitutionTeam(teamId: string) {
   }
 }
 
+export async function updateZonalReplacementSession(options: {
+  zoneId: string; // "ALL" or specific zone id
+  stageType: "OFF_STAGE" | "ON_STAGE" | "BOTH" | "LOCK";
+  scheduleWindow?: {
+    startDate?: string | null;
+    endDate?: string | null;
+  };
+  reason?: string;
+  resetConfirmation?: boolean;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin permission required." };
+    }
+
+    const { zoneId, stageType, scheduleWindow, reason, resetConfirmation = true } = options;
+
+    const unlockStart = scheduleWindow?.startDate ? new Date(scheduleWindow.startDate) : null;
+    const unlockEnd = scheduleWindow?.endDate ? new Date(scheduleWindow.endDate) : null;
+
+    // Find target zones
+    const isAll = zoneId === "ALL";
+    const targetZones = await prisma.zone.findMany({
+      where: isAll ? {} : { id: zoneId },
+      include: {
+        institutions: {
+          select: {
+            id: true,
+            teams: { select: { id: true, eventId: true } }
+          }
+        },
+        events: {
+          where: { type: "ZONE" },
+          select: { id: true }
+        }
+      }
+    });
+
+    if (targetZones.length === 0) {
+      return { success: false, error: "No matching zones found." };
+    }
+
+    // Collect all team IDs and Zone Event IDs across the target zones
+    const allTeamIds: string[] = [];
+    const allEventIds: string[] = [];
+
+    for (const z of targetZones) {
+      z.institutions.forEach(inst => {
+        inst.teams.forEach(t => {
+          if (!allTeamIds.includes(t.id)) allTeamIds.push(t.id);
+        });
+      });
+      z.events.forEach(ev => {
+        if (!allEventIds.includes(ev.id)) allEventIds.push(ev.id);
+      });
+    }
+
+    // If no teams found directly under institution.teams, also check teams by eventId
+    if (allTeamIds.length === 0 && allEventIds.length > 0) {
+      const teamsByEvent = await prisma.team.findMany({
+        where: { eventId: { in: allEventIds } },
+        select: { id: true }
+      });
+      teamsByEvent.forEach(t => {
+        if (!allTeamIds.includes(t.id)) allTeamIds.push(t.id);
+      });
+    }
+
+    // Prepare team updates based on stageType
+    let teamUpdateData: any = {};
+    let eventUpdateData: any = {};
+
+    if (stageType === "OFF_STAGE") {
+      teamUpdateData = {
+        offStageUnlocked: true,
+        offStageUnlockStart: unlockStart,
+        offStageUnlockEnd: unlockEnd,
+        registrationUnlocked: true,
+        ...(resetConfirmation ? { isAssignmentsConfirmed: false } : {}),
+      };
+      if (unlockEnd) {
+        eventUpdateData.offStageRegistrationEnd = unlockEnd;
+      }
+    } else if (stageType === "ON_STAGE") {
+      teamUpdateData = {
+        onStageUnlocked: true,
+        onStageUnlockStart: unlockStart,
+        onStageUnlockEnd: unlockEnd,
+        registrationUnlocked: true,
+        ...(resetConfirmation ? { isOnStageConfirmed: false } : {}),
+      };
+      if (unlockEnd) {
+        eventUpdateData.onStageRegistrationEnd = unlockEnd;
+      }
+    } else if (stageType === "BOTH") {
+      teamUpdateData = {
+        offStageUnlocked: true,
+        offStageUnlockStart: unlockStart,
+        offStageUnlockEnd: unlockEnd,
+        onStageUnlocked: true,
+        onStageUnlockStart: unlockStart,
+        onStageUnlockEnd: unlockEnd,
+        registrationUnlocked: true,
+        ...(resetConfirmation ? { isAssignmentsConfirmed: false, isOnStageConfirmed: false } : {}),
+      };
+      if (unlockEnd) {
+        eventUpdateData.offStageRegistrationEnd = unlockEnd;
+        eventUpdateData.onStageRegistrationEnd = unlockEnd;
+      }
+    } else if (stageType === "LOCK") {
+      teamUpdateData = {
+        offStageUnlocked: false,
+        offStageUnlockStart: null,
+        offStageUnlockEnd: null,
+        onStageUnlocked: false,
+        onStageUnlockStart: null,
+        onStageUnlockEnd: null,
+        registrationUnlocked: false,
+        isAssignmentsConfirmed: true,
+        isOnStageConfirmed: true,
+      };
+    }
+
+    // Execute bulk update in transaction
+    await prisma.$transaction(async (tx) => {
+      if (allTeamIds.length > 0) {
+        await tx.team.updateMany({
+          where: { id: { in: allTeamIds } },
+          data: teamUpdateData,
+        });
+      }
+
+      if (allEventIds.length > 0 && Object.keys(eventUpdateData).length > 0) {
+        await tx.event.updateMany({
+          where: { id: { in: allEventIds } },
+          data: eventUpdateData,
+        });
+      }
+    });
+
+    const zoneNames = targetZones.map(z => z.name).join(", ");
+    const scheduleLog = unlockStart || unlockEnd
+      ? ` [Window: ${unlockStart ? unlockStart.toLocaleString('en-IN') : 'Immediate'} to ${unlockEnd ? unlockEnd.toLocaleString('en-IN') : 'Indefinite'}]`
+      : '';
+
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: `ZONAL_REPLACEMENT_SESSION_${stageType}`,
+        entityType: "ZONE",
+        entityId: isAll ? "ALL_ZONES" : zoneId,
+        reason: (reason || `Zonal replacement session set to ${stageType} for ${zoneNames}`) + scheduleLog,
+      }
+    }).catch(err => console.warn("Audit log non-fatal error:", err));
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/settings");
+
+    return {
+      success: true,
+      affectedZones: targetZones.length,
+      affectedTeams: allTeamIds.length,
+      zoneNames,
+    };
+  } catch (error: any) {
+    console.error("Failed to update zonal replacement session:", error);
+    return { success: false, error: error.message || "Failed to update zonal replacement session" };
+  }
+}
+
