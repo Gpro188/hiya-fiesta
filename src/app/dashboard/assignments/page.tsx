@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import AssignmentForm from "./AssignmentForm";
+import TeamSelector from "./TeamSelector";
 import Link from "next/link";
 import { isInstitutionProgram } from "@/lib/programUtils";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
@@ -23,6 +24,17 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
   let zoneEventId: string | null = null;
   let parentEventId: string | null = null;
   let availableTeams: Array<{ id: string, name: string }> = [];
+
+  // Auto-resolve teamId from candidateId if candidateId was provided without teamId
+  if (!teamId && searchParams.candidateId) {
+    const cand = await prisma.candidate.findUnique({
+      where: { id: searchParams.candidateId },
+      select: { teamId: true }
+    });
+    if (cand?.teamId) {
+      teamId = cand.teamId;
+    }
+  }
 
   const fullUser = await prisma.user.findUnique({ 
     where: { id: session.user.id }, 
@@ -95,6 +107,12 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
         select: { id: true, name: true },
         orderBy: { name: 'asc' }
       });
+    } else {
+      // Super Admin without eventId/zoneId
+      availableTeams = await prisma.team.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' }
+      });
     }
 
     if (!teamId && availableTeams.length > 0) {
@@ -115,6 +133,10 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     });
     if (currentTeam) {
       isAssignmentsConfirmed = currentTeam.isAssignmentsConfirmed;
+      if (!zoneEventId && currentTeam.eventId) {
+        zoneEventId = currentTeam.eventId;
+        parentEventId = currentTeam.event?.parentId || null;
+      }
     }
   }
 
@@ -192,7 +214,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     }
   }
 
-  const eventIdsToSearch = [zoneEventId, parentEventId, session.user.eventId].filter(Boolean) as string[];
+  const eventIdsToSearch = Array.from(new Set([zoneEventId, parentEventId, session.user.eventId, currentTeam?.eventId, currentTeam?.event?.parentId].filter(Boolean))) as string[];
   const programs = await prisma.program.findMany({
     where: eventIdsToSearch.length > 0 ? { eventId: { in: eventIdsToSearch } } : {},
     include: { 
@@ -202,7 +224,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     orderBy: { name: 'asc' }
   });
 
-  const settings = await getSettings(zoneEventId || parentEventId || session.user.eventId);
+  const settings = await getSettings(zoneEventId || parentEventId || currentTeam?.eventId || session.user.eventId);
   const limits = {
     maxIndividualPrograms: settings?.maxIndividualPrograms ?? 4,
     maxIndividualOnStage: settings?.maxIndividualOnStage ?? 2,
@@ -241,21 +263,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
       </div>
 
       {availableTeams.length > 1 && ["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
-        <div className="glass-panel" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
-          <label style={{ fontSize: '0.875rem', fontWeight: 600, marginRight: '10px' }}>Select Institution / Team:</label>
-          <select 
-            className="form-input" 
-            style={{ maxWidth: '350px', display: 'inline-block' }}
-            defaultValue={teamId || ""}
-            onChange={(e) => {
-              window.location.href = `/dashboard/assignments?teamId=${e.target.value}`;
-            }}
-          >
-            {availableTeams.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </div>
+        <TeamSelector availableTeams={availableTeams} currentTeamId={teamId} />
       )}
 
       {(() => {
