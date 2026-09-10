@@ -50,6 +50,8 @@ export default function DirectCandidateReplacementModal({
   const [transferExistingCandidateId, setTransferExistingCandidateId] = useState<string>("");
   const [transferReason, setTransferReason] = useState<string>("Program replacement approved by Super Admin");
   const [transferStudentSearch, setTransferStudentSearch] = useState<string>("");
+  const [limits, setLimits] = useState<any>(null);
+  const [bypassLimits, setBypassLimits] = useState<boolean>(false);
 
   // Full Candidate Replacement State (optional accordion)
   const [showFullReplacement, setShowFullReplacement] = useState<boolean>(false);
@@ -93,6 +95,7 @@ export default function DirectCandidateReplacementModal({
       setCandidateDetails(res.candidate);
       setAvailableStudents(res.availableStudents || []);
       setTeamCandidates(res.teamCandidates || []);
+      setLimits(res.limits || null);
       setReplacementPhoto(res.candidate.photo || res.candidate.photoUrl || "");
       if (res.availableStudents && res.availableStudents.length > 0) {
         setReplacementMode("DIRECTORY");
@@ -163,6 +166,7 @@ export default function DirectCandidateReplacementModal({
       studentPhoto: transferStudentPhoto || undefined,
       existingCandidateId: transferExistingCandidateId || undefined,
       reason: transferReason,
+      bypassLimits,
     });
 
     if (res.success) {
@@ -576,7 +580,7 @@ export default function DirectCandidateReplacementModal({
                                     )}
                                   </div>
                                   <div style={{ fontSize: "0.72rem", color: "#9ca3af", marginTop: "2px" }}>
-                                    Category: <span style={{ color: "#38bdf8" }}>{p.program?.category?.name || candidateDetails.category?.name || "General"}</span> &bull; Stage: <span style={{ color: isOffStage ? "#38bdf8" : "#f472b6" }}>{p.program?.stageType}</span>
+                                    Category: <span style={{ color: "#38bdf8" }}>{p.program?.category?.name || candidateDetails.category?.name || "General"}</span> &bull; Stage: <span style={{ color: isOffStage ? "#38bdf8" : "#f472b6", fontWeight: 700 }}>{p.program?.stageType}</span> &bull; Rule: <span style={{ color: "#fcd34d", fontWeight: 600 }}>{isOffStage ? `${limits?.maxIndividualOffStage ?? 2} Off-Stage max` : `${limits?.maxIndividualOnStage ?? 2} On-Stage max`}</span>
                                   </div>
                                 </div>
                               </div>
@@ -640,6 +644,14 @@ export default function DirectCandidateReplacementModal({
                                 <p style={{ fontSize: "0.74rem", color: "#9ca3af", margin: "0 0 10px 0" }}>
                                   This program will be removed from <strong>{candidateDetails.name}</strong> (Chest #{candidateDetails.chestNumber || "None"}) and assigned to the selected student below. The recipient candidate will receive their own chest number and clearly display <strong>&quot;Replaced from Chest #{candidateDetails.chestNumber || "None"}&quot;</strong>.
                                 </p>
+
+                                {/* Stage Limit Alert Banner */}
+                                <div style={{ backgroundColor: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: "6px", padding: "8px 10px", marginBottom: "10px", fontSize: "0.74rem", color: "#bae6fd", display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <span style={{ fontSize: "1rem" }}>{isOffStage ? "🎨" : "🎭"}</span>
+                                  <div>
+                                    <strong>Stage Limit Enforced:</strong> This program is <strong>{isOffStage ? "OFF-STAGE" : "ON-STAGE"}</strong>. Max limit per candidate is <strong>{isOffStage ? (limits?.maxIndividualOffStage ?? 2) : (limits?.maxIndividualOnStage ?? 2)} {isOffStage ? "Off-Stage" : "On-Stage"}</strong> individual programs. Candidates at or exceeding this limit cannot be assigned.
+                                  </div>
+                                </div>
 
                                 {/* Target Mode Selector */}
                                 <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
@@ -729,22 +741,34 @@ export default function DirectCandidateReplacementModal({
                                               onClick={() => {
                                                 setTransferStudentUid(s.uid);
                                                 setTransferStudentName(s.name);
-                                                setTransferStudentPhoto(s.photo || "");
+                                                setTransferStudentPhoto(s.photo || s.photoUrl || "");
                                               }}
                                               style={{
-                                                padding: "5px 10px",
-                                                borderRadius: "5px",
-                                                backgroundColor: isSelected ? "rgba(56, 189, 248, 0.25)" : "rgba(255, 255, 255, 0.02)",
-                                                border: `1px solid ${isSelected ? "#38bdf8" : "rgba(255, 255, 255, 0.06)"}`,
                                                 display: "flex",
-                                                justifyContent: "space-between",
                                                 alignItems: "center",
+                                                justifyContent: "space-between",
+                                                padding: "6px 8px",
+                                                borderRadius: "5px",
+                                                backgroundColor: isSelected ? "rgba(56, 189, 248, 0.15)" : "rgba(255, 255, 255, 0.02)",
+                                                border: isSelected ? "1px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.05)",
                                                 cursor: "pointer",
                                               }}
                                             >
-                                              <span style={{ fontSize: "0.8rem", color: isSelected ? "#38bdf8" : "#fff" }}>
-                                                <strong>{s.name}</strong> ({s.uid})
-                                              </span>
+                                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                                <div style={{ width: "22px", height: "22px", borderRadius: "50%", backgroundColor: "#374151", overflow: "hidden" }}>
+                                                  {s.photo || s.photoUrl ? (
+                                                    <img src={s.photo || s.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                  ) : (
+                                                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", color: "#9ca3af" }}>👤</div>
+                                                  )}
+                                                </div>
+                                                <span style={{ fontSize: "0.78rem", color: isSelected ? "#38bdf8" : "#fff", fontWeight: isSelected ? 700 : 500 }}>
+                                                  {s.name}
+                                                </span>
+                                                <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontFamily: "monospace" }}>
+                                                  [{s.uid}]
+                                                </span>
+                                              </div>
                                               <span style={{ fontSize: "0.72rem", fontWeight: 700, color: isSelected ? "#38bdf8" : "#6b7280" }}>
                                                 {isSelected ? "✓ Selected" : "Select"}
                                               </span>
@@ -758,12 +782,19 @@ export default function DirectCandidateReplacementModal({
                                 {/* Option B: Existing Team Candidate */}
                                 {transferTargetType === "EXISTING_CANDIDATE" && (
                                   <div style={{ backgroundColor: "rgba(0, 0, 0, 0.3)", borderRadius: "8px", padding: "10px", border: "1px solid rgba(255, 255, 255, 0.08)", marginBottom: "10px" }}>
-                                    <label style={{ display: "block", fontSize: "0.74rem", color: "#fcd34d", marginBottom: "4px" }}>
-                                      Select existing candidate from this team:
+                                    <label style={{ display: "block", fontSize: "0.74rem", color: "#fcd34d", marginBottom: "4px", fontWeight: 600 }}>
+                                      Select existing candidate from this team (live stage limits applied):
                                     </label>
                                     <select
                                       value={transferExistingCandidateId}
-                                      onChange={(e) => setTransferExistingCandidateId(e.target.value)}
+                                      onChange={(e) => {
+                                        setTransferExistingCandidateId(e.target.value);
+                                        const chosen = teamCandidates.find(c => c.id === e.target.value);
+                                        if (chosen) {
+                                          setTransferStudentName(chosen.name);
+                                          setTransferStudentUid(chosen.uid || "");
+                                        }
+                                      }}
                                       style={{
                                         width: "100%",
                                         padding: "6px 10px",
@@ -775,11 +806,17 @@ export default function DirectCandidateReplacementModal({
                                       }}
                                     >
                                       <option value="">-- Choose Existing Candidate --</option>
-                                      {teamCandidates.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                          {c.name} {c.chestNumber ? `(Chest #${c.chestNumber})` : ""} {c.uid ? `[${c.uid}]` : ""}
-                                        </option>
-                                      ))}
+                                      {teamCandidates.map((c) => {
+                                        const progStage = p.program?.stageType || "ON_STAGE";
+                                        const maxStage = progStage === "ON_STAGE" ? (limits?.maxIndividualOnStage ?? 2) : (limits?.maxIndividualOffStage ?? 2);
+                                        const currentStage = progStage === "ON_STAGE" ? (c.onStageCount || 0) : (c.offStageCount || 0);
+                                        const isLimitReached = !bypassLimits && currentStage >= maxStage;
+                                        return (
+                                          <option key={c.id} value={c.id} disabled={isLimitReached}>
+                                            {c.name} {c.chestNumber ? `(Chest #${c.chestNumber})` : ""} — 🎭 On: {c.onStageCount || 0}/{limits?.maxIndividualOnStage ?? 2}, 🎨 Off: {c.offStageCount || 0}/{limits?.maxIndividualOffStage ?? 2} {isLimitReached ? `⛔ [${progStage} LIMIT REACHED]` : ""}
+                                          </option>
+                                        );
+                                      })}
                                     </select>
                                   </div>
                                 )}
@@ -830,6 +867,20 @@ export default function DirectCandidateReplacementModal({
                                     </div>
                                   </div>
                                 )}
+
+                                {/* Super Admin Bypass Limits Checkbox */}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "6px 0 12px 0", padding: "8px 10px", backgroundColor: "rgba(239, 68, 68, 0.08)", borderRadius: "6px", border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+                                  <input
+                                    type="checkbox"
+                                    id={`bypass-limits-${p.id}`}
+                                    checked={bypassLimits}
+                                    onChange={(e) => setBypassLimits(e.target.checked)}
+                                    style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                                  />
+                                  <label htmlFor={`bypass-limits-${p.id}`} style={{ fontSize: "0.74rem", color: "#fca5a5", cursor: "pointer", fontWeight: 600 }}>
+                                    ⚠️ <strong>Override Limits:</strong> Super Admin emergency dispensation to bypass On-Stage & Off-Stage limits ({limits?.maxIndividualOnStage ?? 2} On / {limits?.maxIndividualOffStage ?? 2} Off)
+                                  </label>
+                                </div>
 
                                 {/* Transfer Action Button */}
                                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>

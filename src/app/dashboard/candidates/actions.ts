@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
+import { getSettings } from "@/lib/settings";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export async function addCandidate(data: { name: string, categoryId: string, teamId: string, photo?: string, uid?: string }) {
   try {
@@ -528,7 +530,21 @@ export async function getReplacementCandidateDetails(candidateId: string) {
             institution: true,
             event: { include: { zone: true } },
             candidates: {
-              select: { id: true, uid: true, name: true, chestNumber: true }
+              select: {
+                id: true,
+                uid: true,
+                name: true,
+                chestNumber: true,
+                programs: {
+                  include: {
+                    program: {
+                      include: {
+                        category: true
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -539,6 +555,17 @@ export async function getReplacementCandidateDetails(candidateId: string) {
     });
 
     if (!candidate) return { success: false, error: "Candidate not found" };
+
+    const eventId = candidate.team.eventId || candidate.team.event?.id;
+    const settings = await getSettings(eventId);
+    const limits = {
+      maxIndividualPrograms: settings?.maxIndividualPrograms ?? 4,
+      maxIndividualOnStage: settings?.maxIndividualOnStage ?? 2,
+      maxIndividualOffStage: settings?.maxIndividualOffStage ?? 2,
+      maxGeneralTotal: settings?.maxGeneralTotal ?? 2,
+      maxGeneralOnStage: settings?.maxGeneralOnStage ?? 1,
+      maxGeneralOffStage: settings?.maxGeneralOffStage ?? 1,
+    };
 
     const institutionId = candidate.institutionId || candidate.team.institutionId;
 
@@ -562,18 +589,27 @@ export async function getReplacementCandidateDetails(candidateId: string) {
 
     const teamCandidates = (candidate.team.candidates || [])
       .filter(c => c.id !== candidate.id)
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        uid: c.uid,
-        chestNumber: c.chestNumber,
-      }));
+      .map(c => {
+        const onStageCount = (c.programs || []).filter((p: any) => !isProgramGeneral(p.program) && p.program.stageType === "ON_STAGE").length;
+        const offStageCount = (c.programs || []).filter((p: any) => !isProgramGeneral(p.program) && p.program.stageType === "OFF_STAGE").length;
+        const totalCount = (c.programs || []).length;
+        return {
+          id: c.id,
+          name: c.name,
+          uid: c.uid,
+          chestNumber: c.chestNumber,
+          onStageCount,
+          offStageCount,
+          totalCount,
+        };
+      });
 
     return {
       success: true,
       candidate,
       availableStudents,
       teamCandidates,
+      limits,
     };
   } catch (error: any) {
     console.error("getReplacementCandidateDetails error:", error);
@@ -973,6 +1009,7 @@ export async function transferProgramToAnotherCandidate(data: {
   studentPhoto?: string;
   existingCandidateId?: string;
   reason?: string;
+  bypassLimits?: boolean;
 }) {
   try {
     const session = await getServerSession(authOptions);
@@ -1093,6 +1130,56 @@ export async function transferProgramToAnotherCandidate(data: {
             }
           });
           targetCandidateId = newCandidate.id;
+        }
+      }
+
+      // Check on-stage / off-stage / general limits for the recipient candidate (unless explicitly bypassed)
+      if (!data.bypassLimits) {
+        const eventId = fromCandidate.team.eventId;
+        const settings = await getSettings(eventId);
+        const maxIndivTotal = settings?.maxIndividualPrograms ?? 4;
+        const maxIndivOnStage = settings?.maxIndividualOnStage ?? 2;
+        const maxIndivOffStage = settings?.maxIndividualOffStage ?? 2;
+        const maxGenTotal = settings?.maxGeneralTotal ?? 2;
+        const maxGenOnStage = settings?.maxGeneralOnStage ?? 1;
+        const maxGenOffStage = settings?.maxGeneralOffStage ?? 1;
+
+        const targetAssignments = await tx.programAssignment.findMany({
+          where: { candidateId: targetCandidateId },
+          include: { program: { include: { category: true } } }
+        });
+
+        const isGeneral = isProgramGeneral(assignment.program);
+        const progStage = assignment.program.stageType || "ON_STAGE";
+
+        if (isGeneral) {
+          const currentGenOn = targetAssignments.filter(a => isProgramGeneral(a.program) && a.program.stageType === "ON_STAGE").length;
+          const currentGenOff = targetAssignments.filter(a => isProgramGeneral(a.program) && a.program.stageType === "OFF_STAGE").length;
+          const currentGenTotal = targetAssignments.filter(a => isProgramGeneral(a.program)).length;
+
+          if (progStage === "ON_STAGE" && currentGenOn >= maxGenOnStage) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentGenOn}/${maxGenOnStage} General On-Stage programs.`);
+          }
+          if (progStage === "OFF_STAGE" && currentGenOff >= maxGenOffStage) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentGenOff}/${maxGenOffStage} General Off-Stage programs.`);
+          }
+          if (currentGenTotal >= maxGenTotal) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentGenTotal}/${maxGenTotal} General programs.`);
+          }
+        } else {
+          const currentIndivOn = targetAssignments.filter(a => !isProgramGeneral(a.program) && a.program.stageType === "ON_STAGE").length;
+          const currentIndivOff = targetAssignments.filter(a => !isProgramGeneral(a.program) && a.program.stageType === "OFF_STAGE").length;
+          const currentIndivTotal = targetAssignments.filter(a => !isProgramGeneral(a.program) && a.program.type === "INDIVIDUAL").length;
+
+          if (progStage === "ON_STAGE" && currentIndivOn >= maxIndivOnStage) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentIndivOn}/${maxIndivOnStage} Individual On-Stage programs.`);
+          }
+          if (progStage === "OFF_STAGE" && currentIndivOff >= maxIndivOffStage) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentIndivOff}/${maxIndivOffStage} Individual Off-Stage programs.`);
+          }
+          if (currentIndivTotal >= maxIndivTotal) {
+            throw new Error(`Limit reached: Candidate "${targetName}" already has ${currentIndivTotal}/${maxIndivTotal} Individual programs.`);
+          }
         }
       }
 
