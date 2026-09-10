@@ -44,6 +44,27 @@ export default function CandidateList({
 
   return (
     <div style={{ overflowX: 'auto' }}>
+      {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+        <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setReplacementModalCandidateId("SEARCH_MODE")}
+            className="btn btn-secondary"
+            style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              borderColor: '#f59e0b',
+              color: '#d97706',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+            }}
+          >
+            <span>🔄</span> Direct Candidate & Program Replacement
+          </button>
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>

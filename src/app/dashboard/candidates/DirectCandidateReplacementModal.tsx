@@ -35,7 +35,7 @@ export default function DirectCandidateReplacementModal({
   const [searching, setSearching] = useState<boolean>(false);
 
   // Selected candidate state
-  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(initialCandidateId || null);
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(initialCandidateId && initialCandidateId !== "SEARCH_MODE" ? initialCandidateId : null);
   const [candidateDetails, setCandidateDetails] = useState<any | null>(null);
   const [availableStudents, setAvailableStudents] = useState<any[]>([]);
   const [teamCandidates, setTeamCandidates] = useState<any[]>([]);
