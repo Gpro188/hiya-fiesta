@@ -560,14 +560,240 @@ export async function getReplacementCandidateDetails(candidateId: string) {
       );
     }
 
+    const teamCandidates = (candidate.team.candidates || [])
+      .filter(c => c.id !== candidate.id)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        uid: c.uid,
+        chestNumber: c.chestNumber,
+      }));
+
     return {
       success: true,
       candidate,
       availableStudents,
+      teamCandidates,
     };
   } catch (error: any) {
     console.error("getReplacementCandidateDetails error:", error);
     return { success: false, error: error.message || "Failed to get candidate details" };
+  }
+}
+
+export interface ProgramAssignmentReplacementItem {
+  programAssignmentId: string;
+  programId: string;
+  programName?: string;
+  action: "PRIMARY_CANDIDATE" | "EXISTING_CANDIDATE" | "NEW_OR_DIRECTORY_STUDENT";
+  studentUid?: string;
+  studentName?: string;
+  studentPhoto?: string;
+  existingCandidateId?: string;
+}
+
+export async function directProgramWiseCandidateReplacement(data: {
+  candidateId: string;
+  primaryReplacement: {
+    studentUid?: string;
+    studentName: string;
+    studentPhoto?: string;
+  };
+  programAssignments: ProgramAssignmentReplacementItem[];
+  reason?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: data.candidateId },
+      include: {
+        category: true,
+        team: {
+          include: {
+            institution: true,
+            event: { include: { zone: true } },
+            candidates: { select: { id: true, uid: true, name: true, chestNumber: true } }
+          }
+        },
+        programs: { include: { program: true } }
+      }
+    });
+
+    if (!candidate) return { success: false, error: "Candidate not found" };
+
+    const primaryName = data.primaryReplacement.studentName.trim();
+    const primaryUid = data.primaryReplacement.studentUid ? data.primaryReplacement.studentUid.trim().toUpperCase() : null;
+
+    if (!primaryName) {
+      return { success: false, error: "Primary replacement candidate name is required." };
+    }
+
+    const oldName = candidate.name;
+    const oldUid = candidate.uid;
+    const originalChestNumber = candidate.chestNumber;
+    const teamName = candidate.team.name;
+    const zoneName = candidate.team.event?.zone?.name || "Zone";
+
+    const changesSummary: string[] = [];
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update candidate with primary replacement info (keeps chestNumber)
+      await tx.candidate.update({
+        where: { id: data.candidateId },
+        data: {
+          name: primaryName,
+          uid: primaryUid,
+          ...(data.primaryReplacement.studentPhoto ? { photo: data.primaryReplacement.studentPhoto, photoUrl: data.primaryReplacement.studentPhoto } : {}),
+          isApproved: true,
+        }
+      });
+
+      // Prepare chest number allocation pool if new candidate needs to be created
+      const baseOffset = (candidate.category?.chestNumberOffset && candidate.category.chestNumberOffset > 0)
+        ? candidate.category.chestNumberOffset
+        : 100;
+
+      const existingCandidates = await tx.candidate.findMany({
+        where: {
+          categoryId: candidate.categoryId,
+          chestNumber: { not: null },
+          team: { eventId: candidate.team.eventId }
+        },
+        select: { id: true, chestNumber: true }
+      });
+
+      const existingNumbers = existingCandidates
+        .map(c => parseInt(c.chestNumber!, 10))
+        .filter(n => !isNaN(n) && n >= baseOffset);
+
+      let nextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : baseOffset + 1;
+
+      const allUsed = await tx.candidate.findMany({
+        where: { chestNumber: { not: null } },
+        select: { chestNumber: true }
+      });
+      const usedSet = new Set(allUsed.map(c => c.chestNumber!).filter(Boolean));
+
+      const allocateNextChestNumber = () => {
+        let candidateNum = nextNum.toString();
+        while (usedSet.has(candidateNum)) {
+          nextNum++;
+          candidateNum = nextNum.toString();
+        }
+        usedSet.add(candidateNum);
+        nextNum++;
+        return candidateNum;
+      };
+
+      // 2. Process each program assignment
+      for (const item of data.programAssignments) {
+        const progName = item.programName || "Program";
+
+        if (item.action === "PRIMARY_CANDIDATE") {
+          // Stays with primary candidate (who now has primaryName and originalChestNumber)
+          changesSummary.push(`[${progName}] assigned to primary candidate ${primaryName} (Chest #${originalChestNumber || 'None'})`);
+        } else if (item.action === "EXISTING_CANDIDATE" && item.existingCandidateId) {
+          // Reassign to another candidate already in the team
+          const targetCand = candidate.team.candidates.find(c => c.id === item.existingCandidateId);
+          await tx.programAssignment.update({
+            where: { id: item.programAssignmentId },
+            data: { candidateId: item.existingCandidateId }
+          });
+          changesSummary.push(`[${progName}] transferred to existing candidate ${targetCand?.name || 'Candidate'} (Chest #${targetCand?.chestNumber || 'None'})`);
+        } else if (item.action === "NEW_OR_DIRECTORY_STUDENT") {
+          const sName = (item.studentName || "").trim();
+          const sUid = item.studentUid ? item.studentUid.trim().toUpperCase() : null;
+
+          if (!sName) {
+            throw new Error(`Replacement name is missing for program "${progName}"`);
+          }
+
+          // Check if candidate with this UID already exists in the team
+          let targetCandidateId: string | null = null;
+          let targetChestNumber: string | null = null;
+
+          if (sUid) {
+            const existingInTeam = await tx.candidate.findFirst({
+              where: {
+                teamId: candidate.teamId,
+                uid: sUid
+              }
+            });
+            if (existingInTeam) {
+              targetCandidateId = existingInTeam.id;
+              targetChestNumber = existingInTeam.chestNumber;
+            }
+          }
+
+          if (!targetCandidateId) {
+            // Create a brand new candidate in the team with next chest number
+            const allocatedChest = allocateNextChestNumber();
+            const created = await tx.candidate.create({
+              data: {
+                name: sName,
+                uid: sUid,
+                photo: item.studentPhoto || null,
+                photoUrl: item.studentPhoto || null,
+                teamId: candidate.teamId,
+                categoryId: candidate.categoryId,
+                institutionId: candidate.institutionId || candidate.team.institutionId,
+                isApproved: true,
+                chestNumber: allocatedChest
+              }
+            });
+            targetCandidateId = created.id;
+            targetChestNumber = allocatedChest;
+          }
+
+          // Move the program assignment to the target candidate
+          await tx.programAssignment.update({
+            where: { id: item.programAssignmentId },
+            data: { candidateId: targetCandidateId }
+          });
+
+          changesSummary.push(`[${progName}] assigned to ${sName}${sUid ? ` (${sUid})` : ''} (Chest #${targetChestNumber || 'None'})`);
+        }
+      }
+    });
+
+    const auditReason = `Super Admin Program-Wise Replacement in ${teamName} (${zoneName}): Replaced [${oldName}${oldUid ? ` (UID: ${oldUid})` : ''}] (Chest #${originalChestNumber || 'None'}). Breakdown: ${changesSummary.join("; ")}. Reason: ${data.reason || 'Program-wise direct replacement'}`;
+
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: "SUPER_ADMIN_PROGRAM_WISE_CANDIDATE_REPLACEMENT",
+        entityType: "CANDIDATE",
+        entityId: candidate.id,
+        reason: auditReason
+      }
+    }).catch(err => console.warn("Audit log non-fatal error:", err));
+
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/print/id-cards");
+    revalidatePath("/print/assignments");
+    revalidatePath("/print/chest-numbers");
+    revalidatePath("/print/programs");
+
+    return {
+      success: true,
+      oldName,
+      primaryName,
+      originalChestNumber,
+      teamName,
+      zoneName,
+      changesSummary
+    };
+  } catch (error: any) {
+    console.error("directProgramWiseCandidateReplacement error:", error);
+    return { success: false, error: error.message || "Failed to execute program-wise replacement" };
   }
 }
 

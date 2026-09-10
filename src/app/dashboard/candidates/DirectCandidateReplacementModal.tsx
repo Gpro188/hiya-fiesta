@@ -1,13 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { searchCandidatesForReplacement, getReplacementCandidateDetails, directReplaceCandidate } from "./actions";
+import {
+  searchCandidatesForReplacement,
+  getReplacementCandidateDetails,
+  directReplaceCandidate,
+  directProgramWiseCandidateReplacement,
+  ProgramAssignmentReplacementItem,
+} from "./actions";
 import ImageUpload from "@/app/components/ImageUpload";
 
 export interface ZoneOption {
   id: string;
   name: string;
   code: string;
+}
+
+interface ProgramConfigItem {
+  action: "PRIMARY_CANDIDATE" | "DIRECTORY_STUDENT" | "EXISTING_CANDIDATE" | "MANUAL_STUDENT";
+  studentUid?: string;
+  studentName?: string;
+  studentPhoto?: string;
+  existingCandidateId?: string;
+  searchFilter?: string;
 }
 
 export default function DirectCandidateReplacementModal({
@@ -32,9 +47,14 @@ export default function DirectCandidateReplacementModal({
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(initialCandidateId || null);
   const [candidateDetails, setCandidateDetails] = useState<any | null>(null);
   const [availableStudents, setAvailableStudents] = useState<any[]>([]);
+  const [teamCandidates, setTeamCandidates] = useState<any[]>([]);
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
 
-  // Replacement Form State
+  // Replacement Strategy: all programs to single candidate vs program-wise
+  const [assignmentStrategy, setAssignmentStrategy] = useState<"ALL_TOGETHER" | "PROGRAM_WISE">("PROGRAM_WISE");
+  const [programConfigs, setProgramConfigs] = useState<Record<string, ProgramConfigItem>>({});
+
+  // Primary Replacement Form State
   const [replacementMode, setReplacementMode] = useState<"DIRECTORY" | "MANUAL">("DIRECTORY");
   const [selectedStudentUid, setSelectedStudentUid] = useState<string>("");
   const [replacementName, setReplacementName] = useState<string>("");
@@ -69,6 +89,8 @@ export default function DirectCandidateReplacementModal({
     if (!activeCandidateId) {
       setCandidateDetails(null);
       setAvailableStudents([]);
+      setTeamCandidates([]);
+      setProgramConfigs({});
       return;
     }
 
@@ -81,7 +103,29 @@ export default function DirectCandidateReplacementModal({
         if (res.success && res.candidate) {
           setCandidateDetails(res.candidate);
           setAvailableStudents(res.availableStudents || []);
+          setTeamCandidates(res.teamCandidates || []);
           setReplacementPhoto(res.candidate.photo || res.candidate.photoUrl || "");
+
+          const progs = res.candidate.programs || [];
+          if (progs.length > 1) {
+            setAssignmentStrategy("PROGRAM_WISE");
+          } else {
+            setAssignmentStrategy("ALL_TOGETHER");
+          }
+
+          const initConfigs: Record<string, ProgramConfigItem> = {};
+          progs.forEach((p: any) => {
+            initConfigs[p.id] = {
+              action: "PRIMARY_CANDIDATE",
+              studentUid: "",
+              studentName: "",
+              studentPhoto: "",
+              existingCandidateId: "",
+              searchFilter: "",
+            };
+          });
+          setProgramConfigs(initConfigs);
+
           if (res.availableStudents && res.availableStudents.length > 0) {
             setReplacementMode("DIRECTORY");
           } else {
@@ -104,34 +148,116 @@ export default function DirectCandidateReplacementModal({
     setReplacementName(student.name);
   };
 
+  const handleProgramConfigChange = (programAssignmentId: string, updates: Partial<ProgramConfigItem>) => {
+    setProgramConfigs((prev) => ({
+      ...prev,
+      [programAssignmentId]: {
+        ...(prev[programAssignmentId] || { action: "PRIMARY_CANDIDATE" }),
+        ...updates,
+      },
+    }));
+  };
+
   const handleExecuteReplacement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeCandidateId) return;
+    if (!activeCandidateId || !candidateDetails) return;
 
     if (!replacementName.trim()) {
-      setError("Replacement candidate name is required.");
+      setError("Primary replacement candidate name is required.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
 
-    const res = await directReplaceCandidate({
-      candidateId: activeCandidateId,
-      newStudentUid: selectedStudentUid || undefined,
-      newName: replacementName,
-      newPhoto: replacementPhoto || undefined,
-      reason,
-    });
+    const progs = candidateDetails.programs || [];
 
-    if (res.success) {
-      alert(`✅ Candidate replaced successfully!\n\n${res.oldName} ➔ ${res.newName}\nChest Number: ${res.chestNumber || "None"}\nTeam: ${res.teamName}\nZone: ${res.zoneName}`);
-      if (onReplaced) onReplaced();
-      onClose();
-      window.location.reload();
+    if (assignmentStrategy === "PROGRAM_WISE" && progs.length > 1) {
+      // Validate program-wise configs
+      const programAssignmentsPayload: ProgramAssignmentReplacementItem[] = [];
+
+      for (const p of progs) {
+        const cfg = programConfigs[p.id] || { action: "PRIMARY_CANDIDATE" };
+        if (cfg.action === "PRIMARY_CANDIDATE") {
+          programAssignmentsPayload.push({
+            programAssignmentId: p.id,
+            programId: p.program.id,
+            programName: p.program.name,
+            action: "PRIMARY_CANDIDATE",
+          });
+        } else if (cfg.action === "EXISTING_CANDIDATE") {
+          if (!cfg.existingCandidateId) {
+            setError(`Please select an existing candidate for program "${p.program.name}".`);
+            setSubmitting(false);
+            return;
+          }
+          programAssignmentsPayload.push({
+            programAssignmentId: p.id,
+            programId: p.program.id,
+            programName: p.program.name,
+            action: "EXISTING_CANDIDATE",
+            existingCandidateId: cfg.existingCandidateId,
+          });
+        } else {
+          const sName = (cfg.studentName || "").trim();
+          if (!sName) {
+            setError(`Please specify contestant name for program "${p.program.name}".`);
+            setSubmitting(false);
+            return;
+          }
+          programAssignmentsPayload.push({
+            programAssignmentId: p.id,
+            programId: p.program.id,
+            programName: p.program.name,
+            action: "NEW_OR_DIRECTORY_STUDENT",
+            studentName: sName,
+            studentUid: cfg.studentUid ? cfg.studentUid.trim().toUpperCase() : undefined,
+            studentPhoto: cfg.studentPhoto || undefined,
+          });
+        }
+      }
+
+      const res = await directProgramWiseCandidateReplacement({
+        candidateId: activeCandidateId,
+        primaryReplacement: {
+          studentName: replacementName,
+          studentUid: selectedStudentUid || undefined,
+          studentPhoto: replacementPhoto || undefined,
+        },
+        programAssignments: programAssignmentsPayload,
+        reason,
+      });
+
+      if (res.success) {
+        alert(
+          `✅ Program-Wise Replacement Successful!\n\nReplaced: ${res.oldName}\nChest #${res.originalChestNumber || "None"}\nTeam: ${res.teamName} (${res.zoneName})\n\nProgram Breakdown:\n${(res.changesSummary || []).join("\n")}`
+        );
+        if (onReplaced) onReplaced();
+        onClose();
+        window.location.reload();
+      } else {
+        setError(res.error || "Failed to execute program-wise replacement.");
+        setSubmitting(false);
+      }
     } else {
-      setError(res.error || "Failed to replace candidate.");
-      setSubmitting(false);
+      // Single replacement for all programs
+      const res = await directReplaceCandidate({
+        candidateId: activeCandidateId,
+        newStudentUid: selectedStudentUid || undefined,
+        newName: replacementName,
+        newPhoto: replacementPhoto || undefined,
+        reason,
+      });
+
+      if (res.success) {
+        alert(`✅ Candidate replaced successfully!\n\n${res.oldName} ➔ ${res.newName}\nChest Number: ${res.chestNumber || "None"}\nTeam: ${res.teamName}\nZone: ${res.zoneName}`);
+        if (onReplaced) onReplaced();
+        onClose();
+        window.location.reload();
+      } else {
+        setError(res.error || "Failed to replace candidate.");
+        setSubmitting(false);
+      }
     }
   };
 
@@ -449,11 +575,76 @@ export default function DirectCandidateReplacementModal({
                   </div>
                 </div>
 
-                {/* Replacement Source Tabs */}
-                <div>
+                {/* Multi-Program Strategy Selector */}
+                {candidateDetails.programs?.length > 1 && (
+                  <div style={{ backgroundColor: "rgba(31, 41, 55, 0.6)", borderRadius: "10px", padding: "10px 12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
+                    <div style={{ fontSize: "0.74rem", fontWeight: 700, color: "#9ca3af", marginBottom: "6px", textTransform: "uppercase" }}>
+                      Replacement Strategy for Multi-Program Candidate:
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setAssignmentStrategy("PROGRAM_WISE")}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          border: assignmentStrategy === "PROGRAM_WISE" ? "1.5px solid #38bdf8" : "1px solid rgba(255,255,255,0.08)",
+                          backgroundColor: assignmentStrategy === "PROGRAM_WISE" ? "rgba(56, 189, 248, 0.15)" : "rgba(255, 255, 255, 0.03)",
+                          color: assignmentStrategy === "PROGRAM_WISE" ? "#38bdf8" : "#9ca3af",
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span>📋</span> <strong>Program-Wise Assignment</strong>
+                          <span style={{ fontSize: "0.62rem", padding: "1px 5px", borderRadius: "4px", backgroundColor: "#0284c7", color: "#fff" }}>Recommended</span>
+                        </span>
+                        <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                          Different students contest different programs
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAssignmentStrategy("ALL_TOGETHER")}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          border: assignmentStrategy === "ALL_TOGETHER" ? "1.5px solid #10b981" : "1px solid rgba(255,255,255,0.08)",
+                          backgroundColor: assignmentStrategy === "ALL_TOGETHER" ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.03)",
+                          color: assignmentStrategy === "ALL_TOGETHER" ? "#34d399" : "#9ca3af",
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span>👥</span> <strong>Single Candidate</strong>
+                        </span>
+                        <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                          Same student takes over all programs (Chest #{candidateDetails.chestNumber || "..."})
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Replacement Student */}
+                <div style={{ backgroundColor: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "10px", padding: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <label style={{ fontSize: "0.84rem", fontWeight: 800, color: "#10b981", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>🟢</span> SELECT REPLACEMENT STUDENT:
+                    <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "#10b981", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>🟢</span> {assignmentStrategy === "PROGRAM_WISE" && candidateDetails.programs?.length > 1
+                        ? `PRIMARY REPLACEMENT STUDENT (Keeps Chest #${candidateDetails.chestNumber || "None"}):`
+                        : `SELECT REPLACEMENT STUDENT (Takes Chest #${candidateDetails.chestNumber || "None"}):`}
                     </label>
 
                     <div style={{ display: "flex", gap: "4px" }}>
@@ -494,9 +685,9 @@ export default function DirectCandidateReplacementModal({
 
                   {/* Mode A: From College Directory */}
                   {replacementMode === "DIRECTORY" && (
-                    <div style={{ backgroundColor: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "10px", padding: "12px" }}>
+                    <div style={{ backgroundColor: "rgba(0, 0, 0, 0.25)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "8px", padding: "10px", marginBottom: "10px" }}>
                       {availableStudents.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "1rem", color: "#9ca3af", fontSize: "0.82rem" }}>
+                        <div style={{ textAlign: "center", padding: "0.75rem", color: "#9ca3af", fontSize: "0.8rem" }}>
                           No unassigned students in this college's directory. Use Manual Entry.
                         </div>
                       ) : (
@@ -514,11 +705,11 @@ export default function DirectCandidateReplacementModal({
                               border: "1px solid #4b5563",
                               color: "#fff",
                               fontSize: "0.82rem",
-                              marginBottom: "8px",
+                              marginBottom: "6px",
                             }}
                           />
 
-                          <div style={{ maxHeight: "160px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <div style={{ maxHeight: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
                             {availableStudents
                               .filter((s) => {
                                 if (!studentSearch) return true;
@@ -560,7 +751,7 @@ export default function DirectCandidateReplacementModal({
                   )}
 
                   {/* Form fields for Replacement Name & UID */}
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px", marginTop: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#9ca3af", marginBottom: "4px" }}>
                         Replacement Student Full Name *
@@ -619,6 +810,271 @@ export default function DirectCandidateReplacementModal({
                   </div>
                 </div>
 
+                {/* Section 2: Program-Wise Assignment Cards (Only if PROGRAM_WISE and >1 programs) */}
+                {assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>📋</span> PROGRAM-WISE CONTESTANT ASSIGNMENT:
+                      </label>
+                      <span style={{ fontSize: "0.72rem", color: "#9ca3af" }}>
+                        Assign who contests each program below
+                      </span>
+                    </div>
+
+                    {candidateDetails.programs.map((p: any) => {
+                      const cfg = programConfigs[p.id] || { action: "PRIMARY_CANDIDATE" };
+                      const isOffStage = p.program?.stageType === "OFF_STAGE";
+
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            backgroundColor: "rgba(255, 255, 255, 0.03)",
+                            border: `1.5px solid ${cfg.action === "PRIMARY_CANDIDATE" ? "#38bdf8" : "#a855f7"}`,
+                            borderRadius: "10px",
+                            padding: "12px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                          }}
+                        >
+                          {/* Program Header */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "1.1rem" }}>{isOffStage ? "🎨" : "🎭"}</span>
+                              <div>
+                                <strong style={{ fontSize: "0.88rem", color: "#fff" }}>{p.program?.name}</strong>
+                                <div style={{ fontSize: "0.72rem", color: "#9ca3af" }}>
+                                  Category: <span style={{ color: "#38bdf8" }}>{p.program?.category?.name || candidateDetails.category?.name || "General"}</span> &bull; Stage: <span style={{ color: isOffStage ? "#38bdf8" : "#f472b6" }}>{p.program?.stageType}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Contestant Mode Selector */}
+                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleProgramConfigChange(p.id, { action: "PRIMARY_CANDIDATE" })}
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: "6px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  border: "none",
+                                  backgroundColor: cfg.action === "PRIMARY_CANDIDATE" ? "#38bdf8" : "rgba(255,255,255,0.06)",
+                                  color: cfg.action === "PRIMARY_CANDIDATE" ? "#000" : "#9ca3af",
+                                }}
+                              >
+                                👤 Primary Candidate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleProgramConfigChange(p.id, { action: "DIRECTORY_STUDENT" })}
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: "6px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  border: "none",
+                                  backgroundColor: cfg.action === "DIRECTORY_STUDENT" ? "#a855f7" : "rgba(255,255,255,0.06)",
+                                  color: cfg.action === "DIRECTORY_STUDENT" ? "#fff" : "#9ca3af",
+                                }}
+                              >
+                                🏛️ College Directory Student
+                              </button>
+                              {teamCandidates.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleProgramConfigChange(p.id, { action: "EXISTING_CANDIDATE" })}
+                                  style={{
+                                    padding: "3px 8px",
+                                    borderRadius: "6px",
+                                    fontSize: "0.72rem",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    border: "none",
+                                    backgroundColor: cfg.action === "EXISTING_CANDIDATE" ? "#f59e0b" : "rgba(255,255,255,0.06)",
+                                    color: cfg.action === "EXISTING_CANDIDATE" ? "#000" : "#9ca3af",
+                                  }}
+                                >
+                                  👥 Team Candidate ({teamCandidates.length})
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleProgramConfigChange(p.id, { action: "MANUAL_STUDENT" })}
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: "6px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  border: "none",
+                                  backgroundColor: cfg.action === "MANUAL_STUDENT" ? "#10b981" : "rgba(255,255,255,0.06)",
+                                  color: cfg.action === "MANUAL_STUDENT" ? "#000" : "#9ca3af",
+                                }}
+                              >
+                                ✏️ Manual Entry
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Action Details */}
+                          {cfg.action === "PRIMARY_CANDIDATE" && (
+                            <div style={{ backgroundColor: "rgba(56, 189, 248, 0.08)", padding: "8px 10px", borderRadius: "6px", fontSize: "0.78rem", color: "#bae6fd" }}>
+                              Contested by <strong>{replacementName || "[Primary Student]"}</strong> retaining <strong>Chest #{candidateDetails.chestNumber || "None"}</strong>.
+                            </div>
+                          )}
+
+                          {cfg.action === "DIRECTORY_STUDENT" && (
+                            <div style={{ backgroundColor: "rgba(168, 85, 247, 0.08)", padding: "8px 10px", borderRadius: "6px" }}>
+                              <div style={{ fontSize: "0.75rem", color: "#d8b4fe", marginBottom: "6px" }}>
+                                Select student from college directory (will be registered as a candidate and assigned a new chest number):
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search college student for this program..."
+                                value={cfg.searchFilter || ""}
+                                onChange={(e) => handleProgramConfigChange(p.id, { searchFilter: e.target.value })}
+                                style={{
+                                  width: "100%",
+                                  padding: "5px 8px",
+                                  borderRadius: "5px",
+                                  backgroundColor: "#1f2937",
+                                  border: "1px solid #4b5563",
+                                  color: "#fff",
+                                  fontSize: "0.78rem",
+                                  marginBottom: "6px",
+                                }}
+                              />
+                              <div style={{ maxHeight: "110px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                {availableStudents
+                                  .filter((s) => {
+                                    if (s.uid === selectedStudentUid) return false; // don't pick primary student
+                                    if (!cfg.searchFilter) return true;
+                                    const q = (cfg.searchFilter || "").toLowerCase();
+                                    return s.name.toLowerCase().includes(q) || s.uid.toLowerCase().includes(q);
+                                  })
+                                  .map((s) => {
+                                    const isSel = cfg.studentUid === s.uid;
+                                    return (
+                                      <div
+                                        key={s.id}
+                                        onClick={() => handleProgramConfigChange(p.id, {
+                                          studentUid: s.uid,
+                                          studentName: s.name,
+                                          studentPhoto: s.photo || "",
+                                        })}
+                                        style={{
+                                          padding: "5px 8px",
+                                          borderRadius: "5px",
+                                          backgroundColor: isSel ? "rgba(168, 85, 247, 0.25)" : "rgba(255, 255, 255, 0.02)",
+                                          border: `1px solid ${isSel ? "#a855f7" : "rgba(255, 255, 255, 0.06)"}`,
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        <span style={{ fontSize: "0.78rem", color: isSel ? "#e9d5ff" : "#fff" }}>
+                                          <strong>{s.name}</strong> ({s.uid})
+                                        </span>
+                                        <span style={{ fontSize: "0.72rem", fontWeight: 700, color: isSel ? "#c084fc" : "#6b7280" }}>
+                                          {isSel ? "✓ Selected" : "Select"}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                              {cfg.studentName && (
+                                <div style={{ marginTop: "6px", fontSize: "0.75rem", color: "#34d399" }}>
+                                  ✓ Assigned: <strong>{cfg.studentName}</strong> ({cfg.studentUid}) &bull; <span style={{ color: "#f59e0b" }}>New chest number will be auto-allocated in {p.program?.category?.name || "category"}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {cfg.action === "EXISTING_CANDIDATE" && (
+                            <div style={{ backgroundColor: "rgba(245, 158, 11, 0.08)", padding: "8px 10px", borderRadius: "6px" }}>
+                              <label style={{ display: "block", fontSize: "0.75rem", color: "#fcd34d", marginBottom: "4px" }}>
+                                Select existing candidate from this team:
+                              </label>
+                              <select
+                                value={cfg.existingCandidateId || ""}
+                                onChange={(e) => handleProgramConfigChange(p.id, { existingCandidateId: e.target.value })}
+                                style={{
+                                  width: "100%",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  backgroundColor: "#1f2937",
+                                  border: "1px solid #f59e0b",
+                                  color: "#fff",
+                                  fontSize: "0.82rem",
+                                }}
+                              >
+                                <option value="">-- Choose Candidate --</option>
+                                {teamCandidates.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name} {c.chestNumber ? `(Chest #${c.chestNumber})` : ""} {c.uid ? `[${c.uid}]` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {cfg.action === "MANUAL_STUDENT" && (
+                            <div style={{ backgroundColor: "rgba(16, 185, 129, 0.08)", padding: "8px 10px", borderRadius: "6px", display: "grid", gridTemplateColumns: "2fr 1fr", gap: "8px" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.72rem", color: "#9ca3af", marginBottom: "2px" }}>
+                                  Contestant Full Name *
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Full Name"
+                                  value={cfg.studentName || ""}
+                                  onChange={(e) => handleProgramConfigChange(p.id, { studentName: e.target.value })}
+                                  style={{
+                                    width: "100%",
+                                    padding: "5px 8px",
+                                    borderRadius: "5px",
+                                    backgroundColor: "#1f2937",
+                                    border: "1px solid #10b981",
+                                    color: "#fff",
+                                    fontSize: "0.8rem",
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.72rem", color: "#9ca3af", marginBottom: "2px" }}>
+                                  UID (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="UID"
+                                  value={cfg.studentUid || ""}
+                                  onChange={(e) => handleProgramConfigChange(p.id, { studentUid: e.target.value })}
+                                  style={{
+                                    width: "100%",
+                                    padding: "5px 8px",
+                                    borderRadius: "5px",
+                                    backgroundColor: "#1f2937",
+                                    border: "1px solid #4b5563",
+                                    color: "#fff",
+                                    fontSize: "0.8rem",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Reason Field with Quick Tags */}
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
@@ -667,15 +1123,56 @@ export default function DirectCandidateReplacementModal({
                 {/* Confirmation Summary Banner */}
                 <div
                   style={{
-                    backgroundColor: "rgba(16, 185, 129, 0.08)",
-                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    backgroundColor: assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1
+                      ? "rgba(56, 189, 248, 0.08)"
+                      : "rgba(16, 185, 129, 0.08)",
+                    border: `1px solid ${
+                      assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1
+                        ? "rgba(56, 189, 248, 0.3)"
+                        : "rgba(16, 185, 129, 0.3)"
+                    }`,
                     borderRadius: "10px",
                     padding: "10px 14px",
                     fontSize: "0.8rem",
-                    color: "#a7f3d0",
+                    color: assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1
+                      ? "#bae6fd"
+                      : "#a7f3d0",
                   }}
                 >
-                  ⚡ <strong>Direct Replacement Effect:</strong> Candidate <strong>{replacementName || "[New Student]"}</strong> will immediately take over Chest #{candidateDetails.chestNumber || "Pending"} and all {candidateDetails.programs?.length || 0} assigned programs. ID card exports and tabulation sheets will reflect the change instantly.
+                  {assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1 ? (
+                    <div>
+                      ⚡ <strong>Program-Wise Direct Replacement Effect:</strong>
+                      <div style={{ marginTop: "4px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div>
+                          &bull; <strong>Chest #{candidateDetails.chestNumber || "None"}:</strong> assigned to primary student <strong>{replacementName || "[Primary Student]"}</strong>
+                        </div>
+                        {candidateDetails.programs.map((p: any) => {
+                          const cfg = programConfigs[p.id] || { action: "PRIMARY_CANDIDATE" };
+                          let targetLabel = replacementName || "[Primary Student]";
+                          let chestLabel = `Chest #${candidateDetails.chestNumber || "None"}`;
+
+                          if (cfg.action === "EXISTING_CANDIDATE") {
+                            const ex = teamCandidates.find((c) => c.id === cfg.existingCandidateId);
+                            targetLabel = ex ? `${ex.name} (Chest #${ex.chestNumber || "None"})` : "[Existing Candidate]";
+                            chestLabel = "";
+                          } else if (cfg.action === "DIRECTORY_STUDENT" || cfg.action === "MANUAL_STUDENT") {
+                            targetLabel = cfg.studentName || "[New Student]";
+                            chestLabel = "(New auto-allocated chest #)";
+                          }
+
+                          return (
+                            <div key={p.id} style={{ marginLeft: "12px", fontSize: "0.75rem", color: "#e0f2fe" }}>
+                              &bull; {p.program?.name}: <strong>{targetLabel}</strong> {chestLabel}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      ⚡ <strong>Direct Replacement Effect:</strong> Candidate <strong>{replacementName || "[New Student]"}</strong> will immediately take over Chest #{candidateDetails.chestNumber || "Pending"} and all {candidateDetails.programs?.length || 0} assigned programs. ID card exports and tabulation sheets will reflect the change instantly.
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -704,15 +1201,17 @@ export default function DirectCandidateReplacementModal({
                       padding: "8px 20px",
                       borderRadius: "8px",
                       border: "none",
-                      backgroundColor: "#10b981",
+                      backgroundColor: assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1 ? "#38bdf8" : "#10b981",
                       color: "#000",
                       fontSize: "0.88rem",
                       fontWeight: 800,
                       cursor: submitting || !replacementName.trim() ? "not-allowed" : "pointer",
-                      boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                      boxShadow: assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1
+                        ? "0 4px 12px rgba(56, 189, 248, 0.3)"
+                        : "0 4px 12px rgba(16, 185, 129, 0.3)",
                     }}
                   >
-                    {submitting ? "Replacing..." : "🔄 Execute Replacement Now"}
+                    {submitting ? "Replacing..." : assignmentStrategy === "PROGRAM_WISE" && (candidateDetails.programs?.length || 0) > 1 ? "🔄 Execute Program-Wise Replacement" : "🔄 Execute Replacement Now"}
                   </button>
                 </div>
               </form>
