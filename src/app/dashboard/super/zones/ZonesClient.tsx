@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 import RegistrationAccessModal from "@/app/dashboard/teams/RegistrationAccessModal";
@@ -8,6 +9,7 @@ import ZonalReplacementSessionModal from "./ZonalReplacementSessionModal";
 import DirectCandidateReplacementModal from "@/app/dashboard/candidates/DirectCandidateReplacementModal";
 
 export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
+  const searchParams = useSearchParams();
   const [zones, setZones] = useState(initialZones);
   
   // Modals state
@@ -22,6 +24,15 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
   const [selectedResetZoneId, setSelectedResetZoneId] = useState("ALL");
   const [resetSuccess, setResetSuccess] = useState("");
   const [collegeSearch, setCollegeSearch] = useState("");
+
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "replace") {
+      setDirectReplaceModalOpen(true);
+    } else if (action === "session") {
+      setSessionModalZoneId("ALL");
+    }
+  }, [searchParams]);
 
   const handleResetFestData = async () => {
     const isAll = selectedResetZoneId === "ALL";

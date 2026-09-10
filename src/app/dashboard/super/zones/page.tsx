@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -201,7 +202,9 @@ export default async function MasterZonesPage() {
         </a>
       </div>
 
-      <ZonesClient initialZones={zones} />
+      <Suspense fallback={<div className="p-8 text-center text-muted">Loading Zones & Sessions...</div>}>
+        <ZonesClient initialZones={zones} />
+      </Suspense>
     </div>
   );
 }

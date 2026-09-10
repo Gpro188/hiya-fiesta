@@ -133,10 +133,17 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
-          name: "Master Zones",
-          subtitle: "Manage 8 Regional Zones",
+          name: "Master Zones & Sessions",
+          subtitle: "Replacement sessions & stats",
           icon: "🗺️",
           href: "/dashboard/super/zones",
+          highlight: true,
+        },
+        {
+          name: "Direct Replacements",
+          subtitle: "Swap candidates across zones",
+          icon: "🔄",
+          href: "/dashboard/super/zones?action=replace",
           highlight: true,
         },
         {
