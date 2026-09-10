@@ -18,6 +18,8 @@ type CandidateType = {
   photo?: string | null;
   team: { name: string, prefixCode: string, event: { name: string } };
   _count: { programs: number };
+  replacedFromChest?: string | null;
+  replacementNote?: string | null;
 };
 
 export default function CandidateList({ 
@@ -63,26 +65,33 @@ export default function CandidateList({
                 {/* Chest Number Column */}
                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                   {candidate.chestNumber ? (
-                    <span style={{ 
-                      display: 'inline-block', 
-                      padding: '4px 10px', 
-                      backgroundColor: 'rgba(16, 185, 129, 0.15)', 
-                      color: '#059669', 
-                      borderRadius: 'var(--radius-md)', 
-                      fontSize: '0.95rem',
-                      fontWeight: 800,
-                      fontFamily: 'monospace',
-                      border: '1px solid rgba(16, 185, 129, 0.3)'
-                    }}>
-                      {candidate.chestNumber}
-                    </span>
+                    <div>
+                      <span style={{ 
+                        display: 'inline-block', 
+                        padding: '4px 10px', 
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                        color: '#059669', 
+                        borderRadius: 'var(--radius-md)', 
+                        fontSize: '0.95rem',
+                        fontWeight: 800,
+                        fontFamily: 'monospace',
+                        border: '1px solid rgba(16, 185, 129, 0.3)'
+                      }}>
+                        {candidate.chestNumber}
+                      </span>
+                      {candidate.replacedFromChest && (
+                        <div style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 800, marginTop: '3px' }} title={candidate.replacementNote || `Replaced from Chest #${candidate.replacedFromChest}`}>
+                          🔁 From #{candidate.replacedFromChest}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <span style={{ 
                       color: 'var(--text-muted)', 
                       fontSize: '0.75rem', 
                       backgroundColor: 'rgba(255, 255, 255, 0.05)', 
                       padding: '3px 6px', 
-                      borderRadius: '4px',
+                      borderRadius: '4px', 
                       border: '1px dashed var(--border-color)'
                     }}>
                       Pending
@@ -127,8 +136,15 @@ export default function CandidateList({
 
                 {/* Candidate Name & UID */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                  <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.95rem' }}>
-                    {candidate.name}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.95rem' }}>
+                      {candidate.name}
+                    </span>
+                    {candidate.replacedFromChest && (
+                      <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }} title={candidate.replacementNote || `Replaced from Chest #${candidate.replacedFromChest}`}>
+                        Replaced from #{candidate.replacedFromChest}
+                      </span>
+                    )}
                   </div>
                   {candidate.uid && (
                     <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600, marginTop: '2px' }}>

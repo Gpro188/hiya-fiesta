@@ -21,9 +21,13 @@ export type CandidateIdCardProps = {
       };
     };
     institution?: { name: string } | null;
+    replacedFromChest?: string | null;
+    replacementNote?: string | null;
     programs?: Array<{
       id: string;
       scheduledTime?: string | Date | null;
+      replacedFromChest?: string | null;
+      replacementNote?: string | null;
       program: {
         id?: string;
         name: string;
@@ -123,6 +127,11 @@ function ProgramItem({
         }}
       >
         {subText}
+        {program?.replacedFromChest && (
+          <span style={{ color: "#d97706", fontWeight: 800, marginLeft: "4px" }}>
+            (Rep: #{program.replacedFromChest})
+          </span>
+        )}
       </div>
     </div>
   );
@@ -299,22 +308,42 @@ export default function CandidateIdCard({
         }}
       >
         {/* Pink Rounded Badge for Chest Number */}
-        <div
-          style={{
-            backgroundColor: "#f43f5e",
-            color: "#ffffff",
-            borderRadius: "14px",
-            padding: "2px 14px",
-            fontSize: "0.68rem",
-            fontWeight: 800,
-            letterSpacing: "1px",
-            textTransform: "uppercase",
-            lineHeight: 1.2,
-            boxShadow: "0 2px 5px rgba(244,63,94,0.25)",
-            display: "inline-block",
-          }}
-        >
-          CHES NO. {chestNo}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <div
+            style={{
+              backgroundColor: "#f43f5e",
+              color: "#ffffff",
+              borderRadius: "14px",
+              padding: "2px 14px",
+              fontSize: "0.68rem",
+              fontWeight: 800,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              lineHeight: 1.2,
+              boxShadow: "0 2px 5px rgba(244,63,94,0.25)",
+              display: "inline-block",
+            }}
+          >
+            CHES NO. {chestNo}
+          </div>
+          {candidate.replacedFromChest && (
+            <div
+              style={{
+                backgroundColor: "rgba(245, 158, 11, 0.95)",
+                color: "#000",
+                borderRadius: "10px",
+                padding: "2px 7px",
+                fontSize: "0.54rem",
+                fontWeight: 800,
+                letterSpacing: "0.2px",
+                lineHeight: 1.2,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }}
+              title={`Replaced from Chest #${candidate.replacedFromChest}`}
+            >
+              REP: #{candidate.replacedFromChest}
+            </div>
+          )}
         </div>
 
         {/* Candidate Name in Bold Indigo/Purple */}

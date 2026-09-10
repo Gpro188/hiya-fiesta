@@ -897,3 +897,267 @@ export async function directReplaceCandidate(data: {
   }
 }
 
+export async function removeProgramFromCandidate(data: {
+  candidateId: string;
+  programAssignmentId: string;
+  reason?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    }
+
+    const assignment = await prisma.programAssignment.findUnique({
+      where: { id: data.programAssignmentId },
+      include: {
+        candidate: {
+          include: {
+            team: {
+              include: {
+                event: { include: { zone: true } }
+              }
+            }
+          }
+        },
+        program: true
+      }
+    });
+
+    if (!assignment || assignment.candidateId !== data.candidateId) {
+      return { success: false, error: "Program assignment not found for this candidate." };
+    }
+
+    // Delete the program assignment
+    await prisma.programAssignment.delete({
+      where: { id: data.programAssignmentId }
+    });
+
+    // Audit log
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: "REMOVE_PROGRAM_ASSIGNMENT",
+        entityType: "PROGRAM_ASSIGNMENT",
+        entityId: data.programAssignmentId,
+        reason: `Removed program "${assignment.program.name}" from ${assignment.candidate.name} (Chest #${assignment.candidate.chestNumber || "None"}). Reason: ${data.reason || "Super Admin program removal"}`
+      }
+    }).catch(err => console.warn("Audit log non-fatal error:", err));
+
+    // Revalidate paths
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/print/id-cards");
+    revalidatePath("/print/programs-registration");
+    revalidatePath("/print/assignments");
+
+    return {
+      success: true,
+      programName: assignment.program.name,
+      candidateName: assignment.candidate.name,
+      chestNumber: assignment.candidate.chestNumber,
+    };
+  } catch (error: any) {
+    console.error("removeProgramFromCandidate error:", error);
+    return { success: false, error: error.message || "Failed to remove program" };
+  }
+}
+
+export async function transferProgramToAnotherCandidate(data: {
+  fromCandidateId: string;
+  programAssignmentId: string;
+  targetType: "DIRECTORY_STUDENT" | "EXISTING_CANDIDATE" | "MANUAL_STUDENT";
+  studentUid?: string;
+  studentName?: string;
+  studentPhoto?: string;
+  existingCandidateId?: string;
+  reason?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    }
+
+    const assignment = await prisma.programAssignment.findUnique({
+      where: { id: data.programAssignmentId },
+      include: {
+        candidate: {
+          include: {
+            category: true,
+            team: {
+              include: {
+                institution: true,
+                event: { include: { zone: true } },
+                candidates: true
+              }
+            }
+          }
+        },
+        program: {
+          include: {
+            category: true
+          }
+        }
+      }
+    });
+
+    if (!assignment || assignment.candidateId !== data.fromCandidateId) {
+      return { success: false, error: "Program assignment not found for this candidate." };
+    }
+
+    const fromCandidate = assignment.candidate;
+    const oldChestNumber = fromCandidate.chestNumber || "N/A";
+    const oldCandidateName = fromCandidate.name;
+    const programName = assignment.program.name;
+
+    const result = await prisma.$transaction(async (tx) => {
+      let targetCandidateId: string;
+      let targetChestNumber: string | null = null;
+      let targetName: string = "";
+
+      if (data.targetType === "EXISTING_CANDIDATE") {
+        if (!data.existingCandidateId) {
+          throw new Error("Please select an existing candidate.");
+        }
+        const existing = await tx.candidate.findUnique({
+          where: { id: data.existingCandidateId }
+        });
+        if (!existing) throw new Error("Selected existing candidate not found.");
+        
+        targetCandidateId = existing.id;
+        targetChestNumber = existing.chestNumber;
+        targetName = existing.name;
+
+        // Check if already assigned to this program
+        const already = await tx.programAssignment.findUnique({
+          where: {
+            candidateId_programId: {
+              candidateId: targetCandidateId,
+              programId: assignment.programId
+            }
+          }
+        });
+        if (already) {
+          throw new Error(`${existing.name} is already assigned to ${programName}.`);
+        }
+      } else {
+        // DIRECTORY_STUDENT or MANUAL_STUDENT
+        const name = (data.studentName || "").trim();
+        if (!name) throw new Error("Recipient student name is required.");
+        targetName = name;
+        const uid = data.studentUid ? data.studentUid.trim().toUpperCase() : null;
+
+        // Check if a candidate with this UID already exists in the team
+        let matchedCandidate = uid ? await tx.candidate.findFirst({
+          where: {
+            teamId: fromCandidate.teamId,
+            uid: uid
+          }
+        }) : null;
+
+        if (matchedCandidate) {
+          targetCandidateId = matchedCandidate.id;
+          targetChestNumber = matchedCandidate.chestNumber;
+        } else {
+          // Allocate chest number
+          const offset = fromCandidate.category.chestNumberOffset || 100;
+          const assignedCandidates = await tx.candidate.findMany({
+            where: {
+              chestNumber: { not: null },
+              category: { eventId: fromCandidate.category.eventId }
+            },
+            select: { chestNumber: true }
+          });
+          const usedChests = new Set(assignedCandidates.map(c => c.chestNumber));
+          let currentNum = offset;
+          while (usedChests.has(currentNum.toString())) {
+            currentNum++;
+          }
+          targetChestNumber = currentNum.toString();
+
+          const newCandidate = await tx.candidate.create({
+            data: {
+              name: targetName,
+              uid: uid,
+              chestNumber: targetChestNumber,
+              photo: data.studentPhoto || null,
+              photoUrl: data.studentPhoto || null,
+              categoryId: fromCandidate.categoryId,
+              teamId: fromCandidate.teamId,
+              institutionId: fromCandidate.institutionId,
+              isApproved: true,
+              replacedFromChest: oldChestNumber,
+              replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName}) for program ${programName}. Reason: ${data.reason || "Program Transfer"}`,
+            }
+          });
+          targetCandidateId = newCandidate.id;
+        }
+      }
+
+      // Delete the assignment from original candidate
+      await tx.programAssignment.delete({
+        where: { id: assignment.id }
+      });
+
+      // Create new assignment for target candidate with replacedFromChest note
+      await tx.programAssignment.create({
+        data: {
+          candidateId: targetCandidateId,
+          programId: assignment.programId,
+          replacedFromChest: oldChestNumber,
+          replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName})`,
+        }
+      });
+
+      // Also ensure target candidate has replacedFromChest recorded
+      await tx.candidate.update({
+        where: { id: targetCandidateId },
+        data: {
+          replacedFromChest: oldChestNumber,
+          replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName}) for program ${programName}`,
+        }
+      });
+
+      return {
+        targetCandidateId,
+        targetName,
+        targetChestNumber,
+      };
+    });
+
+    // Audit log
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: "TRANSFER_PROGRAM_ASSIGNMENT",
+        entityType: "PROGRAM_ASSIGNMENT",
+        entityId: assignment.programId,
+        reason: `Transferred "${programName}" from ${oldCandidateName} (Chest #${oldChestNumber}) to ${result.targetName} (Chest #${result.targetChestNumber || "None"}). Reason: ${data.reason || "Program Transfer"}`
+      }
+    }).catch(err => console.warn("Audit log non-fatal error:", err));
+
+    // Revalidate paths
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/print/id-cards");
+    revalidatePath("/print/programs-registration");
+    revalidatePath("/print/assignments");
+
+    return {
+      success: true,
+      programName,
+      fromCandidateName: oldCandidateName,
+      fromChestNumber: oldChestNumber,
+      toCandidateName: result.targetName,
+      toChestNumber: result.targetChestNumber,
+    };
+  } catch (error: any) {
+    console.error("transferProgramToAnotherCandidate error:", error);
+    return { success: false, error: error.message || "Failed to transfer program" };
+  }
+}
+
+

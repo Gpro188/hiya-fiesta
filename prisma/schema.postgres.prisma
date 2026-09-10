@@ -197,6 +197,8 @@ model Candidate {
   results          Result[]
   stateQualificationStatus String      @default("NONE")
   stateQualifications StateQualification[]
+  replacedFromChest        String?
+  replacementNote          String?
 
   @@index([categoryId])
   @@index([teamId])
@@ -232,14 +234,16 @@ model Program {
 }
 
 model ProgramAssignment {
-  id            String    @id @default(uuid())
-  candidateId   String
-  programId     String
-  createdAt     DateTime  @default(now())
-  scheduledTime DateTime?
-  slotNumber    Int?
-  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  candidateId       String
+  programId         String
+  createdAt         DateTime  @default(now())
+  scheduledTime     DateTime?
+  slotNumber        Int?
+  replacedFromChest String?
+  replacementNote   String?
+  candidate         Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  program           Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, programId])
   @@index([programId])
