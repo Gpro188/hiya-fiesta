@@ -374,24 +374,18 @@ export default function AssignmentForm({
               borderRadius: '4px',
               fontSize: '0.75rem',
               fontWeight: 800,
-              backgroundColor: onStageUnlocked ? '#10b981' : isZoneConfirmedOnStage ? '#64748b' : isOnStageOpen ? '#db2777' : '#ef4444',
+              backgroundColor: onStageUnlocked ? '#10b981' : isOnStageOpen ? '#db2777' : '#ef4444',
               color: '#fff'
             }}>
-              {onStageUnlocked ? '⚡ ZONE UNLOCKED' : isZoneConfirmedOnStage ? '🔒 CONFIRMED BY ZONE' : isOnStageOpen ? (isAssignmentsConfirmed || isOnStageConfirmed ? '🟢 EDITABLE (BEFORE ZONE CONFIRMS)' : '🟢 OPEN') : '🔒 CLOSED'}
+              {onStageUnlocked ? '⚡ ZONE UNLOCKED' : isOnStageOpen ? (isAssignmentsConfirmed || isOnStageConfirmed ? '🟢 EDITABLE (UNTIL DEADLINE)' : '🟢 OPEN') : '🔒 CLOSED'}
             </span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
             {onStageUnlocked
               ? 'Zone Admin granted special editing access for on-stage programs.'
-              : isZoneConfirmedOnStage
-                ? 'On-Stage entries officially confirmed by Zone Admin with Chest Numbers assigned.'
-                : isOnStageOpen
-                  ? (isAssignmentsConfirmed || isOnStageConfirmed
-                      ? `Open for editing until Zone Admin confirms or deadline (${onStageDeadline ? new Date(onStageDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Tonight'}).`
-                      : onStageDeadline
-                        ? `Deadline: ${new Date(onStageDeadline).toLocaleString()}`
-                        : 'Registration is open.')
-                  : 'On-Stage registration deadline has passed.'}
+              : isOnStageOpen
+                ? `On-Stage program assignments remain open for editing until the registration deadline (${onStageDeadline ? new Date(onStageDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Tonight'}).`
+                : 'On-Stage registration deadline has passed.'}
           </div>
         </div>
       </div>
@@ -1289,7 +1283,7 @@ export default function AssignmentForm({
             ) : (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ padding: '6px 14px', color: '#be185d', fontWeight: 600, border: '1px solid #fbcfe8', borderRadius: '6px', backgroundColor: '#fdf2f8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>📥</span> On-Stage Open for Editing (Before Zone Admin Confirms)
+                  <span>📥</span> On-Stage Open for Editing (Until Deadline Tonight)
                 </div>
                 <button 
                   className="btn btn-secondary"
@@ -1303,7 +1297,7 @@ export default function AssignmentForm({
             )
           ) : (
             <div style={{ padding: '6px 14px', color: '#b91c1c', fontWeight: 600, border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fef2f2', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔒</span> {isZoneConfirmedOnStage ? "On-Stage Confirmed by Zone (Chest Nos Assigned)" : "On-Stage Closed (Deadline Passed)"}
+              <span>🔒</span> On-Stage Closed (Deadline Passed)
             </div>
           )}
 

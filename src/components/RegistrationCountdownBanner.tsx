@@ -308,13 +308,9 @@ export default function RegistrationCountdownBanner({
               <span>🎭</span>
               <span>
                 On-Stage:{" "}
-                {isZoneConfirmedOnStage
-                  ? "Confirmed by Zone"
-                  : isOnStageOpen
-                    ? (isAssignmentsConfirmed || isOnStageConfirmed
-                        ? "🟢 Open for Editing (Editable before Zone Admin Confirms)"
-                        : "🟢 Open for Registration & Editing")
-                    : "🔒 Closed"}
+                {isOnStageOpen
+                  ? "🟢 Open for Editing (Until Deadline Tonight)"
+                  : "🔒 Closed (Deadline Passed)"}
               </span>
             </div>
 
@@ -337,11 +333,9 @@ export default function RegistrationCountdownBanner({
 
           {/* User Guideline Reminder */}
           <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            {isOnStageOpen && !isZoneConfirmedOnStage
-              ? "📢 Notice: Even for confirmed institutions, On-Stage program assignments remain fully editable until the timer reaches zero or until your Zone Admin officially confirms your registration."
-              : isZoneConfirmedOnStage || isZoneConfirmedOffStage
-                ? "✅ Your institution registration has been officially confirmed by the Zone Admin. Contact your Zone Admin if any emergency replacement is needed."
-                : "🔒 Registration and program assignments for this event have concluded."}
+            {isOnStageOpen
+              ? "📢 Notice: Today is the final registration deadline. On-Stage program assignments remain fully editable until the countdown timer reaches zero tonight."
+              : "🔒 Registration and program assignments for this event have concluded."}
           </p>
         </div>
 

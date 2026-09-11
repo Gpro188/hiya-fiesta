@@ -177,15 +177,15 @@ export function getRegistrationLockStatus(
   // 4. Determine Openness:
   // - Off-Stage: Locked once the institution confirms it (team.isAssignmentsConfirmed),
   //   or when off-stage deadline has passed, or when Zone Admin confirms.
-  // - On-Stage: Remains open for editing by confirmed institutions until Zone Admin
-  //   officially confirms (with chest numbers) or until on-stage deadline passes.
+  // - On-Stage: Remains open for editing by institutions until the on-stage deadline passes
+  //   (even if on-stage was approved or chest numbers assigned, editing remains open until deadline ends).
   const isOffStageOpen =
     !isNotStarted &&
     (isOffStageUnlocked || (!isOffStageDeadlinePassed && !isZoneConfirmedOffStage && !team?.isAssignmentsConfirmed));
 
   const isOnStageOpen =
     !isNotStarted &&
-    (isOnStageUnlocked || (!isOnStageDeadlinePassed && !isZoneConfirmedOnStage));
+    (isOnStageUnlocked || !isOnStageDeadlinePassed);
 
   const isCandidateRegistrationOpen =
     !isNotStarted &&
