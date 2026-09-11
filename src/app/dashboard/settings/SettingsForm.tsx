@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { updateSettings, updateEventDeadlines, updateZoneTimelines, resetSystem } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
 export default function SettingsForm({ initialSettings, events, role }: { initialSettings: any, events: any[], role: string }) {
+  const router = useRouter();
   const [festName, setFestName] = useState(initialSettings?.festName || "Arts Fest");
   const [festMoto, setFestMoto] = useState(initialSettings?.festMoto || "Celebrating Creativity");
   const [festLogo, setFestLogo] = useState(initialSettings?.festLogo || "");
@@ -139,6 +141,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
 
     if (result.success && deadlineResult.success && zonesResult.success) {
       setStatus({ type: 'success', message: '✅ All settings, zone timelines, and festival countdowns saved successfully.' });
+      router.refresh();
     } else {
       setStatus({ type: 'error', message: 'Failed to save some settings' });
     }
@@ -428,48 +431,66 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
             {/* Individual Zone Schedules Grid */}
             {zoneSchedules.length > 0 && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary)' }}>
-                    📍 Configure Individual Zone Dates & Auto Countdown:
-                  </h5>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-                    onClick={() => {
-                      // Apply the selected event times to all zones
-                      if (zoneActiveStartTime) {
-                        setZoneSchedules(prev => prev.map(z => ({
-                          ...z,
-                          zoneActiveStartTime,
-                          zoneActiveEndTime: zoneActiveEndTime || z.zoneActiveEndTime
-                        })));
-                      }
-                    }}
-                  >
-                    ⚡ Copy Default Time to All Zones
-                  </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+                  <div>
+                    <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--primary)' }}>
+                      📍 Configure Individual Zone Dates & Auto Countdown:
+                    </h5>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      Set individual Start (Countdown) & End (Conclusion) times for each zone.
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                      onClick={() => {
+                        // Apply the selected event times to all zones
+                        if (zoneActiveStartTime) {
+                          setZoneSchedules(prev => prev.map(z => ({
+                            ...z,
+                            zoneActiveStartTime,
+                            zoneActiveEndTime: zoneActiveEndTime || z.zoneActiveEndTime
+                          })));
+                        }
+                      }}
+                    >
+                      ⚡ Copy Default Time to All Zones
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{ fontSize: '0.82rem', padding: '6px 14px', backgroundColor: '#8E0033' }}
+                      disabled={loading}
+                    >
+                      {loading ? "Saving..." : "💾 Save Zone Timelines"}
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-                  {zoneSchedules.map((zone, idx) => (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '16px' }}>
+                  {zoneSchedules.map((zone) => (
                     <div 
                       key={zone.id}
                       style={{
-                        padding: '14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-color)',
+                        padding: '16px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #e2e8f0',
                         backgroundColor: '#ffffff',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 800, color: 'var(--ink, #1e293b)', fontSize: '0.9rem' }}>
-                          {zone.name}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--ink, #1e293b)', fontSize: '0.95rem' }}>
+                          📍 {zone.name}
                         </span>
                         <select
                           className="form-input"
-                          style={{ width: 'auto', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 700 }}
+                          style={{ width: 'auto', padding: '4px 8px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px' }}
                           value={zone.statusOverride}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -483,15 +504,15 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                         </select>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '2px', color: '#64748b' }}>
-                            Start Time (Countdown)
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#0369a1' }}>
+                            <span>🟢</span> Fest Start Time (Countdown Target)
                           </label>
                           <input 
                             type="datetime-local" 
                             className="form-input"
-                            style={{ fontSize: '0.8rem', padding: '6px 8px' }}
+                            style={{ width: '100%', fontSize: '0.85rem', padding: '8px 10px', borderColor: '#bae6fd', borderRadius: '8px', fontWeight: 600 }}
                             value={zone.zoneActiveStartTime}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -500,13 +521,13 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '2px', color: '#64748b' }}>
-                            End Time
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#be123c' }}>
+                            <span>🔴</span> Fest End Time (Valedictory / Finish)
                           </label>
                           <input 
                             type="datetime-local" 
                             className="form-input"
-                            style={{ fontSize: '0.8rem', padding: '6px 8px' }}
+                            style={{ width: '100%', fontSize: '0.85rem', padding: '8px 10px', borderColor: '#fecdd3', borderRadius: '8px', fontWeight: 600 }}
                             value={zone.zoneActiveEndTime}
                             onChange={(e) => {
                               const val = e.target.value;

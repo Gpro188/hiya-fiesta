@@ -51,7 +51,9 @@ export default function FestCountdownView({
   const [showSchedule, setShowSchedule] = useState(false);
 
   useEffect(() => {
+    if (!startDate) return;
     const targetTime = new Date(startDate).getTime();
+    if (isNaN(targetTime)) return;
 
     const calculateTime = () => {
       const now = new Date().getTime();
@@ -59,6 +61,10 @@ export default function FestCountdownView({
 
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isStarted: true });
+        // Automatically reload once festival start time is reached to display live dashboard
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
         return;
       }
 
@@ -75,17 +81,22 @@ export default function FestCountdownView({
     return () => clearInterval(timer);
   }, [startDate]);
 
-  const formattedDate = new Date(startDate).toLocaleDateString([], {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const hasValidDate = Boolean(startDate && !isNaN(new Date(startDate).getTime()));
+  const formattedDate = hasValidDate
+    ? new Date(startDate).toLocaleDateString([], {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
 
-  const formattedTime = new Date(startDate).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const formattedTime = hasValidDate
+    ? new Date(startDate).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "20px 16px" }}>
@@ -122,7 +133,7 @@ export default function FestCountdownView({
             marginBottom: "18px",
           }}
         >
-          <span>⏳ FESTIVAL BEGINS IN</span>
+          <span>{hasValidDate ? "⏳ FESTIVAL BEGINS IN" : "⏳ FESTIVAL UPCOMING"}</span>
         </div>
 
         {/* Big Zone Name */}
@@ -142,127 +153,168 @@ export default function FestCountdownView({
           {festMoto || "She Can. She Will."} · Council of Samastha Women&apos;s Colleges
         </p>
 
-        {/* Big Countdown Units Grid */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "12px",
-            flexWrap: "wrap",
-            maxWidth: "680px",
+        {/* Big Countdown Units Grid or Upcoming Banner */}
+        {hasValidDate ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+              maxWidth: "680px",
+              margin: "0 auto 32px",
+            }}
+          >
+            {/* Days */}
+            <div
+              style={{
+                flex: "1 1 120px",
+                minWidth: "110px",
+                maxWidth: "140px",
+                backgroundColor: "#1e1b4b",
+                color: "#ffffff",
+                borderRadius: "18px",
+                padding: "20px 10px",
+                boxShadow: "0 10px 25px rgba(30,27,75,0.25)",
+              }}
+            >
+              <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
+                {timeLeft.days.toString().padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
+                Days
+              </div>
+            </div>
+
+            {/* Hours */}
+            <div
+              style={{
+                flex: "1 1 120px",
+                minWidth: "110px",
+                maxWidth: "140px",
+                backgroundColor: "#8E0033",
+                color: "#ffffff",
+                borderRadius: "18px",
+                padding: "20px 10px",
+                boxShadow: "0 10px 25px rgba(142,0,51,0.25)",
+              }}
+            >
+              <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
+                {timeLeft.hours.toString().padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fecdd3", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
+                Hours
+              </div>
+            </div>
+
+            {/* Minutes */}
+            <div
+              style={{
+                flex: "1 1 120px",
+                minWidth: "110px",
+                maxWidth: "140px",
+                backgroundColor: "#1e1b4b",
+                color: "#ffffff",
+                borderRadius: "18px",
+                padding: "20px 10px",
+                boxShadow: "0 10px 25px rgba(30,27,75,0.25)",
+              }}
+            >
+              <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
+                {timeLeft.minutes.toString().padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
+                Minutes
+              </div>
+            </div>
+
+            {/* Seconds */}
+            <div
+              style={{
+                flex: "1 1 120px",
+                minWidth: "110px",
+                maxWidth: "140px",
+                backgroundColor: "#f43f5e",
+                color: "#ffffff",
+                borderRadius: "18px",
+                padding: "20px 10px",
+                boxShadow: "0 10px 25px rgba(244,63,94,0.25)",
+              }}
+            >
+              <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
+                {timeLeft.seconds.toString().padStart(2, "0")}
+              </div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#ffe4e6", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
+                Seconds
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            maxWidth: "600px",
             margin: "0 auto 32px",
-          }}
-        >
-          {/* Days */}
-          <div
-            style={{
-              flex: "1 1 120px",
-              minWidth: "110px",
-              maxWidth: "140px",
-              backgroundColor: "#1e1b4b",
-              color: "#ffffff",
-              borderRadius: "18px",
-              padding: "20px 10px",
-              boxShadow: "0 10px 25px rgba(30,27,75,0.25)",
-            }}
-          >
-            <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
-              {timeLeft.days.toString().padStart(2, "0")}
-            </div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
-              Days
-            </div>
+            padding: "24px 20px",
+            borderRadius: "16px",
+            backgroundColor: "rgba(142,0,51,0.04)",
+            border: "1px dashed rgba(142,0,51,0.25)",
+            textAlign: "center"
+          }}>
+            <div style={{ fontSize: "2rem", marginBottom: "6px" }}>📅</div>
+            <h3 style={{ margin: "0 0 6px 0", color: "#1e1b4b", fontSize: "1.15rem", fontWeight: 800 }}>
+              Festival Schedule & Dates Announcing Soon
+            </h3>
+            <p style={{ margin: 0, fontSize: "0.88rem", color: "#64748b" }}>
+              The official zone festival countdown will start as soon as dates are confirmed.
+            </p>
           </div>
-
-          {/* Hours */}
-          <div
-            style={{
-              flex: "1 1 120px",
-              minWidth: "110px",
-              maxWidth: "140px",
-              backgroundColor: "#8E0033",
-              color: "#ffffff",
-              borderRadius: "18px",
-              padding: "20px 10px",
-              boxShadow: "0 10px 25px rgba(142,0,51,0.25)",
-            }}
-          >
-            <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
-              {timeLeft.hours.toString().padStart(2, "0")}
-            </div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fecdd3", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
-              Hours
-            </div>
-          </div>
-
-          {/* Minutes */}
-          <div
-            style={{
-              flex: "1 1 120px",
-              minWidth: "110px",
-              maxWidth: "140px",
-              backgroundColor: "#1e1b4b",
-              color: "#ffffff",
-              borderRadius: "18px",
-              padding: "20px 10px",
-              boxShadow: "0 10px 25px rgba(30,27,75,0.25)",
-            }}
-          >
-            <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
-              {timeLeft.minutes.toString().padStart(2, "0")}
-            </div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
-              Minutes
-            </div>
-          </div>
-
-          {/* Seconds */}
-          <div
-            style={{
-              flex: "1 1 120px",
-              minWidth: "110px",
-              maxWidth: "140px",
-              backgroundColor: "#f43f5e",
-              color: "#ffffff",
-              borderRadius: "18px",
-              padding: "20px 10px",
-              boxShadow: "0 10px 25px rgba(244,63,94,0.25)",
-            }}
-          >
-            <div style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
-              {timeLeft.seconds.toString().padStart(2, "0")}
-            </div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#ffe4e6", textTransform: "uppercase", letterSpacing: "1px", marginTop: "6px" }}>
-              Seconds
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Date Time Badge Callout */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            padding: "10px 22px",
-            borderRadius: "14px",
-            color: "#334155",
-            fontSize: "0.95rem",
-            fontWeight: 700,
-          }}
-        >
-          <span>📅</span>
-          <span>
-            Scheduled to Start: <strong>{formattedDate}</strong> at <strong>{formattedTime}</strong>
-          </span>
-        </div>
+        {hasValidDate ? (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "10px",
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              padding: "10px 22px",
+              borderRadius: "14px",
+              color: "#334155",
+              fontSize: "0.95rem",
+              fontWeight: 700,
+            }}
+          >
+            <span>📅</span>
+            <span>
+              Scheduled to Start: <strong>{formattedDate}</strong> at <strong>{formattedTime}</strong>
+            </span>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              padding: "8px 18px",
+              borderRadius: "12px",
+              color: "#64748b",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+            }}
+          >
+            <span>ℹ️</span> Pre-festival preparations and registrations are underway
+          </div>
+        )}
 
         {/* Auto Refresh note */}
         <p style={{ margin: "24px 0 0 0", fontSize: "0.82rem", color: "#94a3b8" }}>
-          Live scores and results will publish automatically once the festival starts.
+          {hasValidDate 
+            ? "Live scores and results will publish automatically once the festival starts."
+            : "Team registrations and program allocations are currently in progress."}
         </p>
       </div>
 

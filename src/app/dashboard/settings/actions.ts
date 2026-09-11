@@ -257,6 +257,7 @@ export async function updateZoneTimelines(zoneUpdates: Array<{
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/settings");
     revalidatePath("/fest");
+    revalidatePath("/fest", "layout");
     return { success: true };
   } catch (error) {
     console.error("Failed to update zone timelines:", error);

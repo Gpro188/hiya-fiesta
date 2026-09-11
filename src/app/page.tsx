@@ -153,8 +153,8 @@ export default async function HomePage() {
     let badgeText = "PENDING";
     let badgeClass = "hf-badge-pending";
 
-    const festStart = ev.startDate || ev.zoneActiveStartTime;
-    const festEnd = ev.endDate || ev.zoneActiveEndTime;
+    const festStart = ev.zoneActiveStartTime || ev.startDate;
+    const festEnd = ev.zoneActiveEndTime || ev.endDate;
 
     if (ev.statusOverride && ev.statusOverride !== 'AUTO') {
       switch(ev.statusOverride) {
@@ -173,6 +173,8 @@ export default async function HomePage() {
         badgeText = "REGISTRATION"; badgeClass = "hf-badge-registration";
       } else if (festStart && now < festStart) {
         badgeText = "STARTS SOON"; badgeClass = "hf-badge-pending";
+      } else {
+        badgeText = "UPCOMING"; badgeClass = "hf-badge-pending";
       }
     }
 

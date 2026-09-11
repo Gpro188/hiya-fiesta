@@ -41,7 +41,9 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
 
   // Check if festival has started or is live/completed
   const now = new Date();
-  const startTarget = event.startDate || event.zoneActiveStartTime || event.parent?.startDate;
+  const startTarget = event.zoneActiveStartTime || event.startDate || event.parent?.startDate;
+  const endTarget = event.zoneActiveEndTime || event.endDate || event.parent?.endDate;
+
   const isExplicitLive = event.statusOverride === "LIVE";
   const isExplicitCompleted = event.statusOverride === "COMPLETED";
   const isSchedulePublished = 
@@ -49,18 +51,22 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
     isExplicitLive || 
     isExplicitCompleted;
   
-  const isStarted =
-    isExplicitLive ||
-    isExplicitCompleted ||
-    (event.statusOverride === "AUTO" && startTarget && now >= startTarget);
+  // Festival is completed if explicitly COMPLETED or if endTarget has passed
+  const isCompleted = isExplicitCompleted || Boolean(event.statusOverride === "AUTO" && endTarget && now > endTarget);
 
-  let preFestData = null;
-  if (!isStarted && startTarget) {
+  // Festival is started/live if explicitly LIVE or if startTarget has passed and not yet completed
+  const isStarted = isExplicitLive || Boolean(event.statusOverride === "AUTO" && startTarget && now >= startTarget && !isCompleted);
+
+  // Results & Standings Dashboard ONLY renders when festival is LIVE or COMPLETED
+  const showResultsDashboard = isStarted || isCompleted;
+
+  let preFestData = { teamsCount: 0, candidatesCount: 0, programsCount: 0, programsList: [] as any[] };
+  if (!showResultsDashboard) {
     const [teamsCount, candidatesCount, programsList] = await Promise.all([
       prisma.team.count({ where: { eventId: event.id } }),
       prisma.candidate.count({ where: { team: { eventId: event.id } } }),
       prisma.program.findMany({
-        where: { eventId: event.id },
+        where: { eventId: event.id, type: { not: 'BREAK' } },
         include: { category: { select: { name: true } } },
         orderBy: [{ startTime: "asc" }, { name: "asc" }],
       }),
@@ -108,16 +114,20 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
           <span 
             className="eyebrow" 
             style={{ 
-              color: 'var(--gold-light, #ff8fc4)', 
+              color: isCompleted ? '#34d399' : isStarted ? '#4ade80' : 'var(--gold-light, #ff8fc4)', 
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: '12px',
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
-              fontWeight: 600,
+              fontWeight: 700,
               display: 'block'
             }}
           >
-            {isStarted ? "Official Results Portal" : "Festival Scheduled & Upcoming"}
+            {isCompleted 
+              ? "🏆 Festival Completed · Official Final Standings" 
+              : isStarted 
+              ? "🟢 Official Live Results Portal · Competitions Active" 
+              : "⏳ Festival Scheduled & Upcoming Countdown"}
           </span>
           <h1 
             style={{ 
@@ -133,7 +143,11 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
             {mainEventName}
           </h1>
           <p style={{ color: '#d8cdc2', margin: '8px 0 0', fontSize: '15px' }}>
-            {isStarted ? "Live Results Dashboard" : "Festival Schedule & Countdown"}
+            {isCompleted 
+              ? "Official Final Scores & All Program Results Published" 
+              : isStarted 
+              ? "Live Real-Time Results & Current Standings" 
+              : "Festival Schedule & Countdown"}
           </p>
         </div>
       </div>
@@ -141,12 +155,12 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
       {/* Main Dashboard Content */}
       <main style={{ flex: 1, padding: '32px 0 3.5rem 0' }}>
         <div className="wrap" style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px' }}>
-          {!isStarted && startTarget && preFestData ? (
+          {!showResultsDashboard ? (
             <FestCountdownView
               eventName={mainEventName}
               festName={homepageSettings?.heroTitle || settings.festName}
               festMoto={homepageSettings?.heroSubtitle || settings.festMoto}
-              startDate={startTarget}
+              startDate={startTarget || ""}
               teamsCount={preFestData.teamsCount}
               candidatesCount={preFestData.candidatesCount}
               programsCount={preFestData.programsCount}

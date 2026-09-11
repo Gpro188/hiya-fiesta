@@ -33,11 +33,28 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
   return (
     <div className="zone-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
       {zones.map((ev) => {
-        const startTarget = ev.startDate || ev.zoneActiveStartTime;
+        const startTarget = ev.zoneActiveStartTime || ev.startDate;
+        const endTarget = ev.zoneActiveEndTime || ev.endDate;
         const startTime = startTarget ? new Date(startTarget).getTime() : null;
-        const isUpcoming = startTime ? startTime > now : false;
-        const isLive = ev.badgeText === "LIVE NOW";
-        const isCompleted = ev.badgeText === "COMPLETED";
+        const endTime = endTarget ? new Date(endTarget).getTime() : null;
+
+        let isLive = false;
+        let isCompleted = false;
+        let isUpcoming = false;
+
+        if (ev.statusOverride && ev.statusOverride !== "AUTO") {
+          isLive = ev.statusOverride === "LIVE";
+          isCompleted = ev.statusOverride === "COMPLETED";
+          isUpcoming = ev.statusOverride === "REGISTRATION" || ev.statusOverride === "PENDING";
+        } else {
+          if (endTime && now > endTime) {
+            isCompleted = true;
+          } else if (startTime && now >= startTime) {
+            isLive = true;
+          } else if (startTime && now < startTime) {
+            isUpcoming = true;
+          }
+        }
 
         // Calculate countdown
         let countdownStr = "";
@@ -57,14 +74,28 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
           }
         }
 
-        const formattedStartDate = startTarget
-          ? new Date(startTarget).toLocaleDateString([], {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : null;
+        const formatDt = (d: any) => {
+          if (!d) return null;
+          const dt = new Date(d);
+          if (isNaN(dt.getTime())) return null;
+          return dt.toLocaleDateString([], {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        };
+
+        const formattedStart = formatDt(startTarget);
+        const formattedEnd = formatDt(endTarget);
+
+        const currentBadgeText = isCompleted 
+          ? "COMPLETED" 
+          : isLive 
+          ? "LIVE NOW" 
+          : isUpcoming 
+          ? "STARTS SOON" 
+          : ev.badgeText || "PENDING";
 
         return (
           <Link
@@ -75,7 +106,11 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
               padding: "20px 22px",
               borderRadius: "18px",
               backgroundColor: "#ffffff",
-              border: isLive ? "2px solid #8E0033" : "1px solid var(--line, #e2e8f0)",
+              border: isLive 
+                ? "2px solid #8E0033" 
+                : isCompleted 
+                ? "1px solid #cbd5e1" 
+                : "1px solid var(--line, #e2e8f0)",
               boxShadow: isLive
                 ? "0 10px 25px rgba(142,0,51,0.15)"
                 : "0 4px 15px rgba(0,0,0,0.04)",
@@ -85,7 +120,7 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              minHeight: "155px",
+              minHeight: "165px",
               transition: "all 0.25s ease",
             }}
           >
@@ -108,7 +143,7 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                   className="go"
                   style={{
                     fontSize: "1.2rem",
-                    color: isLive ? "#8E0033" : "#94a3b8",
+                    color: isLive ? "#8E0033" : isCompleted ? "#059669" : "#94a3b8",
                     fontWeight: 700,
                   }}
                 >
@@ -116,23 +151,31 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                 </span>
               </div>
 
-              {/* Start Time info */}
-              {formattedStartDate && (
-                <div
-                  style={{
-                    fontSize: "0.76rem",
-                    color: "#64748b",
-                    marginTop: "6px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "5px",
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>📅</span>
-                  <span>Starts: {formattedStartDate}</span>
-                </div>
-              )}
+              {/* Start & End Time info */}
+              <div
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#475569",
+                  marginTop: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontWeight: 600,
+                }}
+              >
+                <span>📅</span>
+                <span>
+                  {formattedStart && formattedEnd ? (
+                    <>
+                      <strong>{formattedStart}</strong> – <strong>{formattedEnd}</strong>
+                    </>
+                  ) : formattedStart ? (
+                    <>Starts: <strong>{formattedStart}</strong></>
+                  ) : (
+                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Schedule & Dates Announcing</span>
+                  )}
+                </span>
+              </div>
             </div>
 
             {/* Bottom Row: Countdown / Status badge */}
@@ -142,12 +185,12 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "5px",
+                    gap: "6px",
                     backgroundColor: "rgba(142,0,51,0.08)",
-                    border: "1px solid rgba(142,0,51,0.2)",
-                    padding: "3px 8px",
+                    border: "1px solid rgba(142,0,51,0.25)",
+                    padding: "4px 10px",
                     borderRadius: "8px",
-                    fontSize: "0.74rem",
+                    fontSize: "0.76rem",
                     fontFamily: "monospace",
                     fontWeight: 700,
                     color: "#8E0033",
@@ -155,6 +198,15 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                 >
                   <span>⏳</span>
                   <span>{countdownStr}</span>
+                </div>
+              ) : isLive ? (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "0.74rem", fontWeight: 700, color: "#059669" }}>
+                  <span className="status-dot live" style={{ width: "8px", height: "8px" }} />
+                  <span>Competitions In Progress</span>
+                </div>
+              ) : isCompleted ? (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "0.74rem", fontWeight: 700, color: "#475569" }}>
+                  <span>🏁 All Results Finalized</span>
                 </div>
               ) : (
                 <div />
@@ -190,7 +242,7 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                     isLive ? "live" : isCompleted ? "done" : "pending"
                   }`}
                 />
-                {ev.badgeText}
+                {currentBadgeText}
               </span>
             </div>
           </Link>
