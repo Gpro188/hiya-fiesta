@@ -9,6 +9,7 @@ import CandidateBulkActions from "./CandidateBulkActions";
 import GenerateChestNumbersButton from "./GenerateChestNumbersButton";
 import InstitutionStudentDirectory from "./InstitutionStudentDirectory";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
+import RegistrationCountdownBanner from "@/components/RegistrationCountdownBanner";
 
 export default async function CandidatesPage(props: { searchParams: Promise<{ teamId?: string, categoryId?: string, zoneId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -32,6 +33,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   let isRegistrationOpen = true;
   let registrationStatusMessage = "";
   let isSchedulePublished = true;
+  let candidateLockStatus: any = null;
 
   const zones = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role)
     ? await prisma.zone.findMany({ select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } })
@@ -123,6 +125,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           });
 
           const lockStatus = getRegistrationLockStatus(team, zoneEvent, teamCandidatesForLock, false);
+          candidateLockStatus = lockStatus;
           isRegistrationOpen = lockStatus.isCandidateRegistrationOpen;
           registrationStatusMessage = lockStatus.statusMessage;
 
@@ -224,8 +227,25 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
         </p>
       </div>
 
-      {/* Confirmation & Chest Number Status Banner for Institutions */}
-      {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && userTeam?.isAssignmentsConfirmed && (
+      {/* Registration Countdown Banner for Institution Managers */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && userTeam && candidateLockStatus && (
+        <RegistrationCountdownBanner
+          deadline={candidateLockStatus.onDeadline || candidateLockStatus.generalDeadline}
+          onStageDeadline={candidateLockStatus.onDeadline ? candidateLockStatus.onDeadline.toISOString() : null}
+          offStageDeadline={candidateLockStatus.offDeadline ? candidateLockStatus.offDeadline.toISOString() : null}
+          isOffStageOpen={candidateLockStatus.isOffStageOpen}
+          isOnStageOpen={candidateLockStatus.isOnStageOpen}
+          isAssignmentsConfirmed={candidateLockStatus.isCollegeSubmittedOffStage}
+          isOnStageConfirmed={candidateLockStatus.isCollegeSubmittedOnStage}
+          isZoneConfirmedOnStage={candidateLockStatus.isZoneConfirmedOnStage}
+          isZoneConfirmedOffStage={candidateLockStatus.isZoneConfirmedOffStage}
+          teamName={userTeam.name}
+          magazineCode={userTeam.magazineCode}
+        />
+      )}
+
+      {/* Confirmation & Chest Number Status Banner for Institutions (when chest numbers generated) */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role) && candidateLockStatus?.hasAnyChestNumber && (
         <div style={{
           padding: '18px 24px',
           borderRadius: '12px',

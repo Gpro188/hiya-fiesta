@@ -346,15 +346,17 @@ export default function AssignmentForm({
               backgroundColor: offStageUnlocked ? '#10b981' : isOffStageOpen ? '#0284c7' : '#ef4444',
               color: '#fff'
             }}>
-              {offStageUnlocked ? '⚡ ZONE UNLOCKED' : isOffStageOpen ? '🟢 OPEN' : '🔒 CLOSED'}
+              {offStageUnlocked ? '⚡ ZONE UNLOCKED' : isOffStageOpen ? '🟢 OPEN' : isAssignmentsConfirmed ? '🔒 SUBMITTED & LOCKED' : '🔒 CLOSED'}
             </span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
             {offStageUnlocked
               ? 'Zone Admin granted special editing access for off-stage programs.'
-              : offStageDeadline
-                ? `Deadline: ${new Date(offStageDeadline).toLocaleString()}`
-                : 'Registration is open according to general schedule.'}
+              : isAssignmentsConfirmed
+                ? 'Off-stage entries have been officially confirmed and locked by your institution.'
+                : offStageDeadline
+                  ? `Deadline: ${new Date(offStageDeadline).toLocaleString()}`
+                  : 'Registration is open according to general schedule.'}
           </div>
         </div>
 
@@ -372,18 +374,24 @@ export default function AssignmentForm({
               borderRadius: '4px',
               fontSize: '0.75rem',
               fontWeight: 800,
-              backgroundColor: onStageUnlocked ? '#10b981' : isOnStageOpen ? '#db2777' : '#ef4444',
+              backgroundColor: onStageUnlocked ? '#10b981' : isZoneConfirmedOnStage ? '#64748b' : isOnStageOpen ? '#db2777' : '#ef4444',
               color: '#fff'
             }}>
-              {onStageUnlocked ? '⚡ ZONE UNLOCKED' : isOnStageOpen ? '🟢 OPEN' : '🔒 CLOSED'}
+              {onStageUnlocked ? '⚡ ZONE UNLOCKED' : isZoneConfirmedOnStage ? '🔒 CONFIRMED BY ZONE' : isOnStageOpen ? (isAssignmentsConfirmed || isOnStageConfirmed ? '🟢 EDITABLE (BEFORE ZONE CONFIRMS)' : '🟢 OPEN') : '🔒 CLOSED'}
             </span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
             {onStageUnlocked
               ? 'Zone Admin granted special editing access for on-stage programs.'
-              : onStageDeadline
-                ? `Deadline: ${new Date(onStageDeadline).toLocaleString()}`
-                : 'Registration is open according to general schedule.'}
+              : isZoneConfirmedOnStage
+                ? 'On-Stage entries officially confirmed by Zone Admin with Chest Numbers assigned.'
+                : isOnStageOpen
+                  ? (isAssignmentsConfirmed || isOnStageConfirmed
+                      ? `Open for editing until Zone Admin confirms or deadline (${onStageDeadline ? new Date(onStageDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Tonight'}).`
+                      : onStageDeadline
+                        ? `Deadline: ${new Date(onStageDeadline).toLocaleString()}`
+                        : 'Registration is open.')
+                  : 'On-Stage registration deadline has passed.'}
           </div>
         </div>
       </div>
@@ -1263,7 +1271,7 @@ export default function AssignmentForm({
             )
           ) : (
             <div style={{ padding: '6px 14px', color: '#b91c1c', fontWeight: 600, border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fef2f2', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔒</span> {isZoneConfirmedOffStage ? "Off-Stage Confirmed by Zone (Chest Nos Assigned)" : "Off-Stage Closed (Deadline Passed)"}
+              <span>🔒</span> {isZoneConfirmedOffStage ? "Off-Stage Confirmed by Zone (Chest Nos Assigned)" : isAssignmentsConfirmed ? "Off-Stage Submitted & Locked" : "Off-Stage Closed (Deadline Passed)"}
             </div>
           )}
 
@@ -1281,7 +1289,7 @@ export default function AssignmentForm({
             ) : (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ padding: '6px 14px', color: '#be185d', fontWeight: 600, border: '1px solid #fbcfe8', borderRadius: '6px', backgroundColor: '#fdf2f8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>📥</span> On-Stage Submitted (Editable until deadline)
+                  <span>📥</span> On-Stage Open for Editing (Before Zone Admin Confirms)
                 </div>
                 <button 
                   className="btn btn-secondary"

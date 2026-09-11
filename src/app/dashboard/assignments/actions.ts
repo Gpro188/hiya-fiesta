@@ -65,6 +65,9 @@ export async function assignProgram(candidateId: string, programId: string) {
 
         if (isOffStage) {
           if (!lockStatus.isOffStageOpen) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Off-Stage assignments have already been submitted and confirmed by your institution. Only On-Stage programs can be edited before Zone Admin confirms." };
+            }
             if (lockStatus.isZoneConfirmedOffStage) {
               return { success: false, error: "Off-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Contact your Zone Admin to request an unlock." };
             }
@@ -228,6 +231,9 @@ export async function unassignProgram(candidateId: string, programId: string) {
 
         if (isOffStage) {
           if (!lockStatus.isOffStageOpen) {
+            if (team.isAssignmentsConfirmed) {
+              return { success: false, error: "Off-Stage assignments have already been submitted and confirmed by your institution. Only On-Stage programs can be edited before Zone Admin confirms." };
+            }
             if (lockStatus.isZoneConfirmedOffStage) {
               return { success: false, error: "Off-Stage assignments have been officially confirmed by the Zone Admin with Chest Numbers assigned. Cannot remove assignment without Zone Admin unlock." };
             }

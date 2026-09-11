@@ -175,12 +175,13 @@ export function getRegistrationLockStatus(
   );
 
   // 4. Determine Openness:
-  // An institution can edit if:
-  // - Admin unlocked it (permanent or scheduled window currently active), OR
-  // - Current time is within scheduled registration window (!deadlinePassed) AND Zone Admin hasn't finalized it (!isZoneConfirmed)
+  // - Off-Stage: Locked once the institution confirms it (team.isAssignmentsConfirmed),
+  //   or when off-stage deadline has passed, or when Zone Admin confirms.
+  // - On-Stage: Remains open for editing by confirmed institutions until Zone Admin
+  //   officially confirms (with chest numbers) or until on-stage deadline passes.
   const isOffStageOpen =
     !isNotStarted &&
-    (isOffStageUnlocked || (!isOffStageDeadlinePassed && !isZoneConfirmedOffStage));
+    (isOffStageUnlocked || (!isOffStageDeadlinePassed && !isZoneConfirmedOffStage && !team?.isAssignmentsConfirmed));
 
   const isOnStageOpen =
     !isNotStarted &&

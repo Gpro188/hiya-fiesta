@@ -6,6 +6,8 @@ import CustomerGuidelines from "./CustomerGuidelines";
 import InstitutionOnboardingModal from "@/components/InstitutionOnboardingModal";
 import InstitutionProfileButton from "@/components/InstitutionProfileButton";
 import ZoneInstitutionStatusTable, { ZoneTeamStatus } from "./ZoneInstitutionStatusTable";
+import RegistrationCountdownBanner from "@/components/RegistrationCountdownBanner";
+import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -63,6 +65,9 @@ export default async function DashboardPage() {
     });
   }
 
+  let institutionLockStatus: any = null;
+  let hasChestNumbers = false;
+
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(role)) {
     if (fullUser?.institutionId) {
       userTeam = await prisma.team.findFirst({
@@ -74,8 +79,34 @@ export default async function DashboardPage() {
           name: true,
           eventId: true,
           isAssignmentsConfirmed: true,
+          isOnStageConfirmed: true,
+          offStageUnlocked: true,
+          onStageUnlocked: true,
+          registrationUnlocked: true,
+          offStageUnlockStart: true,
+          offStageUnlockEnd: true,
+          onStageUnlockStart: true,
+          onStageUnlockEnd: true,
           magazineCode: true,
-          event: { select: { name: true, zone: { select: { name: true } } } },
+          isMagazineParticipating: true,
+          event: { 
+            select: { 
+              name: true, 
+              registrationEnd: true,
+              institutionRegistrationEndDate: true,
+              offStageRegistrationEnd: true,
+              onStageRegistrationEnd: true,
+              zone: { select: { name: true } },
+              parent: {
+                select: {
+                  registrationEnd: true,
+                  institutionRegistrationEndDate: true,
+                  offStageRegistrationEnd: true,
+                  onStageRegistrationEnd: true,
+                }
+              }
+            } 
+          },
         },
       });
     }
@@ -89,6 +120,7 @@ export default async function DashboardPage() {
         approvedCandidatesCount,
         assignmentsCount,
         teamResults,
+        teamCandidatesForLock,
       ] = await Promise.all([
         prisma.candidate.count({ where: { teamId } }),
         prisma.candidate.count({ where: { teamId, isApproved: true } }),
@@ -99,7 +131,20 @@ export default async function DashboardPage() {
           where: { OR: [{ teamId }, { candidate: { teamId } }] },
           select: { points: true, isPublished: true },
         }),
+        prisma.candidate.findMany({
+          where: { teamId },
+          select: {
+            id: true,
+            chestNumber: true,
+            programs: {
+              select: { program: { select: { stageType: true } } }
+            }
+          }
+        }),
       ]);
+
+      hasChestNumbers = teamCandidatesForLock.some((c) => Boolean(c.chestNumber));
+      institutionLockStatus = getRegistrationLockStatus(userTeam, userTeam.event, teamCandidatesForLock, false);
 
       const publishedPoints = teamResults
         .filter((r) => r.isPublished)
@@ -671,8 +716,25 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Zone Admin Confirmation Alert Banner for Institutions */}
-      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && userTeam?.isAssignmentsConfirmed && (
+      {/* Registration Countdown Banner for Institution Managers */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && userTeam && institutionLockStatus && (
+        <RegistrationCountdownBanner
+          deadline={institutionLockStatus.onDeadline || institutionLockStatus.generalDeadline}
+          onStageDeadline={institutionLockStatus.onDeadline ? institutionLockStatus.onDeadline.toISOString() : null}
+          offStageDeadline={institutionLockStatus.offDeadline ? institutionLockStatus.offDeadline.toISOString() : null}
+          isOffStageOpen={institutionLockStatus.isOffStageOpen}
+          isOnStageOpen={institutionLockStatus.isOnStageOpen}
+          isAssignmentsConfirmed={institutionLockStatus.isCollegeSubmittedOffStage}
+          isOnStageConfirmed={institutionLockStatus.isCollegeSubmittedOnStage}
+          isZoneConfirmedOnStage={institutionLockStatus.isZoneConfirmedOnStage}
+          isZoneConfirmedOffStage={institutionLockStatus.isZoneConfirmedOffStage}
+          teamName={userTeam.name}
+          magazineCode={userTeam.magazineCode}
+        />
+      )}
+
+      {/* Zone Admin Confirmation Alert Banner for Institutions (when chest numbers generated) */}
+      {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasChestNumbers && (
         <div style={{
           padding: '16px 20px',
           borderRadius: '12px',

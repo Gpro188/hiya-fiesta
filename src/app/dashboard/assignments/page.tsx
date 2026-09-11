@@ -8,6 +8,7 @@ import TeamSelector from "./TeamSelector";
 import Link from "next/link";
 import { isInstitutionProgram } from "@/lib/programUtils";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
+import RegistrationCountdownBanner from "@/components/RegistrationCountdownBanner";
 
 export default async function AssignmentsPage(props: { searchParams: Promise<{ candidateId?: string, teamId?: string }> }) {
   const searchParams = await props.searchParams;
@@ -264,6 +265,23 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
 
       {availableTeams.length > 1 && ["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
         <TeamSelector availableTeams={availableTeams} currentTeamId={teamId} />
+      )}
+
+      {currentTeam && (
+        <RegistrationCountdownBanner
+          deadline={onDeadline || lockStatus.generalDeadline}
+          onStageDeadline={onDeadline ? onDeadline.toISOString() : null}
+          offStageDeadline={offDeadline ? offDeadline.toISOString() : null}
+          isOffStageOpen={isOffStageOpen}
+          isOnStageOpen={isOnStageOpen}
+          isAssignmentsConfirmed={isCollegeSubmittedOffStage}
+          isOnStageConfirmed={isCollegeSubmittedOnStage}
+          isZoneConfirmedOnStage={isZoneConfirmedOnStage}
+          isZoneConfirmedOffStage={isZoneConfirmedOffStage}
+          teamName={currentTeam.name}
+          magazineCode={currentTeam.magazineCode}
+          showQuickLinks={false}
+        />
       )}
 
       {(() => {
