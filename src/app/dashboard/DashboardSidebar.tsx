@@ -423,6 +423,33 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     });
   }
 
+  if (role === "JUDGE") {
+    groups.push({
+      section: "Jury Portal",
+      items: [
+        {
+          name: "Mark Entry",
+          subtitle: "Consensus evaluation entry",
+          icon: "✍️",
+          href: "/dashboard/scoring",
+          highlight: true,
+        },
+        {
+          name: "Stage Valuation Sheet",
+          subtitle: "Official valuation print",
+          icon: "📄",
+          href: "/print/valuation",
+        },
+        {
+          name: "Tabulation Sheet",
+          subtitle: "Master calculation print",
+          icon: "📊",
+          href: "/print/tabulation",
+        },
+      ],
+    });
+  }
+
   return groups;
 }
 

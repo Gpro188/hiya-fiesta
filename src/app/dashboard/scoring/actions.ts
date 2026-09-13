@@ -210,6 +210,8 @@ export async function batchSubmitProgramMarks(data: {
   eventId: string;
   programId: string;
   publishImmediately?: boolean;
+  evaluator1?: string;
+  evaluator2?: string;
   entries: Array<{
     candidateId?: string;
     teamId?: string;
@@ -231,6 +233,9 @@ export async function batchSubmitProgramMarks(data: {
     });
 
     if (!program) return { success: false, error: "Program not found" };
+
+    // Judges can only submit to Pending state; only Zonal Admin / Super Admin can publish live
+    const shouldPublish = session.user.role === "JUDGE" ? false : (data.publishImmediately ?? false);
 
     let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
     if (program.type !== "INDIVIDUAL") {
@@ -267,7 +272,7 @@ export async function batchSubmitProgramMarks(data: {
               rank: entry.rank || null,
               grade: entry.grade || null,
               points: calcPoints,
-              isPublished: data.publishImmediately ?? false
+              isPublished: shouldPublish
             },
             create: {
               candidateId: entry.candidateId,
@@ -276,7 +281,7 @@ export async function batchSubmitProgramMarks(data: {
               rank: entry.rank || null,
               grade: entry.grade || null,
               points: calcPoints,
-              isPublished: data.publishImmediately ?? false
+              isPublished: shouldPublish
             }
           });
         } else if (entry.teamId) {

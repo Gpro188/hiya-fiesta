@@ -5,11 +5,12 @@ import PrintButton from "@/components/PrintButton";
 export const dynamic = "force-dynamic";
 
 export default async function PrintValuationPage(props: {
-  searchParams: Promise<{ eventId?: string; programId?: string; stageType?: string; orientation?: string }>;
+  searchParams: Promise<{ eventId?: string; programId?: string; stageType?: string; orientation?: string; copyMode?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
+  const copyMode = searchParams.copyMode === "jury1" ? "jury1" : searchParams.copyMode === "jury2" ? "jury2" : "both";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
@@ -106,7 +107,7 @@ export default async function PrintValuationPage(props: {
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ fontSize: "0.75rem", color: "#cbd5e1", fontWeight: 700 }}>Layout:</span>
               <a
-                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=landscape`}
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=landscape&copyMode=${copyMode}`}
                 style={{
                   padding: "5px 10px",
                   borderRadius: "5px",
@@ -121,10 +122,10 @@ export default async function PrintValuationPage(props: {
                   gap: "4px",
                 }}
               >
-                📃 Landscape (Default)
+                📃 Landscape
               </a>
               <a
-                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=portrait`}
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=portrait&copyMode=${copyMode}`}
                 style={{
                   padding: "5px 10px",
                   borderRadius: "5px",
@@ -143,7 +144,67 @@ export default async function PrintValuationPage(props: {
               </a>
             </div>
 
-            <PrintButton label={`Print All Valuation Sheets (${programs.length})`} />
+            {/* On-Stage Dual Jury Copy Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.75rem", color: "#cbd5e1", fontWeight: 700 }}>Jury Copies:</span>
+              <a
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=${orientation}&copyMode=both`}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: copyMode === "both" ? "2px solid #f59e0b" : "1px solid #475569",
+                  backgroundColor: copyMode === "both" ? "#d97706" : "#334155",
+                  color: "#ffffff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+                title="Generates 2 separate physical sheets per program: one for Jury 1 and one for Jury 2"
+              >
+                👥 Both Juries (2 Sheets/Prog)
+              </a>
+              <a
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=${orientation}&copyMode=jury1`}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: copyMode === "jury1" ? "2px solid #38bdf8" : "1px solid #475569",
+                  backgroundColor: copyMode === "jury1" ? "#0284c7" : "#334155",
+                  color: "#ffffff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                👤 Jury 1 Only
+              </a>
+              <a
+                href={`/print/valuation?eventId=${eventId || ""}&programId=${searchParams.programId || ""}&stageType=${searchParams.stageType || ""}&orientation=${orientation}&copyMode=jury2`}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: copyMode === "jury2" ? "2px solid #38bdf8" : "1px solid #475569",
+                  backgroundColor: copyMode === "jury2" ? "#0284c7" : "#334155",
+                  color: "#ffffff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                👤 Jury 2 Only
+              </a>
+            </div>
+
+            <PrintButton label="Print All Valuation Sheets" />
             <a
               href="/dashboard/reports"
               style={{
@@ -178,7 +239,7 @@ export default async function PrintValuationPage(props: {
           <p>Please check your filters or return to Reports.</p>
         </div>
       ) : (
-        programs.map((program) => {
+        programs.flatMap((program) => {
           // Filter assignments for this specific zone if event is zonal
           let candidateAssignments = program.assignments.filter((a) => Boolean(a.candidate));
 
@@ -213,32 +274,61 @@ export default async function PrintValuationPage(props: {
             return cA.name.localeCompare(cB.name);
           });
 
-          return (
-            <div
-              key={program.id}
-              className="valuation-sheet-page"
-              style={{
-                marginBottom: "40px",
-                pageBreakAfter: "always",
-                breakAfter: "page",
-                paddingBottom: "24px",
-                backgroundColor: "#ffffff",
-              }}
-            >
-              {/* ── Sheet Header ── */}
-              <div style={{ textAlign: "center", marginBottom: "10px", borderBottom: "2px solid #0f172a", paddingBottom: "8px" }}>
-                <div style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#8E0033" }}>
-                  {settings.festName}
-                </div>
-                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "2px" }}>
-                  OFFICIAL JURY VALUATION & MARK ENTRY RECORD
-                </div>
-                {activeEv && (
-                  <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
-                    {activeEv.name} {activeEv.zone ? `(${activeEv.zone.name})` : ""}
+          const isStage = program.stageType === "ON_STAGE";
+          let juryCopies = [0];
+          if (isStage) {
+            if (copyMode === "jury1") juryCopies = [1];
+            else if (copyMode === "jury2") juryCopies = [2];
+            else juryCopies = [1, 2]; // Both Juries (2 distinct printed sheets per program)
+          }
+
+          return juryCopies.map((juryNum) => {
+            const isCopy1 = juryNum === 1;
+            const isCopy2 = juryNum === 2;
+            const copyTitle = isCopy1 
+              ? "OFFICIAL JURY 1 VALUATION & MARK ENTRY SHEET" 
+              : isCopy2 
+              ? "OFFICIAL JURY 2 VALUATION & MARK ENTRY SHEET" 
+              : "OFFICIAL JURY VALUATION & MARK ENTRY RECORD";
+
+            return (
+              <div
+                key={`${program.id}_jury_${juryNum}`}
+                className="valuation-sheet-page"
+                style={{
+                  marginBottom: "40px",
+                  pageBreakAfter: "always",
+                  breakAfter: "page",
+                  paddingBottom: "24px",
+                  backgroundColor: "#ffffff",
+                }}
+              >
+                {/* ── Sheet Header ── */}
+                <div style={{ textAlign: "center", marginBottom: "10px", borderBottom: "2px solid #0f172a", paddingBottom: "8px" }}>
+                  <div style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#8E0033" }}>
+                    {settings.festName}
                   </div>
-                )}
-              </div>
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", marginTop: "2px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#0f172a", letterSpacing: "1px", textTransform: "uppercase" }}>
+                      {copyTitle}
+                    </span>
+                    {isCopy1 && (
+                      <span style={{ backgroundColor: "#1e40af", color: "#ffffff", padding: "2px 8px", borderRadius: "3px", fontSize: "0.72rem", fontWeight: 900 }}>
+                        JURY 1 COPY
+                      </span>
+                    )}
+                    {isCopy2 && (
+                      <span style={{ backgroundColor: "#9d174d", color: "#ffffff", padding: "2px 8px", borderRadius: "3px", fontSize: "0.72rem", fontWeight: 900 }}>
+                        JURY 2 COPY
+                      </span>
+                    )}
+                  </div>
+                  {activeEv && (
+                    <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
+                      {activeEv.name} {activeEv.zone ? `(${activeEv.zone.name})` : ""}
+                    </div>
+                  )}
+                </div>
 
               {/* ── Program Meta Information Box ── */}
               <div style={{
@@ -289,144 +379,95 @@ export default async function PrintValuationPage(props: {
 
               {/* ── Valuation Protocol Banner ── */}
               <div style={{
-                padding: "4px 10px",
-                backgroundColor: "#fef2f2",
-                border: "1px solid #fecaca",
-                borderRadius: "4px",
-                fontSize: "0.72rem",
-                color: "#991b1b",
-                marginBottom: "8px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                backgroundColor: isCopy1 ? "#eff6ff" : isCopy2 ? "#fdf2f8" : "#f1f5f9",
+                border: isCopy1 ? "1px solid #93c5fd" : isCopy2 ? "1px solid #f9a8d4" : "1px solid #cbd5e1",
+                borderRadius: "3px",
+                padding: "4px 8px",
+                marginBottom: "8px",
+                fontSize: "0.74rem",
+                color: "#1e293b",
               }}>
-                <span>
-                  <strong>Valuation Protocol:</strong> Verify candidate scripts with official <strong>Chest Number</strong> and candidate photo. Marks must be entered in ink without overwriting.
-                </span>
-                <span>
-                  <strong>Evaluation:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
-                </span>
+                <div>
+                  <strong>Valuation Rule:</strong> Two-Jury consensus model. Grade scale: <strong>A+ (90-100)</strong>, <strong>A (80-89)</strong>, <strong>B (70-79)</strong>, <strong>C (60-69)</strong>.
+                </div>
+                <div style={{ fontWeight: 700, color: isCopy1 ? "#1d4ed8" : isCopy2 ? "#be185d" : "#0f172a" }}>
+                  {isCopy1 ? "Evaluation Copy: Jury 1" : isCopy2 ? "Evaluation Copy: Jury 2" : "Evaluation Record"}
+                </div>
               </div>
 
-              {/* ── Candidates Valuation Table ── */}
+              {/* ── Candidate Scoring Table ── */}
               {candidateAssignments.length === 0 ? (
-                <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontStyle: "italic", border: "1px dashed #cbd5e1", borderRadius: "4px", marginBottom: "10px" }}>
-                  No candidate assignments registered for this program.
+                <div style={{
+                  padding: "30px",
+                  textAlign: "center",
+                  border: "1px dashed #cbd5e1",
+                  borderRadius: "4px",
+                  color: "#64748b",
+                  marginBottom: "12px",
+                  fontSize: "0.85rem",
+                }}>
+                  No candidates registered for this program in this zone yet.
                 </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: orientation === "landscape" ? "0.84rem" : "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
+                <table style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "0.78rem",
+                  marginBottom: "12px",
+                  border: "1.5px solid #0f172a",
+                }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "30px" }}>Sl</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "80px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "46px" }}>Photo</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>Candidate Name & UID</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: orientation === "landscape" ? "85px" : "70px" }}>Inst. Code</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "70px" }}>Maximum Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "110px" : "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Grade</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: orientation === "landscape" ? "55px" : "48px" }}>Place</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "left", width: orientation === "landscape" ? "130px" : "85px" }}>Remarks</th>
+                      <th style={{ width: "35px", padding: "6px 4px", border: "1px solid #334155" }}>Sl</th>
+                      <th style={{ width: "80px", padding: "6px 4px", border: "1px solid #334155" }}>Chest No</th>
+                      <th style={{ textAlign: "left", padding: "6px 8px", border: "1px solid #334155" }}>Candidate / Institution Name</th>
+                      <th style={{ width: "90px", padding: "6px 4px", border: "1px solid #334155" }}>Criteria 1 (30)</th>
+                      <th style={{ width: "90px", padding: "6px 4px", border: "1px solid #334155" }}>Criteria 2 (30)</th>
+                      <th style={{ width: "90px", padding: "6px 4px", border: "1px solid #334155" }}>Criteria 3 (20)</th>
+                      <th style={{ width: "90px", padding: "6px 4px", border: "1px solid #334155" }}>Criteria 4 (20)</th>
+                      <th style={{ width: "70px", padding: "6px 4px", border: "1px solid #334155" }}>Total (100)</th>
+                      <th style={{ width: "55px", padding: "6px 4px", border: "1px solid #334155" }}>Grade</th>
+                      <th style={{ width: "55px", padding: "6px 4px", border: "1px solid #334155" }}>Rank</th>
+                      <th style={{ width: "110px", padding: "6px 4px", border: "1px solid #334155" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {candidateAssignments.map((assignment, idx) => {
                       const c = assignment.candidate;
-                      const inst = c.institution || c.team?.institution;
+                      const instName = c.institution?.name || c.team?.institution?.name || "-";
+                      const chestNo = c.chestNumber || "Pending";
+
                       return (
-                        <tr key={assignment.id} style={{ borderBottom: "1px solid #94a3b8" }}>
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center", fontWeight: 700 }}>
-                            {idx + 1}
+                        <tr key={assignment.id} style={{
+                          backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                          textAlign: "center",
+                          height: "36px",
+                        }}>
+                          <td style={{ border: "1px solid #cbd5e1", fontWeight: 600 }}>{idx + 1}</td>
+                          <td style={{
+                            border: "1px solid #cbd5e1",
+                            fontWeight: 900,
+                            fontFamily: "monospace",
+                            fontSize: "0.92rem",
+                            color: "#8E0033",
+                          }}>
+                            {chestNo}
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }}>
-                            {c.chestNumber ? (
-                              <span style={{
-                                display: "inline-block",
-                                backgroundColor: "#fdf2f4",
-                                border: "1.5px solid #8E0033",
-                                color: "#8E0033",
-                                fontWeight: 900,
-                                fontSize: "0.9rem",
-                                padding: "2px 6px",
-                                borderRadius: "3px",
-                                letterSpacing: "0.5px",
-                              }}>
-                                {c.chestNumber}
-                              </span>
-                            ) : (
-                              <span style={{ color: "#94a3b8", fontSize: "0.68rem", fontStyle: "italic" }}>
-                                [PENDING]
-                              </span>
-                            )}
+                          <td style={{ border: "1px solid #cbd5e1", textAlign: "left", padding: "4px 8px" }}>
+                            <div style={{ fontWeight: 700, color: "#0f172a" }}>{c.name}</div>
+                            <div style={{ fontSize: "0.7rem", color: "#64748b" }}>{instName}</div>
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 2px", textAlign: "center", verticalAlign: "middle" }}>
-                            {c.photo || c.photoUrl ? (
-                              <img
-                                src={(c.photo || c.photoUrl) as string}
-                                alt={c.name}
-                                style={{
-                                  width: "30px",
-                                  height: "36px",
-                                  objectFit: "cover",
-                                  borderRadius: "2px",
-                                  border: "1px solid #334155",
-                                  display: "block",
-                                  margin: "0 auto",
-                                }}
-                              />
-                            ) : (
-                              <div style={{
-                                width: "30px",
-                                height: "36px",
-                                backgroundColor: "#f1f5f9",
-                                border: "1px dashed #94a3b8",
-                                borderRadius: "2px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                margin: "0 auto",
-                                color: "#94a3b8",
-                              }}>
-                                <span style={{ fontSize: "0.7rem", lineHeight: 1 }}>👤</span>
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 6px" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>
-                              {c.name}
-                            </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontFamily: "monospace", marginTop: "1px" }}>
-                              UID: {c.uid || "—"}
-                            </div>
-                          </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }} title={inst?.name || c.team?.name || ""}>
-                            <span style={{
-                              display: "inline-block",
-                              backgroundColor: "#f1f5f9",
-                              border: "1px solid #cbd5e1",
-                              color: "#0f172a",
-                              fontWeight: 800,
-                              fontFamily: "monospace",
-                              fontSize: "0.82rem",
-                              padding: "2px 6px",
-                              borderRadius: "3px",
-                            }}>
-                              {inst?.code || "—"}
-                            </span>
-                          </td>
-                          {/* Maximum Score */}
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
-                            100
-                          </td>
-                          {/* Blank Score Entry Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center", backgroundColor: "#fafafa" }}></td>
-                          {/* Blank Grade Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center" }}></td>
-                          {/* Blank Place Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 2px", textAlign: "center" }}></td>
-                          {/* Blank Remarks Cell */}
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", backgroundColor: "#f1f5f9" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1" }}></td>
                         </tr>
                       );
                     })}
@@ -461,26 +502,30 @@ export default async function PrintValuationPage(props: {
 
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1.2fr 0.9fr",
+                  gridTemplateColumns: "1.1fr 1.1fr 1.1fr 0.7fr",
                   gap: "12px",
                   alignItems: "flex-end",
                   paddingTop: "2px",
                 }}>
-                  <div>
+                  <div style={{ backgroundColor: isCopy1 ? "#eff6ff" : "transparent", padding: isCopy1 ? "4px 6px" : "0", borderRadius: "4px", border: isCopy1 ? "1px solid #bfdbfe" : "none" }}>
                     <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>1st Evaluator / Judge</div>
+                    <div style={{ fontWeight: 800, fontSize: "0.76rem", color: isCopy1 ? "#1e40af" : "#0f172a" }}>
+                      {isCopy1 ? "✓ Evaluator 1 (Jury 1 Signature)" : "Evaluator 1 (Jury 1)"}
+                    </div>
+                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
+                  </div>
+
+                  <div style={{ backgroundColor: isCopy2 ? "#fdf2f8" : "transparent", padding: isCopy2 ? "4px 6px" : "0", borderRadius: "4px", border: isCopy2 ? "1px solid #fbcfe8" : "none" }}>
+                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 800, fontSize: "0.76rem", color: isCopy2 ? "#9d174d" : "#0f172a" }}>
+                      {isCopy2 ? "✓ Evaluator 2 (Jury 2 Signature)" : "Evaluator 2 (Jury 2)"}
+                    </div>
                     <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
                   </div>
 
                   <div>
                     <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>2nd Evaluator / Judge</div>
-                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
-                  </div>
-
-                  <div>
-                    <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>Chief Examiner / Head</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>Stage Manager / Chief Judge</div>
                     <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Verification Signature</div>
                   </div>
 
@@ -502,7 +547,8 @@ export default async function PrintValuationPage(props: {
               </div>
             </div>
           );
-        })
+        });
+      })
       )}
 
       {/* ── Print Specific Stylesheet ── */}

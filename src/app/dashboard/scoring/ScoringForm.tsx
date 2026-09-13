@@ -19,10 +19,20 @@ interface ScoringEntry {
   points: number;
 }
 
-export default function ScoringForm({ events }: { events: any[] }) {
+export default function ScoringForm({ 
+  events, 
+  availableJudges = [],
+  userRole = "SUPER_ADMIN"
+}: { 
+  events: any[];
+  availableJudges?: any[];
+  userRole?: string;
+}) {
   const [eventId, setEventId] = useState(events[0]?.id || "");
   const [categoryId, setCategoryId] = useState("");
   const [programId, setProgramId] = useState("");
+  const [evaluator1, setEvaluator1] = useState("");
+  const [evaluator2, setEvaluator2] = useState("");
   const [entries, setEntries] = useState<ScoringEntry[]>([]);
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,6 +44,8 @@ export default function ScoringForm({ events }: { events: any[] }) {
       setCategoryId("");
       setProgramId("");
       setEntries([]);
+      setEvaluator1("");
+      setEvaluator2("");
     }
   }, [events]);
 
@@ -85,7 +97,21 @@ export default function ScoringForm({ events }: { events: any[] }) {
   useEffect(() => {
     if (!selecteCSWCgram) {
       setEntries([]);
+      setEvaluator1("");
+      setEvaluator2("");
       return;
+    }
+
+    // Pre-select program judges if assigned
+    if (selecteCSWCgram.judges && selecteCSWCgram.judges.length >= 2) {
+      setEvaluator1(selecteCSWCgram.judges[0]?.username || "");
+      setEvaluator2(selecteCSWCgram.judges[1]?.username || "");
+    } else if (selecteCSWCgram.judges && selecteCSWCgram.judges.length === 1) {
+      setEvaluator1(selecteCSWCgram.judges[0]?.username || "");
+      setEvaluator2("");
+    } else {
+      setEvaluator1("");
+      setEvaluator2("");
     }
 
     const existingResults = selecteCSWCgram.results || [];
@@ -206,17 +232,25 @@ export default function ScoringForm({ events }: { events: any[] }) {
       return;
     }
 
+    const isJudge = userRole === "JUDGE";
     const result = await batchSubmitProgramMarks({
       eventId,
       programId,
-      publishImmediately,
+      publishImmediately: isJudge ? false : publishImmediately,
+      evaluator1,
+      evaluator2,
       entries: validEntries
     });
 
     if (result.success) {
+      const pubNotice = isJudge 
+        ? "(Submitted as PENDING for Zonal Admin physical verification)" 
+        : publishImmediately 
+        ? "(Published to Live Standings)" 
+        : "(Saved as PENDING for verification)";
       setStatus({ 
         type: 'success', 
-        message: `Saved marks for ${validEntries.length} participants successfully! ${publishImmediately ? '(Published to Live Standings)' : ''}` 
+        message: `Saved marks for ${validEntries.length} participants successfully! ${pubNotice}` 
       });
     } else {
       setStatus({ type: 'error', message: result.error || "Failed to save results." });
@@ -262,6 +296,8 @@ export default function ScoringForm({ events }: { events: any[] }) {
               setCategoryId("");
               setProgramId("");
               setEntries([]);
+              setEvaluator1("");
+              setEvaluator2("");
             }}
             required
             style={{ padding: '9px 12px', fontSize: '0.9rem', fontWeight: 600 }}
@@ -279,6 +315,8 @@ export default function ScoringForm({ events }: { events: any[] }) {
               setCategoryId(e.target.value);
               setProgramId("");
               setEntries([]);
+              setEvaluator1("");
+              setEvaluator2("");
             }}
             required
             style={{ padding: '9px 12px', fontSize: '0.9rem', fontWeight: 600 }}
@@ -312,6 +350,89 @@ export default function ScoringForm({ events }: { events: any[] }) {
           </select>
         </div>
       </div>
+
+      {/* Evaluating Juries Consensus Banner */}
+      {selecteCSWCgram && (
+        <div style={{
+          backgroundColor: '#fff',
+          borderRadius: '14px',
+          border: '1.5px solid #cbd5e1',
+          padding: '16px 20px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.2rem' }}>⚖️</span>
+              <div>
+                <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>Venue Juries & Consensus Valuation</strong>
+                <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                  Stage / Venue: <strong>{selecteCSWCgram.venue || "Main Stage"}</strong> • Select which <strong>2 Juries</strong> evaluated this session
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.74rem', backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>
+              4 Venue Juries Total • 2 Evaluating at a time
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: '#1e40af' }}>
+                👤 EVALUATOR 1 (JURY 1)
+              </label>
+              <select
+                className="form-input"
+                value={evaluator1}
+                onChange={(e) => setEvaluator1(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator1 ? '2px solid #3b82f6' : '1px solid #cbd5e1' }}
+              >
+                <option value="">-- Choose Evaluator 1 --</option>
+                {selecteCSWCgram.judges?.map((j: any) => (
+                  <option key={`prog_j1_${j.id}`} value={j.username}>
+                    ⭐ Assigned Venue Jury: {j.username}
+                  </option>
+                ))}
+                {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                  <option key={`all_j1_${j.id}`} value={j.username}>
+                    Jury: {j.username} {j.place ? `(${j.place})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: '#9d174d' }}>
+                👤 EVALUATOR 2 (JURY 2)
+              </label>
+              <select
+                className="form-input"
+                value={evaluator2}
+                onChange={(e) => setEvaluator2(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator2 ? '2px solid #ec4899' : '1px solid #cbd5e1' }}
+              >
+                <option value="">-- Choose Evaluator 2 --</option>
+                {selecteCSWCgram.judges?.map((j: any) => (
+                  <option key={`prog_j2_${j.id}`} value={j.username}>
+                    ⭐ Assigned Venue Jury: {j.username}
+                  </option>
+                ))}
+                {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                  <option key={`all_j2_${j.id}`} value={j.username}>
+                    Jury: {j.username} {j.place ? `(${j.place})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0', fontSize: '0.74rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📝</span>
+            <span>
+              <strong>Consensus Rule:</strong> Both evaluators score on their individual physical sheets, then jointly discuss and calculate consolidated marks on the physical <strong>Tabulation Sheet</strong>. The agreed final marks are entered here.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Program Candidates Total Marks Grid */}
       {selecteCSWCgram && (
@@ -366,16 +487,33 @@ export default function ScoringForm({ events }: { events: any[] }) {
               </p>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#332938', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={publishImmediately} 
-                  onChange={(e) => setPublishImmediately(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--primary)' }}
-                />
-                Publish Immediately to Live Results
-              </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              {userRole === "JUDGE" ? (
+                <div style={{
+                  fontSize: '0.78rem',
+                  backgroundColor: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #fde68a',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  🔒 Submission goes to <strong>Pending</strong> for Zonal Admin physical verification
+                </div>
+              ) : (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#332938', cursor: 'pointer' }} title="Keep unchecked to verify physical sheet before publishing">
+                  <input 
+                    type="checkbox" 
+                    checked={publishImmediately} 
+                    onChange={(e) => setPublishImmediately(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: 'var(--primary)' }}
+                  />
+                  <span>Publish Immediately <em style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 400 }}>(Uncheck to verify physical sheet first)</em></span>
+                </label>
+              )}
               
               <button 
                 type="submit" 
@@ -389,7 +527,7 @@ export default function ScoringForm({ events }: { events: any[] }) {
                   textTransform: 'uppercase'
                 }}
               >
-                {loading ? "Saving All..." : "💾 Save All Marks (One-Click)"}
+                {loading ? "Saving All..." : userRole === "JUDGE" ? "📤 Submit Marks to Zonal Admin" : "💾 Save All Marks"}
               </button>
             </div>
           </div>
