@@ -32,6 +32,13 @@ export default function PrintCertificateViewer({
     return `${prefix}${grade.trim()}${suffix}`;
   };
 
+  const [stageFilter, setStageFilter] = useState<string>("ALL");
+
+  const displayedWinners = winners.filter(w => {
+    if (stageFilter === "ALL") return true;
+    return w.stageType === stageFilter;
+  });
+
   return (
     <div>
       {/* Floating Toolbar (Hidden when printing) */}
@@ -49,7 +56,7 @@ export default function PrintCertificateViewer({
         gap: "12px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
           <Link 
             href="/dashboard/certificates" 
             style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.85rem", fontWeight: 700 }}
@@ -58,7 +65,7 @@ export default function PrintCertificateViewer({
           </Link>
           <span style={{ color: "#475569" }}>|</span>
           <span style={{ fontWeight: 800, fontSize: "1rem" }}>
-            🎓 Printing {winners.length} Merit Certificates
+            🎓 Printing {displayedWinners.length} Merit Certificates
           </span>
           <span style={{
             fontSize: "0.75rem",
@@ -70,6 +77,34 @@ export default function PrintCertificateViewer({
           }}>
             {layout.printMode === 'transparent' ? "TRANSPARENT OVERPRINT" : "FULL TEMPLATE"}
           </span>
+
+          {/* Stage Filter Buttons */}
+          <div style={{ display: "flex", gap: "4px", backgroundColor: "#0f172a", padding: "3px", borderRadius: "6px" }}>
+            {[
+              { label: "All Stages", value: "ALL" },
+              { label: "🎭 On Stage", value: "ON_STAGE" },
+              { label: "📝 Off Stage", value: "OFF_STAGE" },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setStageFilter(opt.value)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  backgroundColor: stageFilter === opt.value ? "#2563eb" : "transparent",
+                  color: stageFilter === opt.value ? "#ffffff" : "#94a3b8",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -99,7 +134,7 @@ export default function PrintCertificateViewer({
               gap: "6px"
             }}
           >
-            🖨️ Print All ({winners.length})
+            🖨️ Print ({displayedWinners.length})
           </button>
         </div>
       </div>
@@ -119,7 +154,7 @@ export default function PrintCertificateViewer({
 
       {/* Certificate Pages */}
       <div className="certificate-print-collection">
-        {winners.map((candidate, idx) => (
+        {displayedWinners.map((candidate, idx) => (
           <div
             key={`${candidate.id}-${idx}`}
             className="certificate-print-sheet"

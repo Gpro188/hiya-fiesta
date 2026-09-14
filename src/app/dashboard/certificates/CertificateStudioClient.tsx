@@ -53,6 +53,7 @@ export default function CertificateStudioClient({
   // Filters
   const [filterProgramId, setFilterProgramId] = useState<string>("ALL");
   const [filterCategoryId, setFilterCategoryId] = useState<string>("ALL");
+  const [filterStageType, setFilterStageType] = useState<string>("ALL"); // 'ALL', 'ON_STAGE', 'OFF_STAGE'
   const [filterRank, setFilterRank] = useState<string>("ALL"); // 'ALL', '1', '2', '3'
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -93,8 +94,15 @@ export default function CertificateStudioClient({
     }
   }, [selectedEventId]);
 
-  // Refresh winners when event, program, or category changes
-  const refreshWinners = async (eventId: string, progId = filterProgramId, catId = filterCategoryId, rank = filterRank, search = searchQuery) => {
+  // Refresh winners when event, program, category, or stage type changes
+  const refreshWinners = async (
+    eventId: string, 
+    progId = filterProgramId, 
+    catId = filterCategoryId, 
+    stgType = filterStageType,
+    rank = filterRank, 
+    search = searchQuery
+  ) => {
     if (!eventId) return;
     setLoadingWinners(true);
     try {
@@ -102,6 +110,7 @@ export default function CertificateStudioClient({
         eventId,
         programId: progId,
         categoryId: catId,
+        stageType: stgType,
         rankFilter: rank !== "ALL" ? parseInt(rank) : undefined,
         searchQuery: search
       });
@@ -470,6 +479,21 @@ export default function CertificateStudioClient({
 
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "4px", color: "var(--text-secondary)" }}>
+                  Stage Type
+                </label>
+                <select
+                  value={filterStageType}
+                  onChange={(e) => setFilterStageType(e.target.value)}
+                  className="input"
+                >
+                  <option value="ALL">All Stages (On & Off)</option>
+                  <option value="ON_STAGE">🎭 On Stage Only</option>
+                  <option value="OFF_STAGE">📝 Off Stage Only</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "4px", color: "var(--text-secondary)" }}>
                   Place / Rank
                 </label>
                 <select
@@ -487,7 +511,7 @@ export default function CertificateStudioClient({
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   type="button"
-                  onClick={() => refreshWinners(selectedEventId, filterProgramId, filterCategoryId, filterRank, searchQuery)}
+                  onClick={() => refreshWinners(selectedEventId, filterProgramId, filterCategoryId, filterStageType, filterRank, searchQuery)}
                   className="btn btn-secondary"
                   style={{ flex: 1 }}
                 >
@@ -628,8 +652,20 @@ export default function CertificateStudioClient({
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <div style={{ fontWeight: 600 }}>{winner.programName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                            {winner.categoryName} {winner.programCode ? `• [${winner.programCode}]` : ""}
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", marginTop: "2px" }}>
+                            <span>{winner.categoryName} {winner.programCode ? `• [${winner.programCode}]` : ""}</span>
+                            {winner.stageType && (
+                              <span style={{
+                                padding: "1px 6px",
+                                borderRadius: "4px",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                backgroundColor: winner.stageType === "ON_STAGE" ? "rgba(79, 70, 229, 0.1)" : "rgba(100, 116, 139, 0.1)",
+                                color: winner.stageType === "ON_STAGE" ? "#4f46e5" : "#475569"
+                              }}>
+                                {winner.stageType === "ON_STAGE" ? "On Stage" : "Off Stage"}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "0.85rem" }}>

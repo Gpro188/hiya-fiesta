@@ -92,7 +92,7 @@ export async function getCertificateEventsAndMetadata() {
       zone: true,
       categories: { orderBy: { name: "asc" } },
       programs: {
-        select: { id: true, name: true, programCode: true, categoryId: true, type: true },
+        select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
         orderBy: { name: "asc" }
       }
     },
@@ -116,13 +116,14 @@ export async function getCertificateWinners(params: {
   eventId: string;
   programId?: string;
   categoryId?: string;
+  stageType?: string; // "ALL" | "ON_STAGE" | "OFF_STAGE"
   rankFilter?: number; // 1, 2, or 3
   searchQuery?: string;
 }): Promise<CertificateWinner[]> {
   const session = await getServerSession(authOptions);
   if (!session) return [];
 
-  const { eventId, programId, categoryId, rankFilter, searchQuery } = params;
+  const { eventId, programId, categoryId, stageType, rankFilter, searchQuery } = params;
   if (!eventId) return [];
 
   // Merit certificates are strictly for 1st, 2nd, and 3rd placed winners
@@ -138,6 +139,9 @@ export async function getCertificateWinners(params: {
   }
   if (categoryId && categoryId !== "ALL") {
     programWhere.categoryId = categoryId;
+  }
+  if (stageType && stageType !== "ALL") {
+    programWhere.stageType = stageType;
   }
 
   const results = await prisma.result.findMany({
@@ -237,7 +241,8 @@ export async function getCertificateWinners(params: {
       eventId: event.id,
       eventName: event.name,
       marks: res.marks,
-      type: isTeam ? "GROUP" : "INDIVIDUAL"
+      type: isTeam ? "GROUP" : "INDIVIDUAL",
+      stageType: prog.stageType || undefined
     };
   });
 

@@ -9,6 +9,7 @@ export default async function PrintCertificatePage(props: {
     eventId?: string;
     programId?: string;
     candidateId?: string;
+    stageType?: string;
     rank?: string;
     mode?: string;
   }>;
@@ -39,6 +40,7 @@ export default async function PrintCertificatePage(props: {
   const winners = await getCertificateWinners({
     eventId: targetEventId,
     programId: searchParams.programId,
+    stageType: searchParams.stageType,
     rankFilter: rankFilter && [1, 2, 3].includes(rankFilter) ? rankFilter : undefined,
   });
 

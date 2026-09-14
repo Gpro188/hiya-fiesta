@@ -59,6 +59,7 @@ export interface CertificateWinner {
   eventName: string;
   marks?: number;
   type: 'INDIVIDUAL' | 'GROUP';
+  stageType?: string; // "ON_STAGE" | "OFF_STAGE"
 }
 
 export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayoutConfig = {

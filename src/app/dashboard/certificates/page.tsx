@@ -41,7 +41,7 @@ export default async function CertificatesDashboardPage(props: {
       zone: true,
       categories: { orderBy: { name: "asc" } },
       programs: {
-        select: { id: true, name: true, programCode: true, categoryId: true, type: true },
+        select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
         orderBy: { name: "asc" }
       }
     },
