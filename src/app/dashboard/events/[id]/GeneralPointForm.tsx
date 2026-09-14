@@ -4,8 +4,8 @@ import { useState } from "react";
 import { saveGeneralPointMatrix } from "./actions";
 
 export default function GeneralPointForm({ eventId, initialData }: { eventId: string, initialData: any }) {
-  const defaultPoints = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3 };
-  const [general, setGeneral] = useState(initialData?.generalPoints ? JSON.parse(initialData.generalPoints) : defaultPoints);
+  const defaultPoints = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+  const [general, setGeneral] = useState(initialData?.generalPoints ? { ...defaultPoints, ...JSON.parse(initialData.generalPoints) } : defaultPoints);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
@@ -24,9 +24,9 @@ export default function GeneralPointForm({ eventId, initialData }: { eventId: st
 
   return (
     <form onSubmit={handleSubmit} style={{ marginBottom: 'var(--spacing-xl)' }}>
-      <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>General Program Points (Event Level)</h3>
+      <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>General / Group Program Points (Event Level)</h3>
       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-        Define the default point values for "General" type programs. These points contribute to overall team championship scoring.
+        Define the default point values for "General" / Group type programs. These points contribute to overall team championship scoring.
       </p>
       {status && (
         <div style={{ 
@@ -42,7 +42,7 @@ export default function GeneralPointForm({ eventId, initialData }: { eventId: st
       )}
       
       <div style={{ marginBottom: 'var(--spacing-lg)', padding: 'var(--spacing-md)', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-md)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--spacing-sm)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 'var(--spacing-sm)' }}>
           <div className="form-group">
             <label className="form-label" style={{ fontSize: '0.8rem' }}>1st Rank</label>
             <input type="number" className="form-input" value={general.rank1} onChange={(e) => setGeneral({...general, rank1: parseInt(e.target.value) || 0})} />
@@ -62,6 +62,10 @@ export default function GeneralPointForm({ eventId, initialData }: { eventId: st
           <div className="form-group">
             <label className="form-label" style={{ fontSize: '0.8rem' }}>B Grade</label>
             <input type="number" className="form-input" value={general.gradeB} onChange={(e) => setGeneral({...general, gradeB: parseInt(e.target.value) || 0})} />
+          </div>
+          <div className="form-group">
+            <label className="form-label" style={{ fontSize: '0.8rem' }}>C Grade</label>
+            <input type="number" className="form-input" value={general.gradeC !== undefined ? general.gradeC : 1} onChange={(e) => setGeneral({...general, gradeC: parseInt(e.target.value) || 0})} />
           </div>
         </div>
       </div>

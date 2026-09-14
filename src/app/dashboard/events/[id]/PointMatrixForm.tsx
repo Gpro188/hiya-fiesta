@@ -7,10 +7,11 @@ export default function PointMatrixForm({ eventId, categories }: { eventId: stri
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [maxPrograms, setMaxPrograms] = useState(3);
   
-  const defaultPoints = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3 };
+  const defaultIndividualPoints = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+  const defaultGroupPoints = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
   
-  const [individual, setIndividual] = useState(defaultPoints);
-  const [group, setGroup] = useState(defaultPoints);
+  const [individual, setIndividual] = useState(defaultIndividualPoints);
+  const [group, setGroup] = useState(defaultGroupPoints);
   
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
@@ -24,12 +25,12 @@ export default function PointMatrixForm({ eventId, categories }: { eventId: stri
     
     if (matrix) {
       setMaxPrograms(matrix.maxIndividualPrograms);
-      setIndividual(matrix.individualPoints ? JSON.parse(matrix.individualPoints) : defaultPoints);
-      setGroup(matrix.groupPoints ? JSON.parse(matrix.groupPoints) : defaultPoints);
+      setIndividual(matrix.individualPoints ? { ...defaultIndividualPoints, ...JSON.parse(matrix.individualPoints) } : defaultIndividualPoints);
+      setGroup(matrix.groupPoints ? { ...defaultGroupPoints, ...JSON.parse(matrix.groupPoints) } : defaultGroupPoints);
     } else {
       setMaxPrograms(3);
-      setIndividual(defaultPoints);
-      setGroup(defaultPoints);
+      setIndividual(defaultIndividualPoints);
+      setGroup(defaultGroupPoints);
     }
   }, [selectedCategoryId, categories]);
 
@@ -60,7 +61,7 @@ export default function PointMatrixForm({ eventId, categories }: { eventId: stri
   const renderPointInputs = (title: string, state: any, setState: any) => (
     <div style={{ marginBottom: 'var(--spacing-lg)', padding: 'var(--spacing-md)', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-md)' }}>
       <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--secondary)' }}>{title} Points</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--spacing-sm)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 'var(--spacing-sm)' }}>
         <div className="form-group">
           <label className="form-label" style={{ fontSize: '0.8rem' }}>1st Rank</label>
           <input type="number" className="form-input" value={state.rank1} onChange={(e) => setState({...state, rank1: parseInt(e.target.value) || 0})} />
@@ -80,6 +81,10 @@ export default function PointMatrixForm({ eventId, categories }: { eventId: stri
         <div className="form-group">
           <label className="form-label" style={{ fontSize: '0.8rem' }}>B Grade</label>
           <input type="number" className="form-input" value={state.gradeB} onChange={(e) => setState({...state, gradeB: parseInt(e.target.value) || 0})} />
+        </div>
+        <div className="form-group">
+          <label className="form-label" style={{ fontSize: '0.8rem' }}>C Grade</label>
+          <input type="number" className="form-input" value={state.gradeC !== undefined ? state.gradeC : 1} onChange={(e) => setState({...state, gradeC: parseInt(e.target.value) || 0})} />
         </div>
       </div>
     </div>

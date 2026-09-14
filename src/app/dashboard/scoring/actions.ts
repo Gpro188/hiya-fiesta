@@ -5,12 +5,18 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-// Helper to determine Grade based on marks
+// Helper to determine Grade based on marks (supports 100-mark single scale and 200-mark consensus scale)
 function calculateGrade(marks: number) {
+  if (marks > 100) {
+    if (marks >= 160) return "A";
+    if (marks >= 120) return "B";
+    if (marks >= 80) return "C";
+    return null; // 118 & below is NO GRADE
+  }
   if (marks >= 80) return "A";
   if (marks >= 60) return "B";
-  if (marks > 0) return "C";
-  return null;
+  if (marks >= 40) return "C";
+  return null; // Below 40 is NO GRADE
 }
 
 // Helper to recalculate ranks and points for a specific program

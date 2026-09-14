@@ -191,9 +191,17 @@ export default function ScoringForm({
         const numMarks = parseFloat(value);
         if (!isNaN(numMarks) && numMarks > 0) {
           if (!current.grade || current.grade === "") {
-            if (numMarks >= 80) current.grade = "A";
-            else if (numMarks >= 60) current.grade = "B";
-            else current.grade = "C";
+            if (numMarks > 100) {
+              if (numMarks >= 160) current.grade = "A";
+              else if (numMarks >= 120) current.grade = "B";
+              else if (numMarks >= 80) current.grade = "C";
+              else current.grade = "";
+            } else {
+              if (numMarks >= 80) current.grade = "A";
+              else if (numMarks >= 60) current.grade = "B";
+              else if (numMarks >= 40) current.grade = "C";
+              else current.grade = "";
+            }
           }
         }
       }
