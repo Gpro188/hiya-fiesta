@@ -158,6 +158,15 @@ export default async function ReportsPage(props: {
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--accent)' }}>Judgement Tabulation Sheet</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master sheet to map code letters to identities and tally judge scores.</p>
           </a>
+
+          <a href="/dashboard/certificates" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #059669', backgroundColor: 'rgba(5,150,105,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#059669' }}>Merit Certificates (1st, 2nd, 3rd)</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontWeight: 800 }}>TRANSPARENT OVERPRINT</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official merit certificates with Place & Grade. Upload certificate template to calibrate coordinates, and overprint without background directly onto pre-printed physical certificates.</p>
+          </a>
         </div>
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Candidates & Teams</h3>
@@ -183,6 +192,16 @@ export default async function ReportsPage(props: {
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print & pack zone-wise registered institutions list, streams/categories, candidate counts, and individual vs general programs breakdown.</p>
             </a>
           )}
+
+          {/* Institution Registration & Attendance Sheet */}
+          <a href={`/print/institution-attendance?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #0284c7', backgroundColor: 'rgba(2,132,199,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7' }}>Institution Registration &amp; Attendance Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(2,132,199,0.1)', color: '#0284c7', fontWeight: 800 }}>SIGN SHEET</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print institution-wise participant list with attendance checkbox and Team Manager signature box for zonal fest entry.</p>
+          </a>
 
           <a href={`/print/candidates?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>👥</div>

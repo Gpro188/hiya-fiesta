@@ -86,6 +86,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/media?session=state",
         },
         {
+          name: "State Merit Certificates",
+          subtitle: "1st, 2nd, 3rd overprint",
+          icon: "🎓",
+          href: "/dashboard/certificates?session=state",
+          highlight: true,
+        },
+        {
           name: "Reports & Print Hub",
           subtitle: "All printables & schedules",
           icon: "🖨️",
@@ -183,6 +190,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/volunteers",
           highlight: true,
         },
+        {
+          name: "Zonal Merit Certificates",
+          subtitle: "1st, 2nd, 3rd overprint",
+          icon: "🎓",
+          href: "/dashboard/certificates?session=zone",
+          highlight: true,
+        },
       ],
     });
 
@@ -262,6 +276,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "All printables & schedules",
           icon: "🖨️",
           href: "/dashboard/reports",
+        },
+        {
+          name: "Merit Certificates",
+          subtitle: "1st, 2nd, 3rd overprint",
+          icon: "🎓",
+          href: "/dashboard/certificates",
+          highlight: true,
         },
         {
           name: "Chest Number Hub",
@@ -365,6 +386,20 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "Registration Dates & Config",
           icon: "⚙️",
           href: "/dashboard/settings",
+        },
+        {
+          name: "Inst. Attendance Sheet",
+          subtitle: "Team manager sign & attendance",
+          icon: "📝",
+          href: "/print/institution-attendance",
+          highlight: true,
+        },
+        {
+          name: "Zonal Merit Certificates",
+          subtitle: "1st, 2nd, 3rd overprint",
+          icon: "🎓",
+          href: "/dashboard/certificates",
+          highlight: true,
         },
       ],
     });

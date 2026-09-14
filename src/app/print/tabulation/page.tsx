@@ -541,29 +541,32 @@ export default async function PrintTabulationPage(props: {
                     <table style={{ borderCollapse: "collapse", textAlign: "center", margin: 0 }}>
                       <thead>
                         <tr style={{ backgroundColor: "#dcfce7", color: "#065f46" }}>
-                          <th style={{ border: "1px solid #0f172a", padding: "2px 6px", fontWeight: 800 }}>GRADE</th>
-                          <th style={{ border: "1px solid #0f172a", padding: "2px 6px", fontWeight: 800 }}>SCORE (100)</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800 }}>GRADE</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800 }}>TOTAL (200)</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#166534" }}>A GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>80 - 100</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#166534" }}>A GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>160 – 200</td>
                         </tr>
                         <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#1e40af" }}>B GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>60 - 79</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#1e40af" }}>B GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>120 – 159</td>
                         </tr>
                         <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#b45309" }}>C GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>40 - 59</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#b45309" }}>C GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>80 – 119</td>
                         </tr>
                         <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#991b1b" }}>NO GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>39 &amp; Below</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#991b1b" }}>118 &amp; Below</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>NO GRADE</td>
                         </tr>
                       </tbody>
                     </table>
+                    <div style={{ fontSize: "0.62rem", color: "#64748b", textAlign: "center", marginTop: "2px", fontStyle: "italic" }}>
+                      Jury 1 (100) + Jury 2 (100)
+                    </div>
                   </div>
                 </div>
               </div>
@@ -583,7 +586,7 @@ export default async function PrintTabulationPage(props: {
                       <th style={{ border: "1px solid #334155", padding: "7px 10px", textAlign: "left" }}>Candidate Name / Institution</th>
                       <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
                       <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "100px" }}>Total Score</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "110px" }}>Total (200)</th>
                       <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Grade</th>
                       <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Place</th>
                       <th style={{ border: "1px solid #334155", padding: "7px 8px", width: "140px" }}>Remarks</th>
