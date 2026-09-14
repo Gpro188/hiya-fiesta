@@ -108,7 +108,8 @@ export default function AdminScheduler({
       const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
 
       totalCandidates += calcInfo.candidateCount;
-      const effectiveDuration = p.duration && p.duration > 0 ? p.duration : calcInfo.duration;
+      // calcInfo.duration dynamically computes: candidateCount * minPerCandidate (for INDIVIDUAL) or teamCount * minPerTeam (for GROUP)
+      const effectiveDuration = calcInfo.duration > 0 ? calcInfo.duration : (p.duration && p.duration > 0 ? p.duration : 10);
 
       const start = new Date(currentCursor.getTime());
       const end = new Date(start.getTime() + effectiveDuration * 60000);
@@ -1109,13 +1110,19 @@ export default function AdminScheduler({
                                 <span style={{
                                   fontSize: "0.70rem",
                                   fontWeight: 700,
-                                  padding: "1px 6px",
+                                  padding: "2px 8px",
                                   borderRadius: "4px",
                                   backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
                                   color: item.candidateCount > 0 ? "#059669" : "#64748b",
                                   border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
                                 }}>
-                                  👥 {item.candidateCount} Candidates ({item.duration} mins)
+                                  {program.type === "INDIVIDUAL" ? (
+                                    <>👥 {item.candidateCount} Candidates {item.candidateCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                  ) : program.type === "GROUP" ? (
+                                    <>👥 {item.teamCount} Teams {item.teamCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                  ) : (
+                                    <>👥 {item.candidateCount} Candidates ({item.duration} mins)</>
+                                  )}
                                 </span>
                               </div>
                             )}
@@ -1171,14 +1178,16 @@ export default function AdminScheduler({
                         )}
                         
                         {/* Duration input: changing it recalculates the predicted times starting from 9:00 AM */}
-                        <div className="form-group" style={{ marginBottom: 0, width: "110px" }}>
-                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Duration (mins)</label>
+                        <div className="form-group" style={{ marginBottom: 0, width: "135px" }}>
+                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title="Minutes allocated per performer / total">
+                            {program.type === "INDIVIDUAL" ? "Min / Candidate" : program.type === "GROUP" ? "Min / Team" : "Duration (mins)"}
+                          </label>
                           <input 
                             type="number" 
                             className="form-input" 
-                            defaultValue={program.duration || 10} 
+                            defaultValue={program.duration || 5} 
                             id={`dur-${program.id}`} 
-                            onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 10)}
+                            onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 5)}
                             style={{ padding: "4px 8px", fontSize: "0.8rem" }}
                           />
                         </div>
