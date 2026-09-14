@@ -128,6 +128,7 @@ export default async function SchedulePage(props: {
             allJudges={zoneJudges}
             isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
             eventStatusOverride={activeEv?.statusOverride || "AUTO"}
+            eventStartDate={activeEv?.startDate ? activeEv.startDate.toISOString() : null}
           />
         </div>
       </div>

@@ -19,13 +19,15 @@ export default function AdminScheduler({
   eventId, 
   allJudges = [],
   isSuperAdmin = false,
-  eventStatusOverride = "AUTO"
+  eventStatusOverride = "AUTO",
+  eventStartDate = null
 }: { 
   initialPrograms: any[], 
   eventId: string, 
   allJudges?: any[],
   isSuperAdmin?: boolean,
-  eventStatusOverride?: string
+  eventStatusOverride?: string,
+  eventStartDate?: string | null
 }) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
   const [statusOverride, setStatusOverride] = useState(eventStatusOverride);
@@ -60,32 +62,34 @@ export default function AdminScheduler({
     }
   };
 
-  // Helper to get or initialize venue configuration (Start Time, End Time, Buffer)
-  const getVenueConfig = (venue: string, venuePrograms: any[]) => {
+  // Helper to format a Date as YYYY-MM-DDTHH:mm
+  const formatDateTimeLocal = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Helper to get or initialize venue configuration (Always starts at 9:00 AM by default)
+  const getVenueConfig = (venue: string) => {
     if (venueSettings[venue]) return venueSettings[venue];
     
-    let initialStart = "";
-    let initialEnd = "";
-    const progsWithTime = venuePrograms.filter(p => p.startTime);
-    if (progsWithTime.length > 0) {
-      initialStart = new Date(progsWithTime[0].startTime).toISOString().slice(0, 16);
-      const lastP = progsWithTime[progsWithTime.length - 1];
-      const lastEnd = new Date(new Date(lastP.startTime).getTime() + (lastP.duration || 10) * 60000);
-      initialEnd = lastEnd.toISOString().slice(0, 16);
-    } else {
-      const d = new Date();
-      d.setHours(9, 0, 0, 0);
-      initialStart = d.toISOString().slice(0, 16);
-      const e = new Date(d.getTime() + 9 * 3600000); // 6:00 PM default
-      initialEnd = e.toISOString().slice(0, 16);
-    }
+    // Always default to 9:00 AM on the festival start date (or today)
+    let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
+    if (isNaN(baseDate.getTime())) baseDate = new Date();
+    baseDate.setHours(9, 0, 0, 0); // Strictly 09:00 AM!
+
+    const initialStart = formatDateTimeLocal(baseDate);
+    
+    // End time default: 6:00 PM (18:00) on the same day
+    const endDate = new Date(baseDate.getTime());
+    endDate.setHours(18, 0, 0, 0);
+    const initialEnd = formatDateTimeLocal(endDate);
 
     return { startTime: initialStart, endTime: initialEnd, buffer: 0 };
   };
 
   const updateVenueConfig = (venue: string, field: "startTime" | "endTime" | "buffer", value: any) => {
     setVenueSettings(prev => {
-      const current = prev[venue] || getVenueConfig(venue, groupedPrograms[venue] || []);
+      const current = prev[venue] || getVenueConfig(venue);
       return {
         ...prev,
         [venue]: {
@@ -96,14 +100,17 @@ export default function AdminScheduler({
     });
   };
 
-  // Auto-predict cascading timeline based on Venue Start Time, program order, and durations
+  // Auto-predict cascading sequential timeline starting strictly from 9:00 AM (or configured venue start)
   const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr: string, bufferMinutes: number = 0) => {
     let baseDate: Date;
     if (venueStartTimeStr) {
       baseDate = new Date(venueStartTimeStr);
-      if (isNaN(baseDate.getTime())) baseDate = new Date();
+      if (isNaN(baseDate.getTime())) {
+        baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
+        baseDate.setHours(9, 0, 0, 0);
+      }
     } else {
-      baseDate = new Date();
+      baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
       baseDate.setHours(9, 0, 0, 0);
     }
 
@@ -135,8 +142,8 @@ export default function AdminScheduler({
     };
   };
 
-  // Reordering inside venue
-  const handleMoveProgram = (venue: string, currentIndex: number, direction: "up" | "down") => {
+  // Reordering inside venue: instantly updates sequence and auto-saves the 9:00 AM sequential timings
+  const handleMoveProgram = async (venue: string, currentIndex: number, direction: "up" | "down") => {
     const venueProgs = [...(groupedPrograms[venue] || [])];
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
     if (targetIndex < 0 || targetIndex >= venueProgs.length) return;
@@ -146,36 +153,98 @@ export default function AdminScheduler({
     venueProgs[currentIndex] = itemB;
     venueProgs[targetIndex] = itemA;
 
+    // Recalculate sequential times starting from 9:00 AM
+    const config = getVenueConfig(venue);
+    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+
+    // Update local state immediately with the new order and predicted start times
+    const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
     setPrograms(prev => {
       const venueIds = new Set(venueProgs.map(p => p.id));
       const otherProgs = prev.filter(p => !venueIds.has(p.id));
-      return [...otherProgs, ...venueProgs];
+      const updatedVenueProgs = venueProgs.map(p => ({
+        ...p,
+        startTime: updateMap.get(p.id) || p.startTime,
+        venue
+      }));
+      return [...otherProgs, ...updatedVenueProgs];
     });
+
+    // Auto-save sequential schedule directly to DB
+    try {
+      const updates = predictedList.map(item => ({
+        id: item.program.id,
+        startTime: item.predictedStart.toISOString(),
+        duration: item.duration,
+        stageType: item.program.stageType,
+        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+      }));
+      await applySequentialVenueSchedule(eventId, venue, updates);
+    } catch (e) {
+      console.error("Auto-save on move failed:", e);
+    }
   };
 
-  const handleJumpProgram = (venue: string, currentIndex: number, targetIndex: number) => {
+  const handleJumpProgram = async (venue: string, currentIndex: number, targetIndex: number) => {
     const venueProgs = [...(groupedPrograms[venue] || [])];
     if (targetIndex < 0 || targetIndex >= venueProgs.length || targetIndex === currentIndex) return;
     const [removed] = venueProgs.splice(currentIndex, 1);
     venueProgs.splice(targetIndex, 0, removed);
 
+    const config = getVenueConfig(venue);
+    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+    const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+
     setPrograms(prev => {
       const venueIds = new Set(venueProgs.map(p => p.id));
       const otherProgs = prev.filter(p => !venueIds.has(p.id));
-      return [...otherProgs, ...venueProgs];
+      const updatedVenueProgs = venueProgs.map(p => ({
+        ...p,
+        startTime: updateMap.get(p.id) || p.startTime,
+        venue
+      }));
+      return [...otherProgs, ...updatedVenueProgs];
+    });
+
+    try {
+      const updates = predictedList.map(item => ({
+        id: item.program.id,
+        startTime: item.predictedStart.toISOString(),
+        duration: item.duration,
+        stageType: item.program.stageType,
+        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+      }));
+      await applySequentialVenueSchedule(eventId, venue, updates);
+    } catch (e) {
+      console.error("Auto-save on jump failed:", e);
+    }
+  };
+
+  const handleDurationChange = (venue: string, programId: string, newDuration: number) => {
+    const venueProgs = (groupedPrograms[venue] || []).map(p => p.id === programId ? { ...p, duration: newDuration } : p);
+    const config = getVenueConfig(venue);
+    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+    const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+
+    setPrograms(prev => {
+      return prev.map(p => {
+        if (p.id === programId) {
+          return { ...p, duration: newDuration, startTime: updateMap.get(p.id) || p.startTime };
+        }
+        if (updateMap.has(p.id)) {
+          return { ...p, startTime: updateMap.get(p.id) };
+        }
+        return p;
+      });
     });
   };
 
-  const handleDurationChange = (programId: string, newDuration: number) => {
-    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, duration: newDuration } : p));
-  };
-
-  // Apply predicted sequential timings to all programs in the venue
+  // Apply & Save all sequential timings from 9:00 AM to all programs in the venue
   const handleApplyVenueTimings = async (venue: string) => {
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length === 0) return;
 
-    const config = getVenueConfig(venue, venueProgs);
+    const config = getVenueConfig(venue);
     const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
 
     setLoadingId(`apply-${venue}`);
@@ -199,12 +268,12 @@ export default function AdminScheduler({
             return p;
           });
         });
-        alert(`✅ Successfully predicted and applied schedule for ${venueProgs.length} programs in ${venue}!`);
+        alert(`✅ Successfully set and saved schedule for ${venueProgs.length} programs starting at 9:00 AM!`);
       } else {
-        alert("Failed to apply schedule: " + (res.error || "Unknown error"));
+        alert("Failed to save schedule: " + (res.error || "Unknown error"));
       }
     } catch (err: any) {
-      alert("Error applying schedule: " + (err.message || "Unknown error"));
+      alert("Error saving schedule: " + (err.message || "Unknown error"));
     } finally {
       setLoadingId(null);
     }
@@ -304,7 +373,7 @@ export default function AdminScheduler({
   };
 
   const handleAutoGenerate = async () => {
-    if (!confirm("This will overwrite unscheduled programs and automatically assign them to available venues. Are you sure?")) return;
+    if (!confirm("This will automatically assign unscheduled programs to available venues starting at 9:00 AM. Are you sure?")) return;
     
     setLoadingId("auto-gen");
     try {
@@ -556,19 +625,19 @@ export default function AdminScheduler({
 
       {/* Stage Scheduler Focus Notice */}
       <div style={{
-        padding: "10px 16px",
-        borderRadius: "8px",
-        backgroundColor: "rgba(59, 130, 246, 0.08)",
-        border: "1px solid rgba(59, 130, 246, 0.25)",
-        color: "#60a5fa",
-        fontSize: "0.85rem",
+        padding: "12px 18px",
+        borderRadius: "10px",
+        backgroundColor: "rgba(142, 0, 51, 0.05)",
+        border: "1.5px solid rgba(142, 0, 51, 0.2)",
+        color: "#8E0033",
+        fontSize: "0.875rem",
         display: "flex",
         alignItems: "center",
-        gap: "10px"
+        gap: "12px"
       }}>
-        <span style={{ fontSize: "1.2rem" }}>ℹ️</span>
+        <span style={{ fontSize: "1.5rem" }}>⚡</span>
         <div>
-          <strong>Sequential Stage Scheduling:</strong> Order the programs in each venue below. The system will <strong>automatically predict the cascading start and end time</strong> based on the Venue Start Time and individual program durations. No manual datetime picking needed for every program!
+          <strong>Auto-Calculated 9:00 AM Schedule:</strong> You only need to order the programs in each venue! Program #1 automatically starts at <strong>9:00 AM</strong>, and every subsequent program automatically starts when the previous one finishes. No manual datetime picking needed!
         </div>
       </div>
       
@@ -633,7 +702,7 @@ export default function AdminScheduler({
       {Object.keys(groupedPrograms).map(venue => {
         const venueProgs = groupedPrograms[venue] || [];
         const isUnassigned = venue === "Unassigned";
-        const config = getVenueConfig(venue, venueProgs);
+        const config = getVenueConfig(venue);
         const { predictedList, totalDurationMinutes, predictedStart, predictedEnd } = 
           getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
 
@@ -703,60 +772,46 @@ export default function AdminScheduler({
             {!isUnassigned && venueProgs.length > 0 && (
               <div 
                 style={{
-                  backgroundColor: "rgba(248, 250, 252, 0.9)",
+                  backgroundColor: "rgba(248, 250, 252, 0.95)",
                   border: "1px solid #e2e8f0",
                   borderRadius: "10px",
                   padding: "12px 16px",
                   marginBottom: "16px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "12px"
+                  gap: "10px"
                 }}
               >
-                {/* Inputs Row: Venue Start Time, Venue End Time, Buffer, and 1-Click Apply */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+                {/* Inputs Row: Venue Start Time (Defaults to 9:00 AM), Buffer, and 1-Click Save */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
                     
-                    {/* Venue Start Time */}
-                    <div style={{ minWidth: "210px" }}>
-                      <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "3px" }}>
-                        🕒 Venue Start Time
+                    {/* Venue Start Time: Defaults to 9:00 AM */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0, whiteSpace: "nowrap" }}>
+                        🕒 Venue Starts At:
                       </label>
                       <input 
                         type="datetime-local" 
                         className="form-input" 
                         value={config.startTime}
                         onChange={(e) => updateVenueConfig(venue, "startTime", e.target.value)}
-                        style={{ fontSize: "0.82rem", padding: "5px 8px" }}
-                      />
-                    </div>
-
-                    {/* Venue End Time */}
-                    <div style={{ minWidth: "210px" }}>
-                      <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "3px" }}>
-                        🏁 Venue End Time
-                      </label>
-                      <input 
-                        type="datetime-local" 
-                        className="form-input" 
-                        value={config.endTime}
-                        onChange={(e) => updateVenueConfig(venue, "endTime", e.target.value)}
-                        style={{ fontSize: "0.82rem", padding: "5px 8px" }}
+                        style={{ fontSize: "0.82rem", padding: "4px 8px", width: "190px" }}
                       />
                     </div>
 
                     {/* Buffer Between Programs */}
-                    <div style={{ width: "120px" }}>
-                      <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "3px" }}>
-                        ⏱️ Buffer Gap
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0, whiteSpace: "nowrap" }}>
+                        Buffer:
                       </label>
                       <select 
                         className="form-input" 
                         value={config.buffer}
                         onChange={(e) => updateVenueConfig(venue, "buffer", parseInt(e.target.value) || 0)}
-                        style={{ fontSize: "0.82rem", padding: "5px 8px" }}
+                        style={{ fontSize: "0.82rem", padding: "4px 8px", width: "130px" }}
                       >
-                        <option value={0}>0 min (Back to back)</option>
+                        <option value={0}>0 min (Direct)</option>
                         <option value={5}>5 mins</option>
                         <option value={10}>10 mins</option>
                         <option value={15}>15 mins</option>
@@ -764,12 +819,12 @@ export default function AdminScheduler({
                     </div>
                   </div>
 
-                  {/* 1-Click Apply Predicted Timings Button */}
+                  {/* 1-Click Save Order & Apply Timings (from 9:00 AM) Button */}
                   <button
                     onClick={() => handleApplyVenueTimings(venue)}
                     disabled={loadingId !== null}
                     style={{
-                      padding: "8px 16px",
+                      padding: "8px 18px",
                       backgroundColor: "#8E0033",
                       color: "#ffffff",
                       border: "none",
@@ -783,12 +838,12 @@ export default function AdminScheduler({
                       gap: "6px"
                     }}
                   >
-                    <span>⚡</span>
-                    <span>{loadingId === `apply-${venue}` ? "Applying..." : "Apply Predicted Timings to Venue"}</span>
+                    <span>💾</span>
+                    <span>{loadingId === `apply-${venue}` ? "Saving..." : "Save Order & Timings (From 9:00 AM)"}</span>
                   </button>
                 </div>
 
-                {/* Timeline Live Summary & Venue End Time Warning */}
+                {/* Timeline Live Summary */}
                 <div style={{
                   display: "flex",
                   justifyContent: "space-between",
@@ -797,9 +852,9 @@ export default function AdminScheduler({
                   gap: "10px",
                   paddingTop: "8px",
                   borderTop: "1px dashed #cbd5e1",
-                  fontSize: "0.8rem"
+                  fontSize: "0.82rem"
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     <span style={{ color: "#475569" }}>
                       Total Programs: <strong>{venueProgs.length}</strong>
                     </span>
@@ -808,12 +863,11 @@ export default function AdminScheduler({
                       Total Runtime: <strong>{Math.floor(totalDurationMinutes / 60)}h {totalDurationMinutes % 60}m</strong>
                     </span>
                     <span>•</span>
-                    <span style={{ color: "#059669", fontWeight: 700 }}>
-                      Predicted Timeline: {predictedStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} &rarr; {predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    <span style={{ color: "#059669", fontWeight: 800 }}>
+                      Timeline: {predictedStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} &rarr; {predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
 
-                  {/* Comparison with Venue End Time */}
                   {config.endTime && (
                     <div style={{
                       fontWeight: 700,
@@ -825,8 +879,8 @@ export default function AdminScheduler({
                       <span>{isExceedingEndTime ? "⚠️" : "✅"}</span>
                       <span>
                         {isExceedingEndTime 
-                          ? `Exceeds Venue End Time by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m!`
-                          : `Fits within Venue End Time (${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m buffer remaining)`
+                          ? `Exceeds 6:00 PM by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`
+                          : `Finishes comfortably before evening`
                         }
                       </span>
                     </div>
@@ -865,7 +919,7 @@ export default function AdminScheduler({
                       }}
                     >
                       {/* Top Program Card Row */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                         
                         {/* Left: Sequence badge + Order Controls + Title */}
                         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
@@ -889,13 +943,13 @@ export default function AdminScheduler({
                                 #{idx + 1}
                               </span>
 
-                              {/* Up / Down Buttons */}
+                              {/* Up / Down Buttons: Reordering auto-calculates time from 9:00 AM */}
                               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                 <button
                                   type="button"
                                   onClick={() => handleMoveProgram(venue, idx, "up")}
                                   disabled={isFirst}
-                                  title="Move Up"
+                                  title="Move Up (Auto-recalculates time)"
                                   style={{
                                     border: "1px solid #cbd5e1",
                                     backgroundColor: isFirst ? "#f1f5f9" : "#ffffff",
@@ -913,7 +967,7 @@ export default function AdminScheduler({
                                   type="button"
                                   onClick={() => handleMoveProgram(venue, idx, "down")}
                                   disabled={isLast}
-                                  title="Move Down"
+                                  title="Move Down (Auto-recalculates time)"
                                   style={{
                                     border: "1px solid #cbd5e1",
                                     backgroundColor: isLast ? "#f1f5f9" : "#ffffff",
@@ -963,7 +1017,7 @@ export default function AdminScheduler({
                             </h4>
                             
                             {!isBreak && (
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "4px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "3px" }}>
                                 <span style={{
                                   fontSize: "0.70rem",
                                   fontWeight: 800,
@@ -984,49 +1038,44 @@ export default function AdminScheduler({
                           </div>
                         </div>
 
-                        {/* Right: Predicted Sequential Time vs Saved Time */}
+                        {/* Right: Clean Auto-Calculated Timing Badge (From 9:00 AM) */}
                         <div style={{ textAlign: "right" }}>
                           <div style={{
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "6px",
-                            padding: "3px 8px",
-                            borderRadius: "6px",
+                            padding: "4px 10px",
+                            borderRadius: "8px",
                             backgroundColor: "#ecfdf5",
-                            border: "1px solid #a7f3d0",
+                            border: "1.5px solid #a7f3d0",
                             color: "#047857",
                             fontWeight: 800,
-                            fontSize: "0.82rem"
+                            fontSize: "0.85rem",
+                            boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
                           }}>
-                            <span>🕒 Predicted:</span>
+                            <span>🕒</span>
                             <span>
                               {item.predictedStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              {" - "}
+                              {" – "}
                               {item.predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
-
-                          {program.startTime && (
-                            <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "3px" }}>
-                              Saved in DB: {new Date(program.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      {/* Bottom Program Settings Row: Venue, Duration, StageType, Judges & Save */}
+                      {/* Bottom Program Settings Row: Venue, Duration, StageType, Judges & Save (NO manual Start Time picker!) */}
                       <div style={{ 
                         display: "flex", 
                         flexWrap: "wrap", 
-                        gap: "8px", 
+                        gap: "10px", 
                         alignItems: "flex-end",
-                        paddingTop: "6px",
+                        paddingTop: "8px",
                         borderTop: "1px dashed #f1f5f9"
                       }}>
                         {/* Venue selector */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, flex: "1 1 130px" }}>
-                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px" }}>Venue</label>
+                          <div className="form-group" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Venue / Stage</label>
                             <select className="form-input" defaultValue={program.venue || ""} id={`venue-${program.id}`} style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
                               <option value="">Unassigned</option>
                               {Array.from(allVenues).map(v => <option key={v} value={v}>{v}</option>)}
@@ -1037,37 +1086,23 @@ export default function AdminScheduler({
                           <input type="hidden" id={`venue-${program.id}`} value={program.venue || ""} />
                         )}
                         
-                        {/* Duration input: changing it recalculates the predicted times immediately */}
-                        <div className="form-group" style={{ marginBottom: 0, width: "90px" }}>
-                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px" }}>Duration (min)</label>
+                        {/* Duration input: changing it recalculates the predicted times starting from 9:00 AM */}
+                        <div className="form-group" style={{ marginBottom: 0, width: "110px" }}>
+                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Duration (mins)</label>
                           <input 
                             type="number" 
                             className="form-input" 
                             defaultValue={program.duration || 10} 
                             id={`dur-${program.id}`} 
-                            onChange={(e) => handleDurationChange(program.id, parseInt(e.target.value) || 10)}
-                            style={{ padding: "4px 8px", fontSize: "0.8rem" }}
-                          />
-                        </div>
-
-                        {/* Optional Manual Start Time override */}
-                        <div className="form-group" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px" }}>
-                            Start Time {program.startTime ? "" : "(Click Apply or set)"}
-                          </label>
-                          <input 
-                            type="datetime-local" 
-                            className="form-input" 
-                            defaultValue={program.startTime ? new Date(program.startTime).toISOString().slice(0, 16) : item.predictedStart.toISOString().slice(0, 16)} 
-                            id={`time-${program.id}`} 
+                            onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 10)}
                             style={{ padding: "4px 8px", fontSize: "0.8rem" }}
                           />
                         </div>
                         
                         {/* Stage Type */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, width: "120px" }}>
-                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px" }}>Stage Type</label>
+                          <div className="form-group" style={{ marginBottom: 0, width: "130px" }}>
+                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Stage Type</label>
                             <select className="form-input" defaultValue={program.stageType} id={`stage-${program.id}`} style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
                               <option value="ON_STAGE">ON STAGE</option>
                               <option value="OFF_STAGE">OFF STAGE</option>
@@ -1081,11 +1116,10 @@ export default function AdminScheduler({
                         {/* Save Item Button */}
                         <button 
                           className="btn btn-primary"
-                          style={{ padding: "5px 12px", fontSize: "0.8rem", flex: "0 0 auto", height: "32px" }}
+                          style={{ padding: "5px 14px", fontSize: "0.8rem", flex: "0 0 auto", height: "32px", fontWeight: 700 }}
                           disabled={loadingId === program.id}
                           onClick={() => {
                             const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
-                            const t = (document.getElementById(`time-${program.id}`) as HTMLInputElement).value;
                             const d = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 10;
                             const s = (document.getElementById(`stage-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
                             
@@ -1097,7 +1131,8 @@ export default function AdminScheduler({
                               }
                             }
                             
-                            handleUpdate(program.id, v, t, d, s, judgeIds);
+                            // Automatically uses the auto-calculated 9:00 AM sequential start time!
+                            handleUpdate(program.id, v, item.predictedStart.toISOString(), d, s, judgeIds);
                           }}
                         >
                           {loadingId === program.id ? "..." : "Save"}
@@ -1107,7 +1142,7 @@ export default function AdminScheduler({
                       {/* Judges Multi-select */}
                       {!isBreak && allJudges.length > 0 && (
                         <div style={{ marginTop: "4px" }}>
-                          <label className="form-label" style={{ fontSize: "0.68rem", marginBottom: "2px" }}>Judges (Hold Ctrl to select multiple)</label>
+                          <label className="form-label" style={{ fontSize: "0.68rem", marginBottom: "2px", fontWeight: 700 }}>Judges (Hold Ctrl to select multiple)</label>
                           <select 
                             multiple 
                             className="form-input" 
