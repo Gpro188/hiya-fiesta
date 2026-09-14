@@ -332,50 +332,38 @@ export default async function ReportsPage(props: {
             </p>
           </a>
 
-          {isSchedulePublished ? (
-            <>
-              <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #3b82f6' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>On-Stage Program Schedule</h4>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#2563eb', fontWeight: 700 }}>PUBLISHED</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official schedule of your team's On-Stage programs with venues and timings.</p>
-              </a>
-              
-              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>On-Stage Candidate Schedule Report</h4>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.15)', color: '#8E0033', fontWeight: 700 }}>PUBLISHED</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Detailed report of your assigned candidates for On-Stage programs, venues, and timings.</p>
-              </a>
-            </>
-          ) : (
-            <>
-              <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--text-muted)' }}>On-Stage Program Schedule</h4>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', fontWeight: 700 }}>AWAITING PUBLICATION</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Will be unlocked and printable once the Zone Admin finalizes stage timings and publishes the official On-Stage schedule.
-                </p>
-              </div>
+          {/* Always accessible: On-Stage Program Entry & Verification Sheet */}
+          <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>On-Stage Program Entry Sheet (With Photos)</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>FEST ENTRY PASS</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Official On-Stage program allocation & candidate verification sheet with photos and chest numbers required for Zone Fest entry.
+            </p>
+          </a>
 
-              <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--text-muted)' }}>On-Stage Candidate Schedule Report</h4>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', fontWeight: 700 }}>AWAITING PUBLICATION</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Detailed candidate venue and timing sheet will be available once the Zone Admin publishes the schedule.
-                </p>
+          {isSchedulePublished ? (
+            <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #3b82f6' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>On-Stage Program Timeline & Schedule</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#2563eb', fontWeight: 700 }}>PUBLISHED</span>
               </div>
-            </>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official sequential timeline of your team's On-Stage programs with stages, venues, and timings.</p>
+            </a>
+          ) : (
+            <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', opacity: 0.7, border: '1.5px dashed var(--border-color)', cursor: 'not-allowed', position: 'relative' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔒</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, color: 'var(--text-muted)' }}>On-Stage Timeline Schedule</h4>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706', fontWeight: 700 }}>AWAITING FINAL TIMINGS</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Detailed venue minutes timeline will unlock once Zone Admin finalizes the stage order. Entry sheet above is already available.
+              </p>
+            </div>
           )}
 
           <a href={`/print/stage-registrations?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #25D366' }}>

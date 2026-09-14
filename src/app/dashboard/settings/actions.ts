@@ -136,17 +136,42 @@ export async function updateRegistrationLimits(data: {
   }
 }
 
+export async function syncEventProgramDates(eventId: string, targetDate: Date) {
+  try {
+    const programs = await prisma.program.findMany({
+      where: { eventId, startTime: { not: null } },
+      select: { id: true, startTime: true }
+    });
+
+    for (const prog of programs) {
+      if (!prog.startTime) continue;
+      const oldD = new Date(prog.startTime);
+      const newD = new Date(targetDate);
+      newD.setHours(oldD.getHours(), oldD.getMinutes(), oldD.getSeconds(), oldD.getMilliseconds());
+
+      if (newD.getTime() !== oldD.getTime()) {
+        await prisma.program.update({
+          where: { id: prog.id },
+          data: { startTime: newD }
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Failed to sync event program dates:", err);
+  }
+}
+
 export async function updateEventDeadlines(eventId: string, data: {
-  registrationStart: string | null;
-  registrationEnd: string | null;
-  assignmentStart: string | null;
-  assignmentEnd: string | null;
-  institutionRegistrationEndDate: string | null;
+  registrationStart?: string | null;
+  registrationEnd?: string | null;
+  assignmentStart?: string | null;
+  assignmentEnd?: string | null;
+  institutionRegistrationEndDate?: string | null;
   offStageRegistrationEnd?: string | null;
   onStageRegistrationEnd?: string | null;
-  zoneActiveStartTime: string | null;
-  zoneActiveEndTime: string | null;
-  stateConfirmEndDate: string | null;
+  zoneActiveStartTime?: string | null;
+  zoneActiveEndTime?: string | null;
+  stateConfirmEndDate?: string | null;
   statusOverride?: string | null;
   zoneUnlockWindowStart?: string | null;
   zoneUnlockWindowEnd?: string | null;
@@ -179,11 +204,11 @@ export async function updateEventDeadlines(eventId: string, data: {
         institutionRegistrationEndDate: effectiveCutoffDate,
         offStageRegistrationEnd: data.offStageRegistrationEnd ? new Date(data.offStageRegistrationEnd) : null,
         onStageRegistrationEnd: data.onStageRegistrationEnd ? new Date(data.onStageRegistrationEnd) : null,
+        startDate: startDateVal,
+        endDate: endDateVal,
+        zoneActiveStartTime: startDateVal,
+        zoneActiveEndTime: endDateVal,
         ...(isAdmin ? {
-          startDate: startDateVal,
-          endDate: endDateVal,
-          zoneActiveStartTime: startDateVal,
-          zoneActiveEndTime: endDateVal,
           stateConfirmEndDate: data.stateConfirmEndDate ? new Date(data.stateConfirmEndDate) : null,
           zoneUnlockWindowStart: zoneUnlockStartVal,
           zoneUnlockWindowEnd: zoneUnlockEndVal,
@@ -192,6 +217,10 @@ export async function updateEventDeadlines(eventId: string, data: {
         ...(data.statusOverride ? { statusOverride: data.statusOverride } : {})
       }
     });
+
+    if (startDateVal) {
+      await syncEventProgramDates(eventId, startDateVal);
+    }
 
     // If updated event is State Master Event, sync deadlines to all child Zone events
     if (isAdmin && (updatedEvent.type === "STATE" || !updatedEvent.parentId)) {
@@ -251,6 +280,10 @@ export async function updateZoneTimelines(zoneUpdates: Array<{
           ...(item.statusOverride ? { statusOverride: item.statusOverride } : {})
         }
       });
+
+      if (startVal) {
+        await syncEventProgramDates(item.id, startVal);
+      }
     }
 
     revalidatePath("/");

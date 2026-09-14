@@ -5,21 +5,36 @@ import PrintButton from "@/components/PrintButton";
 export const dynamic = 'force-dynamic';
 
 export default async function PrintInstitutionReportPage(props: {
-  searchParams: Promise<{ teamId?: string }>;
+  searchParams: Promise<{ teamId?: string; institutionId?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  const teamId = searchParams.teamId;
+  let teamId = searchParams.teamId;
+
+  if (!teamId && searchParams.institutionId) {
+    const team = await prisma.team.findFirst({
+      where: { institutionId: searchParams.institutionId },
+      select: { id: true }
+    });
+    if (team) teamId = team.id;
+  }
 
   if (!teamId) {
-    return <div style={{ padding: '40px' }}>No Team ID provided.</div>;
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+        <h2>No Team ID or Institution ID provided.</h2>
+        <p style={{ color: '#64748b' }}>Please select your institution to generate the On-Stage Program Entry Sheet.</p>
+      </div>
+    );
   }
 
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     include: { 
-      institution: true,
+      institution: {
+        include: { zone: true }
+      },
       event: {
-        include: { parent: true }
+        include: { parent: true, zone: true }
       }
     }
   });
@@ -28,28 +43,9 @@ export default async function PrintInstitutionReportPage(props: {
     return <div style={{ padding: '40px' }}>Team not found.</div>;
   }
 
-  const isSchedulePublished = team.event?.statusOverride === "SCHEDULE_PUBLISHED" || 
-    team.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
-
-  if (!isSchedulePublished) {
-    return (
-      <div style={{ padding: '60px 20px', textAlign: 'center', fontFamily: 'system-ui, sans-serif', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>🔒</div>
-        <h2 style={{ color: '#b45309', marginBottom: '8px' }}>On-Stage Candidate Schedule Report Not Yet Published</h2>
-        <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6 }}>
-          The official On-Stage program schedule is currently being finalized by the Zone Admin. 
-          Candidate schedule reports will become available immediately after the Zone Admin updates and publishes the final timings.
-        </p>
-        <div style={{ marginTop: '24px' }}>
-          <a href="/dashboard/schedule" style={{ padding: '8px 16px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>
-            &larr; Back to Schedule Dashboard
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   const settings = await getSettings(team.eventId);
+  const eventName = team.event?.name || "Zonal Festival";
+  const eventStartDate = team.event?.startDate || team.event?.zoneActiveStartTime;
 
   // Fetch only candidates registered for ON-STAGE programs
   const candidates = await prisma.candidate.findMany({
@@ -67,107 +63,220 @@ export default async function PrintInstitutionReportPage(props: {
         where: {
           program: { stageType: "ON_STAGE" }
         },
-        include: { program: true }
+        include: { program: true },
+        orderBy: { program: { name: 'asc' } }
       }
     },
-    orderBy: { name: 'asc' }
+    orderBy: [
+      { chestNumber: 'asc' },
+      { name: 'asc' }
+    ]
   });
 
-  return (
-    <div style={{ padding: '40px', backgroundColor: 'white', color: 'black', minHeight: '100vh' }}>
-      <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid black', paddingBottom: '20px' }}>
-        <h1 style={{ margin: '0 0 5px 0' }}>{settings.festName}</h1>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', textTransform: 'uppercase' }}>Institution On-Stage Candidate Schedule Report</h2>
-        <p style={{ margin: '5px 0 0 0', fontStyle: 'italic' }}>{team.institution?.name || team.name}</p>
-      </div>
+  const totalOnStageEntries = candidates.reduce((sum, c) => sum + c.programs.length, 0);
 
-      <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+  // Helper to format program scheduled time
+  const formatProgramTime = (p: any) => {
+    const rawTime = p.scheduledTime || p.program?.startTime;
+    if (!rawTime) return "Scheduled";
+
+    let dateObj = new Date(rawTime);
+    if (eventStartDate) {
+      const evDate = new Date(eventStartDate);
+      if (!isNaN(evDate.getTime())) {
+        dateObj = new Date(evDate.getFullYear(), evDate.getMonth(), evDate.getDate(), dateObj.getHours(), dateObj.getMinutes(), 0);
+      }
+    }
+
+    const dateStr = dateObj.toLocaleDateString("en-IN", { month: "short", day: "2-digit" });
+    const timeStr = dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${dateStr}, ${timeStr}`;
+  };
+
+  return (
+    <div className="entry-sheet-container" style={{ padding: '24px 32px', backgroundColor: 'white', color: '#0f172a', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      
+      {/* Official Header */}
+      <div style={{ textAlign: 'center', borderBottom: '2.5px solid #8E0033', paddingBottom: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '6px' }}>
+          {settings.festLogo && (
+            <img src={settings.festLogo} alt="Logo" style={{ height: '54px', objectFit: 'contain' }} />
+          )}
           <div>
-            <strong>Institution / Team:</strong> {team.name}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <strong>Total Candidates:</strong> {candidates.length}
+            <h1 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 900, color: '#8E0033', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              {settings.festName}
+            </h1>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase', marginTop: '2px' }}>
+              {eventName} • Official On-Stage Program Entry & Candidate Verification Sheet
+            </div>
           </div>
         </div>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f3f4f6' }}>
-            <th style={{ border: '1px solid black', padding: '10px', textAlign: 'left' }}>Candidate Details</th>
-            <th style={{ border: '1px solid black', padding: '10px', textAlign: 'left' }}>Assigned Programs & Schedule</th>
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate: any) => (
-            <tr key={candidate.id}>
-              <td style={{ border: '1px solid black', padding: '15px', verticalAlign: 'top', width: '35%' }}>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  {candidate.photoUrl ? (
-                    <img src={candidate.photoUrl} alt="Photo" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ccc' }} />
-                  ) : (
-                    <div style={{ width: '60px', height: '60px', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', border: '1px solid #ccc', fontSize: '1.5rem' }}>👤</div>
-                  )}
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{candidate.name}</div>
-                    <div style={{ fontSize: '0.9rem', color: '#555', marginTop: '4px' }}>Chest No: {candidate.chestNumber || 'Not assigned'}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#777', marginTop: '2px' }}>Category: {candidate.category?.name}</div>
-                  </div>
-                </div>
-              </td>
-              <td style={{ border: '1px solid black', padding: '10px', verticalAlign: 'top' }}>
-                {candidate.programs.length === 0 ? (
-                  <div style={{ color: '#999', fontStyle: 'italic' }}>No programs assigned.</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#fafafa' }}>
-                        <th style={{ borderBottom: '1px solid #ddd', padding: '5px', textAlign: 'left' }}>Program</th>
-                        <th style={{ borderBottom: '1px solid #ddd', padding: '5px', textAlign: 'left' }}>Stage / Venue</th>
-                        <th style={{ borderBottom: '1px solid #ddd', padding: '5px', textAlign: 'left' }}>Time</th>
-                        <th style={{ borderBottom: '1px solid #ddd', padding: '5px', textAlign: 'left' }}>Slot</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidate.programs.map((p: any) => (
-                        <tr key={p.id}>
-                          <td style={{ borderBottom: '1px dotted #ccc', padding: '8px 5px', fontWeight: 'bold' }}>{p.program.name}</td>
-                          <td style={{ borderBottom: '1px dotted #ccc', padding: '8px 5px' }}>
-                            {p.program.venue ? `${p.program.venue} (${p.program.stageType})` : p.program.stageType}
-                          </td>
-                          <td style={{ borderBottom: '1px dotted #ccc', padding: '8px 5px' }}>
-                            {(p.scheduledTime || p.program.startTime) 
-                              ? new Date(p.scheduledTime || p.program.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                              : 'TBD'}
-                          </td>
-                          <td style={{ borderBottom: '1px dotted #ccc', padding: '8px 5px' }}>{p.slotNumber || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Institution Info Card */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1.4fr 1fr', 
+        gap: '12px', 
+        backgroundColor: '#f8fafc', 
+        border: '1.5px solid #cbd5e1', 
+        borderRadius: '8px', 
+        padding: '12px 18px', 
+        marginBottom: '20px',
+        fontSize: '0.9rem'
+      }}>
+        <div>
+          <div style={{ marginBottom: '4px' }}>
+            <strong style={{ color: '#475569' }}>Institution:</strong>{" "}
+            <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
+              {team.institution?.name || team.name}
+            </span>
+          </div>
+          <div style={{ color: '#475569' }}>
+            <strong>Institution Code:</strong> {team.institution?.code || team.prefixCode || 'N/A'} • <strong>Zone:</strong> {team.institution?.zone?.name || team.event?.zone?.name || 'N/A'}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div>
+            <strong style={{ color: '#475569' }}>Total On-Stage Candidates:</strong>{" "}
+            <span style={{ fontWeight: 800, color: '#8E0033', fontSize: '1rem' }}>{candidates.length}</span>
+          </div>
+          <div style={{ color: '#475569', marginTop: '2px' }}>
+            <strong>Total Program Allocations:</strong>{" "}
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>{totalOnStageEntries}</span>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: '0.9rem' }}>Generated on: {new Date().toLocaleString()}</div>
-        <div style={{ borderTop: '1px solid black', width: '250px', textAlign: 'center', paddingTop: '5px' }}>Institution Manager Signature</div>
+      {/* Candidates List Table */}
+      {candidates.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '1rem' }}>No candidates assigned to On-Stage programs for this institution yet.</p>
+        </div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #334155' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #334155' }}>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 6px', width: '38px', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800 }}>SL</th>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 6px', width: '64px', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800 }}>PHOTO</th>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 8px', width: '80px', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800 }}>CHEST NO</th>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 10px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 800 }}>CANDIDATE & CATEGORY</th>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 10px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 800 }}>ASSIGNED ON-STAGE PROGRAMS</th>
+              <th style={{ border: '1px solid #94a3b8', padding: '8px 6px', width: '75px', textAlign: 'center', fontSize: '0.78rem', fontWeight: 800 }}>GATE ENTRY</th>
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map((c: any, idx: number) => {
+              const photo = c.photoUrl || c.photo;
+              return (
+                <tr key={c.id} style={{ borderBottom: '1px solid #cbd5e1' }}>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '8px 4px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem' }}>
+                    {idx + 1}
+                  </td>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center', verticalAlign: 'middle' }}>
+                    {photo ? (
+                      <img 
+                        src={photo} 
+                        alt="" 
+                        style={{ width: '50px', height: '58px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #94a3b8', display: 'inline-block' }} 
+                      />
+                    ) : (
+                      <div style={{ width: '50px', height: '58px', backgroundColor: '#e2e8f0', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', border: '1px dashed #94a3b8', margin: '0 auto' }}>
+                        👤
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '8px 6px', textAlign: 'center', verticalAlign: 'middle' }}>
+                    <div style={{ 
+                      backgroundColor: '#f43f5e', 
+                      color: 'white', 
+                      fontWeight: 900, 
+                      fontSize: '0.9rem', 
+                      padding: '4px 6px', 
+                      borderRadius: '6px',
+                      display: 'inline-block',
+                      minWidth: '54px'
+                    }}>
+                      {c.chestNumber || '-'}
+                    </div>
+                  </td>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '8px 10px', verticalAlign: 'middle' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', textTransform: 'uppercase' }}>
+                      {c.name}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4f46e5', marginTop: '2px', textTransform: 'uppercase' }}>
+                      {c.category?.name || 'GENERAL'}
+                    </div>
+                  </td>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '8px 10px', verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {c.programs.map((as: any) => (
+                        <div key={as.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', backgroundColor: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.82rem' }}>
+                          <span style={{ fontWeight: 800, color: '#1e293b' }}>
+                            {as.program?.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {as.program?.venue && (
+                              <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, fontSize: '0.75rem' }}>
+                                {as.program.venue}
+                              </span>
+                            )}
+                            <span style={{ color: '#e11d48', fontWeight: 700, fontSize: '0.78rem' }}>
+                              {formatProgramTime(as)}
+                            </span>
+                            {as.slotNumber && (
+                              <span style={{ backgroundColor: '#fef3c7', color: '#b45309', padding: '2px 5px', borderRadius: '4px', fontWeight: 800, fontSize: '0.72rem' }}>
+                                Slot #{as.slotNumber}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center', verticalAlign: 'middle' }}>
+                    <div style={{ width: '22px', height: '22px', border: '2px solid #64748b', borderRadius: '4px', margin: '0 auto' }}></div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {/* Signature Area */}
+      <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '20px' }}>
+        <div style={{ textAlign: 'center', width: '220px' }}>
+          <div style={{ height: '50px' }}></div>
+          <div style={{ borderTop: '1.5px solid #334155', paddingTop: '6px', fontSize: '0.85rem', fontWeight: 700 }}>
+            Institution Manager / Seal
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+          Printed on {new Date().toLocaleString("en-IN")} • {settings.festName} Official Document
+        </div>
+
+        <div style={{ textAlign: 'center', width: '220px' }}>
+          <div style={{ height: '50px' }}></div>
+          <div style={{ borderTop: '1.5px solid #334155', paddingTop: '6px', fontSize: '0.85rem', fontWeight: 700 }}>
+            Zone Fest Entry Officer / Seal
+          </div>
+        </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; color: black !important; margin: 0; padding: 0; }
-          @page { margin: 1.5cm; }
+          .entry-sheet-container { padding: 12mm !important; }
+          @page { size: A4 portrait; margin: 10mm; }
+          tr { page-break-inside: avoid; }
         }
       `}} />
       
-      <div className="no-print" style={{ position: 'fixed', bottom: '20px', right: '20px' }}>
-        <PrintButton label="Print Candidate Report" />
+      <div className="no-print" style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
+        <PrintButton label="🖨️ Print On-Stage Entry Sheet" />
       </div>
     </div>
   );

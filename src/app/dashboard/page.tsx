@@ -687,6 +687,28 @@ export default async function DashboardPage() {
                   logoUrl={institutionInfo.logoUrl}
                 />
               )}
+              {userTeam && (
+                <a
+                  href={`/print/institution-report?teamId=${userTeam.id}`}
+                  target="_blank"
+                  className="btn btn-secondary"
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "0.5rem",
+                    borderRadius: 'var(--radius-full)',
+                    padding: '0.5rem 1.25rem',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    backgroundColor: '#8E0033',
+                    color: '#ffffff',
+                    border: 'none',
+                    boxShadow: '0 2px 6px rgba(142,0,51,0.25)'
+                  }}
+                >
+                  <span>📋</span> Print On-Stage Entry Sheet
+                </a>
+              )}
               <Link
                 href="/dashboard/assignments"
                 className="btn btn-primary"

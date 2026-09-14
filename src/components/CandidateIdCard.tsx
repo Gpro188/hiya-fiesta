@@ -16,8 +16,10 @@ export type CandidateIdCardProps = {
       prefixCode?: string;
       event?: {
         name: string;
+        startDate?: string | Date | null;
+        zoneActiveStartTime?: string | Date | null;
         statusOverride?: string;
-        parent?: { statusOverride?: string } | null;
+        parent?: { statusOverride?: string; startDate?: string | Date | null } | null;
       };
     };
     institution?: { name: string } | null;
@@ -50,10 +52,12 @@ function ProgramItem({
   program,
   isCenter = false,
   isSchedulePublished = false,
+  eventStartDate = null,
 }: {
   program: any;
   isCenter?: boolean;
   isSchedulePublished?: boolean;
+  eventStartDate?: string | Date | null;
 }) {
   const stageType = (program?.program?.stageType || program?.stageType || "ON_STAGE").toUpperCase();
   const isOffStage = stageType === "OFF_STAGE" || stageType.includes("OFF");
@@ -72,11 +76,19 @@ function ProgramItem({
   } else {
     // On-stage programs with published schedule: show official time and venue
     const displayTime = program?.scheduledTime || program?.program?.startTime;
-    const formattedTime = displayTime
-      ? `${new Date(displayTime).toLocaleDateString([], {
+    let targetDate = displayTime ? new Date(displayTime) : null;
+    if (targetDate && eventStartDate) {
+      const evDate = new Date(eventStartDate);
+      if (!isNaN(evDate.getTime())) {
+        targetDate = new Date(evDate.getFullYear(), evDate.getMonth(), evDate.getDate(), targetDate.getHours(), targetDate.getMinutes(), 0);
+      }
+    }
+
+    const formattedTime = targetDate
+      ? `${targetDate.toLocaleDateString([], {
           day: "2-digit",
           month: "short",
-        })} ${new Date(displayTime).toLocaleTimeString([], {
+        })} ${targetDate.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         })}`
@@ -514,7 +526,7 @@ export default function CandidateIdCard({
         )}
 
         {/* 1 Program: Centered Layout */}
-        {count === 1 && <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} />}
+        {count === 1 && <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />}
 
         {/* 2 Programs: Vertically Stacked with Divider */}
         {count === 2 && (
@@ -527,7 +539,7 @@ export default function CandidateIdCard({
               alignItems: "center",
             }}
           >
-            <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} />
+            <ProgramItem program={list[0]} isCenter={true} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             <div
               style={{
                 width: "50%",
@@ -535,7 +547,7 @@ export default function CandidateIdCard({
                 backgroundColor: "rgba(142, 0, 51, 0.15)",
               }}
             />
-            <ProgramItem program={list[1]} isCenter={true} isSchedulePublished={isSchedulePublished} />
+            <ProgramItem program={list[1]} isCenter={true} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
           </div>
         )}
 
@@ -562,10 +574,10 @@ export default function CandidateIdCard({
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
             </div>
             <div
@@ -576,7 +588,7 @@ export default function CandidateIdCard({
                 paddingTop: "3px",
               }}
             >
-              <ProgramItem program={list[2]} isCenter={true} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[2]} isCenter={true} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
           </div>
         )}
@@ -598,10 +610,10 @@ export default function CandidateIdCard({
                 paddingRight: "4px",
               }}
             >
-              <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
             <div style={{ paddingLeft: "4px" }}>
-              <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
             <div
               style={{
@@ -609,10 +621,10 @@ export default function CandidateIdCard({
                 paddingRight: "4px",
               }}
             >
-              <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
             <div style={{ paddingLeft: "4px" }}>
-              <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
           </div>
         )}
@@ -641,10 +653,10 @@ export default function CandidateIdCard({
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[0]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[1]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
               <div
                 style={{
@@ -652,10 +664,10 @@ export default function CandidateIdCard({
                   paddingRight: "4px",
                 }}
               >
-                <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[2]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
               <div style={{ paddingLeft: "4px" }}>
-                <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} />
+                <ProgramItem program={list[3]} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
               </div>
             </div>
             <div
@@ -666,7 +678,7 @@ export default function CandidateIdCard({
                 paddingTop: "2px",
               }}
             >
-              <ProgramItem program={list[4]} isCenter={true} isSchedulePublished={isSchedulePublished} />
+              <ProgramItem program={list[4]} isCenter={true} isSchedulePublished={isSchedulePublished} eventStartDate={candidate.team?.event?.startDate || candidate.team?.event?.zoneActiveStartTime} />
             </div>
           </div>
         )}
