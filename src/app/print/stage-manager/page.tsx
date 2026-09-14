@@ -313,7 +313,7 @@ export default async function PrintStageManagerPage(props: {
                       </div>
                       <div style={{ textAlign: 'right', borderLeft: '1px solid #cbd5e1', paddingLeft: '14px' }}>
                         <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>
-                          {program.startTime ? new Date(program.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Time TBD'}
+                          Stage: {program.venue || 'Main Stage'}
                         </div>
                         <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Duration: <strong>{program.duration} min</strong></div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Candidates: <strong>{candidateAssignments.length}</strong></div>

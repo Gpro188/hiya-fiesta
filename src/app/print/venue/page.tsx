@@ -22,11 +22,17 @@ export default async function PrintVenuePage(props: {
     });
     if (activeEv?.parentId) {
       whereClause = {
+        stageType: "ON_STAGE",
         OR: [{ eventId: eventId }, { eventId: activeEv.parentId }],
       };
     } else {
-      whereClause = { eventId };
+      whereClause = {
+        stageType: "ON_STAGE",
+        eventId
+      };
     }
+  } else {
+    whereClause = { stageType: "ON_STAGE" };
   }
 
   const rawPrograms = await prisma.program.findMany({

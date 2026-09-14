@@ -45,10 +45,7 @@ export default function AdminScheduler({
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedStage, setSelectedStage] = useState("All");
-  
   const categoryOrder = ["All", "FADHILA", "FADHEELA", "GENERAL PROGRAMS"];
-  const stageOrder = ["All", "On Stage", "Off Stage"];
 
   // Sync state with props
   useEffect(() => {
@@ -485,15 +482,14 @@ export default function AdminScheduler({
   groupedPrograms["Unassigned"] = [];
 
   const filteredPrograms = programs.filter(p => {
+    // Strictly on-stage programs only for schedule
+    if (p.stageType && p.stageType !== "ON_STAGE") return false;
+
     let cat = "GENERAL PROGRAMS";
     if (p.type === "GENERAL") cat = "GENERAL PROGRAMS";
     else if (p.category?.name) cat = p.category.name.toUpperCase();
     
-    let stg = p.stageType === "ON_STAGE" ? "On Stage" : "Off Stage";
-
-    const matchesCat = selectedCategory === "All" || cat === selectedCategory;
-    const matchesStage = selectedStage === "All" || stg === selectedStage;
-    return matchesCat && matchesStage;
+    return selectedCategory === "All" || cat === selectedCategory;
   });
 
   filteredPrograms.forEach(p => {
@@ -710,20 +706,18 @@ export default function AdminScheduler({
           ))}
         </div>
         
-        <div style={{ width: "1px", height: "24px", backgroundColor: "var(--border-color)", margin: "0 8px" }} />
-
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginRight: "4px" }}>Stage:</span>
-          {stageOrder.map(stage => (
-            <button
-              key={stage}
-              onClick={() => setSelectedStage(stage)}
-              className={`btn ${selectedStage === stage ? "btn-primary" : "btn-secondary"}`}
-              style={{ padding: "4px 12px", fontSize: "0.85rem", borderRadius: "20px" }}
-            >
-              {stage}
-            </button>
-          ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
+          <span style={{ 
+            fontSize: "0.8rem", 
+            fontWeight: 700, 
+            padding: "4px 10px", 
+            borderRadius: "20px", 
+            backgroundColor: "rgba(16, 185, 129, 0.12)", 
+            color: "#059669",
+            border: "1px solid rgba(16, 185, 129, 0.3)"
+          }}>
+            🎭 Strictly On-Stage Schedule
+          </span>
         </div>
       </div>
 

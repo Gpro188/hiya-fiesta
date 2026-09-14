@@ -74,29 +74,10 @@ function ProgramItem({
     subText = "ON STAGE";
     subTextColor = "#4f46e5";
   } else {
-    // On-stage programs with published schedule: show official time and venue
-    const displayTime = program?.scheduledTime || program?.program?.startTime;
-    let targetDate = displayTime ? new Date(displayTime) : null;
-    if (targetDate && eventStartDate) {
-      const evDate = new Date(eventStartDate);
-      if (!isNaN(evDate.getTime())) {
-        targetDate = new Date(evDate.getFullYear(), evDate.getMonth(), evDate.getDate(), targetDate.getHours(), targetDate.getMinutes(), 0);
-      }
-    }
-
-    const formattedTime = targetDate
-      ? `${targetDate.toLocaleDateString([], {
-          day: "2-digit",
-          month: "short",
-        })} ${targetDate.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`
-      : null;
-
-    if (formattedTime) {
-      subText = `${formattedTime}${program?.program?.venue ? ` • ${program.program.venue}` : ""}`;
-      subTextColor = "#e11d48";
+    // On-stage programs: show venue if available, without schedule time
+    if (program?.program?.venue) {
+      subText = program.program.venue;
+      subTextColor = "#8E0033";
     } else {
       subText = "ON STAGE";
       subTextColor = "#4f46e5";

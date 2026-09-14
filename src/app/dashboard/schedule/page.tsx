@@ -52,18 +52,24 @@ export default async function SchedulePage(props: {
       ? searchParams.eventId 
       : events[0]?.id;
 
-    let programWhere: any = {};
+    let programWhere: any = {
+      stageType: "ON_STAGE"
+    };
     if (activeEventId) {
       const activeEv = await prisma.event.findUnique({ where: { id: activeEventId } });
       if (activeEv?.parentId) {
         programWhere = {
+          stageType: "ON_STAGE",
           OR: [
             { eventId: activeEventId },
             { eventId: activeEv.parentId }
           ]
         };
       } else {
-        programWhere = { eventId: activeEventId };
+        programWhere = {
+          stageType: "ON_STAGE",
+          eventId: activeEventId
+        };
       }
     }
 

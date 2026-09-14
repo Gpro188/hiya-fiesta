@@ -181,6 +181,7 @@ export async function autoGenerateSchedule(eventId: string, venues: string[]) {
           { eventId: eventId },
           ...(event.parentId ? [{ eventId: event.parentId }] : [])
         ],
+        stageType: "ON_STAGE",
         type: { not: "BREAK" } 
       },
       orderBy: { name: 'asc' }
@@ -773,7 +774,7 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
     // Build master template programs (defined venues and sequential order)
     const masterTemplateMap = new Map<string, any>();
     for (const p of allPrograms) {
-      if (!p.venue) continue;
+      if (!p.venue || p.stageType !== "ON_STAGE") continue;
       const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
       if (!masterTemplateMap.has(key)) {
         masterTemplateMap.set(key, p);
