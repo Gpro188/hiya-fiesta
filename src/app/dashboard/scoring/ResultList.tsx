@@ -100,14 +100,24 @@ export default function ResultList({ results, role }: { results: any[], role: st
                   {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && hasPending && (
                     <button 
                       onClick={() => {
-                        if (confirm(`Publish all results for ${group.program.name}?`)) {
+                        if (confirm(`Approve physical valuation and publish all results for ${group.program.name}?`)) {
                           publishProgramResults(pid);
                         }
                       }}
                       className="btn btn-primary"
-                      style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                      style={{ 
+                        padding: '0.25rem 0.75rem', 
+                        fontSize: '0.78rem', 
+                        fontWeight: 800,
+                        backgroundColor: '#16a34a',
+                        borderColor: '#15803d',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
                     >
-                      🚀 Publish Results
+                      ✅ Approve & Publish
                     </button>
                   )}
                 </div>

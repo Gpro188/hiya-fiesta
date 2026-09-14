@@ -34,6 +34,7 @@ export default function ScoringForm({
   const [selectedVenue, setSelectedVenue] = useState<string>(userVenue || "");
   const [categoryId, setCategoryId] = useState("");
   const [programId, setProgramId] = useState("");
+  const [programSearch, setProgramSearch] = useState("");
   const [evaluator1, setEvaluator1] = useState("");
   const [evaluator2, setEvaluator2] = useState("");
   const [entries, setEntries] = useState<ScoringEntry[]>([]);
@@ -119,6 +120,16 @@ export default function ScoringForm({
     if (!categoryId) return true;
     if (categoryId === "general-cat") return !p.category && p.type === 'GENERAL';
     return p.category?.id === categoryId;
+  });
+
+  // Further filter by search term (searches programCode number or name across category or whole venue)
+  const searchedPrograms = programs.filter((p: any) => {
+    if (!programSearch.trim()) return true;
+    const q = programSearch.trim().toLowerCase();
+    const code = (p.programCode || "").toString().toLowerCase();
+    const name = (p.name || "").toLowerCase();
+    const cat = (p.category?.name || "").toLowerCase();
+    return code.includes(q) || name.includes(q) || cat.includes(q);
   });
 
   const selecteCSWCgram = allPrograms.find((p: any) => p.id === programId);
@@ -433,7 +444,53 @@ export default function ScoringForm({
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary, #e6007e)' }}>4. COMPETITION PROGRAM</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary, #e6007e)', marginBottom: 0 }}>
+              4. COMPETITION PROGRAM
+            </label>
+            {programSearch && (
+              <button
+                type="button"
+                onClick={() => setProgramSearch("")}
+                style={{ background: 'none', border: 'none', fontSize: '0.7rem', color: '#64748b', cursor: 'pointer', padding: 0 }}
+              >
+                ✕ Clear search
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+            <input
+              type="text"
+              placeholder="🔍 Search Program # / Code or Name..."
+              value={programSearch}
+              onChange={(e) => {
+                const val = e.target.value;
+                setProgramSearch(val);
+                // If exact code match found, auto-select it!
+                if (val.trim()) {
+                  const exactMatch = allPrograms.find((p: any) => 
+                    (p.programCode && p.programCode.trim().toLowerCase() === val.trim().toLowerCase())
+                  );
+                  if (exactMatch) {
+                    setProgramId(exactMatch.id);
+                    if (exactMatch.venue) setSelectedVenue(exactMatch.venue);
+                    if (exactMatch.categoryId) setCategoryId(exactMatch.categoryId);
+                  }
+                }
+              }}
+              className="form-input"
+              style={{
+                padding: '6px 10px',
+                fontSize: '0.8rem',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '8px',
+                backgroundColor: '#f8fafc',
+                fontWeight: 600
+              }}
+            />
+          </div>
+
           <select 
             className="form-input" 
             value={programId}
@@ -446,12 +503,12 @@ export default function ScoringForm({
               border: programId ? '2px solid var(--primary)' : '1px solid #d1d5db' 
             }}
           >
-            <option value="">-- Select Program ({programs.length} Available) --</option>
-            {programs.map((p: any) => {
+            <option value="">-- Select Program ({searchedPrograms.length} Available) --</option>
+            {searchedPrograms.map((p: any) => {
               const timeStr = p.startTime ? new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
               return (
                 <option key={p.id} value={p.id}>
-                  {timeStr ? `${timeStr} • ` : ''}{p.programCode ? `[${p.programCode}] ` : ''}{p.name} ({p.category?.name || 'General'}) [{p.stageType === 'OFF_STAGE' ? 'OFF' : 'ON'}]
+                  {timeStr ? `${timeStr} • ` : ''}{p.programCode ? `[#${p.programCode}] ` : ''}{p.name} ({p.category?.name || 'General'}) [{p.stageType === 'OFF_STAGE' ? 'OFF' : 'ON'}]
                 </option>
               );
             })}
