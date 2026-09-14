@@ -67,7 +67,7 @@ export default async function SchedulePage(props: {
       }
     }
 
-    const programs = await prisma.program.findMany({
+    const rawPrograms = await prisma.program.findMany({
       where: programWhere,
       include: {
         event: true,
@@ -75,14 +75,23 @@ export default async function SchedulePage(props: {
         _count: { select: { assignments: true } },
         assignments: {
           include: {
-            candidate: { include: { team: true } }
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
           }
         },
         judges: {
           select: { id: true, username: true }
         }
       },
-      orderBy: { startTime: 'asc' }
+      orderBy: [
+        { venue: 'asc' },
+        { startTime: 'asc' },
+        { programCode: 'asc' }
+      ]
     });
 
     let zoneJudges: any[] = [];
@@ -90,10 +99,39 @@ export default async function SchedulePage(props: {
     if (activeEventId) {
       activeEv = await prisma.event.findUnique({
         where: { id: activeEventId },
-        include: { selectedJudges: { select: { id: true, username: true } } }
+        include: { 
+          zone: true,
+          selectedJudges: { select: { id: true, username: true } } 
+        }
       });
       zoneJudges = activeEv?.selectedJudges || [];
     }
+
+    const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+    // Deduplicate programs across parent and child events
+    const mergedMap = new Map<string, any>();
+    for (const p of rawPrograms) {
+      const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+      } else {
+        const existing = mergedMap.get(key);
+        const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+        for (const a of p.assignments) {
+          if (!existingIds.has(a.id)) {
+            existing.assignments.push(a);
+            existingIds.add(a.id);
+          }
+        }
+        if (!existing.venue && p.venue) existing.venue = p.venue;
+        if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+        if (p.eventId === activeEventId && p.venue) existing.venue = p.venue;
+        if (p.eventId === activeEventId && p.startTime) existing.startTime = p.startTime;
+      }
+    }
+
+    const programs = Array.from(mergedMap.values());
 
     return (
       <div className="animate-fade-in">
@@ -125,6 +163,7 @@ export default async function SchedulePage(props: {
           <AdminScheduler 
             initialPrograms={programs as any} 
             eventId={activeEventId || "default"} 
+            targetZoneId={targetZoneId}
             allJudges={zoneJudges}
             isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
             eventStatusOverride={activeEv?.statusOverride || "AUTO"}

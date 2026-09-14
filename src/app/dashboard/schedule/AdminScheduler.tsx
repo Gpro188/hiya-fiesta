@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ZoneScheduleAnalyzer from "./ZoneScheduleAnalyzer";
+import { getZoneCandidatesForProgram, calculateDynamicProgramDuration } from "@/lib/scheduleCalculator";
 import { 
   updateProgramSchedule, 
   autoCalculateCandidateSlots, 
@@ -17,6 +19,7 @@ import { importScheduleFromExcel, checkSchedulingConflicts } from "./importActio
 export default function AdminScheduler({ 
   initialPrograms, 
   eventId, 
+  targetZoneId = null,
   allJudges = [],
   isSuperAdmin = false,
   eventStatusOverride = "AUTO",
@@ -24,6 +27,7 @@ export default function AdminScheduler({
 }: { 
   initialPrograms: any[], 
   eventId: string, 
+  targetZoneId?: string | null,
   allJudges?: any[],
   isSuperAdmin?: boolean,
   eventStatusOverride?: string,
@@ -100,31 +104,89 @@ export default function AdminScheduler({
     baseDate.setHours(9, 0, 0, 0); // Strictly 9:00 AM sharp!
 
     let currentCursor = new Date(baseDate.getTime());
+    let totalCandidates = 0;
+
     const predictedList = venuePrograms.map((p, idx) => {
+      const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
+      const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
+
+      totalCandidates += calcInfo.candidateCount;
+      const effectiveDuration = p.duration && p.duration > 0 ? p.duration : calcInfo.duration;
+
       const start = new Date(currentCursor.getTime());
-      const duration = p.duration || 10;
-      const end = new Date(start.getTime() + duration * 60000);
+      const end = new Date(start.getTime() + effectiveDuration * 60000);
       currentCursor = new Date(end.getTime() + bufferMinutes * 60000);
+
       return {
         program: p,
         index: idx + 1,
         predictedStart: start,
         predictedEnd: end,
-        duration,
+        duration: effectiveDuration,
+        candidateCount: calcInfo.candidateCount,
+        teamCount: calcInfo.teamCount,
+        durationPerItem: calcInfo.durationPerItem,
+        filteredAssignments: zoneCandidates
       };
     });
 
-    const totalDurationMinutes = venuePrograms.reduce((acc, p) => acc + (p.duration || 10), 0) + 
-      Math.max(0, venuePrograms.length - 1) * bufferMinutes;
+    const totalDurationMinutes = predictedList.reduce((acc, p) => acc + p.duration, 0) + 
+      Math.max(0, predictedList.length - 1) * bufferMinutes;
 
     const finalEndTime = predictedList.length > 0 ? predictedList[predictedList.length - 1].predictedEnd : baseDate;
 
     return {
       predictedList,
       totalDurationMinutes,
+      totalCandidates,
       predictedStart: baseDate,
       predictedEnd: finalEndTime,
     };
+  };
+
+  // Auto-calculate venue program durations based on registered candidates attending in this zone/event
+  const handleAutoCalculateVenueByCandidates = async (venue: string) => {
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length === 0) return;
+
+    const config = getVenueConfig(venue);
+    setLoadingId(`auto-calc-${venue}`);
+    try {
+      // Calculate dynamic duration for each program as candidateCount * minPerCandidate
+      const updatedVenueProgs = venueProgs.map(p => {
+        const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
+        const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
+        return { ...p, duration: calcInfo.duration };
+      });
+
+      const { predictedList } = getPredictedVenueTimeline(updatedVenueProgs, config.startTime, config.buffer);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, { start: item.predictedStart.toISOString(), duration: item.duration }]));
+
+      setPrograms(prev => {
+        return prev.map(p => {
+          if (updateMap.has(p.id)) {
+            const info = updateMap.get(p.id)!;
+            return { ...p, duration: info.duration, startTime: info.start, venue };
+          }
+          return p;
+        });
+      });
+
+      const updates = predictedList.map(item => ({
+        id: item.program.id,
+        startTime: item.predictedStart.toISOString(),
+        duration: item.duration,
+        stageType: item.program.stageType,
+        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+      }));
+
+      await applySequentialVenueSchedule(eventId, venue, updates);
+      alert(`✅ Auto-calculated ${predictedList.length} programs in ${venue} based on registered candidates! Timings start at 09:00 AM.`);
+    } catch (e: any) {
+      alert("Failed to auto-calculate: " + (e.message || "Unknown error"));
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   // Reordering inside venue: instantly updates sequence and auto-saves the 9:00 AM sequential timings
@@ -602,6 +664,12 @@ export default function AdminScheduler({
             )
           )}
 
+          <ZoneScheduleAnalyzer 
+            isSuperAdmin={isSuperAdmin} 
+            activeEventId={eventId} 
+            onScheduleUpdated={() => window.location.reload()} 
+          />
+
           <button className="btn btn-primary" onClick={handleAutoGenerate} disabled={loadingId !== null}>
             {loadingId === "auto-gen" ? "..." : "🤖 Auto-Generate Schedule"}
           </button>
@@ -688,7 +756,7 @@ export default function AdminScheduler({
         const venueProgs = groupedPrograms[venue] || [];
         const isUnassigned = venue === "Unassigned";
         const config = getVenueConfig(venue);
-        const { predictedList, totalDurationMinutes, predictedStart, predictedEnd } = 
+        const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = 
           getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
 
         // Check if finished by 6:00 PM (18:00)
@@ -802,28 +870,54 @@ export default function AdminScheduler({
                     </div>
                   </div>
 
-                  {/* 1-Click Save Order & Apply Timings (from 9:00 AM) Button */}
-                  <button
-                    onClick={() => handleApplyVenueTimings(venue)}
-                    disabled={loadingId !== null}
-                    style={{
-                      padding: "8px 18px",
-                      backgroundColor: "#8E0033",
-                      color: "#ffffff",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontWeight: 800,
-                      fontSize: "0.85rem",
-                      cursor: loadingId !== null ? "not-allowed" : "pointer",
-                      boxShadow: "0 2px 6px rgba(142, 0, 51, 0.25)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px"
-                    }}
-                  >
-                    <span>💾</span>
-                    <span>{loadingId === `apply-${venue}` ? "Saving..." : "Save Order & Timings (From 9:00 AM)"}</span>
-                  </button>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                    {/* 1-Click Auto-Calculate by Candidates Button */}
+                    <button
+                      onClick={() => handleAutoCalculateVenueByCandidates(venue)}
+                      disabled={loadingId !== null}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: "#4f46e5",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontWeight: 800,
+                        fontSize: "0.82rem",
+                        cursor: loadingId !== null ? "not-allowed" : "pointer",
+                        boxShadow: "0 2px 6px rgba(79, 70, 229, 0.25)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                      title="Calculate program durations from registered candidates in this zone and set 9:00 AM timeline"
+                    >
+                      <span>⚡</span>
+                      <span>{loadingId === `auto-calc-${venue}` ? "Calculating..." : "Auto-Calculate by Candidates"}</span>
+                    </button>
+
+                    {/* 1-Click Save Order & Apply Timings (from 9:00 AM) Button */}
+                    <button
+                      onClick={() => handleApplyVenueTimings(venue)}
+                      disabled={loadingId !== null}
+                      style={{
+                        padding: "8px 18px",
+                        backgroundColor: "#8E0033",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontWeight: 800,
+                        fontSize: "0.85rem",
+                        cursor: loadingId !== null ? "not-allowed" : "pointer",
+                        boxShadow: "0 2px 6px rgba(142, 0, 51, 0.25)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <span>💾</span>
+                      <span>{loadingId === `apply-${venue}` ? "Saving..." : "Save Order & Timings"}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Timeline Live Summary */}
@@ -840,6 +934,10 @@ export default function AdminScheduler({
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     <span style={{ color: "#475569" }}>
                       Total Programs: <strong>{venueProgs.length}</strong>
+                    </span>
+                    <span>•</span>
+                    <span style={{ color: "#475569" }}>
+                      Candidates: <strong>{totalCandidates}</strong>
                     </span>
                     <span>•</span>
                     <span style={{ color: "#475569" }}>
@@ -1012,7 +1110,18 @@ export default function AdminScheduler({
                                   {program.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
                                 </span>
                                 <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                                  {program.category?.name || "General"} • {program._count?.assignments || 0} Candidates
+                                  {program.category?.name || "General"}
+                                </span>
+                                <span style={{
+                                  fontSize: "0.70rem",
+                                  fontWeight: 700,
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
+                                  color: item.candidateCount > 0 ? "#059669" : "#64748b",
+                                  border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
+                                }}>
+                                  👥 {item.candidateCount} Candidates ({item.duration} mins)
                                 </span>
                               </div>
                             )}

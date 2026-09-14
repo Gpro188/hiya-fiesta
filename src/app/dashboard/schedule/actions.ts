@@ -592,3 +592,440 @@ export async function applySequentialVenueSchedule(
     return { success: false, error: error?.message || "Failed to apply sequential schedule" };
   }
 }
+
+export async function getZoneScheduleAnalysis(sourceEventId?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline, formatMinutes, formatTimeAmPm } = await import("@/lib/scheduleCalculator");
+
+    // Fetch master event for reference
+    const masterEvent = await prisma.event.findFirst({
+      where: { OR: [{ parentId: null }, { type: "STATE" }] },
+      select: { id: true, name: true, type: true }
+    });
+
+    // Fetch zones
+    let zoneWhere: any = {
+      OR: [
+        { type: "ZONE" },
+        { parentId: { not: null } }
+      ]
+    };
+
+    if (session.user.role === "ZONE_ADMIN") {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { zoneId: true, eventId: true }
+      });
+      if (fullUser?.zoneId) {
+        zoneWhere = { zoneId: fullUser.zoneId };
+      } else if (fullUser?.eventId) {
+        zoneWhere = { id: fullUser.eventId };
+      }
+    }
+
+    const rawZones = await prisma.event.findMany({
+      where: zoneWhere,
+      include: {
+        zone: true,
+        parent: true
+      },
+      orderBy: { name: "asc" }
+    });
+
+    // Deduplicate zone events by name
+    const seenZoneNames = new Set<string>();
+    const zoneEvents = rawZones.filter(z => {
+      const key = z.name.trim().toLowerCase();
+      if (seenZoneNames.has(key)) return false;
+      seenZoneNames.add(key);
+      return true;
+    });
+
+    // Fetch all programs from master and zones to map venue order
+    const allPrograms = await prisma.program.findMany({
+      include: {
+        category: true,
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { venue: "asc" },
+        { startTime: "asc" },
+        { programCode: "asc" }
+      ]
+    });
+
+    // Build master template programs (defined venues and sequential order)
+    const masterTemplateMap = new Map<string, any>();
+    for (const p of allPrograms) {
+      if (!p.venue) continue;
+      const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
+      if (!masterTemplateMap.has(key)) {
+        masterTemplateMap.set(key, p);
+      } else {
+        const existing = masterTemplateMap.get(key);
+        if (p.eventId === masterEvent?.id) {
+          masterTemplateMap.set(key, p);
+        }
+      }
+    }
+
+    const analysisResults = [];
+
+    for (const zoneEv of zoneEvents) {
+      const targetZoneId = zoneEv.zoneId || zoneEv.zone?.id;
+
+      // Collect programs relevant to this zone, merged with master venue & order
+      const zoneMergedMap = new Map<string, any>();
+
+      for (const [key, mProg] of masterTemplateMap.entries()) {
+        zoneMergedMap.set(key, {
+          id: mProg.id,
+          programCode: mProg.programCode,
+          name: mProg.name,
+          type: mProg.type,
+          stageType: mProg.stageType,
+          venue: mProg.venue,
+          duration: mProg.duration,
+          category: mProg.category,
+          assignments: [] as any[]
+        });
+      }
+
+      // Populate candidate assignments for this zone
+      for (const prog of allPrograms) {
+        const key = prog.programCode ? `code_${prog.programCode.trim()}` : `name_${prog.name.trim()}_${prog.categoryId || ''}`;
+        let target = zoneMergedMap.get(key);
+        if (!target && prog.venue) {
+          target = {
+            id: prog.id,
+            programCode: prog.programCode,
+            name: prog.name,
+            type: prog.type,
+            stageType: prog.stageType,
+            venue: prog.venue,
+            duration: prog.duration,
+            category: prog.category,
+            assignments: []
+          };
+          zoneMergedMap.set(key, target);
+        }
+
+        if (target) {
+          const existingIds = new Set(target.assignments.map((a: any) => a.id));
+          for (const a of prog.assignments) {
+            if (!existingIds.has(a.id)) {
+              target.assignments.push(a);
+              existingIds.add(a.id);
+            }
+          }
+        }
+      }
+
+      const zonePrograms = Array.from(zoneMergedMap.values()).filter(p => p.stageType === "ON_STAGE" || !p.stageType);
+
+      // Group by venue
+      const venueGroups: Record<string, any[]> = {};
+      for (const p of zonePrograms) {
+        const v = p.venue || "Unassigned Stage";
+        if (!venueGroups[v]) venueGroups[v] = [];
+        venueGroups[v].push(p);
+      }
+
+      // Calculate timeline per venue
+      const venueReports = [];
+      let maxEndDateTime = new Date();
+      maxEndDateTime.setHours(9, 0, 0, 0);
+
+      for (const [vName, vProgs] of Object.entries(venueGroups)) {
+        if (vName === "Unassigned Stage") continue;
+        const timeline = calculateVenueTimeline(vName, vProgs, {
+          targetZoneId,
+          bufferMinutes: 2
+        });
+
+        if (timeline.endTime.getTime() > maxEndDateTime.getTime()) {
+          maxEndDateTime = new Date(timeline.endTime.getTime());
+        }
+
+        venueReports.push({
+          venue: vName,
+          totalPrograms: timeline.totalPrograms,
+          totalCandidates: timeline.totalCandidates,
+          totalDurationMinutes: timeline.totalDurationMinutes,
+          formattedDuration: formatMinutes(timeline.totalDurationMinutes),
+          startTime: formatTimeAmPm(timeline.startTime),
+          endTime: formatTimeAmPm(timeline.endTime),
+          status: timeline.status,
+          statusText: timeline.statusText,
+          statusColor: timeline.statusColor,
+          programs: timeline.programs.map(slot => ({
+            id: slot.program.id,
+            programCode: slot.program.programCode,
+            name: slot.program.name,
+            type: slot.program.type,
+            candidateCount: slot.candidateCount,
+            durationPerCandidate: slot.durationPerItem,
+            durationMinutes: slot.duration,
+            startTime: formatTimeAmPm(slot.predictedStart),
+            endTime: formatTimeAmPm(slot.predictedEnd)
+          }))
+        });
+      }
+
+      // Overall 1-day feasibility for this zone
+      const maxHours = maxEndDateTime.getHours() + maxEndDateTime.getMinutes() / 60;
+      let zoneStatus: "FEASIBLE" | "TIGHT" | "OVERRUN" = "FEASIBLE";
+      if (maxHours > 20) zoneStatus = "OVERRUN";
+      else if (maxHours > 18) zoneStatus = "TIGHT";
+
+      analysisResults.push({
+        eventId: zoneEv.id,
+        zoneName: zoneEv.name,
+        zoneId: targetZoneId,
+        venues: venueReports,
+        totalVenues: venueReports.length,
+        totalPrograms: venueReports.reduce((sum, v) => sum + v.totalPrograms, 0),
+        totalCandidates: venueReports.reduce((sum, v) => sum + v.totalCandidates, 0),
+        overallFinishTime: formatTimeAmPm(maxEndDateTime),
+        zoneStatus,
+        isOneDayFeasible: zoneStatus !== "OVERRUN"
+      });
+    }
+
+    return {
+      success: true,
+      zones: analysisResults,
+      masterEventId: masterEvent?.id
+    };
+  } catch (error: any) {
+    console.error("Failed to get zone schedule analysis:", error);
+    return { success: false, error: error?.message || "Failed to analyze zone schedules" };
+  }
+}
+
+export async function applyRegistrationBasedScheduleToZone(
+  zoneEventId: string,
+  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline } = await import("@/lib/scheduleCalculator");
+
+    const zoneEv = await prisma.event.findUnique({
+      where: { id: zoneEventId },
+      include: { zone: true, parent: true }
+    });
+
+    if (!zoneEv) return { success: false, error: "Zone Event not found" };
+    const targetZoneId = zoneEv.zoneId || zoneEv.zone?.id;
+    const parentId = zoneEv.parentId;
+
+    // Fetch programs from parent and zone
+    const programWhere: any = parentId
+      ? { OR: [{ eventId: zoneEventId }, { eventId: parentId }] }
+      : { eventId: zoneEventId };
+
+    const rawPrograms = await prisma.program.findMany({
+      where: programWhere,
+      include: {
+        category: true,
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          },
+          orderBy: { createdAt: "asc" }
+        }
+      },
+      orderBy: [
+        { venue: "asc" },
+        { startTime: "asc" },
+        { programCode: "asc" }
+      ]
+    });
+
+    // Merge by programCode / name
+    const mergedMap = new Map<string, any>();
+    for (const p of rawPrograms) {
+      const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+      } else {
+        const existing = mergedMap.get(key);
+        const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+        for (const a of p.assignments) {
+          if (!existingIds.has(a.id)) {
+            existing.assignments.push(a);
+            existingIds.add(a.id);
+          }
+        }
+        if (!existing.venue && p.venue) existing.venue = p.venue;
+        if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+      }
+    }
+
+    const programs = Array.from(mergedMap.values()).filter(p => p.stageType === "ON_STAGE" || !p.stageType);
+
+    // Group by venue
+    const venueGroups: Record<string, any[]> = {};
+    for (const p of programs) {
+      if (!p.venue) continue;
+      if (!venueGroups[p.venue]) venueGroups[p.venue] = [];
+      venueGroups[p.venue].push(p);
+    }
+
+    let updatedProgramsCount = 0;
+    let updatedSlotsCount = 0;
+
+    for (const [venueName, vProgs] of Object.entries(venueGroups)) {
+      const timeline = calculateVenueTimeline(venueName, vProgs, {
+        targetZoneId,
+        bufferMinutes: options?.bufferMinutes ?? 2,
+        minutesPerCandidate: options?.defaultMinPerCandidate
+      });
+
+      for (const slot of timeline.programs) {
+        const prog = slot.program;
+        const calcStart = slot.predictedStart;
+        const calcDuration = slot.duration;
+
+        // Update program record(s) matching this program
+        const matchingProgIds = rawPrograms
+          .filter(rp => (prog.programCode && rp.programCode === prog.programCode) || rp.name === prog.name)
+          .map(rp => rp.id);
+
+        if (matchingProgIds.length > 0) {
+          await prisma.program.updateMany({
+            where: { id: { in: matchingProgIds } },
+            data: {
+              venue: venueName,
+              startTime: calcStart,
+              duration: calcDuration
+            }
+          });
+          updatedProgramsCount += matchingProgIds.length;
+        }
+
+        // Calculate slots for candidate assignments in this zone
+        if (slot.filteredAssignments.length > 0) {
+          const durationPerItem = slot.durationPerItem;
+          const isIndividual = (prog.type || "INDIVIDUAL").toUpperCase() === "INDIVIDUAL";
+
+          const assignmentUpdates = slot.filteredAssignments.map((assignment, index) => {
+            let slotNum = index + 1;
+            let scheduledTime = isIndividual
+              ? new Date(calcStart.getTime() + index * durationPerItem * 60000)
+              : calcStart;
+
+            return prisma.programAssignment.update({
+              where: { id: assignment.id },
+              data: {
+                slotNumber: slotNum,
+                scheduledTime
+              }
+            });
+          });
+
+          await prisma.$transaction(assignmentUpdates);
+          updatedSlotsCount += assignmentUpdates.length;
+        }
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/valuation");
+    revalidatePath("/print/tabulation");
+
+    return {
+      success: true,
+      zoneName: zoneEv.name,
+      updatedProgramsCount,
+      updatedSlotsCount
+    };
+  } catch (error: any) {
+    console.error("Failed to apply registration schedule to zone:", error);
+    return { success: false, error: error?.message || "Failed to apply schedule" };
+  }
+}
+
+export async function applyRegistrationBasedScheduleToAllZones(
+  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const zones = await prisma.event.findMany({
+      where: {
+        OR: [
+          { type: "ZONE" },
+          { parentId: { not: null } }
+        ]
+      },
+      select: { id: true, name: true }
+    });
+
+    const seenNames = new Set<string>();
+    const uniqueZones = zones.filter(z => {
+      const key = z.name.trim().toLowerCase();
+      if (seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
+
+    let totalPrograms = 0;
+    let totalSlots = 0;
+    const syncedZoneNames = [];
+
+    for (const zone of uniqueZones) {
+      const res = await applyRegistrationBasedScheduleToZone(zone.id, options);
+      if (res.success) {
+        totalPrograms += res.updatedProgramsCount || 0;
+        totalSlots += res.updatedSlotsCount || 0;
+        syncedZoneNames.push(zone.name);
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/stage-manager");
+
+    return {
+      success: true,
+      zonesProcessed: syncedZoneNames.length,
+      totalPrograms,
+      totalSlots,
+      zoneNames: syncedZoneNames
+    };
+  } catch (error: any) {
+    console.error("Failed to apply registration schedule to all zones:", error);
+    return { success: false, error: error?.message || "Failed to batch apply schedule" };
+  }
+}
+
