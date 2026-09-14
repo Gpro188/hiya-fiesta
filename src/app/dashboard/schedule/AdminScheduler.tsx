@@ -57,10 +57,10 @@ export default function AdminScheduler({
 
   useEffect(() => {
     fetchConflicts();
-  }, [programs]);
+  }, [programs, eventId, targetZoneId]);
 
   const fetchConflicts = async () => {
-    const result = await checkSchedulingConflicts(eventId);
+    const result = await checkSchedulingConflicts(eventId, targetZoneId);
     if (result.success) {
       setConflicts(result.conflicts || []);
     }
@@ -388,7 +388,7 @@ export default function AdminScheduler({
       duration,
       stageType,
       judgeIds
-    });
+    }, eventId);
 
     setPrograms(programs.map(p => {
       if (p.id === id) {

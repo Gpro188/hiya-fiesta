@@ -73,26 +73,94 @@ export async function importScheduleFromExcel(eventId: string, base64Data: strin
   }
 }
 
-export async function checkSchedulingConflicts(eventId: string) {
+export async function checkSchedulingConflicts(eventId: string, targetZoneId?: string | null) {
   try {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true }
+    });
+
+    if (!event) return { success: true, conflicts: [] };
+
+    const isStateEvent = (!event.parentId || event.type === "STATE") && !targetZoneId && !event.zoneId;
+
+    if (isStateEvent) {
+      // In Super Admin / State Fest: only show after zonal fest is completed and candidates are promoted to state fest
+      const stateQualifiedCount = await prisma.candidate.count({
+        where: { isStateQualified: true }
+      });
+
+      if (stateQualifiedCount === 0) {
+        return { success: true, conflicts: [] };
+      }
+    }
+
+    const zoneId = targetZoneId || event.zoneId || event.zone?.id;
+
+    // Fetch candidate assignments
     const assignments = await prisma.programAssignment.findMany({
-      where: { program: { eventId } },
+      where: {
+        OR: [
+          { program: { eventId } },
+          ...(event.parentId ? [{ program: { eventId: event.parentId } }] : [])
+        ]
+      },
       include: {
-        candidate: true,
+        candidate: {
+          include: {
+            institution: { include: { zone: true } },
+            team: { include: { institution: { include: { zone: true } } } }
+          }
+        },
         program: true,
       }
     });
+
+    // If state event with qualified candidates, only check qualified candidates
+    let filteredAssignments = assignments;
+    if (isStateEvent) {
+      filteredAssignments = assignments.filter(as => as.candidate?.isStateQualified);
+    } else if (zoneId) {
+      // Filter strictly to candidates in THIS specific zone
+      filteredAssignments = assignments.filter(as => {
+        if (!as.candidate) return false;
+        const c = as.candidate;
+        const cZoneId =
+          c.institution?.zoneId ||
+          c.institution?.zone?.id ||
+          c.team?.institution?.zoneId ||
+          c.team?.institution?.zone?.id;
+        return cZoneId === zoneId;
+      });
+    }
+
+    // Fetch zone programs to get zone-specific timing
+    const zonePrograms = await prisma.program.findMany({
+      where: { eventId }
+    });
+    const zoneProgMap = new Map<string, any>();
+    for (const zp of zonePrograms) {
+      if (zp.programCode) zoneProgMap.set(`code_${zp.programCode.trim().toLowerCase()}`, zp);
+      zoneProgMap.set(`name_${zp.name.trim().toLowerCase()}`, zp);
+    }
 
     const conflicts: any[] = [];
     
     // Group assignments by candidate
     const candidateSchedules: Record<string, any[]> = {};
-    assignments.forEach(as => {
-      if (!as.program.startTime) return;
+    filteredAssignments.forEach(as => {
+      const key1 = as.program.programCode ? `code_${as.program.programCode.trim().toLowerCase()}` : '';
+      const key2 = `name_${as.program.name.trim().toLowerCase()}`;
+      const zoneProg = (key1 && zoneProgMap.get(key1)) || zoneProgMap.get(key2);
+
+      const progTime = zoneProg?.startTime || as.program.startTime;
+      const progDuration = zoneProg?.duration || as.program.duration || 10;
+      if (!progTime) return;
+      
       if (!candidateSchedules[as.candidateId]) candidateSchedules[as.candidateId] = [];
       
-      const start = new Date(as.program.startTime).getTime();
-      const end = start + (as.program.duration * 60 * 1000);
+      const start = new Date(progTime).getTime();
+      const end = start + (progDuration * 60 * 1000);
       
       candidateSchedules[as.candidateId].push({
         id: as.id,
@@ -114,7 +182,7 @@ export async function checkSchedulingConflicts(eventId: string) {
             conflicts.push({
               candidateName: a.candidateName,
               programs: [a.programName, b.programName],
-              time: new Date(a.start).toLocaleString()
+              time: new Date(a.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             });
           }
         }
@@ -151,7 +219,6 @@ export async function checkSchedulingConflicts(eventId: string) {
           const b = schedule[j];
           
           if (a.start < b.end && b.start < a.end) {
-            // Check if this specific conflict is already added to avoid duplicates
             const conflictExists = conflicts.some(c => 
               c.candidateName === `Jury: ${a.juryName}` && 
               c.programs.includes(a.programName) && 
@@ -162,7 +229,7 @@ export async function checkSchedulingConflicts(eventId: string) {
               conflicts.push({
                 candidateName: `Jury: ${a.juryName}`,
                 programs: [a.programName, b.programName],
-                time: new Date(a.start).toLocaleString()
+                time: new Date(a.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               });
             }
           }
@@ -172,6 +239,7 @@ export async function checkSchedulingConflicts(eventId: string) {
 
     return { success: true, conflicts };
   } catch (error) {
+    console.error("Error checking scheduling conflicts:", error);
     return { success: false, error: "Failed to check conflicts" };
   }
 }

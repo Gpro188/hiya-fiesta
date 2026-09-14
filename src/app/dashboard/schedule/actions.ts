@@ -5,11 +5,55 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-export async function updateProgramSchedule(id: string, data: { venue: string | null, startTime: string | null, duration?: number, stageType?: string, judgeIds?: string[] }) {
+export async function updateProgramSchedule(
+  id: string, 
+  data: { venue: string | null, startTime: string | null, duration?: number, stageType?: string, judgeIds?: string[] },
+  targetEventId?: string
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
+    }
+
+    const currentProg = await prisma.program.findUnique({
+      where: { id },
+      select: { id: true, eventId: true, name: true, programCode: true, categoryId: true, type: true, stageType: true }
+    });
+
+    if (!currentProg) return { success: false, error: "Program not found" };
+
+    let targetId = id;
+    if (targetEventId && currentProg.eventId !== targetEventId) {
+      // Trying to update a parent program while on a zonal event view
+      let zoneProg = await prisma.program.findFirst({
+        where: {
+          eventId: targetEventId,
+          OR: [
+            ...(currentProg.programCode ? [{ programCode: currentProg.programCode }] : []),
+            { name: currentProg.name }
+          ]
+        }
+      });
+
+      if (!zoneProg) {
+        zoneProg = await prisma.program.create({
+          data: {
+            name: currentProg.name,
+            programCode: currentProg.programCode,
+            type: currentProg.type || "INDIVIDUAL",
+            categoryId: currentProg.categoryId,
+            eventId: targetEventId,
+            stageType: data.stageType || currentProg.stageType || "ON_STAGE",
+            duration: data.duration ?? 10,
+            venue: data.venue,
+            startTime: data.startTime ? new Date(data.startTime) : null
+          }
+        });
+        targetId = zoneProg.id;
+      } else {
+        targetId = zoneProg.id;
+      }
     }
 
     const updateData: any = {
@@ -26,7 +70,7 @@ export async function updateProgramSchedule(id: string, data: { venue: string | 
     }
 
     await prisma.program.update({
-      where: { id },
+      where: { id: targetId },
       data: updateData
     });
 
@@ -561,7 +605,60 @@ export async function applySequentialVenueSchedule(
       return { success: false, error: "Unauthorized" };
     }
 
-    const updates = programUpdates.map((item) => {
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, parentId: true, type: true }
+    });
+
+    const isZoneEvent = Boolean(targetEvent?.parentId) || targetEvent?.type === "ZONE";
+
+    const targetProgramIds = programUpdates.map(p => p.id);
+    const existingPrograms = await prisma.program.findMany({
+      where: { id: { in: targetProgramIds } },
+      select: { id: true, eventId: true, programCode: true, name: true, categoryId: true, type: true, stageType: true }
+    });
+    const progMap = new Map(existingPrograms.map(p => [p.id, p]));
+
+    let zoneProgramsForMatching: any[] = [];
+    if (isZoneEvent) {
+      zoneProgramsForMatching = await prisma.program.findMany({
+        where: { eventId },
+        select: { id: true, programCode: true, name: true, categoryId: true, type: true, stageType: true }
+      });
+    }
+
+    const updates = [];
+    for (const item of programUpdates) {
+      const p = progMap.get(item.id);
+      let targetId = item.id;
+
+      if (isZoneEvent && p && p.eventId !== eventId) {
+        let zoneProg = zoneProgramsForMatching.find(zp => 
+          (zp.programCode && p.programCode && zp.programCode.trim().toLowerCase() === p.programCode.trim().toLowerCase()) ||
+          (zp.name.trim().toLowerCase() === p.name.trim().toLowerCase())
+        );
+
+        if (!zoneProg) {
+          zoneProg = await prisma.program.create({
+            data: {
+              name: p.name,
+              programCode: p.programCode,
+              type: p.type || "INDIVIDUAL",
+              categoryId: p.categoryId,
+              eventId: eventId,
+              stageType: item.stageType || p.stageType || "ON_STAGE",
+              duration: item.duration || 10,
+              venue: venue,
+              startTime: new Date(item.startTime),
+            }
+          });
+          zoneProgramsForMatching.push(zoneProg);
+          continue;
+        } else {
+          targetId = zoneProg.id;
+        }
+      }
+
       const data: any = {
         venue,
         startTime: new Date(item.startTime),
@@ -573,20 +670,25 @@ export async function applySequentialVenueSchedule(
           set: item.judgeIds.map(id => ({ id }))
         };
       }
-      return prisma.program.update({
-        where: { id: item.id },
-        data
-      });
-    });
 
-    await prisma.$transaction(updates);
+      updates.push(
+        prisma.program.update({
+          where: { id: targetId },
+          data
+        })
+      );
+    }
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
+    }
 
     revalidatePath("/dashboard/schedule");
     revalidatePath("/print/schedule");
     revalidatePath("/print/venue");
     revalidatePath("/print/stage-manager");
 
-    return { success: true, count: updates.length };
+    return { success: true, count: programUpdates.length };
   } catch (error: any) {
     console.error("Failed to apply sequential venue schedule:", error);
     return { success: false, error: error?.message || "Failed to apply sequential schedule" };

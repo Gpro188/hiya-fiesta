@@ -124,10 +124,34 @@ export default async function SchedulePage(props: {
             existingIds.add(a.id);
           }
         }
-        if (!existing.venue && p.venue) existing.venue = p.venue;
-        if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
-        if (p.eventId === activeEventId && p.venue) existing.venue = p.venue;
-        if (p.eventId === activeEventId && p.startTime) existing.startTime = p.startTime;
+        if (p.eventId === activeEventId) {
+          existing.id = p.id;
+          existing.eventId = p.eventId;
+          existing.venue = p.venue || existing.venue;
+          existing.startTime = p.startTime || existing.startTime;
+          existing.duration = p.duration || existing.duration;
+          existing.stageType = p.stageType || existing.stageType;
+          if (p.judges && p.judges.length > 0) existing.judges = p.judges;
+        } else if (existing.eventId !== activeEventId) {
+          if (!existing.venue && p.venue) existing.venue = p.venue;
+          if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+        }
+      }
+    }
+
+    // If viewing a zone, filter candidate assignments strictly to that zone
+    if (targetZoneId) {
+      for (const prog of mergedMap.values()) {
+        prog.assignments = prog.assignments.filter((a: any) => {
+          const c = a.candidate;
+          if (!c) return false;
+          const cZoneId =
+            c.institution?.zoneId ||
+            c.institution?.zone?.id ||
+            c.team?.institution?.zoneId ||
+            c.team?.institution?.zone?.id;
+          return cZoneId === targetZoneId;
+        });
       }
     }
 
