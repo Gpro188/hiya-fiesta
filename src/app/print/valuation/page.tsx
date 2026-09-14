@@ -493,80 +493,48 @@ export default async function PrintValuationPage(props: {
                   <table style={{
                     width: "100%",
                     borderCollapse: "collapse",
-                    fontSize: "0.80rem",
-                    marginBottom: "10px",
+                    fontSize: "0.82rem",
+                    marginBottom: "14px",
                     border: "1.5px solid #0f172a",
                   }}>
                     <thead>
                       <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                        <th style={{ width: "42px", padding: "7px 4px", border: "1px solid #334155" }}>Sl</th>
-                        <th style={{ width: "100px", padding: "7px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
+                        <th style={{ width: "45px", padding: "8px 4px", border: "1px solid #334155" }}>Sl</th>
+                        <th style={{ width: "130px", padding: "8px 6px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
                           Code Letter
                         </th>
-                        <th style={{ width: "95px", padding: "7px 4px", border: "1px solid #334155" }}>
-                          Chest No.
+                        <th style={{ width: "160px", padding: "8px 6px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
+                          Score / Points (Max 100)
                         </th>
-                        <th style={{ padding: "7px 8px", border: "1px solid #334155", textAlign: "left" }}>
-                          Candidate Name / Institution
-                        </th>
-                        <th style={{ width: "115px", padding: "7px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
-                          Total Score (100)
-                        </th>
-                        <th style={{ width: "85px", padding: "7px 4px", border: "1px solid #334155" }}>
-                          Grade
-                        </th>
-                        <th style={{ width: "85px", padding: "7px 4px", border: "1px solid #334155" }}>
-                          Place
-                        </th>
-                        <th style={{ width: "180px", padding: "7px 8px", border: "1px solid #334155" }}>
+                        <th style={{ padding: "8px 12px", border: "1px solid #334155", textAlign: "left" }}>
                           Remarks
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {candidateAssignments.map((assignment: any, idx: number) => {
-                        const c = assignment.candidate;
-                        const instName = c?.institution?.name || c?.team?.institution?.name || c?.team?.name || "-";
-
                         return (
                           <tr key={assignment.id} style={{
                             backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
                             textAlign: "center",
-                            height: "44px",
+                            height: "46px",
                           }}>
                             <td style={{ border: "1px solid #cbd5e1", fontWeight: 800 }}>{idx + 1}</td>
                             
                             {/* Code Letter Entry Area */}
                             <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}>
                               <div style={{
-                                width: "48px",
+                                width: "54px",
                                 height: "30px",
                                 border: "1.5px dashed #475569",
-                                borderRadius: "3px",
+                                borderRadius: "4px",
                                 margin: "0 auto",
                                 backgroundColor: "#ffffff",
                               }}></div>
                             </td>
 
-                            {/* Chest No */}
-                            <td style={{ border: "1px solid #cbd5e1", fontWeight: 900, color: "#8E0033", fontFamily: "monospace", fontSize: "0.95rem" }}>
-                              {c?.chestNumber || "-"}
-                            </td>
-
-                            {/* Candidate Name & Institution */}
-                            <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", textAlign: "left" }}>
-                              <div style={{ fontWeight: 800, color: "#0f172a" }}>{c?.name}</div>
-                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{instName}</div>
-                            </td>
-
                             {/* Total Score Entry Box */}
-                            <td style={{ border: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}></td>
-
-                            {/* Grade Entry Box */}
-                            <td style={{ border: "1px solid #cbd5e1" }}></td>
-
-                            {/* Place Entry Box */}
-                            <td style={{ border: "1px solid #cbd5e1" }}></td>
+                            <td style={{ border: "1px solid #cbd5e1", backgroundColor: "#ffffff" }}></td>
 
                             {/* Remarks Box */}
                             <td style={{ border: "1px solid #cbd5e1" }}></td>
@@ -581,12 +549,12 @@ export default async function PrintValuationPage(props: {
                 <div style={{
                   border: "1.5px solid #0f172a",
                   borderRadius: "4px",
-                  padding: "10px 14px",
+                  padding: "12px 16px",
                   backgroundColor: "#fafafa",
-                  fontSize: "0.78rem",
+                  fontSize: "0.80rem",
                   pageBreakInside: "avoid",
                   breakInside: "avoid",
-                  marginTop: "12px",
+                  marginTop: "14px",
                 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "8px", paddingBottom: "6px", borderBottom: "1px dashed #cbd5e1" }}>
                     <div>
@@ -600,18 +568,18 @@ export default async function PrintValuationPage(props: {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginTop: "16px", textAlign: "center" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", marginTop: "18px", textAlign: "center" }}>
                     <div>
                       <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Jury {juryNum} Name &amp; Signature</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Jury {juryNum} Name &amp; Signature</div>
                     </div>
                     <div>
                       <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Stage Manager Signature</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Stage Manager Signature</div>
                     </div>
                     <div>
                       <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Tabulator / Chief Controller</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Date &amp; Stamp</div>
                     </div>
                   </div>
                 </div>
