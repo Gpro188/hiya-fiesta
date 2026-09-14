@@ -64,5 +64,5 @@ export default async function BulkIdCardsPage({ searchParams }: { searchParams: 
     orderBy: { name: 'asc' }
   });
 
-  return <BulkIdCardsClient candidates={candidates as any} settings={settings} initialStageType={params.stageType} />;
+  return <BulkIdCardsClient candidates={candidates as any} settings={settings} initialStageType={params.stageType || "ON_STAGE"} />;
 }

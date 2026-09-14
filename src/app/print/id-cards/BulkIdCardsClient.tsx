@@ -11,14 +11,14 @@ type StageFilter = "ALL" | "ON_STAGE" | "OFF_STAGE";
 export default function BulkIdCardsClient({
   candidates,
   settings,
-  initialStageType = "ALL",
+  initialStageType = "ON_STAGE",
 }: {
   candidates: any[];
   settings: any;
   initialStageType?: string;
 }) {
   const [stageFilter, setStageFilter] = useState<StageFilter>(
-    initialStageType === "ON_STAGE" ? "ON_STAGE" : initialStageType === "OFF_STAGE" ? "OFF_STAGE" : "ALL"
+    initialStageType === "OFF_STAGE" ? "OFF_STAGE" : initialStageType === "ALL" ? "ALL" : "ON_STAGE"
   );
   const [paperSize, setPaperSize] = useState<PaperSize>("CARD");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("MAX");

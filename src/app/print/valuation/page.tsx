@@ -4,40 +4,6 @@ import PrintButton from "@/components/PrintButton";
 
 export const dynamic = "force-dynamic";
 
-type Criterion = { name: string; max: number };
-
-function parseCriteria(criteriaStr?: string | null): Criterion[] {
-  if (!criteriaStr || !criteriaStr.trim()) {
-    return [
-      { name: "Criteria 1", max: 30 },
-      { name: "Criteria 2", max: 30 },
-      { name: "Criteria 3", max: 20 },
-      { name: "Criteria 4", max: 20 },
-    ];
-  }
-
-  const parts = criteriaStr.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-  const parsed: Criterion[] = [];
-
-  for (const part of parts) {
-    const match = part.match(/^(.+?)[\s:(]+(\d+)\s*\)?$/);
-    if (match) {
-      parsed.push({ name: match[1].trim(), max: parseInt(match[2], 10) });
-    } else {
-      parsed.push({ name: part, max: 25 });
-    }
-  }
-
-  return parsed.length > 0
-    ? parsed
-    : [
-        { name: "Criteria 1", max: 30 },
-        { name: "Criteria 2", max: 30 },
-        { name: "Criteria 3", max: 20 },
-        { name: "Criteria 4", max: 20 },
-      ];
-}
-
 export default async function PrintValuationPage(props: {
   searchParams: Promise<{
     eventId?: string;
@@ -53,13 +19,15 @@ export default async function PrintValuationPage(props: {
   const eventId = searchParams.eventId;
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
   const copyMode = searchParams.copyMode === "jury1" ? "jury1" : searchParams.copyMode === "jury2" ? "jury2" : "both";
-  const activeStageType = searchParams.stageType || "ALL";
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  let whereClause: any = {};
+  // Strictly ON_STAGE programs only for Jury Valuation
+  let whereClause: any = {
+    stageType: "ON_STAGE"
+  };
 
   if (eventId) {
     activeEv = await prisma.event.findUnique({
@@ -67,11 +35,9 @@ export default async function PrintValuationPage(props: {
       include: { zone: true },
     });
     if (activeEv?.parentId) {
-      whereClause = {
-        OR: [{ eventId: eventId }, { eventId: activeEv.parentId }],
-      };
+      whereClause.OR = [{ eventId: eventId }, { eventId: activeEv.parentId }];
     } else {
-      whereClause = { eventId };
+      whereClause.eventId = eventId;
     }
   }
 
@@ -79,31 +45,15 @@ export default async function PrintValuationPage(props: {
     whereClause.id = searchParams.programId;
   }
 
-  if (activeStageType !== "ALL") {
-    whereClause.stageType = activeStageType;
-  }
-
   if (activeVenue !== "ALL") {
     whereClause.venue = activeVenue;
   }
 
   if (activeCategory !== "ALL") {
-    if (activeCategory === "GENERAL") {
-      whereClause.AND = [
-        ...(whereClause.AND || []),
-        {
-          OR: [
-            { categoryId: null },
-            { category: { name: { contains: "General", mode: "insensitive" } } },
-          ],
-        },
-      ];
-    } else {
-      whereClause.categoryId = activeCategory;
-    }
+    whereClause.categoryId = activeCategory;
   }
 
-  // Fetch all categories for filter options
+  // Fetch categories for filtering
   const allCategories = await prisma.category.findMany({
     where: eventId
       ? { eventId: { in: [eventId, activeEv?.parentId].filter(Boolean) as string[] } }
@@ -111,46 +61,100 @@ export default async function PrintValuationPage(props: {
     orderBy: { name: "asc" },
   });
 
-  // Fetch all venues from programs for this event
-  const allEventPrograms = await prisma.program.findMany({
-    where: eventId
-      ? (activeEv?.parentId ? { OR: [{ eventId }, { eventId: activeEv.parentId }] } : { eventId })
-      : {},
-    select: { venue: true, stageType: true },
-  });
-
-  const allVenues = Array.from(
-    new Set(allEventPrograms.map((p) => p.venue || "Main Stage").filter(Boolean))
-  ).sort();
-
-  const programs = await prisma.program.findMany({
+  const rawPrograms = await prisma.program.findMany({
     where: whereClause,
+    orderBy: [
+      { venue: "asc" },
+      { startTime: "asc" },
+      { programCode: "asc" },
+    ],
     include: {
       category: true,
       assignments: {
         include: {
           candidate: {
             include: {
-              institution: {
-                include: {
-                  zone: true,
-                },
-              },
-              team: {
-                include: {
-                  institution: true,
-                  event: true,
-                },
-              },
+              team: { include: { institution: true } },
+              institution: { include: { zone: true } },
             },
           },
         },
+        orderBy: { slotNumber: "asc" },
       },
     },
-    orderBy: [{ venue: "asc" }, { programCode: "asc" }, { name: "asc" }],
   });
 
   const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+  // Deduplicate programs across parent and child events by programCode (or name_category)
+  const mergedMap = new Map<string, any>();
+  for (const p of rawPrograms) {
+    const key = p.programCode ? `code_${p.programCode}` : `name_${p.name}_${p.categoryId || ''}`;
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+    } else {
+      const existing = mergedMap.get(key);
+      const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+      for (const a of p.assignments) {
+        if (!existingIds.has(a.id)) {
+          existing.assignments.push(a);
+        }
+      }
+      if (!existing.venue && p.venue) existing.venue = p.venue;
+      if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+      if (p.eventId === eventId && p.venue) existing.venue = p.venue;
+      if (p.eventId === eventId && p.startTime) existing.startTime = p.startTime;
+    }
+  }
+
+  let deduplicatedPrograms = Array.from(mergedMap.values());
+
+  const allVenues = Array.from(
+    new Set(deduplicatedPrograms.map((p) => p.venue || "Main Stage").filter(Boolean))
+  ).sort();
+
+  if (activeVenue !== "ALL") {
+    deduplicatedPrograms = deduplicatedPrograms.filter(p => (p.venue || "Main Stage") === activeVenue);
+  }
+
+  // Filter candidates per zone and eliminate empty duplicate pages
+  const printablePrograms = deduplicatedPrograms.map(prog => {
+    let candidateAssignments = prog.assignments.filter((a: any) => Boolean(a.candidate));
+
+    if (targetZoneId) {
+      candidateAssignments = candidateAssignments.filter((a: any) => {
+        const c = a.candidate;
+        const zId =
+          c?.institution?.zoneId ||
+          c?.institution?.zone?.id ||
+          c?.team?.institution?.zoneId ||
+          c?.team?.event?.zoneId;
+        return zId === targetZoneId;
+      });
+    }
+
+    // Sort by slotNumber or numeric chest number
+    candidateAssignments.sort((a: any, b: any) => {
+      if (a.slotNumber && b.slotNumber) return a.slotNumber - b.slotNumber;
+      const cA = a.candidate;
+      const cB = b.candidate;
+      if (cA?.chestNumber && cB?.chestNumber) {
+        const numA = parseInt(cA.chestNumber, 10);
+        const numB = parseInt(cB.chestNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return cA.chestNumber.localeCompare(cB.chestNumber);
+      }
+      return (a.slotNumber || 0) - (b.slotNumber || 0);
+    });
+
+    return {
+      ...prog,
+      filteredAssignments: candidateAssignments
+    };
+  }).filter(prog => {
+    if (searchParams.programId) return true;
+    return prog.filteredAssignments.length > 0;
+  });
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
@@ -158,9 +162,6 @@ export default async function PrintValuationPage(props: {
     if (searchParams.programId && overrides.programId !== "") {
       params.set("programId", overrides.programId ?? searchParams.programId);
     }
-    const st = overrides.stageType !== undefined ? overrides.stageType : activeStageType;
-    if (st && st !== "ALL") params.set("stageType", st);
-
     const vn = overrides.venue !== undefined ? overrides.venue : activeVenue;
     if (vn && vn !== "ALL") params.set("venue", vn);
 
@@ -170,145 +171,50 @@ export default async function PrintValuationPage(props: {
     const ori = overrides.orientation !== undefined ? overrides.orientation : orientation;
     if (ori) params.set("orientation", ori);
 
-    const cp = overrides.copyMode !== undefined ? overrides.copyMode : copyMode;
-    if (cp) params.set("copyMode", cp);
+    const cm = overrides.copyMode !== undefined ? overrides.copyMode : copyMode;
+    if (cm && cm !== "both") params.set("copyMode", cm);
 
     return `/print/valuation?${params.toString()}`;
   };
 
   return (
-    <div style={{
-      maxWidth: orientation === "landscape" ? "1260px" : "960px",
-      margin: "0 auto",
-      padding: "20px 16px",
-      fontFamily: "system-ui, -apple-system, sans-serif",
-      color: "#0f172a",
-    }}>
-      {/* ── Screen Action & Filter Bar ── */}
-      <div className="no-print" style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        backgroundColor: "#0f172a",
-        color: "#f8fafc",
-        padding: "14px 20px",
-        borderRadius: "8px",
-        marginBottom: "20px",
-        boxShadow: "0 6px 18px rgba(0,0,0,0.25)",
-      }}>
-        <div style={{
+    <div style={{ padding: "20px", backgroundColor: "#ffffff", color: "#0f172a", minHeight: "100vh", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      
+      {/* ── Screen Controls / Filter Bar (Hidden on Print) ── */}
+      <div
+        className="no-print"
+        style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          marginBottom: "24px",
+          padding: "14px 20px",
+          backgroundColor: "#f8fafc",
+          border: "1.5px solid #e2e8f0",
+          borderRadius: "10px",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: "12px",
-        }}>
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, letterSpacing: "0.5px", color: "#f8fafc" }}>
-              OFFICIAL JURY VALUATION &amp; MARK ENTRY SHEETS
-            </h1>
-            <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
-              {activeEv?.name || settings.festName} • Total Programs Matching: <strong>{programs.length}</strong>
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-            <PrintButton label="Print All Valuation Sheets" />
-            <a
-              href="/dashboard/reports"
-              style={{
-                padding: "6px 12px",
-                backgroundColor: "#334155",
-                color: "#ffffff",
-                borderRadius: "6px",
-                textDecoration: "none",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-              }}
-            >
-              Back to Reports
-            </a>
-          </div>
-        </div>
-
-        {/* Filter Toolbar */}
-        <div style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "10px",
-          alignItems: "center",
-          paddingTop: "10px",
-          borderTop: "1px solid #1e293b",
-          fontSize: "0.78rem",
-        }}>
-          {/* Stage Type Filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ color: "#94a3b8", fontWeight: 700 }}>Stage Type:</span>
-            <div style={{ display: "inline-flex", borderRadius: "5px", overflow: "hidden", border: "1px solid #334155" }}>
-              <a
-                href={buildUrl({ stageType: "ALL" })}
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: activeStageType === "ALL" ? "#0284c7" : "#1e293b",
-                  color: "#fff",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                }}
-              >
-                All
-              </a>
-              <a
-                href={buildUrl({ stageType: "ON_STAGE" })}
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: activeStageType === "ON_STAGE" ? "#0284c7" : "#1e293b",
-                  color: "#fff",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  borderLeft: "1px solid #334155",
-                }}
-              >
-                On-Stage
-              </a>
-              <a
-                href={buildUrl({ stageType: "OFF_STAGE" })}
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: activeStageType === "OFF_STAGE" ? "#0284c7" : "#1e293b",
-                  color: "#fff",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  borderLeft: "1px solid #334155",
-                }}
-              >
-                Off-Stage
-              </a>
-            </div>
+            <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "#8E0033", textTransform: "uppercase" }}>
+              ⚖️ Jury Valuation Sheet
+            </span>
+            <span style={{ fontSize: "0.8rem", color: "#64748b", marginLeft: "8px" }}>
+              (ON STAGE Programs: {printablePrograms.length})
+            </span>
           </div>
 
-          {/* Stage / Venue Filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ color: "#94a3b8", fontWeight: 700 }}>Stage/Venue:</span>
+          {/* Venue / Stage Filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>Stage:</label>
             <select
-              value={activeVenue}
-              onChange={undefined}
-              // @ts-ignore
-              onInput={undefined}
-              style={{
-                backgroundColor: "#1e293b",
-                color: "#f8fafc",
-                border: "1px solid #475569",
-                borderRadius: "5px",
-                padding: "4px 8px",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-              }}
-              // Use native navigation on change
-              // eslint-disable-next-line react/no-unknown-property
-              data-nav="venue"
               id="filter-venue-select"
+              defaultValue={buildUrl({ venue: activeVenue })}
+              style={{ padding: "4px 8px", fontSize: "0.8rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontWeight: 600 }}
             >
-              <option value={buildUrl({ venue: "ALL" })}>All Stages / Venues</option>
+              <option value={buildUrl({ venue: "ALL" })}>All Stages ({allVenues.length})</option>
               {allVenues.map((v) => (
                 <option key={v} value={buildUrl({ venue: v })}>
                   {v}
@@ -318,23 +224,14 @@ export default async function PrintValuationPage(props: {
           </div>
 
           {/* Category Filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ color: "#94a3b8", fontWeight: 700 }}>Category:</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>Category:</label>
             <select
-              value={activeCategory}
-              style={{
-                backgroundColor: "#1e293b",
-                color: "#f8fafc",
-                border: "1px solid #475569",
-                borderRadius: "5px",
-                padding: "4px 8px",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-              }}
               id="filter-category-select"
+              defaultValue={buildUrl({ categoryId: activeCategory })}
+              style={{ padding: "4px 8px", fontSize: "0.8rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontWeight: 600 }}
             >
               <option value={buildUrl({ categoryId: "ALL" })}>All Categories</option>
-              <option value={buildUrl({ categoryId: "GENERAL" })}>General</option>
               {allCategories.map((c) => (
                 <option key={c.id} value={buildUrl({ categoryId: c.id })}>
                   {c.name}
@@ -343,86 +240,86 @@ export default async function PrintValuationPage(props: {
             </select>
           </div>
 
-          {/* Layout Orientation Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", marginLeft: "auto" }}>
-            <span style={{ color: "#94a3b8", fontWeight: 700 }}>Layout:</span>
-            <a
-              href={buildUrl({ orientation: "landscape" })}
-              style={{
-                padding: "4px 8px",
-                borderRadius: "4px",
-                border: orientation === "landscape" ? "2px solid #38bdf8" : "1px solid #475569",
-                backgroundColor: orientation === "landscape" ? "#0284c7" : "#1e293b",
-                color: "#ffffff",
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              📃 Landscape
-            </a>
+          {/* Orientation Toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", backgroundColor: "#e2e8f0", padding: "2px", borderRadius: "6px", fontSize: "0.75rem" }}>
             <a
               href={buildUrl({ orientation: "portrait" })}
               style={{
-                padding: "4px 8px",
+                padding: "3px 8px",
                 borderRadius: "4px",
-                border: orientation === "portrait" ? "2px solid #38bdf8" : "1px solid #475569",
-                backgroundColor: orientation === "portrait" ? "#0284c7" : "#1e293b",
-                color: "#ffffff",
+                backgroundColor: orientation === "portrait" ? "#0f172a" : "transparent",
+                color: orientation === "portrait" ? "#ffffff" : "#475569",
                 fontWeight: 700,
                 textDecoration: "none",
               }}
             >
-              📄 Portrait
+              Portrait
+            </a>
+            <a
+              href={buildUrl({ orientation: "landscape" })}
+              style={{
+                padding: "3px 8px",
+                borderRadius: "4px",
+                backgroundColor: orientation === "landscape" ? "#0f172a" : "transparent",
+                color: orientation === "landscape" ? "#ffffff" : "#475569",
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              Landscape
             </a>
           </div>
+        </div>
 
-          {/* Jury Copies Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ color: "#94a3b8", fontWeight: 700 }}>Jury Copies:</span>
+        {/* Copy Mode Toggle & Print Button */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }}>
+            <span style={{ fontWeight: 700, color: "#64748b", marginRight: "4px" }}>Jury Copy:</span>
             <a
               href={buildUrl({ copyMode: "both" })}
               style={{
                 padding: "4px 8px",
                 borderRadius: "4px",
-                border: copyMode === "both" ? "2px solid #f59e0b" : "1px solid #475569",
-                backgroundColor: copyMode === "both" ? "#d97706" : "#1e293b",
-                color: "#ffffff",
+                border: copyMode === "both" ? "2px solid #8E0033" : "1px solid #cbd5e1",
+                backgroundColor: copyMode === "both" ? "#8E0033" : "#ffffff",
+                color: copyMode === "both" ? "#ffffff" : "#334155",
                 fontWeight: 700,
                 textDecoration: "none",
               }}
-              title="Both Juries (2 distinct sheets per program)"
             >
-              👥 Both
+              Both (Jury 1 & 2)
             </a>
             <a
               href={buildUrl({ copyMode: "jury1" })}
               style={{
                 padding: "4px 8px",
                 borderRadius: "4px",
-                border: copyMode === "jury1" ? "2px solid #38bdf8" : "1px solid #475569",
-                backgroundColor: copyMode === "jury1" ? "#0284c7" : "#1e293b",
-                color: "#ffffff",
+                border: copyMode === "jury1" ? "2px solid #1e40af" : "1px solid #cbd5e1",
+                backgroundColor: copyMode === "jury1" ? "#1e40af" : "#ffffff",
+                color: copyMode === "jury1" ? "#ffffff" : "#334155",
                 fontWeight: 700,
                 textDecoration: "none",
               }}
             >
-              👤 Jury 1
+              Jury 1
             </a>
             <a
               href={buildUrl({ copyMode: "jury2" })}
               style={{
                 padding: "4px 8px",
                 borderRadius: "4px",
-                border: copyMode === "jury2" ? "2px solid #38bdf8" : "1px solid #475569",
-                backgroundColor: copyMode === "jury2" ? "#0284c7" : "#1e293b",
-                color: "#ffffff",
+                border: copyMode === "jury2" ? "2px solid #1e40af" : "1px solid #cbd5e1",
+                backgroundColor: copyMode === "jury2" ? "#1e40af" : "#ffffff",
+                color: copyMode === "jury2" ? "#ffffff" : "#334155",
                 fontWeight: 700,
                 textDecoration: "none",
               }}
             >
-              👤 Jury 2
+              Jury 2
             </a>
           </div>
+
+          <PrintButton label="🖨️ Print Valuation Sheets" />
         </div>
 
         <script dangerouslySetInnerHTML={{
@@ -437,63 +334,26 @@ export default async function PrintValuationPage(props: {
         }} />
       </div>
 
-      {/* ── Program Valuation Sheets ── */}
-      {programs.length === 0 ? (
+      {/* ── Content: Program Valuation Sheets ── */}
+      {printablePrograms.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
-          <h2>No programs found for this selection</h2>
-          <p>Please check your filters (Stage Type, Venue, Category) or return to Reports.</p>
+          <h2>No On-Stage programs found for this selection</h2>
+          <p>Please adjust your Stage or Category filters.</p>
         </div>
       ) : (
-        programs.flatMap((program) => {
-          let candidateAssignments = program.assignments.filter((a) => Boolean(a.candidate));
+        printablePrograms.flatMap((program) => {
+          const candidateAssignments = program.filteredAssignments;
 
-          if (targetZoneId) {
-            const zoneFiltered = candidateAssignments.filter((a) => {
-              const c = a.candidate;
-              const zId =
-                c.institution?.zoneId ||
-                c.institution?.zone?.id ||
-                c.team?.institution?.zoneId ||
-                c.team?.event?.zoneId;
-              return zId === targetZoneId;
-            });
-            if (zoneFiltered.length > 0) {
-              candidateAssignments = zoneFiltered;
-            }
-          }
-
-          // Sort candidates: slotNumber first, else numeric chest number
-          candidateAssignments.sort((a, b) => {
-            if (a.slotNumber && b.slotNumber) return a.slotNumber - b.slotNumber;
-            const cA = a.candidate;
-            const cB = b.candidate;
-            if (cA.chestNumber && cB.chestNumber) {
-              const numA = parseInt(cA.chestNumber, 10);
-              const numB = parseInt(cB.chestNumber, 10);
-              if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-              return cA.chestNumber.localeCompare(cB.chestNumber);
-            }
-            return (a.slotNumber || 0) - (b.slotNumber || 0);
-          });
-
-          const isStage = program.stageType === "ON_STAGE";
-          let juryCopies = [0];
-          if (isStage) {
-            if (copyMode === "jury1") juryCopies = [1];
-            else if (copyMode === "jury2") juryCopies = [2];
-            else juryCopies = [1, 2]; // Both Juries (2 distinct printed sheets per program)
-          }
-
-          const criteriaList = parseCriteria(program.evaluationCriteria);
+          let juryCopies = [1, 2];
+          if (copyMode === "jury1") juryCopies = [1];
+          else if (copyMode === "jury2") juryCopies = [2];
 
           return juryCopies.map((juryNum) => {
             const isCopy1 = juryNum === 1;
             const isCopy2 = juryNum === 2;
             const copyTitle = isCopy1 
-              ? "OFFICIAL JURY 1 VALUATION & MARK ENTRY SHEET" 
-              : isCopy2 
-              ? "OFFICIAL JURY 2 VALUATION & MARK ENTRY SHEET" 
-              : "OFFICIAL JURY VALUATION & MARK ENTRY RECORD";
+              ? "OFFICIAL JURY 1 VALUATION SHEET" 
+              : "OFFICIAL JURY 2 VALUATION SHEET";
 
             return (
               <div
@@ -516,36 +376,28 @@ export default async function PrintValuationPage(props: {
                     <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "#0f172a", letterSpacing: "0.5px", textTransform: "uppercase" }}>
                       {copyTitle}
                     </span>
-                    {isCopy1 && (
-                      <span style={{ backgroundColor: "#1e40af", color: "#ffffff", padding: "2px 8px", borderRadius: "3px", fontSize: "0.72rem", fontWeight: 900 }}>
-                        JURY 1 COPY
-                      </span>
-                    )}
-                    {isCopy2 && (
-                      <span style={{ backgroundColor: "#9d174d", color: "#ffffff", padding: "2px 8px", borderRadius: "3px", fontSize: "0.72rem", fontWeight: 900 }}>
-                        JURY 2 COPY
-                      </span>
-                    )}
+                    <span style={{ backgroundColor: isCopy1 ? "#1e40af" : "#8E0033", color: "#ffffff", padding: "2px 8px", borderRadius: "3px", fontSize: "0.72rem", fontWeight: 900 }}>
+                      JURY {juryNum}
+                    </span>
                   </div>
                   {activeEv && (
-                    <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
+                    <div style={{ fontSize: "0.8rem", color: "#475569", marginTop: "2px", fontWeight: 700 }}>
                       {activeEv.name} {activeEv.zone ? `(${activeEv.zone.name})` : ""}
                     </div>
                   )}
                 </div>
 
-                {/* ── Program Meta Information & Score-to-Grade Reference ── */}
+                {/* ── Program Details Banner with Score to Grade Card on Right ── */}
                 <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.8fr 1fr 1.2fr",
-                  gap: "10px",
-                  backgroundColor: "#f8fafc",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   border: "1.5px solid #0f172a",
                   borderRadius: "4px",
                   padding: "8px 12px",
-                  marginBottom: "8px",
-                  fontSize: "0.82rem",
-                  alignItems: "center",
+                  marginBottom: "10px",
+                  backgroundColor: "#f8fafc",
+                  gap: "12px",
                 }}>
                   {/* Left: Program Meta */}
                   <div>
@@ -583,7 +435,7 @@ export default async function PrintValuationPage(props: {
                     </div>
                   </div>
 
-                  {/* Right: Score to Grade Reference Box (Image 3) */}
+                  {/* Right: Official Score to Grade Reference Box */}
                   <div style={{ textAlign: "right" }}>
                     <div style={{
                       display: "inline-block",
@@ -597,26 +449,26 @@ export default async function PrintValuationPage(props: {
                       <table style={{ borderCollapse: "collapse", textAlign: "center", margin: 0 }}>
                         <thead>
                           <tr style={{ backgroundColor: "#dcfce7", color: "#065f46" }}>
-                            <th style={{ border: "1px solid #0f172a", padding: "2px 6px", fontWeight: 800 }}>SCORE</th>
                             <th style={{ border: "1px solid #0f172a", padding: "2px 6px", fontWeight: 800 }}>GRADE</th>
+                            <th style={{ border: "1px solid #0f172a", padding: "2px 6px", fontWeight: 800 }}>SCORE (100)</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>A GRADE</td>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#166534" }}>160 - 200</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#166534" }}>A GRADE</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>80 - 100</td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>B GRADE</td>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#1e40af" }}>120 - 159</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#1e40af" }}>B GRADE</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>60 - 79</td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>C GRADE</td>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#b45309" }}>80 - 119</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#b45309" }}>C GRADE</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>40 - 59</td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>118 &amp; BELOW</td>
                             <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#991b1b" }}>NO GRADE</td>
+                            <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 700 }}>39 &amp; Below</td>
                           </tr>
                         </tbody>
                       </table>
@@ -624,28 +476,7 @@ export default async function PrintValuationPage(props: {
                   </div>
                 </div>
 
-                {/* ── Valuation Protocol Banner ── */}
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: isCopy1 ? "#eff6ff" : isCopy2 ? "#fdf2f8" : "#f1f5f9",
-                  border: isCopy1 ? "1px solid #93c5fd" : isCopy2 ? "1px solid #f9a8d4" : "1px solid #cbd5e1",
-                  borderRadius: "3px",
-                  padding: "4px 8px",
-                  marginBottom: "8px",
-                  fontSize: "0.74rem",
-                  color: "#1e293b",
-                }}>
-                  <div>
-                    <strong>Anonymous Evaluation Rule:</strong> Strictly blind judging. Identify participants by <strong>Code Letter</strong> only. Scale: A (160-200 / 80-100), B (120-159 / 60-79), C (80-119 / 40-59), No Grade: 118 &amp; Below.
-                  </div>
-                  <div style={{ fontWeight: 800, color: isCopy1 ? "#1d4ed8" : isCopy2 ? "#be185d" : "#0f172a" }}>
-                    {isCopy1 ? "Evaluation Copy: Jury 1" : isCopy2 ? "Evaluation Copy: Jury 2" : "Evaluation Record"}
-                  </div>
-                </div>
-
-                {/* ── Blind Candidate Scoring Table (NO Name, NO Institution, NO Chest Number) ── */}
+                {/* ── Clean Jury Valuation Table: ONLY Code Letter, Chest No, Name, Total Score, Grade, Place, Remarks ── */}
                 {candidateAssignments.length === 0 ? (
                   <div style={{
                     padding: "30px",
@@ -662,56 +493,86 @@ export default async function PrintValuationPage(props: {
                   <table style={{
                     width: "100%",
                     borderCollapse: "collapse",
-                    fontSize: "0.78rem",
+                    fontSize: "0.80rem",
                     marginBottom: "10px",
                     border: "1.5px solid #0f172a",
                   }}>
                     <thead>
                       <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                        <th style={{ width: "40px", padding: "6px 4px", border: "1px solid #334155" }}>Sl</th>
-                        <th style={{ width: "95px", padding: "6px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
+                        <th style={{ width: "42px", padding: "7px 4px", border: "1px solid #334155" }}>Sl</th>
+                        <th style={{ width: "100px", padding: "7px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
                           Code Letter
                         </th>
-                        {criteriaList.map((crit, cIdx) => (
-                          <th key={cIdx} style={{ width: "100px", padding: "6px 4px", border: "1px solid #334155" }}>
-                            {crit.name} ({crit.max})
-                          </th>
-                        ))}
-                        <th style={{ width: "80px", padding: "6px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
-                          Total (100)
+                        <th style={{ width: "95px", padding: "7px 4px", border: "1px solid #334155" }}>
+                          Chest No.
                         </th>
-                        <th style={{ width: "65px", padding: "6px 4px", border: "1px solid #334155" }}>Grade</th>
-                        <th style={{ width: "65px", padding: "6px 4px", border: "1px solid #334155" }}>Rank</th>
-                        <th style={{ padding: "6px 8px", border: "1px solid #334155" }}>Remarks</th>
+                        <th style={{ padding: "7px 8px", border: "1px solid #334155", textAlign: "left" }}>
+                          Candidate Name / Institution
+                        </th>
+                        <th style={{ width: "115px", padding: "7px 4px", border: "1px solid #334155", backgroundColor: "#1e293b" }}>
+                          Total Score (100)
+                        </th>
+                        <th style={{ width: "85px", padding: "7px 4px", border: "1px solid #334155" }}>
+                          Grade
+                        </th>
+                        <th style={{ width: "85px", padding: "7px 4px", border: "1px solid #334155" }}>
+                          Place
+                        </th>
+                        <th style={{ width: "180px", padding: "7px 8px", border: "1px solid #334155" }}>
+                          Remarks
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {candidateAssignments.map((assignment, idx) => (
-                        <tr key={assignment.id} style={{
-                          backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
-                          textAlign: "center",
-                          height: "38px",
-                        }}>
-                          <td style={{ border: "1px solid #cbd5e1", fontWeight: 700 }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}>
-                            <div style={{
-                              width: "44px",
-                              height: "28px",
-                              border: "1.5px dashed #475569",
-                              borderRadius: "3px",
-                              margin: "0 auto",
-                              backgroundColor: "#ffffff",
-                            }}></div>
-                          </td>
-                          {criteriaList.map((crit, cIdx) => (
-                            <td key={cIdx} style={{ border: "1px solid #cbd5e1" }}></td>
-                          ))}
-                          <td style={{ border: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}></td>
-                          <td style={{ border: "1px solid #cbd5e1" }}></td>
-                          <td style={{ border: "1px solid #cbd5e1" }}></td>
-                          <td style={{ border: "1px solid #cbd5e1" }}></td>
-                        </tr>
-                      ))}
+                      {candidateAssignments.map((assignment: any, idx: number) => {
+                        const c = assignment.candidate;
+                        const instName = c?.institution?.name || c?.team?.institution?.name || c?.team?.name || "-";
+
+                        return (
+                          <tr key={assignment.id} style={{
+                            backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                            textAlign: "center",
+                            height: "44px",
+                          }}>
+                            <td style={{ border: "1px solid #cbd5e1", fontWeight: 800 }}>{idx + 1}</td>
+                            
+                            {/* Code Letter Entry Area */}
+                            <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}>
+                              <div style={{
+                                width: "48px",
+                                height: "30px",
+                                border: "1.5px dashed #475569",
+                                borderRadius: "3px",
+                                margin: "0 auto",
+                                backgroundColor: "#ffffff",
+                              }}></div>
+                            </td>
+
+                            {/* Chest No */}
+                            <td style={{ border: "1px solid #cbd5e1", fontWeight: 900, color: "#8E0033", fontFamily: "monospace", fontSize: "0.95rem" }}>
+                              {c?.chestNumber || "-"}
+                            </td>
+
+                            {/* Candidate Name & Institution */}
+                            <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", textAlign: "left" }}>
+                              <div style={{ fontWeight: 800, color: "#0f172a" }}>{c?.name}</div>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{instName}</div>
+                            </td>
+
+                            {/* Total Score Entry Box */}
+                            <td style={{ border: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}></td>
+
+                            {/* Grade Entry Box */}
+                            <td style={{ border: "1px solid #cbd5e1" }}></td>
+
+                            {/* Place Entry Box */}
+                            <td style={{ border: "1px solid #cbd5e1" }}></td>
+
+                            {/* Remarks Box */}
+                            <td style={{ border: "1px solid #cbd5e1" }}></td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -720,110 +581,55 @@ export default async function PrintValuationPage(props: {
                 <div style={{
                   border: "1.5px solid #0f172a",
                   borderRadius: "4px",
-                  padding: "8px 12px",
+                  padding: "10px 14px",
                   backgroundColor: "#fafafa",
                   fontSize: "0.78rem",
                   pageBreakInside: "avoid",
                   breakInside: "avoid",
+                  marginTop: "12px",
                 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "8px", paddingBottom: "6px", borderBottom: "1px dashed #cbd5e1" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "8px", paddingBottom: "6px", borderBottom: "1px dashed #cbd5e1" }}>
                     <div>
-                      <strong>Total Candidates:</strong> {candidateAssignments.length}
+                      <strong>Evaluator:</strong> JURY {juryNum}
                     </div>
                     <div>
-                      <strong>Total Evaluated:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "35px", minHeight: "14px" }}></span>
+                      <strong>Stage Verified:</strong> {program.venue || "Main Stage"}
                     </div>
                     <div>
-                      <strong>Total Absent:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "35px", minHeight: "14px" }}></span>
-                    </div>
-                    <div>
-                      <strong>Date of Valuation:</strong> <span style={{ borderBottom: "1px solid #0f172a", display: "inline-block", width: "60px", minHeight: "14px" }}></span>
+                      <strong>Date:</strong> ________________________
                     </div>
                   </div>
 
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.1fr 1.1fr 1.1fr 0.7fr",
-                    gap: "12px",
-                    alignItems: "flex-end",
-                    paddingTop: "2px",
-                  }}>
-                    <div style={{ backgroundColor: isCopy1 ? "#eff6ff" : "transparent", padding: isCopy1 ? "4px 6px" : "0", borderRadius: "4px", border: isCopy1 ? "1px solid #bfdbfe" : "none" }}>
-                      <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                      <div style={{ fontWeight: 800, fontSize: "0.76rem", color: isCopy1 ? "#1e40af" : "#0f172a" }}>
-                        {isCopy1 ? "✓ Evaluator 1 (Jury 1 Signature)" : "Evaluator 1 (Jury 1)"}
-                      </div>
-                      <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
-                    </div>
-
-                    <div style={{ backgroundColor: isCopy2 ? "#fdf2f8" : "transparent", padding: isCopy2 ? "4px 6px" : "0", borderRadius: "4px", border: isCopy2 ? "1px solid #fbcfe8" : "none" }}>
-                      <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                      <div style={{ fontWeight: 800, fontSize: "0.76rem", color: isCopy2 ? "#9d174d" : "#0f172a" }}>
-                        {isCopy2 ? "✓ Evaluator 2 (Jury 2 Signature)" : "Evaluator 2 (Jury 2)"}
-                      </div>
-                      <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Name: _________________</div>
-                    </div>
-
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginTop: "16px", textAlign: "center" }}>
                     <div>
-                      <div style={{ borderBottom: "1px solid #0f172a", minHeight: "18px", marginBottom: "3px" }}></div>
-                      <div style={{ fontWeight: 700, fontSize: "0.76rem" }}>Stage Manager / Chief Judge</div>
-                      <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Verification Signature</div>
+                      <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
+                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Jury {juryNum} Name &amp; Signature</div>
                     </div>
-
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{
-                        border: "1px dashed #94a3b8",
-                        height: "38px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#94a3b8",
-                        fontSize: "0.65rem",
-                        textTransform: "uppercase",
-                      }}>
-                        Official Seal
-                      </div>
+                    <div>
+                      <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
+                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Stage Manager Signature</div>
+                    </div>
+                    <div>
+                      <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
+                      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Tabulator / Chief Controller</div>
                     </div>
                   </div>
                 </div>
+
               </div>
             );
           });
         })
       )}
 
-      {/* ── Print Specific Stylesheet ── */}
       <style dangerouslySetInnerHTML={{
         __html: `
           @media print {
-            .no-print {
-              display: none !important;
-            }
-            body {
-              background-color: #ffffff !important;
-              color: #000000 !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            .valuation-sheet-page {
-              box-shadow: none !important;
-              border: none !important;
-              padding: ${orientation === "landscape" ? "5mm 8mm" : "4mm 6mm"} !important;
-              margin: 0 !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-            table {
-              page-break-inside: auto;
-            }
-            tr {
-              page-break-inside: avoid;
-            }
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; margin: 0; padding: 0; }
             @page {
               size: A4 ${orientation};
-              margin: ${orientation === "landscape" ? "6mm 8mm" : "4mm"};
+              margin: 10mm;
             }
           }
         `,

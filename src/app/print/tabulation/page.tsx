@@ -51,13 +51,15 @@ export default async function PrintTabulationPage(props: {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
-  const activeStageType = searchParams.stageType || "ALL";
+  const activeStageType = searchParams.stageType || "ON_STAGE";
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  let whereClause: any = {};
+  let whereClause: any = {
+    stageType: activeStageType === "ALL" ? "ON_STAGE" : activeStageType
+  };
 
   if (eventId) {
     activeEv = await prisma.event.findUnique({
@@ -65,20 +67,14 @@ export default async function PrintTabulationPage(props: {
       include: { zone: true },
     });
     if (activeEv?.parentId) {
-      whereClause = {
-        OR: [{ eventId: eventId }, { eventId: activeEv.parentId }],
-      };
+      whereClause.OR = [{ eventId: eventId }, { eventId: activeEv.parentId }];
     } else {
-      whereClause = { eventId };
+      whereClause.eventId = eventId;
     }
   }
 
   if (searchParams.programId) {
     whereClause.id = searchParams.programId;
-  }
-
-  if (activeStageType !== "ALL") {
-    whereClause.stageType = activeStageType;
   }
 
   if (activeVenue !== "ALL") {
@@ -145,6 +141,64 @@ export default async function PrintTabulationPage(props: {
   });
 
   const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+  // Deduplicate programs across parent and child events by programCode (or name_category)
+  const mergedMap = new Map<string, any>();
+  for (const p of programs) {
+    const key = p.programCode ? `code_${p.programCode}` : `name_${p.name}_${p.categoryId || ''}`;
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+    } else {
+      const existing = mergedMap.get(key);
+      const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+      for (const a of p.assignments) {
+        if (!existingIds.has(a.id)) {
+          existing.assignments.push(a);
+        }
+      }
+      if (!existing.venue && p.venue) existing.venue = p.venue;
+      if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+      if (p.eventId === eventId && p.venue) existing.venue = p.venue;
+      if (p.eventId === eventId && p.startTime) existing.startTime = p.startTime;
+    }
+  }
+
+  const printablePrograms = Array.from(mergedMap.values()).map(prog => {
+    let candidateAssignments = prog.assignments.filter((a: any) => Boolean(a.candidate));
+
+    if (targetZoneId) {
+      candidateAssignments = candidateAssignments.filter((a: any) => {
+        const c = a.candidate;
+        const zId =
+          c?.institution?.zoneId ||
+          c?.institution?.zone?.id ||
+          c?.team?.institution?.zoneId ||
+          c?.team?.event?.zoneId;
+        return zId === targetZoneId;
+      });
+    }
+
+    candidateAssignments.sort((a: any, b: any) => {
+      if (a.slotNumber && b.slotNumber) return a.slotNumber - b.slotNumber;
+      const cA = a.candidate;
+      const cB = b.candidate;
+      if (cA?.chestNumber && cB?.chestNumber) {
+        const numA = parseInt(cA.chestNumber, 10);
+        const numB = parseInt(cB.chestNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return cA.chestNumber.localeCompare(cB.chestNumber);
+      }
+      return (a.slotNumber || 0) - (b.slotNumber || 0);
+    });
+
+    return {
+      ...prog,
+      filteredAssignments: candidateAssignments
+    };
+  }).filter(prog => {
+    if (searchParams.programId) return true;
+    return prog.filteredAssignments.length > 0;
+  });
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
@@ -377,44 +431,14 @@ export default async function PrintTabulationPage(props: {
       </div>
 
       {/* ── Program Tabulation Sheets ── */}
-      {programs.length === 0 ? (
+      {printablePrograms.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
           <h2>No programs found for this selection</h2>
           <p>Please adjust your Stage Type, Venue, or Category filters.</p>
         </div>
       ) : (
-        programs.map((program) => {
-          let candidateAssignments = program.assignments.filter((a: any) => Boolean(a.candidate));
-
-          if (targetZoneId) {
-            const zoneFiltered = candidateAssignments.filter((a: any) => {
-              const c = a.candidate;
-              const zId =
-                c.institution?.zoneId ||
-                c.institution?.zone?.id ||
-                c.team?.institution?.zoneId ||
-                c.team?.event?.zoneId;
-              return zId === targetZoneId;
-            });
-            if (zoneFiltered.length > 0) {
-              candidateAssignments = zoneFiltered;
-            }
-          }
-
-          // Sort candidates: slotNumber first, then numeric chest number
-          candidateAssignments.sort((a: any, b: any) => {
-            if (a.slotNumber && b.slotNumber) return a.slotNumber - b.slotNumber;
-            const cA = a.candidate;
-            const cB = b.candidate;
-            if (cA.chestNumber && cB.chestNumber) {
-              const numA = parseInt(cA.chestNumber, 10);
-              const numB = parseInt(cB.chestNumber, 10);
-              if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-              return cA.chestNumber.localeCompare(cB.chestNumber);
-            }
-            return (a.slotNumber || 0) - (b.slotNumber || 0);
-          });
-
+        printablePrograms.map((program) => {
+          const candidateAssignments = program.filteredAssignments;
           const criteriaList = parseCriteria(program.evaluationCriteria);
 
           return (
