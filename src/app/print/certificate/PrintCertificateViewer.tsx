@@ -15,7 +15,39 @@ export default function PrintCertificateViewer({
   initialLayout,
   eventId
 }: PrintCertificateViewerProps) {
-  const [layout, setLayout] = useState<CertificateLayoutConfig>(initialLayout);
+  const [layout, setLayout] = useState<CertificateLayoutConfig>(() => {
+    if (initialLayout?.fields?.categoryName && initialLayout.fields.categoryName.prefix === "Category: ") {
+      return {
+        ...initialLayout,
+        fields: {
+          ...initialLayout.fields,
+          categoryName: {
+            ...initialLayout.fields.categoryName,
+            prefix: ""
+          }
+        }
+      };
+    }
+    return initialLayout;
+  });
+
+  // Also hydrate from localStorage if newer calibration exists on this device
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && eventId) {
+      try {
+        const local = localStorage.getItem(`cert_layout_${eventId}`);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+            parsed.fields.categoryName.prefix = "";
+          }
+          setLayout(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to load local cert layout", e);
+      }
+    }
+  }, [eventId]);
 
   const formatPlace = (rank: number, formatType?: string) => {
     if (formatType === 'word') {

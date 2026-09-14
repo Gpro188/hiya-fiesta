@@ -13,7 +13,7 @@ import {
 
 const LAYOUTS_FILE_PATH = path.join(process.cwd(), "data", "certificate-layouts.json");
 
-// Helper to read layouts file
+// Helper to read layouts file (fallback)
 async function readLayoutsFile(): Promise<Record<string, CertificateLayoutConfig>> {
   try {
     const data = await fs.readFile(LAYOUTS_FILE_PATH, "utf8");
@@ -23,46 +23,153 @@ async function readLayoutsFile(): Promise<Record<string, CertificateLayoutConfig
   }
 }
 
-// Helper to write layouts file
+// Helper to write layouts file (local cache)
 async function writeLayoutsFile(layouts: Record<string, CertificateLayoutConfig>) {
   try {
     await fs.mkdir(path.dirname(LAYOUTS_FILE_PATH), { recursive: true });
     await fs.writeFile(LAYOUTS_FILE_PATH, JSON.stringify(layouts, null, 2), "utf8");
   } catch (err) {
-    console.error("Failed to write certificate layouts file:", err);
+    // Non-fatal on serverless environments like Vercel
+    console.warn("Notice: Local file system write omitted on read-only/ephemeral storage:", err);
   }
 }
 
 export async function getCertificateLayout(eventId?: string | null): Promise<CertificateLayoutConfig> {
+  const targetKey = eventId || "default";
+
+  // 1. Try reading from Database first (guarantees persistence on Vercel & PM2)
+  try {
+    const dbConfig = await prisma.systemAuditLog.findFirst({
+      where: {
+        action: "CERTIFICATE_LAYOUT",
+        entityType: "EVENT",
+        entityId: targetKey
+      },
+      orderBy: { timestamp: "desc" }
+    });
+
+    if (dbConfig?.newValue) {
+      const parsed = JSON.parse(dbConfig.newValue) as CertificateLayoutConfig;
+      // Ensure categoryName prefix is clean if user hasn't explicitly set another prefix
+      if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+        parsed.fields.categoryName.prefix = "";
+      }
+      return parsed;
+    }
+
+    // Check if default layout exists in DB
+    if (targetKey !== "default") {
+      const dbDefault = await prisma.systemAuditLog.findFirst({
+        where: {
+          action: "CERTIFICATE_LAYOUT",
+          entityType: "EVENT",
+          entityId: "default"
+        },
+        orderBy: { timestamp: "desc" }
+      });
+      if (dbDefault?.newValue) {
+        const parsed = JSON.parse(dbDefault.newValue) as CertificateLayoutConfig;
+        if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+          parsed.fields.categoryName.prefix = "";
+        }
+        return parsed;
+      }
+    }
+  } catch (dbErr) {
+    console.error("Failed to read certificate layout from DB:", dbErr);
+  }
+
+  // 2. Fallback to local layouts file
   const layouts = await readLayoutsFile();
   if (eventId && layouts[eventId]) {
-    return layouts[eventId];
+    const parsed = layouts[eventId];
+    if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+      parsed.fields.categoryName.prefix = "";
+    }
+    return parsed;
   }
   if (layouts["default"]) {
-    return layouts["default"];
+    const parsed = layouts["default"];
+    if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+      parsed.fields.categoryName.prefix = "";
+    }
+    return parsed;
   }
+
   return DEFAULT_CERTIFICATE_LAYOUT;
 }
 
 export async function saveCertificateLayout(eventId: string, config: CertificateLayoutConfig) {
-  const session = await getServerSession(authOptions);
-  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MEDIA"].includes(session.user.role)) {
-    return { success: false, error: "Unauthorized" };
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MEDIA"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
 
-  const fullUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { eventId: true, zoneId: true }
-  });
+    const targetKey = eventId || "default";
+    const serializedConfig = JSON.stringify(config);
 
-  const layouts = await readLayoutsFile();
-  layouts[eventId] = config;
-  // Also save as default if none exists
-  if (!layouts["default"]) {
-    layouts["default"] = config;
+    // 1. Persist directly in Database (100% persistent across Vercel & Linux Server)
+    // Clean existing entries for this targetKey to prevent unbounded log growth
+    try {
+      await prisma.systemAuditLog.deleteMany({
+        where: {
+          action: "CERTIFICATE_LAYOUT",
+          entityType: "EVENT",
+          entityId: targetKey
+        }
+      });
+
+      await prisma.systemAuditLog.create({
+        data: {
+          userId: session.user.id || "admin",
+          userName: session.user.name || "Administrator",
+          action: "CERTIFICATE_LAYOUT",
+          entityType: "EVENT",
+          entityId: targetKey,
+          newValue: serializedConfig,
+          reason: "Certificate layout & calibration update"
+        }
+      });
+
+      // Also set default if no default exists in DB
+      const existingDefault = await prisma.systemAuditLog.findFirst({
+        where: { action: "CERTIFICATE_LAYOUT", entityId: "default" }
+      });
+      if (!existingDefault) {
+        await prisma.systemAuditLog.create({
+          data: {
+            userId: session.user.id || "admin",
+            userName: session.user.name || "Administrator",
+            action: "CERTIFICATE_LAYOUT",
+            entityType: "EVENT",
+            entityId: "default",
+            newValue: serializedConfig,
+            reason: "Default certificate layout"
+          }
+        });
+      }
+    } catch (dbSaveErr) {
+      console.error("Database save error for certificate layout:", dbSaveErr);
+    }
+
+    // 2. Also write to local file system cache (if writable)
+    try {
+      const layouts = await readLayoutsFile();
+      layouts[targetKey] = config;
+      if (!layouts["default"]) {
+        layouts["default"] = config;
+      }
+      await writeLayoutsFile(layouts);
+    } catch (fileErr) {
+      console.warn("File cache write warning:", fileErr);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to save certificate layout:", error);
+    return { success: false, error: error.message || "Failed to save layout" };
   }
-  await writeLayoutsFile(layouts);
-  return { success: true };
 }
 
 export async function getCertificateEventsAndMetadata() {

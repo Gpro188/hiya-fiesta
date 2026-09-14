@@ -153,7 +153,7 @@ export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayoutConfig = {
       fontFamily: 'Inter, sans-serif',
       color: '#475569',
       textAlign: 'center',
-      prefix: 'Category: ',
+      prefix: '',
     },
     chestNumber: {
       id: 'chestNumber',

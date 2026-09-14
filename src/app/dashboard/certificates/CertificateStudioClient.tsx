@@ -86,6 +86,9 @@ export default function CertificateStudioClient({
         const local = localStorage.getItem(`cert_layout_${selectedEventId}`);
         if (local) {
           const parsed = JSON.parse(local);
+          if (parsed.fields?.categoryName && parsed.fields.categoryName.prefix === "Category: ") {
+            parsed.fields.categoryName.prefix = "";
+          }
           setLayout(parsed);
         }
       } catch (e) {
@@ -1007,38 +1010,45 @@ export default function CertificateStudioClient({
                         </div>
                       )}
 
-                      {/* Grade-specific options */}
-                      {selectedFieldKey === 'grade' && (
+                      {/* Prefix & Suffix options for fields that support them */}
+                      {(selectedFieldKey === 'grade' || selectedFieldKey === 'categoryName' || selectedFieldKey === 'chestNumber') && (
                         <div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                             <div>
                               <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, marginBottom: "2px" }}>
-                                Prefix
+                                Prefix Text
                               </label>
                               <input
                                 type="text"
                                 value={field.prefix || ""}
-                                onChange={(e) => updateFieldConfig('grade', { prefix: e.target.value })}
+                                onChange={(e) => updateFieldConfig(selectedFieldKey, { prefix: e.target.value })}
                                 className="input"
-                                placeholder="With "
+                                placeholder={selectedFieldKey === 'grade' ? "With " : (selectedFieldKey === 'chestNumber' ? "Chest: " : "None")}
                               />
                             </div>
                             <div>
                               <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, marginBottom: "2px" }}>
-                                Suffix
+                                Suffix Text
                               </label>
                               <input
                                 type="text"
                                 value={field.suffix || ""}
-                                onChange={(e) => updateFieldConfig('grade', { suffix: e.target.value })}
+                                onChange={(e) => updateFieldConfig(selectedFieldKey, { suffix: e.target.value })}
                                 className="input"
-                                placeholder=" Grade"
+                                placeholder={selectedFieldKey === 'grade' ? " Grade" : "None"}
                               />
                             </div>
                           </div>
-                          <p style={{ margin: "4px 0 0 0", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                            Note: If candidate has no grade, this field is automatically completely hidden.
-                          </p>
+                          {selectedFieldKey === 'grade' && (
+                            <p style={{ margin: "4px 0 0 0", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                              Note: If candidate has no grade, this field is automatically completely hidden.
+                            </p>
+                          )}
+                          {selectedFieldKey === 'categoryName' && (
+                            <p style={{ margin: "4px 0 0 0", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                              Leave prefix blank if you only want the category name (e.g. Fadhila, Fadheela) to print without the word &quot;Category:&quot;.
+                            </p>
+                          )}
                         </div>
                       )}
 
