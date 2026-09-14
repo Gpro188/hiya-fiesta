@@ -470,4 +470,125 @@ export async function unpublishSchedule(eventId: string) {
   }
 }
 
+export async function renameVenue(eventId: string, oldVenueName: string, newVenueName: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (!newVenueName || !newVenueName.trim()) {
+      return { success: false, error: "New venue name cannot be empty" };
+    }
+    const cleanNewName = newVenueName.trim();
 
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    const eventIds = [eventId];
+    if (event?.parentId) eventIds.push(event.parentId);
+
+    const result = await prisma.program.updateMany({
+      where: {
+        venue: oldVenueName,
+        eventId: { in: eventIds }
+      },
+      data: {
+        venue: cleanNewName
+      }
+    });
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true, count: result.count };
+  } catch (error: any) {
+    console.error("Failed to rename venue:", error);
+    return { success: false, error: error?.message || "Failed to rename venue" };
+  }
+}
+
+export async function deleteVenue(eventId: string, venueName: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    const eventIds = [eventId];
+    if (event?.parentId) eventIds.push(event.parentId);
+
+    // Delete any breaks created specifically for this venue
+    await prisma.program.deleteMany({
+      where: {
+        venue: venueName,
+        type: "BREAK",
+        eventId: { in: eventIds }
+      }
+    });
+
+    // Unassign all regular programs in this venue
+    const result = await prisma.program.updateMany({
+      where: {
+        venue: venueName,
+        eventId: { in: eventIds }
+      },
+      data: {
+        venue: null
+      }
+    });
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true, unassignedCount: result.count };
+  } catch (error: any) {
+    console.error("Failed to delete venue:", error);
+    return { success: false, error: error?.message || "Failed to delete venue" };
+  }
+}
+
+export async function applySequentialVenueSchedule(
+  eventId: string,
+  venue: string,
+  programUpdates: Array<{ id: string; startTime: string; duration: number; stageType?: string; judgeIds?: string[] }>
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const updates = programUpdates.map((item) => {
+      const data: any = {
+        venue,
+        startTime: new Date(item.startTime),
+        duration: item.duration,
+      };
+      if (item.stageType) data.stageType = item.stageType;
+      if (item.judgeIds) {
+        data.judges = {
+          set: item.judgeIds.map(id => ({ id }))
+        };
+      }
+      return prisma.program.update({
+        where: { id: item.id },
+        data
+      });
+    });
+
+    await prisma.$transaction(updates);
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true, count: updates.length };
+  } catch (error: any) {
+    console.error("Failed to apply sequential venue schedule:", error);
+    return { success: false, error: error?.message || "Failed to apply sequential schedule" };
+  }
+}
