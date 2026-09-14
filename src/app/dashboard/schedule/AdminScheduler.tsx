@@ -68,26 +68,19 @@ export default function AdminScheduler({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // Helper to get or initialize venue configuration (Always starts at 9:00 AM by default)
+  // Helper to get venue configuration (Always strictly starts at 9:00 AM)
   const getVenueConfig = (venue: string) => {
-    if (venueSettings[venue]) return venueSettings[venue];
-    
-    // Always default to 9:00 AM on the festival start date (or today)
     let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
     if (isNaN(baseDate.getTime())) baseDate = new Date();
     baseDate.setHours(9, 0, 0, 0); // Strictly 09:00 AM!
 
     const initialStart = formatDateTimeLocal(baseDate);
-    
-    // End time default: 6:00 PM (18:00) on the same day
-    const endDate = new Date(baseDate.getTime());
-    endDate.setHours(18, 0, 0, 0);
-    const initialEnd = formatDateTimeLocal(endDate);
+    const buffer = venueSettings[venue]?.buffer || 0;
 
-    return { startTime: initialStart, endTime: initialEnd, buffer: 0 };
+    return { startTime: initialStart, buffer };
   };
 
-  const updateVenueConfig = (venue: string, field: "startTime" | "endTime" | "buffer", value: any) => {
+  const updateVenueConfig = (venue: string, field: "buffer", value: any) => {
     setVenueSettings(prev => {
       const current = prev[venue] || getVenueConfig(venue);
       return {
@@ -100,19 +93,11 @@ export default function AdminScheduler({
     });
   };
 
-  // Auto-predict cascading sequential timeline starting strictly from 9:00 AM (or configured venue start)
-  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr: string, bufferMinutes: number = 0) => {
-    let baseDate: Date;
-    if (venueStartTimeStr) {
-      baseDate = new Date(venueStartTimeStr);
-      if (isNaN(baseDate.getTime())) {
-        baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
-        baseDate.setHours(9, 0, 0, 0);
-      }
-    } else {
-      baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
-      baseDate.setHours(9, 0, 0, 0);
-    }
+  // Auto-predict cascading sequential timeline starting strictly from 9:00 AM
+  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 0) => {
+    let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
+    if (isNaN(baseDate.getTime())) baseDate = new Date();
+    baseDate.setHours(9, 0, 0, 0); // Strictly 9:00 AM sharp!
 
     let currentCursor = new Date(baseDate.getTime());
     const predictedList = venuePrograms.map((p, idx) => {
@@ -706,10 +691,11 @@ export default function AdminScheduler({
         const { predictedList, totalDurationMinutes, predictedStart, predictedEnd } = 
           getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
 
-        // Check against Venue End Time
-        const endDiffMs = config.endTime ? new Date(config.endTime).getTime() - predictedEnd.getTime() : null;
-        const isExceedingEndTime = endDiffMs !== null && endDiffMs < 0;
-        const diffMinutes = endDiffMs !== null ? Math.abs(Math.round(endDiffMs / 60000)) : 0;
+        // Check if finished by 6:00 PM (18:00)
+        const eveningCutoff = new Date(predictedStart.getTime());
+        eveningCutoff.setHours(18, 0, 0, 0);
+        const isExceedingEvening = predictedEnd.getTime() > eveningCutoff.getTime();
+        const diffMinutes = Math.abs(Math.round((predictedEnd.getTime() - eveningCutoff.getTime()) / 60000));
 
         return (
           <div key={venue} className="glass-panel" style={{ padding: "var(--spacing-md)", borderRadius: "14px" }}>
@@ -758,12 +744,6 @@ export default function AdminScheduler({
                   <button className="btn btn-secondary" style={{ padding: "5px 10px", fontSize: "0.75rem" }} onClick={() => handleAddBreak(venue)}>
                     + Add Break
                   </button>
-                  <button className="btn btn-secondary" style={{ padding: "5px 10px", fontSize: "0.75rem" }} onClick={() => handleShiftSchedule(venue, 15)}>
-                    Delay 15m
-                  </button>
-                  <button className="btn btn-secondary" style={{ padding: "5px 10px", fontSize: "0.75rem" }} onClick={() => handleShiftSchedule(venue, -15)}>
-                    Advance 15m
-                  </button>
                 </div>
               )}
             </div>
@@ -782,22 +762,25 @@ export default function AdminScheduler({
                   gap: "10px"
                 }}
               >
-                {/* Inputs Row: Venue Start Time (Defaults to 9:00 AM), Buffer, and 1-Click Save */}
+                {/* Fixed Start 9:00 AM badge, Buffer, and 1-Click Save */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
                     
-                    {/* Venue Start Time: Defaults to 9:00 AM */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0, whiteSpace: "nowrap" }}>
-                        🕒 Venue Starts At:
-                      </label>
-                      <input 
-                        type="datetime-local" 
-                        className="form-input" 
-                        value={config.startTime}
-                        onChange={(e) => updateVenueConfig(venue, "startTime", e.target.value)}
-                        style={{ fontSize: "0.82rem", padding: "4px 8px", width: "190px" }}
-                      />
+                    {/* Fixed Start Time: Always 9:00 AM */}
+                    <div style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      backgroundColor: "#f0fdf4",
+                      color: "#15803d",
+                      border: "1.5px solid #bbf7d0",
+                      padding: "5px 12px",
+                      borderRadius: "8px",
+                      fontSize: "0.82rem",
+                      fontWeight: 800
+                    }}>
+                      <span>🕒</span>
+                      <span>Starts: <strong>09:00 AM (Auto Fixed)</strong></span>
                     </div>
 
                     {/* Buffer Between Programs */}
@@ -868,23 +851,21 @@ export default function AdminScheduler({
                     </span>
                   </div>
 
-                  {config.endTime && (
-                    <div style={{
-                      fontWeight: 700,
-                      color: isExceedingEndTime ? "#dc2626" : "#059669",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}>
-                      <span>{isExceedingEndTime ? "⚠️" : "✅"}</span>
-                      <span>
-                        {isExceedingEndTime 
-                          ? `Exceeds 6:00 PM by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`
-                          : `Finishes comfortably before evening`
-                        }
-                      </span>
-                    </div>
-                  )}
+                  <div style={{
+                    fontWeight: 700,
+                    color: isExceedingEvening ? "#dc2626" : "#059669",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}>
+                    <span>{isExceedingEvening ? "⚠️" : "✅"}</span>
+                    <span>
+                      {isExceedingEvening 
+                        ? `Exceeds 6:00 PM by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`
+                        : `Finishes by ${predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
