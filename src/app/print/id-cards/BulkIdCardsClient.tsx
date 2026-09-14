@@ -4,29 +4,79 @@ import React, { useState, useMemo } from "react";
 import PrintButton from "@/components/PrintButton";
 import CandidateIdCard from "@/components/CandidateIdCard";
 
-type PaperSize = "A4" | "A3";
+type PaperSize = "CARD" | "A4" | "A3";
 type LayoutMode = "MAX" | "GRID";
+type StageFilter = "ALL" | "ON_STAGE" | "OFF_STAGE";
 
 export default function BulkIdCardsClient({
   candidates,
   settings,
+  initialStageType = "ALL",
 }: {
   candidates: any[];
   settings: any;
+  initialStageType?: string;
 }) {
-  const [paperSize, setPaperSize] = useState<PaperSize>("A4");
+  const [stageFilter, setStageFilter] = useState<StageFilter>(
+    initialStageType === "ON_STAGE" ? "ON_STAGE" : initialStageType === "OFF_STAGE" ? "OFF_STAGE" : "ALL"
+  );
+  const [paperSize, setPaperSize] = useState<PaperSize>("CARD");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("MAX");
   const [showCutBorders, setShowCutBorders] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<"SHEET" | "GRID">("SHEET");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState("");
 
+  // Calculate counts for badges
+  const totalCount = candidates.length;
+  const onStageCount = useMemo(() => {
+    return candidates.filter((c) =>
+      c.programs?.some((p: any) => {
+        const st = (p.program?.stageType || p.stageType || "").toUpperCase();
+        return st === "ON_STAGE" || st.includes("ON");
+      })
+    ).length;
+  }, [candidates]);
+
+  const offStageCount = useMemo(() => {
+    return candidates.filter((c) =>
+      c.programs?.some((p: any) => {
+        const st = (p.program?.stageType || p.stageType || "").toUpperCase();
+        return st === "OFF_STAGE" || st.includes("OFF");
+      })
+    ).length;
+  }, [candidates]);
+
+  // Filter candidates by Stage Type
+  const filteredCandidates = useMemo(() => {
+    if (stageFilter === "ALL") return candidates;
+    if (stageFilter === "ON_STAGE") {
+      return candidates.filter((c) =>
+        c.programs?.some((p: any) => {
+          const st = (p.program?.stageType || p.stageType || "").toUpperCase();
+          return st === "ON_STAGE" || st.includes("ON");
+        })
+      );
+    }
+    if (stageFilter === "OFF_STAGE") {
+      return candidates.filter((c) =>
+        c.programs?.some((p: any) => {
+          const st = (p.program?.stageType || p.stageType || "").toUpperCase();
+          return st === "OFF_STAGE" || st.includes("OFF");
+        })
+      );
+    }
+    return candidates;
+  }, [candidates, stageFilter]);
+
   // Determine capacity per sheet
+  // CARD: 1 card per page (Exact 7.5cm x 12.5cm fitting type)
   // A4 MAX: 5 cards (3 portrait top + 2 landscape bottom) - A4 Landscape
   // A4 GRID: 4 cards (2x2 portrait grid) - A4 Portrait
   // A3 MAX: 10 cards (5x2 portrait grid) - A3 Landscape
   // A3 GRID: 9 cards (3x3 portrait grid) - A3 Portrait
   const cardsPerSheet = useMemo(() => {
+    if (paperSize === "CARD") return 1;
     if (paperSize === "A4") {
       return layoutMode === "MAX" ? 5 : 4;
     } else {
@@ -34,18 +84,30 @@ export default function BulkIdCardsClient({
     }
   }, [paperSize, layoutMode]);
 
-  // Chunk candidates into pages
+  // Chunk filtered candidates into pages
   const pages = useMemo(() => {
     const chunks: any[][] = [];
-    for (let i = 0; i < candidates.length; i += cardsPerSheet) {
-      chunks.push(candidates.slice(i, i + cardsPerSheet));
+    for (let i = 0; i < filteredCandidates.length; i += cardsPerSheet) {
+      chunks.push(filteredCandidates.slice(i, i + cardsPerSheet));
     }
     return chunks;
-  }, [candidates, cardsPerSheet]);
+  }, [filteredCandidates, cardsPerSheet]);
 
   // Page setup parameters for CSS and PDF export
   const pageConfig = useMemo(() => {
-    if (paperSize === "A4") {
+    if (paperSize === "CARD") {
+      return {
+        size: "7.5cm 12.5cm",
+        isLandscape: false,
+        margin: "0",
+        sheetWidthMm: 75,
+        sheetHeightMm: 125,
+        sheetWidthCss: "7.5cm",
+        sheetHeightCss: "12.5cm",
+        orientationName: "Exact Card (7.5 × 12.5 cm)",
+        desc: "Exact 7.5cm × 12.5cm (Fitting Type • 1 Card / Page)",
+      };
+    } else if (paperSize === "A4") {
       if (layoutMode === "MAX") {
         return {
           size: "A4 landscape",
@@ -100,11 +162,78 @@ export default function BulkIdCardsClient({
     }
   }, [paperSize, layoutMode]);
 
-  // High-Resolution Direct PDF Download Handler
-  const handleDownloadPdf = async () => {
+  // Exact Fitting 7.5cm x 12.5cm PDF Download Handler (1 Card Per Page, Zero Margins)
+  const handleDownloadExactPdf = async () => {
+    if (filteredCandidates.length === 0) return;
     try {
       setIsGeneratingPdf(true);
-      setPdfProgress("Loading PDF generator...");
+      setPdfProgress("Switching to exact 7.5 × 12.5 cm mode...");
+
+      if (paperSize !== "CARD") {
+        setPaperSize("CARD");
+        // Give React time to render all cards in 1-per-page portrait mode
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+
+      setPdfProgress("Loading PDF engine...");
+      const { jsPDF } = await import("jspdf");
+      const { toPng } = await import("html-to-image");
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [75, 125], // Exact 7.5 cm × 12.5 cm fitting dimensions
+      });
+
+      // Query card elements in the document
+      const cardEls = document.querySelectorAll<HTMLElement>(".exact-card-slot, .card-slot-portrait");
+      if (cardEls.length === 0) {
+        throw new Error("No card elements found on page.");
+      }
+
+      for (let i = 0; i < cardEls.length; i++) {
+        setPdfProgress(`Rendering card ${i + 1} of ${cardEls.length}...`);
+        const card = cardEls[i];
+        const imgData = await toPng(card, {
+          quality: 0.98,
+          pixelRatio: 3, // High DPI rendering
+          backgroundColor: "#ffffff",
+          filter: (node) => {
+            if (node instanceof HTMLElement && node.classList.contains("no-print")) {
+              return false;
+            }
+            return true;
+          },
+        });
+
+        if (i > 0) {
+          pdf.addPage([75, 125], "portrait");
+        }
+
+        // Add image fitting 100% of 75mm x 125mm with 0 margins
+        pdf.addImage(imgData, "PNG", 0, 0, 75, 125, undefined, "FAST");
+      }
+
+      setPdfProgress("Saving exact fitting PDF...");
+      const stageLabel = stageFilter === "ALL" ? "All" : stageFilter === "ON_STAGE" ? "OnStage" : "OffStage";
+      pdf.save(`Candidate_ID_Cards_7.5x12.5cm_${stageLabel}.pdf`);
+    } catch (err) {
+      console.error("Exact PDF generation failed:", err);
+      alert("Could not generate PDF file automatically. Please use the Print button and select 'Save as PDF'.");
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress("");
+    }
+  };
+
+  // Sheet-based PDF Download Handler (A4 / A3 sheets)
+  const handleDownloadSheetPdf = async () => {
+    if (paperSize === "CARD") {
+      return handleDownloadExactPdf();
+    }
+    try {
+      setIsGeneratingPdf(true);
+      setPdfProgress("Loading PDF engine...");
       const { jsPDF } = await import("jspdf");
       const { toPng } = await import("html-to-image");
 
@@ -154,10 +283,11 @@ export default function BulkIdCardsClient({
       }
 
       setPdfProgress("Saving PDF file...");
-      pdf.save(`Candidate_ID_Cards_${paperSize}_${layoutMode}.pdf`);
+      const stageLabel = stageFilter === "ALL" ? "All" : stageFilter === "ON_STAGE" ? "OnStage" : "OffStage";
+      pdf.save(`Candidate_ID_Cards_${paperSize}_${stageLabel}.pdf`);
     } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert("Could not generate PDF file automatically. Please use the Print All Cards button and select 'Save as PDF'.");
+      console.error("Sheet PDF generation failed:", err);
+      alert("Could not generate PDF file automatically. Please use the Print button and select 'Save as PDF'.");
     } finally {
       setIsGeneratingPdf(false);
       setPdfProgress("");
@@ -203,7 +333,7 @@ export default function BulkIdCardsClient({
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "1.35rem", fontWeight: 800, margin: 0, color: "#111827" }}>
-                Bulk ID Card Printing
+                Candidate ID Card Printing &amp; PDF Export
               </h1>
               <span
                 style={{
@@ -212,120 +342,235 @@ export default function BulkIdCardsClient({
                   padding: "3px 10px",
                   borderRadius: "999px",
                   fontSize: "0.75rem",
-                  fontWeight: 700,
+                  fontWeight: 800,
                   border: "1px solid #bfdbfe",
                 }}
               >
-                Fixed Physical Card: 7.5 cm (W) × 12.5 cm (H)
+                Exact Physical Card Size: 7.5 cm (W) × 12.5 cm (H)
               </span>
             </div>
             <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "4px 0 0 0" }}>
-              {candidates.length} candidates • {pages.length} {pages.length === 1 ? "sheet" : "sheets"} on{" "}
-              <strong>{pageConfig.orientationName}</strong> ({cardsPerSheet} cards/sheet)
+              Showing <strong>{filteredCandidates.length}</strong> candidates • {pages.length} {pages.length === 1 ? "page" : "pages"} on{" "}
+              <strong>{pageConfig.orientationName}</strong>
             </p>
           </div>
 
+          {/* Action Buttons */}
           <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-            {/* Download PDF Button */}
+            {/* Direct Exact 7.5 x 12.5 cm PDF Download Button */}
             <button
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf || candidates.length === 0}
+              onClick={handleDownloadExactPdf}
+              disabled={isGeneratingPdf || filteredCandidates.length === 0}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
                 padding: "10px 18px",
-                backgroundColor: isGeneratingPdf ? "#94a3b8" : "#0284c7",
+                backgroundColor: isGeneratingPdf ? "#94a3b8" : "#8E0033",
                 color: "#ffffff",
-                fontWeight: 700,
+                fontWeight: 800,
                 border: "none",
                 borderRadius: "8px",
                 cursor: isGeneratingPdf ? "not-allowed" : "pointer",
                 fontSize: "0.875rem",
-                boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
+                boxShadow: "0 2px 6px rgba(142, 0, 51, 0.3)",
                 transition: "all 0.2s",
               }}
+              title="Download exact 7.5cm (W) x 12.5cm (H) fitting PDF (1 Card per Page, Zero Margins)"
             >
               <span>{isGeneratingPdf ? "⏳" : "📥"}</span>
-              <span>{isGeneratingPdf ? pdfProgress : "Download PDF"}</span>
+              <span>{isGeneratingPdf ? pdfProgress : "Download Exact PDF (7.5 × 12.5 cm)"}</span>
             </button>
 
-            {/* Print All Cards Button */}
-            <PrintButton label="Print All Cards" color="#8E0033" />
+            {/* Sheet PDF download if A4 or A3 */}
+            {paperSize !== "CARD" && (
+              <button
+                onClick={handleDownloadSheetPdf}
+                disabled={isGeneratingPdf || filteredCandidates.length === 0}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "10px 16px",
+                  backgroundColor: isGeneratingPdf ? "#94a3b8" : "#0284c7",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: isGeneratingPdf ? "not-allowed" : "pointer",
+                  fontSize: "0.85rem",
+                  boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
+                }}
+              >
+                <span>📄</span>
+                <span>Download {paperSize} Sheet PDF</span>
+              </button>
+            )}
 
-            {/* Back Button */}
-            <button
-              onClick={() => window.history.back()}
+            <PrintButton label={`Print Cards (${pageConfig.orientationName})`} />
+
+            <a
+              href="/dashboard/reports"
               style={{
-                padding: "10px 18px",
+                padding: "10px 16px",
                 backgroundColor: "#f1f5f9",
                 color: "#475569",
-                fontWeight: 600,
                 border: "1px solid #cbd5e1",
                 borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                transition: "all 0.2s",
+                textDecoration: "none",
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
               }}
             >
-              ← Back
-            </button>
+              ← Reports
+            </a>
           </div>
         </div>
 
-        {/* Paper & Layout Configuration Controls */}
+        {/* Filter Controls Row: Stage Filter, Paper Size, Layout */}
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
             justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
             gap: "16px",
             paddingTop: "14px",
             borderTop: "1px solid #f1f5f9",
           }}
         >
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "20px" }}>
-            {/* Paper Size Selector */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155" }}>
-                📄 Paper Size:
-              </span>
-              <div
+          {/* Stage Filter: All, On-Stage Only, Off-Stage Only */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>
+              🎭 Stage Filter:
+            </span>
+            <div
+              style={{
+                display: "inline-flex",
+                borderRadius: "8px",
+                border: "1.5px solid #cbd5e1",
+                overflow: "hidden",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <button
+                onClick={() => setStageFilter("ALL")}
                 style={{
-                  display: "inline-flex",
-                  borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  overflow: "hidden",
-                  backgroundColor: "#f8fafc",
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: stageFilter === "ALL" ? "#0f172a" : "transparent",
+                  color: stageFilter === "ALL" ? "#ffffff" : "#475569",
+                  transition: "all 0.15s",
                 }}
               >
-                {(["A4", "A3"] as PaperSize[]).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setPaperSize(size)}
-                    style={{
-                      padding: "6px 14px",
-                      fontSize: "0.82rem",
-                      fontWeight: 700,
-                      border: "none",
-                      cursor: "pointer",
-                      backgroundColor: paperSize === size ? "#8E0033" : "transparent",
-                      color: paperSize === size ? "#ffffff" : "#475569",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
+                All Candidates ({totalCount})
+              </button>
+              <button
+                onClick={() => setStageFilter("ON_STAGE")}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: stageFilter === "ON_STAGE" ? "#4f46e5" : "transparent",
+                  color: stageFilter === "ON_STAGE" ? "#ffffff" : "#475569",
+                  borderLeft: "1px solid #cbd5e1",
+                  transition: "all 0.15s",
+                }}
+              >
+                🎭 On-Stage Only ({onStageCount})
+              </button>
+              <button
+                onClick={() => setStageFilter("OFF_STAGE")}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: stageFilter === "OFF_STAGE" ? "#059669" : "transparent",
+                  color: stageFilter === "OFF_STAGE" ? "#ffffff" : "#475569",
+                  borderLeft: "1px solid #cbd5e1",
+                  transition: "all 0.15s",
+                }}
+              >
+                📝 Off-Stage Only ({offStageCount})
+              </button>
+            </div>
+          </div>
+
+          {/* Paper Size / Exact Size Selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>
+              🖨️ Print Format:
+            </span>
+            <div
+              style={{
+                display: "inline-flex",
+                borderRadius: "8px",
+                border: "1.5px solid #cbd5e1",
+                overflow: "hidden",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <button
+                onClick={() => setPaperSize("CARD")}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: paperSize === "CARD" ? "#8E0033" : "transparent",
+                  color: paperSize === "CARD" ? "#ffffff" : "#475569",
+                  transition: "all 0.15s",
+                }}
+                title="Exact 7.5cm (W) × 12.5cm (H) card size (1 Card per Page, Fitting Type)"
+              >
+                ⭐ Exact Card (7.5 × 12.5 cm)
+              </button>
+              <button
+                onClick={() => setPaperSize("A4")}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: paperSize === "A4" ? "#8E0033" : "transparent",
+                  color: paperSize === "A4" ? "#ffffff" : "#475569",
+                  borderLeft: "1px solid #cbd5e1",
+                  transition: "all 0.15s",
+                }}
+              >
+                A4 Sheets
+              </button>
+              <button
+                onClick={() => setPaperSize("A3")}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: paperSize === "A3" ? "#8E0033" : "transparent",
+                  color: paperSize === "A3" ? "#ffffff" : "#475569",
+                  borderLeft: "1px solid #cbd5e1",
+                  transition: "all 0.15s",
+                }}
+              >
+                A3 Sheets
+              </button>
             </div>
 
-            {/* Layout Mode Selector */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155" }}>
-                📐 Layout:
-              </span>
+            {/* Layout Mode Selector (For A4 and A3) */}
+            {paperSize !== "CARD" && (
               <div
                 style={{
                   display: "inline-flex",
@@ -338,184 +583,153 @@ export default function BulkIdCardsClient({
                 <button
                   onClick={() => setLayoutMode("MAX")}
                   style={{
-                    padding: "6px 14px",
-                    fontSize: "0.82rem",
+                    padding: "6px 12px",
+                    fontSize: "0.80rem",
                     fontWeight: 700,
                     border: "none",
                     cursor: "pointer",
-                    backgroundColor: layoutMode === "MAX" ? "#8E0033" : "transparent",
-                    color: layoutMode === "MAX" ? "#ffffff" : "#475569",
-                    transition: "all 0.15s",
+                    backgroundColor: layoutMode === "MAX" ? "#334155" : "transparent",
+                    color: layoutMode === "MAX" ? "#ffffff" : "#64748b",
                   }}
-                  title={paperSize === "A4" ? "5 Cards (3 Portrait + 2 Landscape)" : "10 Cards (5x2 Grid)"}
                 >
-                  ⭐ Max Fit ({paperSize === "A4" ? "5 Cards" : "10 Cards"})
+                  Max Fit ({paperSize === "A4" ? "5 Cards" : "10 Cards"})
                 </button>
                 <button
                   onClick={() => setLayoutMode("GRID")}
                   style={{
-                    padding: "6px 14px",
-                    fontSize: "0.82rem",
+                    padding: "6px 12px",
+                    fontSize: "0.80rem",
                     fontWeight: 700,
                     border: "none",
                     cursor: "pointer",
-                    backgroundColor: layoutMode === "GRID" ? "#8E0033" : "transparent",
-                    color: layoutMode === "GRID" ? "#ffffff" : "#475569",
-                    transition: "all 0.15s",
+                    backgroundColor: layoutMode === "GRID" ? "#334155" : "transparent",
+                    color: layoutMode === "GRID" ? "#ffffff" : "#64748b",
                   }}
-                  title={paperSize === "A4" ? "4 Cards (2x2 Grid)" : "9 Cards (3x3 Grid)"}
                 >
                   Standard Grid ({paperSize === "A4" ? "4 Cards" : "9 Cards"})
                 </button>
               </div>
-            </div>
+            )}
 
             {/* Cut Borders Toggle */}
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-                color: "#334155",
-                cursor: "pointer",
-                userSelect: "none",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showCutBorders}
-                onChange={(e) => setShowCutBorders(e.target.checked)}
-                style={{ accentColor: "#8E0033", cursor: "pointer", width: "16px", height: "16px" }}
-              />
-              Show Cut Guides
-            </label>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#64748b" }}>
-              View:
-            </span>
-            <div
-              style={{
-                display: "inline-flex",
-                borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                overflow: "hidden",
-                backgroundColor: "#f8fafc",
-              }}
-            >
-              <button
-                onClick={() => setViewMode("SHEET")}
+            {paperSize !== "CARD" && (
+              <label
                 style={{
-                  padding: "5px 12px",
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.80rem",
+                  fontWeight: 600,
+                  color: "#334155",
                   cursor: "pointer",
-                  backgroundColor: viewMode === "SHEET" ? "#1e293b" : "transparent",
-                  color: viewMode === "SHEET" ? "#ffffff" : "#64748b",
-                  transition: "all 0.15s",
+                  userSelect: "none",
                 }}
               >
-                Sheet Pages
-              </button>
-              <button
-                onClick={() => setViewMode("GRID")}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer",
-                  backgroundColor: viewMode === "GRID" ? "#1e293b" : "transparent",
-                  color: viewMode === "GRID" ? "#ffffff" : "#64748b",
-                  transition: "all 0.15s",
-                }}
-              >
-                Cards Flow
-              </button>
-            </div>
+                <input
+                  type="checkbox"
+                  checked={showCutBorders}
+                  onChange={(e) => setShowCutBorders(e.target.checked)}
+                  style={{ accentColor: "#8E0033", cursor: "pointer" }}
+                />
+                Cut Guides
+              </label>
+            )}
           </div>
         </div>
 
-        {/* Helpful Orientation Banner for Native Browser Printing */}
-        {pageConfig.isLandscape && (
-          <div
-            style={{
-              backgroundColor: "#fef3c7",
-              border: "1px solid #fde68a",
-              color: "#92400e",
-              borderRadius: "8px",
-              padding: "8px 14px",
-              fontSize: "0.80rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span>💡</span>
-            <span>
-              <strong>Printer Setting:</strong> When using the Print button, make sure your printer dialog layout is set to <strong>Landscape</strong> (or use the <strong>Download PDF</strong> button for an instant pre-formatted file).
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Main Print / Preview Content Area */}
-      {viewMode === "SHEET" ? (
-        /* Sheet by Sheet Preview */
+        {/* Informational Guidance Banner */}
         <div
-          className="sheets-wrapper"
           style={{
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            color: "#166534",
+            padding: "8px 14px",
+            borderRadius: "6px",
+            fontSize: "0.80rem",
             display: "flex",
-            flexDirection: "column",
-            gap: "32px",
+            justifyContent: "space-between",
             alignItems: "center",
-            backgroundColor: "#ffffff",
+            flexWrap: "wrap",
+            gap: "8px",
           }}
         >
+          <div>
+            💡 <strong>Exact 7.5cm (W) × 12.5cm (H) PDF:</strong> Click <strong>&quot;Download Exact PDF&quot;</strong> to export high-resolution zero-margin fitting PDF. When printing via browser print dialog, select <strong>Save as PDF</strong> with paper size matching <strong>Exact Card (7.5 × 12.5 cm)</strong>.
+          </div>
+          <div style={{ fontWeight: 800, color: "#8E0033" }}>
+            Active Stage: {stageFilter === "ALL" ? "All Programs" : stageFilter === "ON_STAGE" ? "On-Stage Only" : "Off-Stage Only"}
+          </div>
+        </div>
+      </div>
+
+      {/* ── ID Card Rendering Canvas ── */}
+      {filteredCandidates.length > 0 ? (
+        <div className="sheets-wrapper" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           {pages.map((pageCandidates, pageIdx) => {
             return (
               <div
                 key={`page-${pageIdx}`}
-                className={`print-sheet print-sheet-${paperSize.toLowerCase()}-${layoutMode.toLowerCase()}`}
+                className={`print-sheet print-sheet-${paperSize.toLowerCase()}`}
                 style={{
                   backgroundColor: "#ffffff",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                  boxShadow: paperSize === "CARD" ? "0 4px 15px rgba(0,0,0,0.08)" : "0 4px 20px rgba(0,0,0,0.06)",
                   borderRadius: "8px",
-                  border: "1px solid #e2e8f0",
+                  border: paperSize === "CARD" ? "none" : "1px solid #e2e8f0",
                   boxSizing: "border-box",
-                  padding: "16px",
+                  padding: paperSize === "CARD" ? "0" : "16px",
                   position: "relative",
                   margin: "0 auto",
+                  width: paperSize === "CARD" ? "7.5cm" : undefined,
+                  height: paperSize === "CARD" ? "12.5cm" : undefined,
                 }}
               >
-                {/* Sheet Header (Screen Only) */}
-                <div
-                  className="no-print"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingBottom: "10px",
-                    marginBottom: "12px",
-                    borderBottom: "1px dashed #cbd5e1",
-                    fontSize: "0.78rem",
-                    color: "#64748b",
-                    fontWeight: 700,
-                  }}
-                >
-                  <span>
-                    📄 Sheet {pageIdx + 1} of {pages.length} • {pageConfig.desc}
-                  </span>
-                  <span>{pageCandidates.length} Cards on this sheet</span>
-                </div>
+                {/* Sheet Header (Screen Only - for A4/A3 multi-card sheets) */}
+                {paperSize !== "CARD" && (
+                  <div
+                    className="no-print"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      paddingBottom: "10px",
+                      marginBottom: "12px",
+                      borderBottom: "1px dashed #cbd5e1",
+                      fontSize: "0.78rem",
+                      color: "#64748b",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span>
+                      📄 Sheet {pageIdx + 1} of {pages.length} • {pageConfig.desc}
+                    </span>
+                    <span>{pageCandidates.length} Cards on this sheet</span>
+                  </div>
+                )}
 
-                {/* Content according to Layout Mode */}
-                {paperSize === "A4" && layoutMode === "MAX" ? (
+                {/* Content according to Paper Size and Layout Mode */}
+                {paperSize === "CARD" ? (
+                  /* Exact Card Mode: 1 Card per Page, Fitting Type */
+                  <div
+                    className="card-slot-portrait exact-card-slot"
+                    style={{
+                      width: "7.5cm",
+                      height: "12.5cm",
+                      overflow: "hidden",
+                      position: "relative",
+                      margin: "0 auto",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <CandidateIdCard
+                      candidate={pageCandidates[0]}
+                      settings={settings}
+                      isSchedulePublished={
+                        pageCandidates[0]?.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
+                        pageCandidates[0]?.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED"
+                      }
+                    />
+                  </div>
+                ) : paperSize === "A4" && layoutMode === "MAX" ? (
                   /* A4 MAX: 5 Cards (3 Portrait Top + 2 Landscape Bottom) */
                   <div
                     className="layout-a4-max-container"
@@ -554,7 +768,7 @@ export default function BulkIdCardsClient({
                       })}
                     </div>
 
-                    {/* Bottom Row: Up to 2 Landscape (Rotated 90deg) Cards */}
+                    {/* Bottom Row: Up to 2 Landscape Cards */}
                     {pageCandidates.length > 3 && (
                       <div
                         className="row-bottom-landscape"
@@ -615,39 +829,6 @@ export default function BulkIdCardsClient({
           })}
         </div>
       ) : (
-        /* Continuous Cards Flow View */
-        <div
-          className="id-cards-grid-flow"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "24px",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            backgroundColor: "#ffffff",
-          }}
-        >
-          {candidates.map((candidate) => {
-            const isSchedulePublished =
-              candidate.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
-              candidate.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED";
-            return (
-              <div
-                key={candidate.id}
-                className={`card-slot-portrait ${showCutBorders ? "with-cut-border" : ""}`}
-              >
-                <CandidateIdCard
-                  candidate={candidate}
-                  settings={settings}
-                  isSchedulePublished={isSchedulePublished}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {candidates.length === 0 && (
         <div
           style={{
             textAlign: "center",
@@ -657,17 +838,18 @@ export default function BulkIdCardsClient({
             borderRadius: "12px",
             maxWidth: "500px",
             margin: "40px auto",
+            border: "1px dashed #cbd5e1",
           }}
         >
           <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>🪪</div>
           <h3 style={{ margin: "0 0 6px 0", color: "#111827" }}>No Candidates Found</h3>
           <p style={{ margin: 0, fontSize: "0.9rem" }}>
-            No approved candidates match the selected filter.
+            No candidates match the stage filter <strong>&quot;{stageFilter}&quot;</strong>. Try switching back to <strong>&quot;All Candidates&quot;</strong>.
           </p>
         </div>
       )}
 
-      {/* Embedded Dynamic Print Stylesheet for exact 7.5cm x 12.5cm physical cards */}
+      {/* Embedded Dynamic Print Stylesheet */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -691,7 +873,7 @@ export default function BulkIdCardsClient({
           box-shadow: none !important;
         }
 
-        /* Landscape (Rotated 90deg) Card Slot: 12.5cm W x 7.5cm H */
+        /* Landscape Card Slot */
         .card-slot-landscape {
           width: 12.5cm;
           height: 7.5cm;
@@ -711,7 +893,7 @@ export default function BulkIdCardsClient({
           box-shadow: none !important;
         }
 
-        /* Screen Grid Columns Helper */
+        /* Grid Layouts */
         .layout-grid-container {
           display: grid;
           justify-content: center;
@@ -728,7 +910,7 @@ export default function BulkIdCardsClient({
           grid-template-columns: repeat(5, 7.5cm);
         }
 
-        /* PRINT STYLES - GUARANTEED GRAPHICS & PURE WHITE PAPER BACKGROUND */
+        /* PRINT STYLES */
         @media print {
           @page {
             size: ${pageConfig.size};
@@ -763,6 +945,7 @@ export default function BulkIdCardsClient({
             flex-direction: column !important;
             justify-content: center !important;
             align-items: center !important;
+            overflow: hidden !important;
           }
           .layout-a4-max-container {
             width: 100% !important;
@@ -794,7 +977,7 @@ export default function BulkIdCardsClient({
             background: #ffffff !important;
           }
           .card-slot-portrait.with-cut-border {
-            border: 1px dashed #94a3b8 !important;
+            border: ${paperSize === "CARD" ? "none !important" : "1px dashed #94a3b8 !important"};
           }
           .card-slot-landscape {
             page-break-inside: avoid !important;

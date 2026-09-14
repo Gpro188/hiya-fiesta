@@ -4,7 +4,7 @@ import BulkIdCardsClient from "./BulkIdCardsClient";
 
 export const dynamic = 'force-dynamic';
 
-export default async function BulkIdCardsPage({ searchParams }: { searchParams: Promise<{ teamId?: string, categoryId?: string, eventId?: string }> }) {
+export default async function BulkIdCardsPage({ searchParams }: { searchParams: Promise<{ teamId?: string, categoryId?: string, eventId?: string, stageType?: string }> }) {
   const params = await searchParams;
   let eventId = params.eventId || undefined;
   
@@ -64,5 +64,5 @@ export default async function BulkIdCardsPage({ searchParams }: { searchParams: 
     orderBy: { name: 'asc' }
   });
 
-  return <BulkIdCardsClient candidates={candidates as any} settings={settings} />;
+  return <BulkIdCardsClient candidates={candidates as any} settings={settings} initialStageType={params.stageType} />;
 }
