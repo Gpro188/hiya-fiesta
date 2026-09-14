@@ -100,6 +100,7 @@ export default async function JuriesPage() {
     const currentEvent = await prisma.event.findUnique({
       where: { id: activeEventId },
       include: {
+        zone: true,
         selectedJudges: { select: { id: true, username: true, phone: true, place: true } }
       }
     });
@@ -118,26 +119,61 @@ export default async function JuriesPage() {
       }
     }
 
-    const programs = await prisma.program.findMany({
-      where: programWhere,
-      include: {
-        judges: { select: { id: true, username: true } },
-        category: true
-      },
-      orderBy: { name: 'asc' }
+    const [programs, venueUsers] = await Promise.all([
+      prisma.program.findMany({
+        where: programWhere,
+        include: {
+          judges: { select: { id: true, username: true } },
+          category: true
+        },
+        orderBy: { name: 'asc' }
+      }),
+      prisma.user.findMany({
+        where: {
+          role: "JUDGE",
+          place: { not: null },
+          OR: [
+            { eventId: activeEventId },
+            ...(currentEvent?.zoneId ? [{ zoneId: currentEvent.zoneId }] : [])
+          ]
+        },
+        select: {
+          id: true,
+          username: true,
+          place: true,
+          phone: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
+
+    const venues = Array.from(
+      new Set(programs.map(p => p.venue || "Main Stage").filter(Boolean))
+    ).sort();
+
+    const programCountsByVenue: Record<string, number> = {};
+    programs.forEach(p => {
+      const v = p.venue || "Main Stage";
+      programCountsByVenue[v] = (programCountsByVenue[v] || 0) + 1;
     });
 
     return (
       <div className="animate-fade-in">
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
           <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Jury Selection & Assignment</h1>
-          <p className="page-description">Select judges for your Zone and assign them to programs.</p>
+          <p className="page-description">Select judges for your Zone, assign them to programs, and manage Venue / Stage logins.</p>
         </div>
         <ZoneJurySelection 
           allJudges={allJudges} 
           selectedJudges={currentEvent?.selectedJudges || []} 
           programs={programs}
-          eventId={activeEventId} 
+          eventId={activeEventId}
+          venues={venues}
+          venueUsers={venueUsers as any}
+          programCountsByVenue={programCountsByVenue}
+          zoneCode={currentEvent?.zone?.code || ""}
+          zoneName={currentEvent?.zone?.name || currentEvent?.name || ""}
         />
       </div>
     );

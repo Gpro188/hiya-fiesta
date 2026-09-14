@@ -22,13 +22,16 @@ interface ScoringEntry {
 export default function ScoringForm({ 
   events, 
   availableJudges = [],
-  userRole = "SUPER_ADMIN"
+  userRole = "SUPER_ADMIN",
+  userVenue = null
 }: { 
   events: any[];
   availableJudges?: any[];
   userRole?: string;
+  userVenue?: string | null;
 }) {
   const [eventId, setEventId] = useState(events[0]?.id || "");
+  const [selectedVenue, setSelectedVenue] = useState<string>(userVenue || "");
   const [categoryId, setCategoryId] = useState("");
   const [programId, setProgramId] = useState("");
   const [evaluator1, setEvaluator1] = useState("");
@@ -37,6 +40,15 @@ export default function ScoringForm({
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+
+  useEffect(() => {
+    if (userVenue) {
+      setSelectedVenue(userVenue);
+    } else if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("cswc_scoring_venue");
+      if (saved) setSelectedVenue(saved);
+    }
+  }, [userVenue]);
 
   useEffect(() => {
     if (events.length > 0) {
@@ -57,11 +69,30 @@ export default function ScoringForm({
   const selectedEvent = events.find(e => e.id === eventId);
   const allPrograms = selectedEvent?.programs || [];
 
+  // Extract all unique venues
+  const allVenues = Array.from(
+    new Set(allPrograms.map((p: any) => p.venue || "Main Stage").filter(Boolean))
+  ).sort() as string[];
+
+  // Filter programs by selected venue
+  const venuePrograms = selectedVenue
+    ? allPrograms.filter((p: any) => (p.venue || "Main Stage") === selectedVenue)
+    : allPrograms;
+
+  // Chronologically sort programs for this venue
+  const sortedVenuePrograms = [...venuePrograms].sort((a: any, b: any) => {
+    const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+    const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return (a.programCode || "").localeCompare(b.programCode || "");
+  });
+
   // Auto-populate based on URL programId
   useEffect(() => {
     if (urlProgramId && allPrograms.length > 0) {
       const p = allPrograms.find((p: any) => p.id === urlProgramId);
       if (p) {
+        if (p.venue) setSelectedVenue(p.venue);
         setCategoryId(p.categoryId || "general-cat");
         setProgramId(p.id);
         
@@ -72,9 +103,9 @@ export default function ScoringForm({
     }
   }, [urlProgramId, allPrograms, router, pathname, searchParams]);
 
-  // Extract unique categories
+  // Extract unique categories from sorted venue programs
   const categoryMap = new Map();
-  allPrograms.forEach((p: any) => {
+  sortedVenuePrograms.forEach((p: any) => {
     if (p.category) {
       categoryMap.set(p.category.id, p.category.name);
     } else if (p.type === 'GENERAL') {
@@ -83,11 +114,11 @@ export default function ScoringForm({
   });
   const categories = Array.from(categoryMap.entries()).map(([id, name]) => ({ id, name }));
 
-  // Filtered programs for selected category
-  const programs = allPrograms.filter((p: any) => {
+  // Filtered programs for selected category in venue (or all in venue if category not selected)
+  const programs = sortedVenuePrograms.filter((p: any) => {
+    if (!categoryId) return true;
     if (categoryId === "general-cat") return !p.category && p.type === 'GENERAL';
-    if (categoryId) return p.category?.id === categoryId;
-    return true;
+    return p.category?.id === categoryId;
   });
 
   const selecteCSWCgram = allPrograms.find((p: any) => p.id === programId);
@@ -283,10 +314,40 @@ export default function ScoringForm({
         </div>
       )}
 
+      {/* Assigned Venue Banner for Stage Juries */}
+      {userVenue && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: '12px',
+          padding: '12px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.3rem' }}>🏛️</span>
+            <div>
+              <div style={{ fontSize: '0.74rem', color: '#1e40af', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Assigned Venue / Stage Jury Portal
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#1e3a8a' }}>
+                {userVenue}
+              </div>
+            </div>
+          </div>
+          <span style={{ fontSize: '0.78rem', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '3px 10px', borderRadius: '6px', fontWeight: 800 }}>
+            🟢 STAGE ACTIVE
+          </span>
+        </div>
+      )}
+
       {/* Program Selector Bar */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', 
         gap: 'var(--spacing-md)',
         backgroundColor: '#fff',
         padding: '16px',
@@ -315,7 +376,45 @@ export default function ScoringForm({
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: '#332938' }}>2. CATEGORY</label>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: '#332938' }}>2. VENUE / STAGE</label>
+          <select 
+            className="form-input" 
+            value={selectedVenue}
+            disabled={Boolean(userVenue)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setSelectedVenue(v);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("cswc_scoring_venue", v);
+              }
+              setProgramId("");
+              setEntries([]);
+            }}
+            style={{ 
+              padding: '9px 12px', 
+              fontSize: '0.9rem', 
+              fontWeight: 700,
+              backgroundColor: userVenue ? '#f8fafc' : '#fff',
+              color: userVenue ? '#1e3a8a' : '#111827'
+            }}
+          >
+            {userVenue ? (
+              <option value={userVenue}>📍 {userVenue} (Assigned)</option>
+            ) : (
+              <>
+                <option value="">-- All Stages / Venues --</option>
+                {allVenues.map(v => (
+                  <option key={v} value={v}>
+                    {v} ({allPrograms.filter((p: any) => (p.venue || "Main Stage") === v).length} Programs)
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: '#332938' }}>3. CATEGORY (OPTIONAL)</label>
           <select 
             className="form-input" 
             value={categoryId}
@@ -326,22 +425,20 @@ export default function ScoringForm({
               setEvaluator1("");
               setEvaluator2("");
             }}
-            required
             style={{ padding: '9px 12px', fontSize: '0.9rem', fontWeight: 600 }}
           >
-            <option value="">-- Choose Category --</option>
+            <option value="">-- All Categories in Venue --</option>
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
           </select>
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary, #e6007e)' }}>3. COMPETITION PROGRAM</label>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary, #e6007e)' }}>4. COMPETITION PROGRAM</label>
           <select 
             className="form-input" 
             value={programId}
             onChange={(e) => setProgramId(e.target.value)}
             required
-            disabled={!categoryId}
             style={{ 
               padding: '9px 12px', 
               fontSize: '0.9rem', 
@@ -349,12 +446,15 @@ export default function ScoringForm({
               border: programId ? '2px solid var(--primary)' : '1px solid #d1d5db' 
             }}
           >
-            <option value="">-- Select Program to Score --</option>
-            {programs.map((p: any) => (
-              <option key={p.id} value={p.id}>
-                {p.name} [{p.stageType === 'OFF_STAGE' ? 'OFF-STAGE' : 'ON-STAGE'}] {isInstitutionProgram(p) ? '• INSTITUTION' : `(${p.type})`}
-              </option>
-            ))}
+            <option value="">-- Select Program ({programs.length} Available) --</option>
+            {programs.map((p: any) => {
+              const timeStr = p.startTime ? new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+              return (
+                <option key={p.id} value={p.id}>
+                  {timeStr ? `${timeStr} • ` : ''}{p.programCode ? `[${p.programCode}] ` : ''}{p.name} ({p.category?.name || 'General'}) [{p.stageType === 'OFF_STAGE' ? 'OFF' : 'ON'}]
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>
@@ -559,10 +659,10 @@ export default function ScoringForm({
                     ) : null}
                     <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
                     <th style={{ padding: '12px 16px' }}>Institution / Team</th>
-                    <th style={{ padding: '12px 16px', width: '140px' }}>Total Marks</th>
-                    <th style={{ padding: '12px 16px', width: '130px' }}>Place (Rank)</th>
-                    <th style={{ padding: '12px 16px', width: '120px' }}>Grade</th>
-                    <th style={{ padding: '12px 16px', width: '100px', textAlign: 'right' }}>Calculated Pts</th>
+                    <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
+                    <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
+                    <th style={{ padding: '12px 16px', width: '115px', textAlign: 'center' }}>Points</th>
+                    <th style={{ padding: '12px 16px', width: '135px' }}>Marks (Optional)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -592,28 +692,6 @@ export default function ScoringForm({
                         {entry.teamName || '-'}
                       </td>
 
-                      {/* Total Marks Input */}
-                      <td style={{ padding: '8px 16px' }}>
-                        <input 
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={entry.marks}
-                          onChange={(e) => handleEntryChange(idx, 'marks', e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '8px 10px',
-                            borderRadius: '8px',
-                            border: '1.5px solid #d1d5db',
-                            fontWeight: 800,
-                            fontSize: '1rem',
-                            color: '#111827',
-                            backgroundColor: entry.marks ? '#FEF2F6' : '#fff',
-                            textAlign: 'center'
-                          }}
-                        />
-                      </td>
-
                       {/* Place / Rank Select */}
                       <td style={{ padding: '8px 16px' }}>
                         <select
@@ -623,9 +701,9 @@ export default function ScoringForm({
                             width: '100%',
                             padding: '8px 10px',
                             borderRadius: '8px',
-                            border: entry.rank ? '2px solid #F59E0B' : '1px solid #d1d5db',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
+                            border: entry.rank ? '2px solid #F59E0B' : '1.5px solid #d1d5db',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
                             backgroundColor: entry.rank === "1" ? '#FFFBEB' : entry.rank === "2" ? '#F8FAFC' : entry.rank === "3" ? '#FFF7ED' : '#fff',
                             color: entry.rank ? '#B45309' : '#374151'
                           }}
@@ -646,9 +724,9 @@ export default function ScoringForm({
                             width: '100%',
                             padding: '8px 10px',
                             borderRadius: '8px',
-                            border: entry.grade ? '1.5px solid var(--primary)' : '1px solid #d1d5db',
+                            border: entry.grade ? '2px solid var(--primary)' : '1.5px solid #d1d5db',
                             fontWeight: 800,
-                            fontSize: '0.85rem',
+                            fontSize: '0.88rem',
                             backgroundColor: entry.grade ? '#FDF2F8' : '#fff',
                             color: entry.grade ? '#BE185D' : '#374151'
                           }}
@@ -661,8 +739,30 @@ export default function ScoringForm({
                       </td>
 
                       {/* Calculated Points */}
-                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 900, fontSize: '1.05rem', color: entry.points > 0 ? 'var(--primary, #e6007e)' : '#9ca3af', fontFamily: "'IBM Plex Mono', monospace" }}>
-                        {entry.points} <span style={{ fontSize: '0.7rem', color: '#7a7480', fontWeight: 600 }}>pts</span>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 900, fontSize: '1.05rem', color: entry.points > 0 ? 'var(--primary, #e6007e)' : '#9ca3af', fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {entry.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 600 }}>pts</span>
+                      </td>
+
+                      {/* Optional Tabulation Total Marks Input */}
+                      <td style={{ padding: '8px 16px' }}>
+                        <input 
+                          type="number"
+                          step="0.01"
+                          placeholder="Optional"
+                          value={entry.marks}
+                          onChange={(e) => handleEntryChange(idx, 'marks', e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '7px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #d1d5db',
+                            fontWeight: 600,
+                            fontSize: '0.9rem',
+                            color: '#111827',
+                            backgroundColor: entry.marks ? '#FEF2F6' : '#fff',
+                            textAlign: 'center'
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}

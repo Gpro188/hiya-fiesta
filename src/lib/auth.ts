@@ -59,6 +59,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (user.role === "JUDGE" && user.phone === "INACTIVE") {
+          throw new Error("This Venue Jury login is currently deactivated by Zonal Admin.");
+        }
+
         return {
           id: user.id,
           username: user.username,
@@ -66,6 +70,8 @@ export const authOptions: NextAuthOptions = {
           eventId: user.eventId,
           zoneId: user.zoneId,
           institutionId: user.institutionId,
+          venue: user.place,
+          status: user.phone || "ACTIVE",
         };
       }
     })
@@ -79,6 +85,8 @@ export const authOptions: NextAuthOptions = {
         token.eventId = (user as any).eventId;
         token.zoneId = (user as any).zoneId;
         token.institutionId = (user as any).institutionId;
+        token.venue = (user as any).venue;
+        token.status = (user as any).status;
       }
       return token;
     },
@@ -90,6 +98,8 @@ export const authOptions: NextAuthOptions = {
         session.user.eventId = token.eventId as string | null;
         (session.user as any).zoneId = token.zoneId as string | null;
         (session.user as any).institutionId = token.institutionId as string | null;
+        (session.user as any).venue = (token.venue as string) || null;
+        (session.user as any).status = (token.status as string) || "ACTIVE";
       }
       return session;
     }

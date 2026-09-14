@@ -114,10 +114,13 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print the complete timeline of all programs</p>
           </a>
           
-          <a href={`/print/venue?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
+          <a href={`/print/venue?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📍</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Venue Controller List</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print schedules grouped by venue/stage</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <h4 style={{ margin: 0, color: '#8E0033' }}>Venue / Stage Schedule List</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.1)', color: '#8E0033', fontWeight: 800 }}>STAGE TIMELINE</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official stage-wise schedules with program codes, category, durations, and zone candidate counts.</p>
           </a>
           
           <a href={`/print/stage-manager?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--primary)' }}>

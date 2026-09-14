@@ -314,6 +314,24 @@ export async function batchSubmitProgramMarks(data: {
       }
     });
 
+    if (data.evaluator1 || data.evaluator2) {
+      const judgeNames = [data.evaluator1, data.evaluator2].filter(Boolean) as string[];
+      const judges = await prisma.user.findMany({
+        where: { username: { in: judgeNames, mode: "insensitive" } },
+        select: { id: true }
+      });
+      if (judges.length > 0) {
+        await prisma.program.update({
+          where: { id: data.programId },
+          data: {
+            judges: {
+              set: judges.map(j => ({ id: j.id }))
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
     revalidatePath("/dashboard/scoring");
     revalidatePath("/");
     return { success: true };

@@ -294,6 +294,7 @@ export default async function ScoringPage(props: {
                   events={[activeEventWithPrograms]} 
                   availableJudges={availableJudges}
                   userRole={session.user.role}
+                  userVenue={(session.user as any).venue || null}
                 />
               </Suspense>
             </div>

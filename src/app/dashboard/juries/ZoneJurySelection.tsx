@@ -2,19 +2,30 @@
 
 import { useState } from "react";
 import { toggleJurySelection, assignJudgesToProgram } from "./actions";
+import VenueLoginsTab from "./VenueLoginsTab";
 
 export default function ZoneJurySelection({ 
   allJudges, 
   selectedJudges, 
   programs = [],
-  eventId 
+  eventId,
+  venues = [],
+  venueUsers = [],
+  programCountsByVenue = {},
+  zoneCode = "",
+  zoneName = ""
 }: { 
   allJudges: any[], 
   selectedJudges: any[], 
   programs?: any[],
-  eventId: string 
+  eventId: string,
+  venues?: string[],
+  venueUsers?: any[],
+  programCountsByVenue?: Record<string, number>,
+  zoneCode?: string,
+  zoneName?: string
 }) {
-  const [activeTab, setActiveTab] = useState<'selection' | 'assignment'>('selection');
+  const [activeTab, setActiveTab] = useState<'selection' | 'assignment' | 'venue-logins'>('selection');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [programSearch, setProgramSearch] = useState("");
@@ -80,6 +91,14 @@ export default function ZoneJurySelection({
           className={`btn ${activeTab === 'assignment' ? 'btn-primary' : 'btn-secondary'}`}
         >
           2. Assign to Programs
+        </button>
+        <button 
+          onClick={() => setActiveTab('venue-logins')} 
+          className={`btn ${activeTab === 'venue-logins' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <span>🏛️</span>
+          <span>3. Venue / Stage Logins ({venues.length})</span>
         </button>
       </div>
 
@@ -319,6 +338,17 @@ export default function ZoneJurySelection({
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === 'venue-logins' && (
+        <VenueLoginsTab
+          eventId={eventId}
+          zoneCode={zoneCode}
+          zoneName={zoneName}
+          venues={venues}
+          venueUsers={venueUsers}
+          programCountsByVenue={programCountsByVenue}
+        />
       )}
     </div>
   );
