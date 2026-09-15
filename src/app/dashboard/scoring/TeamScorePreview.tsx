@@ -182,7 +182,7 @@ export default function TeamScorePreview({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>🌸</span> Fadhila Category
+              Fadhila Category
             </div>
             <span style={{ fontSize: '0.62rem', color: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
           </div>
@@ -226,7 +226,7 @@ export default function TeamScorePreview({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>🌺</span> Fadheela Category
+              Fadheela Category
             </div>
             <span style={{ fontSize: '0.62rem', color: '#f472b6', backgroundColor: 'rgba(244,114,182,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
           </div>
@@ -260,51 +260,6 @@ export default function TeamScorePreview({
             </div>
           )}
         </div>
-
-        {/* 4. State Top Zones & Runner-Up (if State Fest) */}
-        {isStateFest && (
-          <div style={{
-            backgroundColor: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '10px',
-            padding: '10px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>🌍</span> State Top Zones
-              </div>
-              <span style={{ fontSize: '0.62rem', color: '#34d399', backgroundColor: 'rgba(16,185,129,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Regional</span>
-            </div>
-
-            {/* Champion Zone */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-              <div style={{ minWidth: 0, paddingRight: '4px' }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  🥇 {topZone?.name || 'Tallying...'}
-                </div>
-                <div style={{ fontSize: '0.64rem', color: '#34d399', fontWeight: 600 }}>CHAMPION ZONE</div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#34d399' }}>{topZone?.publishedPoints || 0} pts</div>
-              </div>
-            </div>
-
-            {/* Runner Up Zone */}
-            {runnerUpZone && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
-                <div style={{ minWidth: 0, paddingRight: '4px' }}>
-                  <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    🥈 {runnerUpZone.name}
-                  </div>
-                  <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP ZONE</div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{runnerUpZone.publishedPoints} pts</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* View Area Type Selector Tabs */}
@@ -327,13 +282,13 @@ export default function TeamScorePreview({
             fontWeight: 700,
             borderRadius: '6px',
             border: 'none',
-            backgroundColor: viewArea === 'OVERALL' ? 'var(--primary)' : 'transparent',
-            color: viewArea === 'OVERALL' ? '#fff' : '#9ca3af',
+            backgroundColor: viewArea === 'OVERALL' ? '#fbbf24' : 'transparent',
+            color: viewArea === 'OVERALL' ? '#000' : '#9ca3af',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
         >
-          Overall (Total)
+          🏆 Total Points
         </button>
         <button
           type="button"
@@ -351,7 +306,7 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          🌸 Fadhila (Indiv)
+          Fadhila (Indiv)
         </button>
         <button
           type="button"
@@ -369,28 +324,8 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          🌺 Fadheela (Indiv)
+          Fadheela (Indiv)
         </button>
-        {(isStateFest || zoneScores.length > 0) && (
-          <button
-            type="button"
-            onClick={() => setViewArea('ZONES')}
-            style={{
-              flex: 1,
-              padding: '5px 2px',
-              fontSize: '0.74rem',
-              fontWeight: 700,
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: viewArea === 'ZONES' ? '#059669' : 'transparent',
-              color: viewArea === 'ZONES' ? '#fff' : '#9ca3af',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            🌍 Zones
-          </button>
-        )}
       </div>
 
       {/* Standings List */}

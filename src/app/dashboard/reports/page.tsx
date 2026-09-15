@@ -88,7 +88,7 @@ export default async function ReportsPage(props: {
           </a>
 
           <a href={`/print/programs?eventId=${activeEventId}&categoryId=FADHILA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌸</div>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📖</div>
             <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Fadhila Programs Only</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print only programs and evaluation guidelines for Fadhila category</p>
           </a>
@@ -108,6 +108,16 @@ export default async function ReportsPage(props: {
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Schedules & Management</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
+          {/* Master Venue Program, Result & Certificate Control Checklist */}
+          <a href={`/print/venue-control?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #0284c7', backgroundColor: 'rgba(2,132,199,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7' }}>Venue Program, Result &amp; Cert Control</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 800 }}>TICK CHECKLIST</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print master checklist for venue coordinators to tick Program status, Result publishing, and Certificate issuance.</p>
+          </a>
+
           <a href={`/print/schedule?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
             <h4 style={{ margin: '0 0 5px 0', color: 'var(--text-primary)' }}>Global Schedule</h4>
@@ -295,13 +305,13 @@ export default async function ReportsPage(props: {
           {!isGuidelinesHidden && (
             <>
               <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHILA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌸</div>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📖</div>
                 <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Fadhila Programs</h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Programs list exclusive to Fadhila students</p>
               </a>
 
               <a href={`/print/programs?eventId=${team.eventId}&categoryId=FADHEELA`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #2563eb' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌺</div>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
                 <h4 style={{ margin: '0 0 5px 0', color: '#2563eb' }}>Fadheela Programs</h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Programs list exclusive to Fadheela students</p>
               </a>

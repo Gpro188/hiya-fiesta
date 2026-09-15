@@ -83,19 +83,17 @@ export default function TVDisplayClient({
   // Auto-cycle through View Area Types every 12 seconds
   useEffect(() => {
     if (!autoCycleView) return;
-    const views: Array<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES' | 'SHOWCASE'> = 
-      isStateFest 
-        ? ['OVERALL', 'FADHILA', 'FADHEELA', 'ZONES', 'SHOWCASE'] 
-        : ['OVERALL', 'FADHILA', 'FADHEELA', 'SHOWCASE'];
+    const views: Array<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'SHOWCASE'> = 
+      ['OVERALL', 'FADHILA', 'FADHEELA', 'SHOWCASE'];
     
     const timer = setInterval(() => {
       setViewArea(prev => {
-        const nextIdx = (views.indexOf(prev) + 1) % views.length;
+        const nextIdx = (views.indexOf(prev as any) + 1) % views.length;
         return views[nextIdx];
       });
     }, 12000);
     return () => clearInterval(timer);
-  }, [autoCycleView, isStateFest]);
+  }, [autoCycleView]);
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
@@ -114,8 +112,6 @@ export default function TVDisplayClient({
     ? fadhilaLeaderboard 
     : viewArea === 'FADHEELA' 
     ? fadheelaLeaderboard 
-    : viewArea === 'ZONES'
-    ? zoneLeaderboard
     : leaderboard;
 
   const activeTop3 = currentLeaderboard.slice(0, 3);
@@ -182,12 +178,10 @@ export default function TVDisplayClient({
           </h2>
           <div style={{ fontSize: '0.85rem', color: textSec, letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700 }}>
             {viewArea === 'FADHILA' 
-              ? '🌸 Fadhila Category Standings & Champions' 
+              ? 'Fadhila Category Standings & Champions' 
               : viewArea === 'FADHEELA' 
-              ? '🌺 Fadheela Category Standings & Champions' 
-              : viewArea === 'ZONES' 
-              ? '🌍 Zonal Championships Standings' 
-              : '🏆 Overall Institution Standings'}
+              ? 'Fadheela Category Standings & Champions' 
+              : 'Overall Institution Standings'}
           </div>
         </div>
 
@@ -208,11 +202,12 @@ export default function TVDisplayClient({
       {/* CATEGORY & ZONE CHAMPIONS HERO BANNER                                     */}
       {/* ========================================================================= */}
       {/* ========================================================================= */}
-      {/* CATEGORY & ZONE CHAMPIONS & RUNNER-UPS HERO BANNER                        */}
+      {/* ========================================================================= */}
+      {/* CATEGORY CHAMPIONS & RUNNER-UPS HERO BANNER                               */}
       {/* ========================================================================= */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: isStateFest ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', 
+        gridTemplateColumns: 'repeat(3, 1fr)', 
         gap: '12px', 
         marginBottom: '1rem' 
       }}>
@@ -285,7 +280,7 @@ export default function TVDisplayClient({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#ec4899', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🌸</span> FADHILA CATEGORY
+              FADHILA CATEGORY
             </div>
             <span style={{ fontSize: '0.6rem', color: '#ec4899', backgroundColor: 'rgba(236,72,153,0.12)', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
               Indiv Only
@@ -341,7 +336,7 @@ export default function TVDisplayClient({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#a855f7', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🌺</span> FADHEELA CATEGORY
+              FADHEELA CATEGORY
             </div>
             <span style={{ fontSize: '0.6rem', color: '#a855f7', backgroundColor: 'rgba(139,92,246,0.12)', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
               Indiv Only
@@ -383,64 +378,6 @@ export default function TVDisplayClient({
             </div>
           </div>
         </div>
-
-        {/* 4. State Fest Top Zone (if State Fest) */}
-        {isStateFest && (
-          <div style={{
-            backgroundColor: panelBg,
-            borderRadius: '10px',
-            border: '1.5px solid rgba(14, 165, 233, 0.4)',
-            padding: '10px 14px',
-            background: theme === 'dark' 
-              ? 'linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(11,17,32,0.95) 100%)' 
-              : 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)',
-            boxShadow: '0 4px 12px rgba(14,165,233,0.08)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#0284c7', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🌍</span> STATE REGIONAL ZONES
-              </div>
-              <span style={{ fontSize: '0.6rem', color: '#0284c7', backgroundColor: 'rgba(14,165,233,0.12)', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                Regional Total
-              </span>
-            </div>
-
-            {/* Champion Zone */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-              <div style={{ minWidth: 0, paddingRight: '6px' }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: textPri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  🥇 {champions?.overallTopZone?.name || 'Tallying...'}
-                </div>
-                <div style={{ fontSize: '0.62rem', color: '#0284c7', fontWeight: 700, letterSpacing: '0.5px' }}>
-                  CHAMPION ZONE
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0284c7', fontFamily: 'monospace' }}>
-                  {champions?.overallTopZone?.points || 0}
-                </div>
-                <div style={{ fontSize: '0.52rem', fontWeight: 700, color: textSec }}>PTS</div>
-              </div>
-            </div>
-
-            {/* Runner-Up Zone */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${borderCol}`, paddingTop: '5px', marginTop: '5px' }}>
-              <div style={{ minWidth: 0, paddingRight: '6px' }}>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: textSec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  🥈 {champions?.overallRunnerUpZone?.name || 'Tallying...'}
-                </div>
-                <div style={{ fontSize: '0.58rem', color: silver, fontWeight: 600 }}>
-                  RUNNER-UP ZONE
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: silver, fontFamily: 'monospace' }}>
-                  {champions?.overallRunnerUpZone?.points || 0}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ========================================================================= */}
@@ -466,9 +403,8 @@ export default function TVDisplayClient({
 
           {[
             { id: 'OVERALL', label: '🏛️ Overall Standings', color: '#2563eb' },
-            { id: 'FADHILA', label: '🌸 Fadhila Champions', color: '#ec4899' },
-            { id: 'FADHEELA', label: '🌺 Fadheela Champions', color: '#8b5cf6' },
-            ...(isStateFest ? [{ id: 'ZONES', label: '🌍 Zonal Champions', color: '#0284c7' }] : []),
+            { id: 'FADHILA', label: 'Fadhila Champions', color: '#ec4899' },
+            { id: 'FADHEELA', label: 'Fadheela Champions', color: '#8b5cf6' },
             { id: 'SHOWCASE', label: '✨ 🏆 Champions TV Show Spotlight', color: '#d97706' }
           ].map(tab => {
             const isActive = viewArea === tab.id;
@@ -530,8 +466,8 @@ export default function TVDisplayClient({
           { icon: '👥', value: stats.students, label: 'STUDENTS' },
           { icon: '🏆', value: stats.competitions, label: 'COMPETITIONS' },
           { icon: '📋', value: stats.resultsPublished, label: 'RESULTS PUBLISHED' },
-          { icon: '🌸', value: champions?.fadhilaTopInstitution ? `${champions.fadhilaTopInstitution.points} pts` : '0 pts', label: 'FADHILA LEADER' },
-          { icon: '🌺', value: champions?.fadheelaTopInstitution ? `${champions.fadheelaTopInstitution.points} pts` : '0 pts', label: 'FADHEELA LEADER' },
+          { icon: '👑', value: champions?.fadhilaTopInstitution ? `${champions.fadhilaTopInstitution.points} pts` : '0 pts', label: 'FADHILA LEADER' },
+          { icon: '👑', value: champions?.fadheelaTopInstitution ? `${champions.fadheelaTopInstitution.points} pts` : '0 pts', label: 'FADHEELA LEADER' },
         ].map((stat, idx) => (
           <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: idx !== 5 ? '1.5rem' : 0, borderRight: idx !== 5 ? `1px solid ${borderCol}` : 'none' }}>
             <div style={{ fontSize: '1.3rem' }}>{stat.icon}</div>
@@ -573,8 +509,8 @@ export default function TVDisplayClient({
             </div>
           </div>
 
-          {/* 4-PILLAR BROADCAST CARDS */}
-          <div style={{ display: 'grid', gridTemplateColumns: isStateFest ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '1.4rem' }}>
+          {/* 3-PILLAR BROADCAST CARDS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.4rem' }}>
             
             {/* 1. OVERALL GRAND CHAMPION */}
             <div style={{
@@ -648,7 +584,7 @@ export default function TVDisplayClient({
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#ec4899', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    🌸 FADHILA CATEGORY
+                    FADHILA CATEGORY
                   </span>
                   <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 800 }}>
                     Indiv Only
@@ -699,7 +635,7 @@ export default function TVDisplayClient({
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#8b5cf6', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    🌺 FADHEELA CATEGORY
+                    FADHEELA CATEGORY
                   </span>
                   <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', fontWeight: 800 }}>
                     Indiv Only
@@ -734,54 +670,6 @@ export default function TVDisplayClient({
                 </div>
               </div>
             </div>
-
-            {/* 4. STATE REGIONAL ZONAL CHAMPION (If State Fest) */}
-            {isStateFest && (
-              <div style={{
-                backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : '#f0f9ff',
-                border: `2px solid #0284c7`,
-                borderRadius: '16px',
-                padding: '1.6rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                position: 'relative',
-                boxShadow: '0 10px 35px rgba(2,132,199,0.2)'
-              }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#0284c7', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                      🌍 REGIONAL ZONES
-                    </span>
-                    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(2,132,199,0.15)', color: '#0284c7', fontWeight: 800 }}>
-                      Regional Total
-                    </span>
-                  </div>
-
-                  <div style={{ textAlign: 'center', margin: '0.8rem 0' }}>
-                    <div style={{ fontSize: '2.8rem', marginBottom: '6px' }}>🌍</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: textPri, lineHeight: 1.2, minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {champions?.overallTopZone?.name || 'Tallying...'}
-                    </div>
-                    <div style={{ fontSize: '3rem', fontWeight: 900, color: '#0284c7', fontFamily: 'monospace', margin: '10px 0' }}>
-                      {champions?.overallTopZone?.points || 0}
-                      <span style={{ fontSize: '0.9rem', color: textSec, marginLeft: '4px' }}>PTS</span>
-                    </div>
-                    <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: '20px', backgroundColor: '#0284c7', color: '#fff', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '1px' }}>
-                      👑 CHAMPION ZONE
-                    </div>
-                  </div>
-                </div>
-
-                {/* Runner-Up for Zone */}
-                <div style={{ borderTop: `1px solid ${borderCol}`, paddingTop: '12px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
-                    <span style={{ color: textSec, fontWeight: 600 }}>🥈 Runner-Up Zone:</span>
-                    <strong style={{ color: silver }}>{champions?.overallRunnerUpZone?.name || 'Tallying...'} ({champions?.overallRunnerUpZone?.points || 0} pts)</strong>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* TICKER FOOTER */}
@@ -809,11 +697,9 @@ export default function TVDisplayClient({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {viewArea === 'FADHILA' 
-                  ? '🌸 FADHILA CATEGORY TOP 3 INSTITUTIONS' 
+                  ? 'FADHILA CATEGORY TOP 3 INSTITUTIONS' 
                   : viewArea === 'FADHEELA' 
-                  ? '🌺 FADHEELA CATEGORY TOP 3 INSTITUTIONS' 
-                  : viewArea === 'ZONES' 
-                  ? '🌍 TOP 3 REGIONAL ZONES (STATE FEST)' 
+                  ? 'FADHEELA CATEGORY TOP 3 INSTITUTIONS' 
                   : '🏆 OVERALL TOP 3 INSTITUTIONS'}
               </div>
               <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>
@@ -897,17 +783,15 @@ export default function TVDisplayClient({
             </div>
           </div>
 
-          {/* DYNAMIC LEADERBOARD TABLE (OVERALL / FADHILA / FADHEELA / ZONES) */}
+          {/* DYNAMIC LEADERBOARD TABLE (OVERALL / FADHILA / FADHEELA) */}
           <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, flex: 1, overflow: 'hidden' }}>
             <div style={{ padding: '0.8rem 1rem', borderBottom: `1px solid ${borderCol}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: textSec }}>
                 {viewArea === 'FADHILA' 
-                  ? `🌸 Fadhila Category (Individual Programs Only • ${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
+                  ? `Fadhila Category (Individual Programs Only • ${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
                   : viewArea === 'FADHEELA' 
-                  ? `🌺 Fadheela Category (Individual Programs Only • ${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
-                  : viewArea === 'ZONES' 
-                  ? `🌍 Regional Zones Standings (All Programs Included • ${currentLeaderboard.length} Zones)` 
-                  : `👑 Overall Institutions Leaderboard (Category + General Included • ${currentLeaderboard.length} Total)`}
+                  ? `Fadheela Category (Individual Programs Only • ${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
+                  : `Overall Institutions Leaderboard (Category + General Included • ${currentLeaderboard.length} Total)`}
               </span>
               <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700 }}>
                 ● LIVE TALLY
@@ -918,7 +802,7 @@ export default function TVDisplayClient({
                 <tr style={{ color: textSec, fontSize: '0.65rem', letterSpacing: '1px', borderBottom: `1px solid ${borderCol}`, backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left', width: '70px' }}>RANK</th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left' }}>
-                    {viewArea === 'ZONES' ? 'ZONE NAME' : 'INSTITUTION'}
+                    INSTITUTION
                   </th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center', width: '100px' }}>CODE</th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center', width: '130px', color: '#38bdf8' }}>TOTAL POINTS</th>
@@ -939,9 +823,7 @@ export default function TVDisplayClient({
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {viewArea === 'ZONES' ? (
-                          <span style={{ fontSize: '1.1rem' }}>🌍</span>
-                        ) : t.logoUrl ? (
+                        {t.logoUrl ? (
                           <img src={t.logoUrl} alt={t.name} style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px', flexShrink: 0 }} />
                         ) : (
                           <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.flagColor || '#ec4899', display: 'inline-block', flexShrink: 0 }}></span>
@@ -1020,8 +902,8 @@ export default function TVDisplayClient({
           <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
             {[
               { id: 'ALL', label: '🌐 All Results' },
-              { id: 'FADHILA', label: '🌸 Fadhila' },
-              { id: 'FADHEELA', label: '🌺 Fadheela' },
+              { id: 'FADHILA', label: 'Fadhila' },
+              { id: 'FADHEELA', label: 'Fadheela' },
             ].map((cat) => {
               const isActive = categoryFilter === cat.id;
               return (

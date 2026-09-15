@@ -99,6 +99,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/reports",
         },
         {
+          name: "Venue Control Sheet",
+          subtitle: "Program, result & cert tick sheet",
+          icon: "📋",
+          href: "/print/venue-control",
+          highlight: true,
+        },
+        {
           name: "Program Reg Counts",
           subtitle: "Candidate & college counts",
           icon: "📊",
@@ -278,6 +285,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/reports",
         },
         {
+          name: "Venue Control Sheet",
+          subtitle: "Program, result & cert tick sheet",
+          icon: "📋",
+          href: "/print/venue-control",
+          highlight: true,
+        },
+        {
           name: "Merit Certificates",
           subtitle: "1st, 2nd, 3rd overprint",
           icon: "🎓",
@@ -367,6 +381,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "All printables & ID cards",
           icon: "🖨️",
           href: "/dashboard/reports",
+        },
+        {
+          name: "Venue Program & Result Control",
+          subtitle: "Program, result & cert tick sheet",
+          icon: "📋",
+          href: "/print/venue-control",
+          highlight: true,
         },
         {
           name: "User Credentials",
