@@ -437,13 +437,13 @@ export default function CertificateStudioClient({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", alignItems: "flex-end" }}>
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "4px", color: "var(--text-secondary)" }}>
-                  Search Candidate / Chest #
+                  Search Program # / Candidate / Chest #
                 </label>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Type name, chest #, college..."
+                  placeholder="Type program #, name, chest #, college..."
                   className="input"
                 />
               </div>

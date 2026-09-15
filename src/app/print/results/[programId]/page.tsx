@@ -11,8 +11,10 @@ export default async function PrintResultsPage({ params }: { params: Promise<{ p
       category: true,
       event: true,
       results: {
-        where: { isPublished: true },
-        orderBy: { marks: 'desc' },
+        orderBy: [
+          { rank: 'asc' },
+          { marks: 'desc' }
+        ],
         include: { candidate: { include: { team: true } }, team: true }
       }
     }
@@ -64,7 +66,7 @@ export default async function PrintResultsPage({ params }: { params: Promise<{ p
           {program.results.length === 0 && (
             <tr>
               <td colSpan={5} style={{ border: '1px solid black', padding: '30px', textAlign: 'center', color: '#666' }}>
-                No results have been officially published for this program.
+                No results recorded yet for this program.
               </td>
             </tr>
           )}

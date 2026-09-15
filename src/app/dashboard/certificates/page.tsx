@@ -35,18 +35,41 @@ export default async function CertificatesDashboardPage(props: {
     }
   }
 
-  const events = await prisma.event.findMany({
+  const rawEvents = await prisma.event.findMany({
     where: eventWhere,
     include: {
       zone: true,
       categories: { orderBy: { name: "asc" } },
       programs: {
         select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
-        orderBy: { name: "asc" }
+        orderBy: [{ programCode: "asc" }, { name: "asc" }]
       }
     },
     orderBy: [{ type: "desc" }, { name: "asc" }]
   });
+
+  // For any zonal events, also pull programs from parent event if direct programs don't cover all
+  const events = await Promise.all(rawEvents.map(async (ev) => {
+    if (ev.parentId) {
+      const parentPrograms = await prisma.program.findMany({
+        where: { eventId: ev.parentId },
+        select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
+        orderBy: [{ programCode: "asc" }, { name: "asc" }]
+      });
+      const existingIds = new Set(ev.programs.map(p => p.id));
+      const combined = [...ev.programs];
+      for (const pp of parentPrograms) {
+        if (!existingIds.has(pp.id)) {
+          combined.push(pp);
+        }
+      }
+      return {
+        ...ev,
+        programs: combined
+      };
+    }
+    return ev;
+  }));
 
   const allZones = await prisma.zone.findMany({
     orderBy: { name: "asc" }

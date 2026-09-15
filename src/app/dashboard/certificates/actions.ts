@@ -193,18 +193,41 @@ export async function getCertificateEventsAndMetadata() {
     }
   }
 
-  const events = await prisma.event.findMany({
+  const rawEvents = await prisma.event.findMany({
     where: whereEvent,
     include: {
       zone: true,
       categories: { orderBy: { name: "asc" } },
       programs: {
         select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
-        orderBy: { name: "asc" }
+        orderBy: [{ programCode: "asc" }, { name: "asc" }]
       }
     },
     orderBy: [{ type: "desc" }, { name: "asc" }]
   });
+
+  // For any zonal events, also pull programs from parent event if direct programs don't cover all
+  const events = await Promise.all(rawEvents.map(async (ev) => {
+    if (ev.parentId) {
+      const parentPrograms = await prisma.program.findMany({
+        where: { eventId: ev.parentId },
+        select: { id: true, name: true, programCode: true, categoryId: true, type: true, stageType: true },
+        orderBy: [{ programCode: "asc" }, { name: "asc" }]
+      });
+      const existingIds = new Set(ev.programs.map(p => p.id));
+      const combined = [...ev.programs];
+      for (const pp of parentPrograms) {
+        if (!existingIds.has(pp.id)) {
+          combined.push(pp);
+        }
+      }
+      return {
+        ...ev,
+        programs: combined
+      };
+    }
+    return ev;
+  }));
 
   const allZones = await prisma.zone.findMany({
     orderBy: { name: "asc" }
@@ -238,8 +261,15 @@ export async function getCertificateWinners(params: {
     ? { rank: rankFilter }
     : { rank: { in: [1, 2, 3] } };
 
+  // Determine allowed event IDs for programs (handles zonal fests whose programs are created at parent level)
+  const targetEvent = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, parentId: true }
+  });
+  const allowedEventIds = [eventId, targetEvent?.parentId].filter(Boolean) as string[];
+
   const programWhere: any = {
-    eventId: eventId,
+    eventId: { in: allowedEventIds },
   };
   if (programId && programId !== "ALL") {
     programWhere.id = programId;
@@ -251,10 +281,16 @@ export async function getCertificateWinners(params: {
     programWhere.stageType = stageType;
   }
 
+  // Find all uploaded / scored results without waiting for publication (isPublished is not restricted)
   const results = await prisma.result.findMany({
     where: {
       ...rankCondition,
       program: programWhere,
+      OR: [
+        { team: { eventId: eventId } },
+        { candidate: { team: { eventId: eventId } } },
+        { program: { eventId: eventId } }
+      ]
     },
     include: {
       program: {
@@ -297,6 +333,7 @@ export async function getCertificateWinners(params: {
       }
     },
     orderBy: [
+      { program: { programCode: "asc" } },
       { program: { name: "asc" } },
       { rank: "asc" }
     ]
@@ -353,13 +390,14 @@ export async function getCertificateWinners(params: {
     };
   });
 
-  // Apply optional search filter
+  // Apply optional search filter: Candidate name, Chest #, Program name, Program code/number, Institution name
   if (searchQuery && searchQuery.trim() !== "") {
     const q = searchQuery.toLowerCase().trim();
     return winners.filter(w => 
       w.candidateName.toLowerCase().includes(q) ||
       w.chestNumber.toLowerCase().includes(q) ||
       w.programName.toLowerCase().includes(q) ||
+      (w.programCode && w.programCode.toLowerCase().includes(q)) ||
       w.institutionName.toLowerCase().includes(q)
     );
   }
