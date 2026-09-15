@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
 export default function TVDisplayClient({ 
@@ -17,10 +18,12 @@ export default function TVDisplayClient({
   allEvents: any[],
   stats: any
 }) {
+  const router = useRouter();
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
+  // Clock timer
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -29,6 +32,14 @@ export default function TVDisplayClient({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // TV Auto-Refresh: Refresh server component data every 15 seconds to fetch new winner declarations live
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      router.refresh();
+    }, 15000);
+    return () => clearInterval(refreshInterval);
+  }, [router]);
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
@@ -271,59 +282,179 @@ export default function TVDisplayClient({
         {/* RIGHT COL: RECENT RESULTS */}
         <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               📢 RECENT WINNER DECLARATIONS
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#38bdf8', letterSpacing: '1px' }}>VIEW ALL</div>
+            <Link 
+              href={`/fest/${event.id}/results`}
+              style={{ 
+                fontSize: '0.72rem', 
+                color: '#38bdf8', 
+                letterSpacing: '1px', 
+                textDecoration: 'none', 
+                fontWeight: 700,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.2)'
+              }}
+            >
+              VIEW ALL →
+            </Link>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {recentWinners.length === 0 ? (
-              <div style={{ textAlign: 'center', color: textSec, padding: '2rem' }}>No recent results.</div>
+              <div style={{ textAlign: 'center', color: textSec, padding: '3rem 1rem' }}>
+                <div style={{ fontSize: '1.75rem', marginBottom: '8px' }}>⏳</div>
+                <div style={{ fontWeight: 600 }}>No results declared yet.</div>
+                <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>New winners will appear here in real-time.</div>
+              </div>
             ) : (
-              recentWinners.map((res, idx) => (
-                <div key={res.id} style={{ display: 'flex', gap: '15px', padding: '1rem', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#FAFAFA', borderRadius: '8px', border: `1px solid ${borderCol}` }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                    {res.rank === 1 ? '🥇' : res.rank === 2 ? '🥈' : res.rank === 3 ? '🥉' : '🎖️'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.65rem', color: textSec, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '2px' }}>
-                      {res.program?.name} ({res.program?.category?.name})
+              recentWinners.map((res) => {
+                const isState = event.type === 'STATE';
+                const inst = formatInstitutionDisplay(res.candidate ? res.candidate.team : res.team);
+                const zoneName = res.candidate ? res.candidate.team?.event?.name : res.team?.event?.name;
+                const displayName = res.candidate 
+                  ? `${res.candidate.name} - ${inst.name}${isState && zoneName ? ` (${zoneName})` : ''}`
+                  : `${inst.name}${isState && zoneName ? ` (${zoneName})` : ''}`;
+
+                // Place styling
+                const placeLabel = res.rank === 1 ? '1st Place' : res.rank === 2 ? '2nd Place' : res.rank === 3 ? '3rd Place' : res.rank ? `${res.rank}th Place` : null;
+                const placeBg = res.rank === 1 ? 'rgba(251, 191, 36, 0.15)' : res.rank === 2 ? 'rgba(148, 163, 184, 0.15)' : res.rank === 3 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255,255,255,0.05)';
+                const placeColor = res.rank === 1 ? '#fbbf24' : res.rank === 2 ? '#cbd5e1' : res.rank === 3 ? '#f59e0b' : textSec;
+                const placeBorder = res.rank === 1 ? 'rgba(251, 191, 36, 0.3)' : res.rank === 2 ? 'rgba(148, 163, 184, 0.3)' : res.rank === 3 ? 'rgba(217, 119, 6, 0.3)' : borderCol;
+
+                const hasGrade = res.grade && res.grade.trim() !== '' && res.grade !== '-';
+
+                return (
+                  <div 
+                    key={res.id} 
+                    style={{ 
+                      display: 'flex', 
+                      gap: '14px', 
+                      padding: '1.1rem', 
+                      backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.025)' : '#F8FAFC', 
+                      borderRadius: '10px', 
+                      border: `1px solid ${borderCol}`,
+                      boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.03)',
+                      alignItems: 'center'
+                    }}
+                  >
+                    {/* Medal / Rank Icon */}
+                    <div 
+                      style={{ 
+                        width: '46px', 
+                        height: '46px', 
+                        borderRadius: '10px', 
+                        backgroundColor: placeBg,
+                        border: `1px solid ${placeBorder}`,
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '1.4rem',
+                        flexShrink: 0
+                      }}
+                    >
+                      {res.rank === 1 ? '🥇' : res.rank === 2 ? '🥈' : res.rank === 3 ? '🥉' : '🎖️'}
                     </div>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-                        {(() => {
-                          const isState = event.type === 'STATE';
-                          if (res.candidate) {
-                            const inst = formatInstitutionDisplay(res.candidate.team);
-                            const zoneName = res.candidate.team?.event?.name;
-                            if (isState && zoneName) return `${res.candidate.name} - ${inst.name} (${zoneName})`;
-                            return `${res.candidate.name} - ${inst.name}`;
-                          } else {
-                            const inst = formatInstitutionDisplay(res.team);
-                            const zoneName = res.team?.event?.name;
-                            if (isState && zoneName) return `${inst.name} (${zoneName})`;
-                            return inst.name;
-                          }
-                        })()}
+
+                    {/* Middle: Details */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Program & Category Row */}
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '5px' }}>
+                        {res.program?.category?.name && (
+                          <span 
+                            style={{ 
+                              fontSize: '0.65rem', 
+                              fontWeight: 800, 
+                              padding: '2px 7px', 
+                              borderRadius: '4px', 
+                              backgroundColor: 'rgba(99, 102, 241, 0.15)', 
+                              color: '#818cf8',
+                              letterSpacing: '0.5px',
+                              textTransform: 'uppercase'
+                            }}
+                          >
+                            {res.program.category.name}
+                          </span>
+                        )}
+                        <span 
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            color: textPri, 
+                            letterSpacing: '0.5px', 
+                            fontWeight: 700, 
+                            textTransform: 'uppercase' 
+                          }}
+                        >
+                          {res.program?.programCode ? `${res.program.programCode} - ` : ''}{res.program?.name}
+                        </span>
                       </div>
-                      {(() => {
-                        const inst = formatInstitutionDisplay(res.candidate ? res.candidate.team : res.team);
-                        if (!inst.place) return null;
-                        return (
-                          <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
+
+                      {/* Winner Name & Institution */}
+                      <div 
+                        style={{ 
+                          fontSize: '0.9rem', 
+                          fontWeight: 800, 
+                          color: textPri,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }} 
+                        title={displayName}
+                      >
+                        {displayName}
+                      </div>
+
+                      {/* Meta badges: Place, Grade, Location */}
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                        {placeLabel && (
+                          <span 
+                            style={{ 
+                              fontSize: '0.68rem', 
+                              fontWeight: 800, 
+                              color: placeColor, 
+                              backgroundColor: placeBg, 
+                              border: `1px solid ${placeBorder}`, 
+                              padding: '1px 7px', 
+                              borderRadius: '4px' 
+                            }}
+                          >
+                            {placeLabel}
+                          </span>
+                        )}
+                        {hasGrade && (
+                          <span 
+                            style={{ 
+                              fontSize: '0.68rem', 
+                              fontWeight: 800, 
+                              color: '#34d399', 
+                              backgroundColor: 'rgba(52, 211, 153, 0.12)', 
+                              border: '1px solid rgba(52, 211, 153, 0.3)', 
+                              padding: '1px 7px', 
+                              borderRadius: '4px' 
+                            }}
+                          >
+                            Grade {res.grade}
+                          </span>
+                        )}
+                        {inst.place && (
+                          <span style={{ fontSize: '0.7rem', color: textSec, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '2px' }}>
                             📍 {inst.place}
-                          </div>
-                        );
-                      })()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Points */}
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: '8px' }}>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#38bdf8', lineHeight: 1 }}>{res.points}</div>
+                      <div style={{ fontSize: '0.62rem', color: textSec, letterSpacing: '1px', fontWeight: 700, marginTop: '2px' }}>POINTS</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: textPri }}>{res.points}</div>
-                    <div style={{ fontSize: '0.6rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
