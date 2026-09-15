@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
+import VenuePrintButton from "./VenuePrintButton";
 
 export const dynamic = "force-dynamic";
 
@@ -10,23 +13,48 @@ export default async function PrintVenueControlPage(props: {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
   const activeVenue = searchParams.venue || "ALL";
-  const settings = await getSettings(eventId);
+
+  const session = await getServerSession(authOptions);
+  let targetEventId = eventId;
+  if (!targetEventId && session?.user) {
+    const fullUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { eventId: true, zoneId: true },
+    });
+    if (fullUser?.eventId) {
+      targetEventId = fullUser.eventId;
+    } else if (fullUser?.zoneId) {
+      const zoneEv = await prisma.event.findFirst({
+        where: { zoneId: fullUser.zoneId },
+      });
+      if (zoneEv) targetEventId = zoneEv.id;
+    }
+  }
+
+  if (!targetEventId) {
+    const defaultEv = await prisma.event.findFirst({
+      orderBy: [{ type: "desc" }, { createdAt: "desc" }],
+    });
+    targetEventId = defaultEv?.id;
+  }
+
+  const settings = await getSettings(targetEventId);
 
   let activeEv: any = null;
   let whereClause: any = {};
 
-  if (eventId) {
+  if (targetEventId) {
     activeEv = await prisma.event.findUnique({
-      where: { id: eventId },
+      where: { id: targetEventId },
       include: { zone: true },
     });
     if (activeEv?.parentId) {
       whereClause = {
-        OR: [{ eventId: eventId }, { eventId: activeEv.parentId }],
+        OR: [{ eventId: targetEventId }, { eventId: activeEv.parentId }],
       };
     } else {
       whereClause = {
-        eventId,
+        eventId: targetEventId,
       };
     }
   }
@@ -102,7 +130,7 @@ export default async function PrintVenueControlPage(props: {
         }
       }
       // Inherit venue and timing (prefer zonal if set, otherwise parent)
-      if (p.eventId === eventId) {
+      if (p.eventId === targetEventId) {
         if (p.venue) existing.venue = p.venue;
         if (p.startTime) existing.startTime = p.startTime;
         if (p.duration) existing.duration = p.duration;
@@ -333,7 +361,7 @@ export default async function PrintVenueControlPage(props: {
           <form method="GET" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <select
               name="eventId"
-              defaultValue={eventId || ""}
+              defaultValue={targetEventId || ""}
               style={{
                 padding: "6px 10px",
                 borderRadius: "6px",
@@ -392,28 +420,7 @@ export default async function PrintVenueControlPage(props: {
           </form>
 
           {/* Print Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.print();
-            }}
-            style={{
-              padding: "6px 16px",
-              borderRadius: "6px",
-              backgroundColor: "#059669",
-              color: "#ffffff",
-              border: "none",
-              fontSize: "0.85rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 2px 8px rgba(5,150,105,0.4)",
-            }}
-          >
-            <span>🖨️</span> PRINT MASTER CHECKLIST
-          </button>
+          <VenuePrintButton />
         </div>
       </div>
 
