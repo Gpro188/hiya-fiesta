@@ -255,6 +255,9 @@ export default function CertificateStudioClient({
     if (formatType === 'word') {
       return rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
     }
+    if (formatType === 'wordonly') {
+      return rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
+    }
     if (formatType === 'number') {
       return rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
     }
@@ -1006,7 +1009,8 @@ export default function CertificateStudioClient({
                             className="input"
                           >
                             <option value="ordinal">Ordinal Place (e.g., 1st Place, 2nd Place)</option>
-                            <option value="word">Word Format (e.g., First Place, Second Place)</option>
+                            <option value="word">Word + Place (e.g., First Place, Second Place)</option>
+                            <option value="wordonly">Word Only (e.g., First, Second, Third)</option>
                             <option value="number">Short Number (e.g., 1st, 2nd, 3rd)</option>
                           </select>
                         </div>

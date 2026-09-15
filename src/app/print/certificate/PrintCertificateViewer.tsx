@@ -53,9 +53,13 @@ export default function PrintCertificateViewer({
     if (formatType === 'word') {
       return rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
     }
+    if (formatType === 'wordonly') {
+      return rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
+    }
     if (formatType === 'number') {
       return rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
     }
+    // default ordinal
     return rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
   };
 
