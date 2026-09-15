@@ -651,6 +651,9 @@ export async function applySequentialVenueSchedule(
               duration: item.duration || 10,
               venue: venue,
               startTime: new Date(item.startTime),
+              ...(item.judgeIds && item.judgeIds.length > 0 ? {
+                judges: { connect: item.judgeIds.map(id => ({ id })) }
+              } : {})
             }
           });
           zoneProgramsForMatching.push(zoneProg);
@@ -1129,6 +1132,182 @@ export async function applyRegistrationBasedScheduleToAllZones(
   } catch (error: any) {
     console.error("Failed to apply registration schedule to all zones:", error);
     return { success: false, error: error?.message || "Failed to batch apply schedule" };
+  }
+}
+
+/**
+ * Automatically adjust venue programs to eliminate candidate clashes across different stages/venues.
+ * Re-sequences overlapping programs with a default 10-minute gap so no candidate is scheduled in 2 places simultaneously.
+ */
+export async function autoResolveCandidateClashes(eventId: string, targetZoneId?: string | null) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { checkSchedulingConflicts } = await import("./importActions");
+    const conflictResult = await checkSchedulingConflicts(eventId, targetZoneId);
+    if (!conflictResult.success) {
+      return { success: false, error: "Failed to evaluate conflicts" };
+    }
+
+    const conflicts = conflictResult.conflicts || [];
+    if (conflicts.length === 0) {
+      return { success: true, resolved: 0, message: "No candidate clashes found! Schedule is clean." };
+    }
+
+    // Load active event & programs
+    const activeEv = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true }
+    });
+
+    let programWhere: any = { stageType: "ON_STAGE" };
+    if (activeEv?.parentId) {
+      programWhere.OR = [{ eventId }, { eventId: activeEv.parentId }];
+    } else {
+      programWhere.eventId = eventId;
+    }
+
+    const rawPrograms = await prisma.program.findMany({
+      where: programWhere,
+      include: {
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: true } },
+                institution: { include: { zone: true } }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [{ venue: "asc" }, { startTime: "asc" }]
+    });
+
+    const effectiveZoneId = targetZoneId || activeEv?.zoneId || activeEv?.zone?.id;
+
+    // Deduplicate programs
+    const mergedMap = new Map<string, any>();
+    for (const p of rawPrograms) {
+      const key = p.programCode ? `code_${p.programCode.trim().toLowerCase()}` : `name_${p.name.trim().toLowerCase()}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+      } else {
+        const existing = mergedMap.get(key);
+        const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+        for (const a of p.assignments) {
+          if (!existingIds.has(a.id)) {
+            existing.assignments.push(a);
+            existingIds.add(a.id);
+          }
+        }
+        if (p.eventId === eventId) {
+          existing.id = p.id;
+          existing.eventId = p.eventId;
+          existing.venue = p.venue || existing.venue;
+          existing.startTime = p.startTime || existing.startTime;
+          existing.duration = p.duration || existing.duration;
+        }
+      }
+    }
+
+    const programs = Array.from(mergedMap.values());
+    const venues = Array.from(new Set(programs.map(p => p.venue || "Main Stage").filter(Boolean)));
+
+    // Group programs by venue
+    const venueGroups: Record<string, any[]> = {};
+    venues.forEach(v => {
+      venueGroups[v] = programs.filter(p => (p.venue || "Main Stage") === v);
+    });
+
+    const { calculateVenueTimeline, calculateDynamicProgramDuration, getZoneCandidatesForProgram } = await import("@/lib/scheduleCalculator");
+
+    let iterations = 0;
+    let resolvedClashesCount = 0;
+
+    // Iteratively swap / adjust programs in secondary venues until conflicts are resolved (max 20 passes)
+    while (iterations < 20) {
+      iterations++;
+      const currentCheck = await checkSchedulingConflicts(eventId, effectiveZoneId);
+      const currentConflicts = (currentCheck.conflicts || []).filter(c => !c.candidateName.startsWith("Jury:"));
+      if (currentConflicts.length === 0) break;
+
+      const conflict = currentConflicts[0];
+      const clashedProgNames = conflict.programs;
+
+      // Find the two programs
+      const progA = programs.find(p => clashedProgNames.includes(p.name));
+      const progB = programs.find(p => clashedProgNames.includes(p.name) && p.id !== progA?.id);
+
+      if (!progA || !progB) break;
+
+      // Try shifting progB down the order in its venue
+      const venueB = progB.venue || "Main Stage";
+      const listB = venueGroups[venueB] || [];
+      const idxB = listB.findIndex(p => p.id === progB.id);
+
+      if (idxB !== -1 && idxB < listB.length - 1) {
+        // Swap with next program in venue B
+        const temp = listB[idxB];
+        listB[idxB] = listB[idxB + 1];
+        listB[idxB + 1] = temp;
+        resolvedClashesCount++;
+      } else if (idxB > 0) {
+        // Swap with previous program
+        const temp = listB[idxB];
+        listB[idxB] = listB[idxB - 1];
+        listB[idxB - 1] = temp;
+        resolvedClashesCount++;
+      } else {
+        // Try venue A
+        const venueA = progA.venue || "Main Stage";
+        const listA = venueGroups[venueA] || [];
+        const idxA = listA.findIndex(p => p.id === progA.id);
+        if (idxA !== -1 && idxA < listA.length - 1) {
+          const temp = listA[idxA];
+          listA[idxA] = listA[idxA + 1];
+          listA[idxA + 1] = temp;
+          resolvedClashesCount++;
+        } else {
+          break; // cannot swap further
+        }
+      }
+
+      // Re-apply sequential timeline for all venues with 10 minute buffer
+      for (const [vName, vProgs] of Object.entries(venueGroups)) {
+        const timeline = calculateVenueTimeline(vName, vProgs, {
+          targetZoneId: effectiveZoneId,
+          bufferMinutes: 10
+        });
+
+        const updates = timeline.programs.map(slot => ({
+          id: slot.program.id,
+          startTime: slot.predictedStart.toISOString(),
+          duration: slot.duration,
+          stageType: slot.program.stageType
+        }));
+
+        await applySequentialVenueSchedule(eventId, vName, updates);
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return {
+      success: true,
+      resolved: resolvedClashesCount,
+      iterations,
+      message: `Adjusted schedule to eliminate candidate collisions with 10-minute buffers.`
+    };
+  } catch (error: any) {
+    console.error("Failed to auto-resolve candidate clashes:", error);
+    return { success: false, error: error?.message || "Failed to auto-resolve clashes" };
   }
 }
 

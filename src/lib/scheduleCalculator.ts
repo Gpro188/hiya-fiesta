@@ -190,9 +190,9 @@ export function calculateVenueTimeline(
   programs: ProgramLike[],
   options: CalculationOptions = {}
 ): VenueTimelineResult {
-  const bufferMinutes = options.bufferMinutes ?? 0;
+  const bufferMinutes = options.bufferMinutes ?? 10;
 
-  // Initialize start date strictly at 09:00 AM
+  // Initialize start date strictly at 09:00 AM (IST)
   let baseDate = options.baseStartTime ? new Date(options.baseStartTime) : new Date();
   if (isNaN(baseDate.getTime())) baseDate = new Date();
   baseDate.setHours(9, 0, 0, 0);
@@ -281,8 +281,16 @@ export function formatMinutes(minutes: number): string {
 }
 
 /**
- * Helper to format date to "hh:mm A" (e.g. 09:00 AM)
+ * Helper to format date to "hh:mm A" in Indian Standard Time (Asia/Kolkata)
  */
-export function formatTimeAmPm(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+export function formatTimeAmPm(d: Date | string | null | undefined): string {
+  if (!d) return "TBD";
+  const dateObj = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(dateObj.getTime())) return "TBD";
+  return dateObj.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }

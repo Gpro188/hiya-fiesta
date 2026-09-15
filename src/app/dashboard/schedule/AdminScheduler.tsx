@@ -12,7 +12,8 @@ import {
   publishMasterScheduleToAllZones,
   renameVenue,
   deleteVenue,
-  applySequentialVenueSchedule
+  applySequentialVenueSchedule,
+  autoResolveCandidateClashes
 } from "./actions";
 import { importScheduleFromExcel, checkSchedulingConflicts } from "./importActions";
 
@@ -69,14 +70,14 @@ export default function AdminScheduler({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // Helper to get venue configuration (Always strictly starts at 9:00 AM)
+  // Helper to get venue configuration (Always strictly starts at 9:00 AM with 10 min default buffer)
   const getVenueConfig = (venue: string) => {
     let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
     if (isNaN(baseDate.getTime())) baseDate = new Date();
     baseDate.setHours(9, 0, 0, 0); // Strictly 09:00 AM!
 
     const initialStart = formatDateTimeLocal(baseDate);
-    const buffer = venueSettings[venue]?.buffer || 0;
+    const buffer = venueSettings[venue]?.buffer !== undefined ? venueSettings[venue].buffer : 10;
 
     return { startTime: initialStart, buffer };
   };
@@ -95,7 +96,7 @@ export default function AdminScheduler({
   };
 
   // Auto-predict cascading sequential timeline starting strictly from 9:00 AM
-  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 0) => {
+  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 10) => {
     let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
     if (isNaN(baseDate.getTime())) baseDate = new Date();
     baseDate.setHours(9, 0, 0, 0); // Strictly 9:00 AM sharp!
@@ -731,11 +732,57 @@ export default function AdminScheduler({
       {conflicts.length > 0 && (
         <div style={{ 
           padding: "var(--spacing-md)", 
-          backgroundColor: "rgba(239, 68, 68, 0.1)", 
-          border: "1px solid var(--error)", 
-          borderRadius: "var(--radius-md)"
+          backgroundColor: "rgba(239, 68, 68, 0.08)", 
+          border: "1.5px solid var(--error)", 
+          borderRadius: "var(--radius-md)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
         }}>
-          <h3 style={{ margin: "0 0 8px 0", fontSize: "1rem", color: "var(--error)" }}>⚠️ Scheduling Conflicts</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--error)", fontWeight: 800 }}>
+              ⚠️ Scheduling Conflicts Detected ({conflicts.length})
+            </h3>
+
+            <button
+              onClick={async () => {
+                if (!confirm("Automatically adjust programs across venues to eliminate candidate clashes with a 10-minute buffer?")) return;
+                setLoadingId("auto-resolve-clashes");
+                try {
+                  const res = await autoResolveCandidateClashes(eventId, targetZoneId);
+                  if (res.success) {
+                    alert(`✅ ${res.message}\nResolved program slots and updated schedule with 10-minute gap!`);
+                    window.location.reload();
+                  } else {
+                    alert("Failed to auto-resolve clashes: " + (res.error || "Unknown error"));
+                  }
+                } catch (e: any) {
+                  alert("Error: " + (e.message || "Failed to auto-resolve"));
+                } finally {
+                  setLoadingId(null);
+                }
+              }}
+              disabled={loadingId !== null}
+              style={{
+                backgroundColor: "#dc2626",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "6px 14px",
+                fontWeight: 800,
+                fontSize: "0.85rem",
+                cursor: loadingId !== null ? "not-allowed" : "pointer",
+                boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+            >
+              <span>⚡</span>
+              <span>{loadingId === "auto-resolve-clashes" ? "Resolving Clashes..." : "Auto-Resolve Candidate Clashes (10m Gap)"}</span>
+            </button>
+          </div>
+
           <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.875rem" }}>
             {conflicts.map((c, i) => (
               <li key={i} style={{ marginBottom: "4px" }}>
@@ -940,7 +987,7 @@ export default function AdminScheduler({
                     </span>
                     <span>•</span>
                     <span style={{ color: "#059669", fontWeight: 800 }}>
-                      Timeline: {predictedStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} &rarr; {predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Timeline: {predictedStart.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} &rarr; {predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
                     </span>
                   </div>
 
@@ -955,7 +1002,7 @@ export default function AdminScheduler({
                     <span>
                       {isExceedingEvening 
                         ? `Exceeds 6:00 PM by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`
-                        : `Finishes by ${predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                        : `Finishes by ${predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}`
                       }
                     </span>
                   </div>
@@ -1146,9 +1193,9 @@ export default function AdminScheduler({
                           }}>
                             <span>🕒</span>
                             <span>
-                              {item.predictedStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {item.predictedStart.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
                               {" – "}
-                              {item.predictedEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {item.predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
                             </span>
                           </div>
                         </div>

@@ -182,7 +182,7 @@ export async function checkSchedulingConflicts(eventId: string, targetZoneId?: s
             conflicts.push({
               candidateName: a.candidateName,
               programs: [a.programName, b.programName],
-              time: new Date(a.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              time: new Date(a.start).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })
             });
           }
         }
@@ -229,7 +229,7 @@ export async function checkSchedulingConflicts(eventId: string, targetZoneId?: s
               conflicts.push({
                 candidateName: `Jury: ${a.juryName}`,
                 programs: [a.programName, b.programName],
-                time: new Date(a.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                time: new Date(a.start).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })
               });
             }
           }

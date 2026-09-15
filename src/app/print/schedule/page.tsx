@@ -113,8 +113,8 @@ export default async function PrintSchedulePage(props: {
         <tbody>
           {programs.map(p => (
             <tr key={p.id}>
-              <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center' }}>
-                {p.startTime ? new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'}
+              <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                {p.startTime ? new Date(p.startTime).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: '2-digit', minute: '2-digit', hour12: true }) : 'TBD'}
               </td>
               <td style={{ border: '1px solid black', padding: '8px', fontWeight: 'bold' }}>{p.name}</td>
               <td style={{ border: '1px solid black', padding: '8px' }}>{p.category?.name || 'General'}</td>

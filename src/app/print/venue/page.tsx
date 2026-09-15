@@ -96,7 +96,7 @@ export default async function PrintVenuePage(props: {
 
   let deduplicatedPrograms = Array.from(mergedMap.values());
 
-  // Filter candidates per zone and calculate zone candidates count
+  // Filter candidates per zone and calculate zone candidates/teams count
   const programsWithZoneCounts = deduplicatedPrograms.map((prog) => {
     let candidateAssignments = prog.assignments.filter((a: any) =>
       Boolean(a.candidate)
@@ -114,9 +114,17 @@ export default async function PrintVenuePage(props: {
       });
     }
 
+    const candidateCount = candidateAssignments.length;
+    const uniqueTeams = new Set(
+      candidateAssignments.map((a: any) => a.candidate?.teamId).filter(Boolean)
+    );
+    const teamCount = uniqueTeams.size;
+
     return {
       ...prog,
-      zoneCandidateCount: candidateAssignments.length,
+      zoneCandidateCount: candidateCount,
+      zoneTeamCount: teamCount,
+      zoneFilteredAssignments: candidateAssignments,
     };
   });
 
@@ -429,7 +437,8 @@ export default async function PrintVenuePage(props: {
                     {venuePrograms.map((p, pIdx) => {
                       const startTimeObj = p.startTime ? new Date(p.startTime) : null;
                       const timeStr = startTimeObj
-                        ? startTimeObj.toLocaleTimeString([], {
+                        ? startTimeObj.toLocaleTimeString("en-US", {
+                            timeZone: "Asia/Kolkata",
                             hour: "2-digit",
                             minute: "2-digit",
                             hour12: true,
@@ -441,12 +450,27 @@ export default async function PrintVenuePage(props: {
                           ? new Date(startTimeObj.getTime() + p.duration * 60000)
                           : null;
                       const endTimeStr = endTimeObj
-                        ? endTimeObj.toLocaleTimeString([], {
+                        ? endTimeObj.toLocaleTimeString("en-US", {
+                            timeZone: "Asia/Kolkata",
                             hour: "2-digit",
                             minute: "2-digit",
                             hour12: true,
                           })
                         : null;
+
+                      // Duration Breakdown calculation:
+                      // If INDIVIDUAL and we have candidates: total duration = p.duration min, per candidate = Math.round(p.duration / candidateCount) or p.duration / candidateCount
+                      const isGroup = p.type === "GROUP";
+                      const count = isGroup ? p.zoneTeamCount : p.zoneCandidateCount;
+                      const countLabel = isGroup ? "teams" : "cand";
+
+                      let durationDisplay = p.duration ? `${p.duration} min` : "-";
+                      let perItemText = "";
+                      if (p.duration && count > 0) {
+                        const minPerItem = (p.duration / count);
+                        const formattedPerItem = minPerItem % 1 === 0 ? minPerItem : minPerItem.toFixed(1);
+                        perItemText = `${count} ${countLabel} × ${formattedPerItem}m`;
+                      }
 
                       return (
                         <tr
@@ -558,11 +582,16 @@ export default async function PrintVenuePage(props: {
                               border: "1px solid #d1d5db",
                               padding: "8px 6px",
                               textAlign: "center",
-                              fontWeight: 600,
-                              color: "#374151",
+                              fontWeight: 700,
+                              color: "#111827",
                             }}
                           >
-                            {p.duration ? `${p.duration} min` : "-"}
+                            <div style={{ fontWeight: 800 }}>{durationDisplay}</div>
+                            {perItemText && (
+                              <div style={{ fontSize: "0.72rem", color: "#6b7280", fontWeight: 500 }}>
+                                ({perItemText})
+                              </div>
+                            )}
                           </td>
                           <td
                             style={{
@@ -574,7 +603,7 @@ export default async function PrintVenuePage(props: {
                               fontSize: "0.95rem",
                             }}
                           >
-                            {p.zoneCandidateCount}
+                            {isGroup ? `${p.zoneTeamCount} Teams` : p.zoneCandidateCount}
                           </td>
                           <td
                             style={{
