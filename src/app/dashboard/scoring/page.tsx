@@ -89,9 +89,15 @@ export default async function ScoringPage(props: {
 
   const programsEventId = activeEvent.parentId || activeEvent.id;
 
+  const judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
+
   const [programsForScoring, availableJudges] = await Promise.all([
     prisma.program.findMany({
-      where: { eventId: programsEventId },
+      where: { 
+        eventId: programsEventId,
+        // If a JUDGE is logged in, only show programs at their assigned venue
+        ...(judgeVenue ? { venue: judgeVenue } : {})
+      },
       select: {
         id: true,
         name: true,
@@ -175,7 +181,9 @@ export default async function ScoringPage(props: {
         OR: [
           { team: { eventId: activeEventId } },
           { candidate: { team: { eventId: activeEventId } } }
-        ]
+        ],
+        // If JUDGE: only show results for their venue's programs
+        ...(judgeVenue ? { program: { venue: judgeVenue } } : {})
       },
       select: {
         id: true,

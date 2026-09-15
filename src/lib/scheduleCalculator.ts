@@ -133,19 +133,24 @@ export function calculateDynamicProgramDuration(
   const baseProgDuration = program.duration && program.duration > 0 ? program.duration : 5;
 
   if (progType === "INDIVIDUAL") {
-    const minPerCandidate = options.minutesPerCandidate || baseProgDuration;
-    if (candidateCount === 0) {
-      // If 0 candidates registered yet, reserve a minimum sensible slot or baseProgDuration
-      return {
-        duration: baseProgDuration,
-        candidateCount: 0,
-        teamCount: 0,
-        durationPerItem: minPerCandidate,
-      };
+    if (options.minutesPerCandidate) {
+      // Explicit override: compute total from per-candidate minutes
+      const minPerCandidate = options.minutesPerCandidate;
+      if (candidateCount === 0) {
+        return { duration: minPerCandidate, candidateCount: 0, teamCount: 0, durationPerItem: minPerCandidate };
+      }
+      const duration = candidateCount * minPerCandidate;
+      return { duration, candidateCount, teamCount, durationPerItem: minPerCandidate };
     }
-    const duration = candidateCount * minPerCandidate;
+    // No override: program.duration IS the total duration stored in DB.
+    // Derive per-candidate minutes from total ÷ count.
+    if (candidateCount === 0) {
+      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
+      return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem };
+    }
+    const minPerCandidate = Math.max(1, Math.round(baseProgDuration / candidateCount));
     return {
-      duration,
+      duration: baseProgDuration, // keep the stored total as-is
       candidateCount,
       teamCount,
       durationPerItem: minPerCandidate,
@@ -153,19 +158,23 @@ export function calculateDynamicProgramDuration(
   }
 
   if (progType === "GROUP") {
-    const minPerTeam = options.minutesPerTeam || baseProgDuration;
-    if (teamCount === 0) {
-      return {
-        duration: baseProgDuration,
-        candidateCount: 0,
-        teamCount: 0,
-        durationPerItem: minPerTeam,
-      };
+    if (options.minutesPerTeam) {
+      // Explicit override: compute total from per-team minutes
+      const minPerTeam = options.minutesPerTeam;
+      if (teamCount === 0) {
+        return { duration: minPerTeam, candidateCount: 0, teamCount: 0, durationPerItem: minPerTeam };
+      }
+      const duration = teamCount * minPerTeam;
+      return { duration, candidateCount, teamCount, durationPerItem: minPerTeam };
     }
-    // Sequential group performance
-    const duration = teamCount * minPerTeam;
+    // No override: program.duration IS total. Derive per-team.
+    if (teamCount === 0) {
+      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
+      return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem };
+    }
+    const minPerTeam = Math.max(1, Math.round(baseProgDuration / teamCount));
     return {
-      duration,
+      duration: baseProgDuration,
       candidateCount,
       teamCount,
       durationPerItem: minPerTeam,

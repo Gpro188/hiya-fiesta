@@ -77,7 +77,7 @@ export default function AdminScheduler({
     baseDate.setHours(9, 0, 0, 0); // Strictly 09:00 AM!
 
     const initialStart = formatDateTimeLocal(baseDate);
-    const buffer = venueSettings[venue]?.buffer !== undefined ? venueSettings[venue].buffer : 10;
+    const buffer = venueSettings[venue]?.buffer !== undefined ? venueSettings[venue].buffer : 5;
 
     return { startTime: initialStart, buffer };
   };
@@ -96,7 +96,7 @@ export default function AdminScheduler({
   };
 
   // Auto-predict cascading sequential timeline starting strictly from 9:00 AM
-  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 10) => {
+  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 5) => {
     let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
     if (isNaN(baseDate.getTime())) baseDate = new Date();
     baseDate.setHours(9, 0, 0, 0); // Strictly 9:00 AM sharp!
@@ -266,8 +266,19 @@ export default function AdminScheduler({
     }
   };
 
-  const handleDurationChange = (venue: string, programId: string, newDuration: number) => {
-    const venueProgs = (groupedPrograms[venue] || []).map(p => p.id === programId ? { ...p, duration: newDuration } : p);
+  const handleDurationChange = (venue: string, programId: string, newMinPerItem: number) => {
+    // newMinPerItem is per-candidate/team value; compute total = minPerItem × count
+    const currentProg = (groupedPrograms[venue] || []).find(p => p.id === programId);
+    let newTotalDuration = newMinPerItem;
+    if (currentProg) {
+      const zoneCandidates = getZoneCandidatesForProgram(currentProg.assignments, targetZoneId);
+      const count = currentProg.type === 'GROUP'
+        ? new Set(zoneCandidates.map((a: any) => a.candidate?.teamId).filter(Boolean)).size
+        : zoneCandidates.length;
+      newTotalDuration = count > 0 ? count * newMinPerItem : newMinPerItem;
+    }
+
+    const venueProgs = (groupedPrograms[venue] || []).map(p => p.id === programId ? { ...p, duration: newTotalDuration } : p);
     const config = getVenueConfig(venue);
     const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
@@ -275,7 +286,7 @@ export default function AdminScheduler({
     setPrograms(prev => {
       return prev.map(p => {
         if (p.id === programId) {
-          return { ...p, duration: newDuration, startTime: updateMap.get(p.id) || p.startTime };
+          return { ...p, duration: newTotalDuration, startTime: updateMap.get(p.id) || p.startTime };
         }
         if (updateMap.has(p.id)) {
           return { ...p, startTime: updateMap.get(p.id) };
@@ -381,22 +392,70 @@ export default function AdminScheduler({
 
   const handleUpdate = async (id: string, venue: string, startTime: string, duration: number, stageType: string, judgeIds: string[]) => {
     setLoadingId(id);
-    const result = await updateProgramSchedule(id, { 
-      venue: venue || null, 
-      startTime: startTime || null,
-      duration,
-      stageType,
-      judgeIds
-    }, eventId);
+    try {
+      // Find the venue programs and update this program's duration
+      const venueProgs = (groupedPrograms[venue] || []).map(p => {
+        if (p.id === id) {
+          const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
+          return { ...p, venue, duration, stageType, judges: assignedJudges };
+        }
+        return p;
+      });
 
-    setPrograms(programs.map(p => {
-      if (p.id === id) {
-        const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
-        return { ...p, venue, startTime, duration, stageType, judges: assignedJudges };
+      // Recalculate sequential times starting from 9:00 AM with configured buffer
+      const config = getVenueConfig(venue);
+      const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+
+      // Update state locally
+      setPrograms(prev => {
+        return prev.map(p => {
+          if (p.id === id) {
+            const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
+            return { 
+              ...p, 
+              venue, 
+              duration, 
+              stageType, 
+              judges: assignedJudges,
+              startTime: updateMap.get(p.id) || startTime 
+            };
+          }
+          if (updateMap.has(p.id)) {
+            return { ...p, startTime: updateMap.get(p.id) };
+          }
+          return p;
+        });
+      });
+
+      // Save the entire sequential timeline for this venue to database so times cascade cleanly
+      const updates = predictedList.map(item => ({
+        id: item.program.id,
+        startTime: item.predictedStart.toISOString(),
+        duration: item.duration,
+        stageType: item.program.stageType,
+        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+      }));
+
+      const res = await applySequentialVenueSchedule(eventId, venue, updates);
+      if (res.success) {
+        // also explicitly update any stageType or judges
+        await updateProgramSchedule(id, {
+          venue: venue || null,
+          startTime: updateMap.get(id) || startTime,
+          duration,
+          stageType,
+          judgeIds
+        }, eventId);
+      } else {
+        alert("Failed to save schedule: " + (res.error || "Unknown error"));
       }
-      return p;
-    }));
-    setLoadingId(null);
+    } catch (e: any) {
+      console.error("Failed to update program schedule:", e);
+      alert("Error saving: " + (e.message || "Unknown error"));
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   const handleAddBreak = async (venue: string) => {
@@ -1224,19 +1283,28 @@ export default function AdminScheduler({
                           <input type="hidden" id={`venue-${program.id}`} value={program.venue || ""} />
                         )}
                         
-                        {/* Duration input: changing it recalculates the predicted times starting from 9:00 AM */}
-                        <div className="form-group" style={{ marginBottom: 0, width: "135px" }}>
-                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title="Minutes allocated per performer / total">
+                        {/* Duration input: shows per-candidate/team minutes; total = count × perItem is stored */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title="Minutes per performer; Total = count × this value">
                             {program.type === "INDIVIDUAL" ? "Min / Candidate" : program.type === "GROUP" ? "Min / Team" : "Duration (mins)"}
                           </label>
-                          <input 
-                            type="number" 
-                            className="form-input" 
-                            defaultValue={program.duration || 5} 
-                            id={`dur-${program.id}`} 
-                            onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 5)}
-                            style={{ padding: "4px 8px", fontSize: "0.8rem" }}
-                          />
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              key={`dur-${program.id}-${item.durationPerItem}`}
+                              defaultValue={item.durationPerItem || 5} 
+                              id={`dur-${program.id}`}
+                              min={1}
+                              onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 1)}
+                              style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px" }}
+                            />
+                            {(program.type === "INDIVIDUAL" || program.type === "GROUP") && item.candidateCount > 0 && (
+                              <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                = <strong>{item.duration}m</strong> total
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Stage Type */}
@@ -1260,7 +1328,10 @@ export default function AdminScheduler({
                           disabled={loadingId === program.id}
                           onClick={() => {
                             const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
-                            const d = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 10;
+                            // Read per-item minutes from input, then compute total for storage
+                            const perItemMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
+                            const count = program.type === 'GROUP' ? item.teamCount : item.candidateCount;
+                            const d = count > 0 ? count * perItemMins : perItemMins;
                             const s = (document.getElementById(`stage-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
                             
                             let judgeIds: string[] = [];
