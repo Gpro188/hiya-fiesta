@@ -7,7 +7,7 @@ export interface CertificateFieldConfig {
   width?: number; // percentage max-width (0-100)
   fontSize: number; // in pixels (e.g. 24)
   fontWeight: '400' | '500' | '600' | '700' | '800';
-  fontFamily: 'Fraunces, serif' | 'Cinzel, serif' | 'Playfair Display, serif' | 'Inter, sans-serif' | 'Times New Roman, serif' | 'Georgia, serif' | 'Arial, sans-serif';
+  fontFamily: 'Neulis, sans-serif' | 'Neulis Alt, sans-serif' | 'Fraunces, serif' | 'Cinzel, serif' | 'Playfair Display, serif' | 'Inter, sans-serif' | 'Times New Roman, serif' | 'Georgia, serif' | 'Arial, sans-serif' | (string & {});
   color: string; // hex color e.g. '#0f172a'
   textAlign: 'left' | 'center' | 'right';
   letterSpacing?: number; // in px

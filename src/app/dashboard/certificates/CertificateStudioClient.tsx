@@ -269,6 +269,8 @@ export default function CertificateStudioClient({
 
   // Available font families
   const fontFamilies = [
+    { label: "Neulis (Modern Script-Sans Hybrid)", value: "Neulis, sans-serif" },
+    { label: "Neulis Alt (Geometric Clean)", value: "Neulis Alt, sans-serif" },
     { label: "Fraunces (Classic Elegant Serif)", value: "Fraunces, serif" },
     { label: "Playfair Display (Calligraphic Serif)", value: "Playfair Display, serif" },
     { label: "Cinzel (Traditional Roman Serif)", value: "Cinzel, serif" },
