@@ -351,6 +351,23 @@ export default async function PrintVenueControlPage(props: {
           >
             ← Back to Reports
           </Link>
+          <Link
+            href="/dashboard/scoring"
+            style={{
+              padding: "6px 12px",
+              backgroundColor: "#16a34a",
+              color: "#ffffff",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontSize: "0.8rem",
+              fontWeight: 800,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+            }}
+          >
+            ⚡ Review &amp; Publish Results &rarr;
+          </Link>
           <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "#f8fafc" }}>
             📋 Venue Program, Result &amp; Certificate Control Sheet
           </h2>
@@ -622,7 +639,24 @@ export default async function PrintVenueControlPage(props: {
                           {prog.isResultsPublished ? (
                             <span style={{ color: "#15803d" }}>✓ PUBLISHED LIVE</span>
                           ) : prog.isResultsEntered ? (
-                            <span style={{ color: "#b45309" }}>⚡ MARKS PENDING</span>
+                            <div>
+                              <span style={{ color: "#b45309" }}>⚡ MARKS PENDING</span>
+                              <Link
+                                href="/dashboard/scoring"
+                                target="_blank"
+                                className="no-print"
+                                style={{
+                                  display: "block",
+                                  marginTop: "3px",
+                                  color: "#2563eb",
+                                  fontSize: "8.5px",
+                                  fontWeight: 800,
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                Review &amp; Publish &rarr;
+                              </Link>
+                            </div>
                           ) : (
                             <span style={{ color: "#64748b" }}>○ Not Entered</span>
                           )}
