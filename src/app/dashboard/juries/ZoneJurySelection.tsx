@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toggleJurySelection, assignJudgesToProgram } from "./actions";
+import { toggleJurySelection, assignJudgesToProgram, assignJudgesToVenue } from "./actions";
 import VenueLoginsTab from "./VenueLoginsTab";
 
 export default function ZoneJurySelection({ 
@@ -33,6 +33,37 @@ export default function ZoneJurySelection({
   // New filters for Assignment Tab
   const [selectedCategory, setSelectedCategory] = useState("FADHILA");
   const [selectedStage, setSelectedStage] = useState("On Stage");
+
+  // Batch Venue Assignment state
+  const [batchVenue, setBatchVenue] = useState(venues[0] || "");
+  const [batchJury1, setBatchJury1] = useState("");
+  const [batchJury2, setBatchJury2] = useState("");
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchMessage, setBatchMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const handleBatchAssign = async () => {
+    if (!batchVenue) {
+      setBatchMessage({ type: 'error', text: 'Please select a venue first.' });
+      return;
+    }
+    const chosenIds = [batchJury1, batchJury2].filter(Boolean);
+    if (chosenIds.length === 0) {
+      setBatchMessage({ type: 'error', text: 'Please select at least one jury.' });
+      return;
+    }
+    setBatchLoading(true);
+    setBatchMessage(null);
+    const res = await assignJudgesToVenue(eventId, batchVenue, chosenIds);
+    if (res.success) {
+      setBatchMessage({ 
+        type: 'success', 
+        text: `✅ Successfully assigned ${chosenIds.length} jury/juries to all ${res.count || ''} programs in "${batchVenue}"!` 
+      });
+    } else {
+      setBatchMessage({ type: 'error', text: res.error || 'Failed to assign juries to venue.' });
+    }
+    setBatchLoading(false);
+  };
 
   const selectedIds = new Set(selectedJudges.map(j => j.id));
 
@@ -215,6 +246,148 @@ export default function ZoneJurySelection({
               style={{ width: '250px' }}
             />
           </div>
+
+          {/* BATCH ASSIGN TO VENUE */}
+          {venues.length > 0 && (
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              border: '1.5px solid #0284c7',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: 'var(--spacing-lg)',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.25rem' }}>⚡</span>
+                <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0369a1' }}>
+                  Quick Assign Juries to an Entire Venue / Stage
+                </h4>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.82rem', color: '#475569' }}>
+                Assign selected juries to <strong>all programs scheduled at a stage</strong> in one single click instead of checking them individually.
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                {/* Venue Select */}
+                <div style={{ flex: '1 1 180px' }}>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    🏛️ Venue / Stage
+                  </label>
+                  <select
+                    value={batchVenue}
+                    onChange={(e) => setBatchVenue(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      backgroundColor: '#fff',
+                      color: '#0f172a'
+                    }}
+                  >
+                    {venues.map(v => (
+                      <option key={v} value={v}>
+                        {v} ({programCountsByVenue[v] || 0} programs)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Jury 1 Select */}
+                <div style={{ flex: '1 1 180px' }}>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    👤 Evaluator 1 (Jury 1)
+                  </label>
+                  <select
+                    value={batchJury1}
+                    onChange={(e) => setBatchJury1(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      backgroundColor: '#fff',
+                      color: '#0f172a'
+                    }}
+                  >
+                    <option value="">-- Select Jury 1 --</option>
+                    {selectedJudges.map(j => (
+                      <option key={j.id} value={j.id} disabled={j.id === batchJury2}>
+                        {j.username} {j.place ? `(${j.place})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Jury 2 Select */}
+                <div style={{ flex: '1 1 180px' }}>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    👤 Evaluator 2 (Jury 2)
+                  </label>
+                  <select
+                    value={batchJury2}
+                    onChange={(e) => setBatchJury2(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      backgroundColor: '#fff',
+                      color: '#0f172a'
+                    }}
+                  >
+                    <option value="">-- Select Jury 2 (Optional) --</option>
+                    {selectedJudges.map(j => (
+                      <option key={j.id} value={j.id} disabled={j.id === batchJury1}>
+                        {j.username} {j.place ? `(${j.place})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  onClick={handleBatchAssign}
+                  disabled={batchLoading || !batchVenue || (!batchJury1 && !batchJury2)}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '8px 18px',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    backgroundColor: '#0284c7',
+                    borderColor: '#0369a1',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {batchLoading ? 'Assigning...' : '⚡ Assign to Venue'}
+                </button>
+              </div>
+
+              {batchMessage && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  backgroundColor: batchMessage.type === 'success' ? '#dcfce7' : '#fee2e2',
+                  color: batchMessage.type === 'success' ? '#15803d' : '#b91c1c',
+                  border: `1px solid ${batchMessage.type === 'success' ? '#86efac' : '#fca5a5'}`
+                }}>
+                  {batchMessage.text}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '16px', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>

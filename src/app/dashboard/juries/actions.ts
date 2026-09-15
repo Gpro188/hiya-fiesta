@@ -283,3 +283,54 @@ export async function deleteVenueLogin(userId: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function assignJudgesToVenue(eventId: string, venue: string, judgeIds: string[]) {
+  const session = await getServerSession(authOptions);
+  if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    const cleanIds = judgeIds.filter(Boolean);
+    if (!venue || !venue.trim()) {
+      return { success: false, error: "Please select a venue" };
+    }
+
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, parentId: true }
+    });
+    const progEventId = targetEvent?.parentId || eventId;
+
+    const venuePrograms = await prisma.program.findMany({
+      where: {
+        eventId: progEventId,
+        venue: { equals: venue.trim(), mode: "insensitive" }
+      },
+      select: { id: true }
+    });
+
+    if (venuePrograms.length === 0) {
+      return { success: false, error: `No programs found scheduled at venue "${venue}".` };
+    }
+
+    for (const vp of venuePrograms) {
+      await prisma.program.update({
+        where: { id: vp.id },
+        data: {
+          judges: {
+            set: cleanIds.map(id => ({ id }))
+          }
+        }
+      }).catch(() => {});
+    }
+
+    revalidatePath("/dashboard/juries");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/schedule");
+    return { success: true, count: venuePrograms.length };
+  } catch (error: any) {
+    console.error("assignJudgesToVenue error:", error);
+    return { success: false, error: error.message || "Failed to assign juries to venue" };
+  }
+}
