@@ -9,6 +9,7 @@ import TeamScorePreview from "./TeamScorePreview";
 import ExcelExport from "./ExcelExport";
 import PendingProgramsList from "./PendingProgramsList";
 import EventSwitcher from "@/app/components/EventSwitcher";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export default async function ScoringPage(props: {
   searchParams: Promise<{ eventId?: string, session?: string }>;
@@ -239,6 +240,7 @@ export default async function ScoringPage(props: {
         ]
       },
       select: {
+        candidateId: true,
         points: true,
         isPublished: true,
         teamId: true,
@@ -274,6 +276,9 @@ export default async function ScoringPage(props: {
         },
         program: {
           select: {
+            id: true,
+            type: true,
+            categoryId: true,
             category: { select: { name: true } }
           }
         }
@@ -339,16 +344,25 @@ export default async function ScoringPage(props: {
     const pts = result.points || 0;
     const isPub = Boolean(result.isPublished);
 
+    // Category Champions calculate ONLY by individual programs
+    const isIndiv = Boolean(result.candidateId) && 
+      (!result.program?.type || result.program.type === "INDIVIDUAL") && 
+      !isProgramGeneral(result.program);
+
     if (teamId && teamScoresMap[teamId]) {
+      // 1. Overall Institution Standings (Includes ALL: Category Individual + Group + General)
       teamScoresMap[teamId].totalPoints += pts;
       if (isPub) teamScoresMap[teamId].publishedPoints += pts;
 
-      if (cat === "FADHILA") {
-        teamScoresMap[teamId].fadhilaTotal += pts;
-        if (isPub) teamScoresMap[teamId].fadhilaPublished += pts;
-      } else if (cat === "FADHEELA") {
-        teamScoresMap[teamId].fadheelaTotal += pts;
-        if (isPub) teamScoresMap[teamId].fadheelaPublished += pts;
+      // 2. Category Champions (INDIVIDUAL Programs Points ONLY)
+      if (isIndiv) {
+        if (cat === "FADHILA") {
+          teamScoresMap[teamId].fadhilaTotal += pts;
+          if (isPub) teamScoresMap[teamId].fadhilaPublished += pts;
+        } else if (cat === "FADHEELA") {
+          teamScoresMap[teamId].fadheelaTotal += pts;
+          if (isPub) teamScoresMap[teamId].fadheelaPublished += pts;
+        }
       }
     }
 
@@ -368,15 +382,19 @@ export default async function ScoringPage(props: {
           fadheelaTotal: 0,
         };
       }
+      // Overall Zone Points (ALL programs included)
       zoneScoresMap[zone.id].totalPoints += pts;
       if (isPub) zoneScoresMap[zone.id].publishedPoints += pts;
 
-      if (cat === "FADHILA") {
-        zoneScoresMap[zone.id].fadhilaTotal += pts;
-        if (isPub) zoneScoresMap[zone.id].fadhilaPublished += pts;
-      } else if (cat === "FADHEELA") {
-        zoneScoresMap[zone.id].fadheelaTotal += pts;
-        if (isPub) zoneScoresMap[zone.id].fadheelaPublished += pts;
+      // Category Zone Points (INDIVIDUAL programs only)
+      if (isIndiv) {
+        if (cat === "FADHILA") {
+          zoneScoresMap[zone.id].fadhilaTotal += pts;
+          if (isPub) zoneScoresMap[zone.id].fadhilaPublished += pts;
+        } else if (cat === "FADHEELA") {
+          zoneScoresMap[zone.id].fadheelaTotal += pts;
+          if (isPub) zoneScoresMap[zone.id].fadheelaPublished += pts;
+        }
       }
     }
   });

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import TVDisplayClient from "./TVDisplayClient";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export const revalidate = 10; // Auto-refresh TV standings every 10s
 
@@ -109,8 +110,10 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
         },
         program: {
           select: {
+            id: true,
+            type: true,
             categoryId: true,
-            category: { select: { name: true } }
+            category: { select: { id: true, name: true } }
           }
         }
       }
@@ -184,13 +187,22 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
     return 'OTHER';
   };
 
+  // Helper to check if a result is for an individual program (Category Champions calculate ONLY by individual programs)
+  const isIndividualProgram = (r: any): boolean => {
+    if (!r.candidateId) return false;
+    if (r.program?.type && r.program.type !== "INDIVIDUAL") return false;
+    if (isProgramGeneral(r.program)) return false;
+    return true;
+  };
+
   allPublishedResults.forEach(r => {
     const tid = r.teamId || r.candidate?.teamId;
     const cat = detectCategory(r);
     const pts = r.points || 0;
     const rank = r.rank;
+    const isIndiv = isIndividualProgram(r);
 
-    // Institution Points
+    // 1. Institution Overall Points (Includes ALL: Category Individual + Category Group + General)
     if (tid && teamScoreMap.has(tid)) {
       const overall = teamScoreMap.get(tid)!;
       overall.points += pts;
@@ -198,42 +210,49 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       else if (rank === 2) overall.silver += 1;
       else if (rank === 3) overall.bronze += 1;
 
-      if (cat === 'FADHILA') {
-        const fadhila = fadhilaTeamScoreMap.get(tid)!;
-        fadhila.points += pts;
-        if (rank === 1) fadhila.gold += 1;
-        else if (rank === 2) fadhila.silver += 1;
-        else if (rank === 3) fadhila.bronze += 1;
-      } else if (cat === 'FADHEELA') {
-        const fadheela = fadheelaTeamScoreMap.get(tid)!;
-        fadheela.points += pts;
-        if (rank === 1) fadheela.gold += 1;
-        else if (rank === 2) fadheela.silver += 1;
-        else if (rank === 3) fadheela.bronze += 1;
+      // 2. Category Champions (INDIVIDUAL PROGRAMS ONLY!)
+      if (isIndiv) {
+        if (cat === 'FADHILA') {
+          const fadhila = fadhilaTeamScoreMap.get(tid)!;
+          fadhila.points += pts;
+          if (rank === 1) fadhila.gold += 1;
+          else if (rank === 2) fadhila.silver += 1;
+          else if (rank === 3) fadhila.bronze += 1;
+        } else if (cat === 'FADHEELA') {
+          const fadheela = fadheelaTeamScoreMap.get(tid)!;
+          fadheela.points += pts;
+          if (rank === 1) fadheela.gold += 1;
+          else if (rank === 2) fadheela.silver += 1;
+          else if (rank === 3) fadheela.bronze += 1;
+        }
       }
     }
 
     // Zone Points (via institution's zone)
     const zone = r.team?.institution?.zone || r.candidate?.team?.institution?.zone;
     if (zone && zoneScoreMap.has(zone.id)) {
+      // 1. Overall Zone Points (Includes ALL: Category Individual + Category Group + General)
       const zOverall = zoneScoreMap.get(zone.id)!;
       zOverall.points += pts;
       if (rank === 1) zOverall.gold += 1;
       else if (rank === 2) zOverall.silver += 1;
       else if (rank === 3) zOverall.bronze += 1;
 
-      if (cat === 'FADHILA') {
-        const zFadhila = fadhilaZoneScoreMap.get(zone.id)!;
-        zFadhila.points += pts;
-        if (rank === 1) zFadhila.gold += 1;
-        else if (rank === 2) zFadhila.silver += 1;
-        else if (rank === 3) zFadhila.bronze += 1;
-      } else if (cat === 'FADHEELA') {
-        const zFadheela = fadheelaZoneScoreMap.get(zone.id)!;
-        zFadheela.points += pts;
-        if (rank === 1) zFadheela.gold += 1;
-        else if (rank === 2) zFadheela.silver += 1;
-        else if (rank === 3) zFadheela.bronze += 1;
+      // 2. Category Zone Points (INDIVIDUAL PROGRAMS ONLY!)
+      if (isIndiv) {
+        if (cat === 'FADHILA') {
+          const zFadhila = fadhilaZoneScoreMap.get(zone.id)!;
+          zFadhila.points += pts;
+          if (rank === 1) zFadhila.gold += 1;
+          else if (rank === 2) zFadhila.silver += 1;
+          else if (rank === 3) zFadhila.bronze += 1;
+        } else if (cat === 'FADHEELA') {
+          const zFadheela = fadheelaZoneScoreMap.get(zone.id)!;
+          zFadheela.points += pts;
+          if (rank === 1) zFadheela.gold += 1;
+          else if (rank === 2) zFadheela.silver += 1;
+          else if (rank === 3) zFadheela.bronze += 1;
+        }
       }
     }
   });
@@ -290,15 +309,26 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
   const fadhilaZoneLeaderboard = mapZoneLeaderboard(fadhilaZoneScoreMap);
   const fadheelaZoneLeaderboard = mapZoneLeaderboard(fadheelaZoneScoreMap);
 
-  // Category Champions Summary
+  // Category & Total Champions Summary (with Champions and Runner-Ups)
   const champions = {
+    overallChampion: leaderboard[0] || null,
+    overallRunnerUp: leaderboard[1] || null,
+    overallSecondRunnerUp: leaderboard[2] || null,
+
     fadhilaTopInstitution: fadhilaLeaderboard[0] || null,
-    fadheelaTopInstitution: fadheelaLeaderboard[0] || null,
+    fadhilaRunnerUpInstitution: fadhilaLeaderboard[1] || null,
     fadhilaTopInstitutions: fadhilaLeaderboard.slice(0, 3),
+
+    fadheelaTopInstitution: fadheelaLeaderboard[0] || null,
+    fadheelaRunnerUpInstitution: fadheelaLeaderboard[1] || null,
     fadheelaTopInstitutions: fadheelaLeaderboard.slice(0, 3),
+
     overallTopZone: zoneLeaderboard[0] || null,
+    overallRunnerUpZone: zoneLeaderboard[1] || null,
     fadhilaTopZone: fadhilaZoneLeaderboard[0] || null,
+    fadhilaRunnerUpZone: fadhilaZoneLeaderboard[1] || null,
     fadheelaTopZone: fadheelaZoneLeaderboard[0] || null,
+    fadheelaRunnerUpZone: fadheelaZoneLeaderboard[1] || null,
     topZones: zoneLeaderboard.slice(0, 5),
     fadhilaTopZones: fadhilaZoneLeaderboard.slice(0, 3),
     fadheelaTopZones: fadheelaZoneLeaderboard.slice(0, 3),

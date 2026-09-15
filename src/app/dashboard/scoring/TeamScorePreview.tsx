@@ -38,19 +38,31 @@ export default function TeamScorePreview({
 }) {
   const [viewArea, setViewArea] = useState<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES'>('OVERALL');
 
-  // Compute Champions
+  // Compute Overall Standings (ALL Programs: Category Individual + Group + General)
   const overallSorted = [...scores].sort((a, b) => b.publishedPoints - a.publishedPoints || b.totalPoints - a.totalPoints);
+  
+  // Compute Category Standings (INDIVIDUAL Programs ONLY)
   const fadhilaSorted = [...scores].sort((a, b) => (b.fadhilaPublished || 0) - (a.fadhilaPublished || 0) || (b.fadhilaTotal || 0) - (a.fadhilaTotal || 0));
   const fadheelaSorted = [...scores].sort((a, b) => (b.fadheelaPublished || 0) - (a.fadheelaPublished || 0) || (b.fadheelaTotal || 0) - (a.fadheelaTotal || 0));
   
+  // Compute Zone Standings
   const zonesSorted = [...zoneScores].sort((a, b) => b.publishedPoints - a.publishedPoints || b.totalPoints - a.totalPoints);
   const fadhilaZonesSorted = [...zoneScores].sort((a, b) => (b.fadhilaPublished || 0) - (a.fadhilaPublished || 0) || (b.fadhilaTotal || 0) - (a.fadhilaTotal || 0));
   const fadheelaZonesSorted = [...zoneScores].sort((a, b) => (b.fadheelaPublished || 0) - (a.fadheelaPublished || 0) || (b.fadheelaTotal || 0) - (a.fadheelaTotal || 0));
 
-  const overallLeader = overallSorted[0];
+  // Champions & Runner-Ups
+  const overallChampion = overallSorted[0];
+  const overallRunnerUp = overallSorted[1];
+  const overallSecondRunnerUp = overallSorted[2];
+
   const fadhilaChampion = fadhilaSorted[0];
+  const fadhilaRunnerUp = fadhilaSorted[1];
+
   const fadheelaChampion = fadheelaSorted[0];
+  const fadheelaRunnerUp = fadheelaSorted[1];
+
   const topZone = zonesSorted[0];
+  const runnerUpZone = zonesSorted[1];
 
   // Active list based on viewArea
   const currentItems = (() => {
@@ -101,7 +113,7 @@ export default function TeamScorePreview({
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
-          🏆 Standings & Champions
+          🏆 Champions & Standings Hub
         </h3>
         {isStateFest && (
           <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
@@ -111,82 +123,186 @@ export default function TeamScorePreview({
       </div>
 
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.3 }}>
-        Compare <strong style={{ color: 'var(--success)' }}>Live</strong> (public) vs <strong style={{ color: 'var(--warning)' }}>Draft</strong> (projected) standings.
+        Category Champions are calculated <strong style={{ color: '#38bdf8' }}>strictly by Individual Programs</strong>. Overall Standings include <strong style={{ color: 'var(--warning)' }}>Total Points (Category + General)</strong>.
       </p>
 
-      {/* Category Champions Hero Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: isStateFest ? '1fr 1fr' : '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
-        {/* Fadhila Champion Card */}
-        <div style={{
-          backgroundColor: 'rgba(56, 189, 248, 0.08)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          borderRadius: '8px',
-          padding: '8px 10px',
-        }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>🌸</span> Fadhila Top Inst.
-          </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fadhilaChampion?.name || 'Pending'}>
-            {fadhilaChampion ? fadhilaChampion.name : 'No Results Yet'}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '1px' }}>
-            <span style={{ color: '#38bdf8', fontWeight: 700 }}>{fadhilaChampion?.fadhilaPublished || 0} pts</span> live ({fadhilaChampion?.fadhilaTotal || 0} draft)
-          </div>
-        </div>
-
-        {/* Fadheela Champion Card */}
-        <div style={{
-          backgroundColor: 'rgba(244, 114, 182, 0.08)',
-          border: '1px solid rgba(244, 114, 182, 0.25)',
-          borderRadius: '8px',
-          padding: '8px 10px',
-        }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>🌺</span> Fadheela Top Inst.
-          </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fadheelaChampion?.name || 'Pending'}>
-            {fadheelaChampion ? fadheelaChampion.name : 'No Results Yet'}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '1px' }}>
-            <span style={{ color: '#f472b6', fontWeight: 700 }}>{fadheelaChampion?.fadheelaPublished || 0} pts</span> live ({fadheelaChampion?.fadheelaTotal || 0} draft)
-          </div>
-        </div>
-
-        {/* Overall Leader */}
+      {/* Category Champions & Runner-Ups Hero Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: isStateFest ? '1fr 1fr' : '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+        
+        {/* 1. Overall Total Champions & Runner-Up */}
         <div style={{
           backgroundColor: 'rgba(245, 158, 11, 0.08)',
-          border: '1px solid rgba(245, 158, 11, 0.25)',
-          borderRadius: '8px',
-          padding: '8px 10px',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: '10px',
+          padding: '10px',
         }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>👑</span> Overall Leader
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>👑</span> Overall Standings
+            </div>
+            <span style={{ fontSize: '0.62rem', color: '#9ca3af', backgroundColor: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '3px' }}>Total Pts</span>
           </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={overallLeader?.name || 'Pending'}>
-            {overallLeader ? overallLeader.name : 'No Results Yet'}
+
+          {/* Champion */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+            <div style={{ minWidth: 0, paddingRight: '4px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                🥇 {overallChampion?.name || 'Tallying...'}
+              </div>
+              <div style={{ fontSize: '0.64rem', color: '#fbbf24', fontWeight: 600 }}>CHAMPION</div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#fbbf24' }}>{overallChampion?.publishedPoints || 0} pts</div>
+              <div style={{ fontSize: '0.62rem', color: '#9ca3af' }}>{overallChampion?.totalPoints || 0} draft</div>
+            </div>
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '1px' }}>
-            <span style={{ color: '#fbbf24', fontWeight: 700 }}>{overallLeader?.publishedPoints || 0} pts</span> live ({overallLeader?.totalPoints || 0} draft)
-          </div>
+
+          {/* Runner Up */}
+          {overallRunnerUp && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
+              <div style={{ minWidth: 0, paddingRight: '4px' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  🥈 {overallRunnerUp.name}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{overallRunnerUp.publishedPoints} pts</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* State Top Zone (if State Fest) */}
+        {/* 2. Fadhila Category Champions & Runner-Up */}
+        <div style={{
+          backgroundColor: 'rgba(56, 189, 248, 0.08)',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          borderRadius: '10px',
+          padding: '10px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>🌸</span> Fadhila Category
+            </div>
+            <span style={{ fontSize: '0.62rem', color: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
+          </div>
+
+          {/* Champion */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+            <div style={{ minWidth: 0, paddingRight: '4px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                🥇 {fadhilaChampion?.name || 'Tallying...'}
+              </div>
+              <div style={{ fontSize: '0.64rem', color: '#38bdf8', fontWeight: 600 }}>CHAMPION</div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#38bdf8' }}>{fadhilaChampion?.fadhilaPublished || 0} pts</div>
+              <div style={{ fontSize: '0.62rem', color: '#9ca3af' }}>{fadhilaChampion?.fadhilaTotal || 0} draft</div>
+            </div>
+          </div>
+
+          {/* Runner Up */}
+          {fadhilaRunnerUp && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
+              <div style={{ minWidth: 0, paddingRight: '4px' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  🥈 {fadhilaRunnerUp.name}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{fadhilaRunnerUp.fadhilaPublished || 0} pts</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Fadheela Category Champions & Runner-Up */}
+        <div style={{
+          backgroundColor: 'rgba(244, 114, 182, 0.08)',
+          border: '1px solid rgba(244, 114, 182, 0.3)',
+          borderRadius: '10px',
+          padding: '10px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>🌺</span> Fadheela Category
+            </div>
+            <span style={{ fontSize: '0.62rem', color: '#f472b6', backgroundColor: 'rgba(244,114,182,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
+          </div>
+
+          {/* Champion */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+            <div style={{ minWidth: 0, paddingRight: '4px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                🥇 {fadheelaChampion?.name || 'Tallying...'}
+              </div>
+              <div style={{ fontSize: '0.64rem', color: '#f472b6', fontWeight: 600 }}>CHAMPION</div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f472b6' }}>{fadheelaChampion?.fadheelaPublished || 0} pts</div>
+              <div style={{ fontSize: '0.62rem', color: '#9ca3af' }}>{fadheelaChampion?.fadheelaTotal || 0} draft</div>
+            </div>
+          </div>
+
+          {/* Runner Up */}
+          {fadheelaRunnerUp && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
+              <div style={{ minWidth: 0, paddingRight: '4px' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  🥈 {fadheelaRunnerUp.name}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{fadheelaRunnerUp.fadheelaPublished || 0} pts</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. State Top Zones & Runner-Up (if State Fest) */}
         {isStateFest && (
           <div style={{
             backgroundColor: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            borderRadius: '8px',
-            padding: '8px 10px',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '10px',
+            padding: '10px',
           }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>🌍</span> State Top Zone
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🌍</span> State Top Zones
+              </div>
+              <span style={{ fontSize: '0.62rem', color: '#34d399', backgroundColor: 'rgba(16,185,129,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Regional</span>
             </div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={topZone?.name || 'Pending'}>
-              {topZone ? topZone.name : 'No Results Yet'}
+
+            {/* Champion Zone */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+              <div style={{ minWidth: 0, paddingRight: '4px' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  🥇 {topZone?.name || 'Tallying...'}
+                </div>
+                <div style={{ fontSize: '0.64rem', color: '#34d399', fontWeight: 600 }}>CHAMPION ZONE</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#34d399' }}>{topZone?.publishedPoints || 0} pts</div>
+              </div>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '1px' }}>
-              <span style={{ color: '#34d399', fontWeight: 700 }}>{topZone?.publishedPoints || 0} pts</span> live ({topZone?.totalPoints || 0} draft)
-            </div>
+
+            {/* Runner Up Zone */}
+            {runnerUpZone && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
+                <div style={{ minWidth: 0, paddingRight: '4px' }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    🥈 {runnerUpZone.name}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP ZONE</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{runnerUpZone.publishedPoints} pts</div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -217,7 +333,7 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          Overall
+          Overall (Total)
         </button>
         <button
           type="button"
@@ -235,7 +351,7 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          🌸 Fadhila
+          🌸 Fadhila (Indiv)
         </button>
         <button
           type="button"
@@ -253,7 +369,7 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          🌺 Fadheela
+          🌺 Fadheela (Indiv)
         </button>
         {(isStateFest || zoneScores.length > 0) && (
           <button
@@ -286,6 +402,7 @@ export default function TeamScorePreview({
         ) : (
           currentItems.map((item, index) => {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            const titleBadge = index === 0 ? 'CHAMPION' : index === 1 ? 'RUNNER-UP' : index === 2 ? '2ND RUNNER-UP' : null;
             return (
               <div 
                 key={item.id} 
@@ -299,11 +416,24 @@ export default function TeamScorePreview({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ minWidth: 0, paddingRight: '8px' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.82rem', width: '22px', display: 'inline-block' }}>{medal}</span>
                       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.name}>
                         {item.name}
                       </span>
+                      {titleBadge && (
+                        <span style={{ 
+                          fontSize: '0.62rem', 
+                          fontWeight: 800, 
+                          color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : '#b45309',
+                          backgroundColor: index === 0 ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.05)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {titleBadge}
+                        </span>
+                      )}
                     </div>
                     {item.subTitle && (
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: '26px' }}>
