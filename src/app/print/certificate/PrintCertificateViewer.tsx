@@ -61,11 +61,12 @@ export default function PrintCertificateViewer({
       // default ordinal
       val = rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
     }
+    if (!val || ![1, 2, 3].includes(rank)) val = '----';
     return uppercase ? val.toUpperCase() : val;
   };
 
   const formatGrade = (grade: string | null | undefined, prefix = 'With ', suffix = ' Grade', uppercase = false) => {
-    if (!grade || grade.trim() === '' || grade === '-') return '';
+    if (!grade || grade.trim() === '' || grade === '-') return '----';
     const text = `${prefix}${grade.trim()}${suffix}`;
     return uppercase ? text.toUpperCase() : text;
   };
@@ -336,8 +337,8 @@ export default function PrintCertificateViewer({
               </div>
             )}
 
-            {/* Grade (A, B) - OMITTED COMPLETELY IF NO GRADE */}
-            {layout.fields.grade.enabled && candidate.grade && candidate.grade.trim() !== '' && candidate.grade !== '-' && (
+            {/* Grade (A, B) - displays ---- if no grade */}
+            {layout.fields.grade.enabled && (
               <div
                 style={{
                   position: "absolute",
