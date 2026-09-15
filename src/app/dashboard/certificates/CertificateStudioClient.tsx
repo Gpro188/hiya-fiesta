@@ -7,7 +7,12 @@ import {
   CertificateFieldConfig, 
   DEFAULT_CERTIFICATE_LAYOUT 
 } from "@/types/certificate";
-import { saveCertificateLayout, getCertificateWinners } from "./actions";
+import { 
+  saveCertificateLayout, 
+  getCertificateWinners, 
+  markCertificatesPrinted, 
+  unmarkCertificatesPrinted 
+} from "./actions";
 import ImageUpload from "@/app/components/ImageUpload";
 import Link from "next/link";
 
@@ -37,6 +42,9 @@ export default function CertificateStudioClient({
 
   // Active Tab: 'PRINT' (Winner list & batch printing) vs 'STUDIO' (Template calibration & area positioning)
   const [activeTab, setActiveTab] = useState<'PRINT' | 'STUDIO'>('PRINT');
+
+  // Print Queue Filter: 'PENDING' (Published by Zonal Admin, waiting for print) vs 'PRINTED' vs 'ALL'
+  const [printQueueStatus, setPrintQueueStatus] = useState<'PENDING' | 'PRINTED' | 'ALL'>('PENDING');
 
   // Layout Configuration
   const [layout, setLayout] = useState<CertificateLayoutConfig>(() => {
@@ -214,12 +222,27 @@ export default function CertificateStudioClient({
     }));
   };
 
-  // Select all / deselect all
+  // Filtered winners based on print queue status (Pending vs Printed vs All)
+  const displayedWinners = useMemo(() => {
+    if (printQueueStatus === 'PENDING') {
+      return winners.filter(w => !w.isPrinted && w.isPublished);
+    }
+    if (printQueueStatus === 'PRINTED') {
+      return winners.filter(w => w.isPrinted);
+    }
+    return winners;
+  }, [winners, printQueueStatus]);
+
+  const pendingCount = useMemo(() => winners.filter(w => !w.isPrinted && w.isPublished).length, [winners]);
+  const printedCount = useMemo(() => winners.filter(w => w.isPrinted).length, [winners]);
+  const totalCount = winners.length;
+
+  // Select all / deselect all in current active view
   const toggleSelectAll = () => {
-    if (selectedWinnerIds.size === winners.length) {
+    if (selectedWinnerIds.size === displayedWinners.length && displayedWinners.length > 0) {
       setSelectedWinnerIds(new Set());
     } else {
-      setSelectedWinnerIds(new Set(winners.map(w => w.id)));
+      setSelectedWinnerIds(new Set(displayedWinners.map(w => w.id)));
     }
   };
 
@@ -236,21 +259,57 @@ export default function CertificateStudioClient({
     });
   };
 
-  // Candidates to print: only selected winners who placed 1, 2, or 3
+  // Candidates to print: only selected winners in the current displayed list
   const candidatesToPrint = useMemo(() => {
-    if (selectedWinnerIds.size === 0) return winners;
-    return winners.filter(w => selectedWinnerIds.has(w.id));
-  }, [winners, selectedWinnerIds]);
+    if (selectedWinnerIds.size === 0) return displayedWinners;
+    return displayedWinners.filter(w => selectedWinnerIds.has(w.id));
+  }, [displayedWinners, selectedWinnerIds]);
 
-  // Execute Browser Print
+  // Execute Browser Print and auto-move to printed
   const handlePrint = (singleWinner?: CertificateWinner) => {
+    const idsToMark = singleWinner ? [singleWinner.id] : Array.from(selectedWinnerIds);
     if (singleWinner) {
       setPreviewWinner(singleWinner);
     }
     // Small delay to ensure state settles, then trigger print
-    setTimeout(() => {
+    setTimeout(async () => {
       window.print();
-    }, 100);
+      // Mark as printed and move out of pending!
+      if (idsToMark.length > 0) {
+        try {
+          await markCertificatesPrinted(idsToMark);
+          const nowStr = new Date().toISOString();
+          setWinners(prev => prev.map(w => idsToMark.includes(w.id) ? { ...w, isPrinted: true, printedAt: nowStr } : w));
+        } catch (e) {
+          console.error("Failed to mark printed:", e);
+        }
+      }
+    }, 150);
+  };
+
+  // Manual move to printed
+  const handleMoveToPrinted = async (winnerIds: string[]) => {
+    if (winnerIds.length === 0) return;
+    await markCertificatesPrinted(winnerIds);
+    const nowStr = new Date().toISOString();
+    setWinners(prev => prev.map(w => winnerIds.includes(w.id) ? { ...w, isPrinted: true, printedAt: nowStr } : w));
+    setSelectedWinnerIds(prev => {
+      const next = new Set(prev);
+      winnerIds.forEach(id => next.delete(id));
+      return next;
+    });
+  };
+
+  // Manual move back to pending
+  const handleMoveToPending = async (winnerIds: string[]) => {
+    if (winnerIds.length === 0) return;
+    await unmarkCertificatesPrinted(winnerIds);
+    setWinners(prev => prev.map(w => winnerIds.includes(w.id) ? { ...w, isPrinted: false, printedAt: null } : w));
+    setSelectedWinnerIds(prev => {
+      const next = new Set(prev);
+      winnerIds.forEach(id => next.delete(id));
+      return next;
+    });
   };
 
   // Format Place Value based on formatType
@@ -534,6 +593,155 @@ export default function CertificateStudioClient({
             </div>
           </div>
 
+          {/* ========================================================================= */}
+          {/* PRINT QUEUE SELECTOR TABS & ON-STAGE FOCUS                                */}
+          {/* ========================================================================= */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setPrintQueueStatus('PENDING');
+                const pending = winners.filter(w => !w.isPrinted && w.isPublished);
+                setSelectedWinnerIds(new Set(pending.map(w => w.id)));
+              }}
+              className={`btn btn-sm ${printQueueStatus === 'PENDING' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: 800,
+                padding: "8px 16px",
+                fontSize: "0.85rem",
+                backgroundColor: printQueueStatus === 'PENDING' ? "#d97706" : undefined,
+                borderColor: printQueueStatus === 'PENDING' ? "#b45309" : undefined,
+                color: printQueueStatus === 'PENDING' ? "#ffffff" : undefined,
+                boxShadow: printQueueStatus === 'PENDING' ? "0 2px 8px rgba(217, 119, 6, 0.3)" : "none"
+              }}
+            >
+              <span>⏳ Pending Print Queue (Ready to Print)</span>
+              <span style={{ 
+                backgroundColor: printQueueStatus === 'PENDING' ? "#ffffff" : "rgba(217, 119, 6, 0.15)", 
+                color: printQueueStatus === 'PENDING' ? "#b45309" : "#d97706", 
+                padding: "1px 8px", 
+                borderRadius: "12px", 
+                fontSize: "0.75rem", 
+                fontWeight: 900 
+              }}>
+                {pendingCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPrintQueueStatus('PRINTED');
+                const printed = winners.filter(w => w.isPrinted);
+                setSelectedWinnerIds(new Set(printed.map(w => w.id)));
+              }}
+              className={`btn btn-sm ${printQueueStatus === 'PRINTED' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: 800,
+                padding: "8px 16px",
+                fontSize: "0.85rem",
+                backgroundColor: printQueueStatus === 'PRINTED' ? "#059669" : undefined,
+                borderColor: printQueueStatus === 'PRINTED' ? "#047857" : undefined,
+                color: printQueueStatus === 'PRINTED' ? "#ffffff" : undefined,
+                boxShadow: printQueueStatus === 'PRINTED' ? "0 2px 8px rgba(5, 150, 105, 0.3)" : "none"
+              }}
+            >
+              <span>✅ Printed Certificates</span>
+              <span style={{ 
+                backgroundColor: printQueueStatus === 'PRINTED' ? "#ffffff" : "rgba(5, 150, 105, 0.15)", 
+                color: printQueueStatus === 'PRINTED' ? "#047857" : "#059669", 
+                padding: "1px 8px", 
+                borderRadius: "12px", 
+                fontSize: "0.75rem", 
+                fontWeight: 900 
+              }}>
+                {printedCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPrintQueueStatus('ALL');
+                setSelectedWinnerIds(new Set(winners.map(w => w.id)));
+              }}
+              className={`btn btn-sm ${printQueueStatus === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: 800,
+                padding: "8px 16px",
+                fontSize: "0.85rem"
+              }}
+            >
+              <span>📋 All Winners</span>
+              <span style={{ backgroundColor: "rgba(0,0,0,0.06)", padding: "1px 8px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
+                {totalCount}
+              </span>
+            </button>
+
+            {/* Quick filter for On Stage Only */}
+            <button
+              type="button"
+              onClick={() => {
+                const newStage = filterStageType === 'ON_STAGE' ? 'ALL' : 'ON_STAGE';
+                setFilterStageType(newStage);
+                refreshWinners(selectedEventId, filterProgramId, filterCategoryId, newStage, filterRank, searchQuery);
+              }}
+              className={`btn btn-sm ${filterStageType === 'ON_STAGE' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ 
+                marginLeft: "auto", 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "6px", 
+                fontWeight: 700,
+                backgroundColor: filterStageType === 'ON_STAGE' ? "#4f46e5" : undefined,
+                borderColor: filterStageType === 'ON_STAGE' ? "#4338ca" : undefined,
+                color: filterStageType === 'ON_STAGE' ? "#ffffff" : undefined
+              }}
+            >
+              <span>🎭 Filter: On-Stage Only:</span>
+              <span style={{ fontWeight: 800 }}>{filterStageType === 'ON_STAGE' ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
+
+          {/* Queue Description Banner */}
+          <div style={{
+            padding: "10px 14px",
+            backgroundColor: printQueueStatus === 'PENDING' ? "rgba(217, 119, 6, 0.08)" : printQueueStatus === 'PRINTED' ? "rgba(16, 185, 129, 0.08)" : "rgba(0,0,0,0.03)",
+            border: `1px solid ${printQueueStatus === 'PENDING' ? 'rgba(217, 119, 6, 0.3)' : printQueueStatus === 'PRINTED' ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color)'}`,
+            borderRadius: "8px",
+            marginBottom: "15px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "10px"
+          }}>
+            <div style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>
+              {printQueueStatus === 'PENDING' ? (
+                <span>
+                  ⏳ <strong>Pending Print Queue:</strong> Showing <strong>{displayedWinners.length}</strong> certificates ready for print. These results were scored by juries and <strong>checked & published by the Zonal Admin</strong>. Click <strong>Print</strong> to output the certificate and it will automatically move to <strong>Printed Certificates</strong>!
+                </span>
+              ) : printQueueStatus === 'PRINTED' ? (
+                <span>
+                  ✅ <strong>Printed Certificates:</strong> Showing <strong>{displayedWinners.length}</strong> certificates already completed. You can re-print anytime or click <strong>Move to Pending</strong> if a certificate needs to be re-issued.
+                </span>
+              ) : (
+                <span>
+                  📋 <strong>All Winners:</strong> Showing all <strong>{displayedWinners.length}</strong> 1st, 2nd, and 3rd placed participants across all stages.
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Action Header: Bulk Print Controls */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -543,14 +751,38 @@ export default function CertificateStudioClient({
                 className="btn btn-secondary btn-sm"
                 style={{ fontWeight: 600 }}
               >
-                {selectedWinnerIds.size === winners.length ? "Deselect All" : "Select All"}
+                {selectedWinnerIds.size === displayedWinners.length && displayedWinners.length > 0 ? "Deselect All" : "Select All"}
               </button>
               <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                Selected: <strong style={{ color: "var(--primary)" }}>{selectedWinnerIds.size}</strong> of {winners.length} winners
+                Selected: <strong style={{ color: "var(--primary)" }}>{selectedWinnerIds.size}</strong> of {displayedWinners.length} certificates
               </span>
             </div>
 
             <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              {printQueueStatus === 'PENDING' && selectedWinnerIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleMoveToPrinted(Array.from(selectedWinnerIds))}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontWeight: 700, color: "#059669" }}
+                  title="Mark selected certificates as printed without triggering browser print dialog"
+                >
+                  <span>✓ Mark Selected Printed ({selectedWinnerIds.size})</span>
+                </button>
+              )}
+
+              {printQueueStatus === 'PRINTED' && selectedWinnerIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleMoveToPending(Array.from(selectedWinnerIds))}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontWeight: 700, color: "#d97706" }}
+                  title="Move selected certificates back to pending queue"
+                >
+                  <span>↩ Move Selected to Pending ({selectedWinnerIds.size})</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setFullCapitalLetters(prev => !prev)}
@@ -580,12 +812,12 @@ export default function CertificateStudioClient({
 
               <button
                 type="button"
-                disabled={winners.length === 0}
+                disabled={displayedWinners.length === 0}
                 onClick={() => handlePrint()}
                 className="btn btn-primary"
                 style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, padding: "10px 20px" }}
               >
-                <span>🖨️ Print Selected ({candidatesToPrint.length} Certificates)</span>
+                <span>🖨️ Print Selected ({candidatesToPrint.length}) & Move</span>
               </button>
             </div>
           </div>
@@ -593,22 +825,34 @@ export default function CertificateStudioClient({
           {/* Winners Table */}
           {loadingWinners ? (
             <div className="glass-panel" style={{ padding: "40px", textAlign: "center" }}>
-              <p>Loading winners...</p>
+              <p>Loading certificates...</p>
             </div>
-          ) : winners.length === 0 ? (
+          ) : displayedWinners.length === 0 ? (
             <div className="glass-panel" style={{ padding: "50px", textAlign: "center" }}>
-              <span style={{ fontSize: "3rem" }}>🏆</span>
-              <h3 style={{ margin: "10px 0 6px 0" }}>No 1st, 2nd, or 3rd Placed Results Yet</h3>
+              <span style={{ fontSize: "3rem" }}>
+                {printQueueStatus === 'PENDING' ? '🎉' : '🏆'}
+              </span>
+              <h3 style={{ margin: "10px 0 6px 0" }}>
+                {printQueueStatus === 'PENDING' 
+                  ? 'No Pending Certificates to Print!' 
+                  : printQueueStatus === 'PRINTED' 
+                  ? 'No Printed Certificates Yet' 
+                  : 'No Results Found'}
+              </h3>
               <p style={{ color: "var(--text-secondary)", maxWidth: "500px", margin: "0 auto 20px auto" }}>
-                Results have not been entered or finalized for this fest yet. You can still calibrate your certificate template and text positions using the Calibration Studio below!
+                {printQueueStatus === 'PENDING'
+                  ? 'All published on-stage and off-stage winners have been printed. When zonal admins publish new results, they will appear here with their exact publication time!'
+                  : 'Once certificates are printed, they will appear here for record-keeping and re-printing.'}
               </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('STUDIO')}
-                className="btn btn-primary"
-              >
-                📐 Open Calibration Studio (With Sample Data)
-              </button>
+              {printQueueStatus === 'PENDING' && (
+                <button
+                  type="button"
+                  onClick={() => setPrintQueueStatus('ALL')}
+                  className="btn btn-secondary btn-sm"
+                >
+                  View All Winners
+                </button>
+              )}
             </div>
           ) : (
             <div className="glass-panel" style={{ padding: 0, overflow: "hidden" }}>
@@ -618,7 +862,7 @@ export default function CertificateStudioClient({
                     <th style={{ padding: "12px 16px", width: "40px", textAlign: "center" }}>
                       <input
                         type="checkbox"
-                        checked={selectedWinnerIds.size === winners.length && winners.length > 0}
+                        checked={selectedWinnerIds.size === displayedWinners.length && displayedWinners.length > 0}
                         onChange={toggleSelectAll}
                       />
                     </th>
@@ -626,13 +870,15 @@ export default function CertificateStudioClient({
                     <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Grade</th>
                     <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Candidate / Team Name</th>
                     <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Chest #</th>
-                    <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Program & Category</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Program & Stage</th>
                     <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Institution</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem" }}>Published On-Time</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem", textAlign: "center" }}>Print Status</th>
                     <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: "0.85rem", textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {winners.map((winner) => {
+                  {displayedWinners.map((winner) => {
                     const isSelected = selectedWinnerIds.has(winner.id);
                     return (
                       <tr 
@@ -692,37 +938,132 @@ export default function CertificateStudioClient({
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <div style={{ fontWeight: 600 }}>{winner.programName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", marginTop: "2px" }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginTop: "2px" }}>
                             <span>{winner.categoryName} {winner.programCode ? `• [${winner.programCode}]` : ""}</span>
                             {winner.stageType && (
                               <span style={{
                                 padding: "1px 6px",
                                 borderRadius: "4px",
                                 fontSize: "0.7rem",
-                                fontWeight: 700,
-                                backgroundColor: winner.stageType === "ON_STAGE" ? "rgba(79, 70, 229, 0.1)" : "rgba(100, 116, 139, 0.1)",
-                                color: winner.stageType === "ON_STAGE" ? "#4f46e5" : "#475569"
+                                fontWeight: 800,
+                                backgroundColor: winner.stageType === "ON_STAGE" ? "rgba(79, 70, 229, 0.12)" : "rgba(100, 116, 139, 0.1)",
+                                color: winner.stageType === "ON_STAGE" ? "#4f46e5" : "#475569",
+                                border: winner.stageType === "ON_STAGE" ? "1px solid rgba(79, 70, 229, 0.3)" : "none"
                               }}>
-                                {winner.stageType === "ON_STAGE" ? "On Stage" : "Off Stage"}
+                                {winner.stageType === "ON_STAGE" ? "🎭 On Stage" : "📝 Off Stage"}
                               </span>
                             )}
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "0.85rem" }}>
-                          <div>{winner.institutionName}</div>
+                          <div style={{ fontWeight: 600 }}>{winner.institutionName}</div>
                           {winner.institutionPlace && (
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{winner.institutionPlace}</div>
                           )}
                         </td>
+                        {/* Published On-Time Show */}
+                        <td style={{ padding: "12px 16px" }}>
+                          {winner.publishedAt ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <span style={{ 
+                                fontSize: '0.74rem', 
+                                fontWeight: 800, 
+                                color: '#047857', 
+                                backgroundColor: '#ecfdf5', 
+                                border: '1px solid #a7f3d0', 
+                                padding: '2px 8px', 
+                                borderRadius: '6px', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                width: 'fit-content' 
+                              }}>
+                                <span>🕒</span> {new Date(winner.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
+                                {new Date(winner.publishedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Draft / Scored</span>
+                          )}
+                        </td>
+                        {/* Print Status */}
+                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                          {winner.isPrinted ? (
+                            <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                              <span style={{ 
+                                fontSize: '0.72rem', 
+                                fontWeight: 800, 
+                                color: '#0284c7', 
+                                backgroundColor: '#e0f2fe', 
+                                border: '1px solid #bae6fd', 
+                                padding: '2px 8px', 
+                                borderRadius: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <span>✅</span> Printed
+                              </span>
+                              {winner.printedAt && (
+                                <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>
+                                  {new Date(winner.printedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ 
+                              fontSize: '0.72rem', 
+                              fontWeight: 800, 
+                              color: '#b45309', 
+                              backgroundColor: '#fef3c7', 
+                              border: '1px solid #fde68a', 
+                              padding: '2px 8px', 
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <span>⏳</span> Pending Print
+                            </span>
+                          )}
+                        </td>
+                        {/* Row Actions */}
                         <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                          <button
-                            type="button"
-                            onClick={() => handlePrint(winner)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ fontWeight: 600 }}
-                          >
-                            🖨️ Print
-                          </button>
+                          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => handlePrint(winner)}
+                              className="btn btn-secondary btn-sm"
+                              style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}
+                              title="Print certificate and auto-move to printed queue"
+                            >
+                              <span>🖨️ Print</span>
+                            </button>
+
+                            {!winner.isPrinted ? (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveToPrinted([winner.id])}
+                                className="btn btn-sm"
+                                style={{ fontSize: "0.72rem", padding: "4px 8px", backgroundColor: "rgba(5, 150, 105, 0.1)", color: "#059669", border: "1px solid rgba(5, 150, 105, 0.2)", fontWeight: 700 }}
+                                title="Mark as printed without browser print"
+                              >
+                                ✓ Move
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveToPending([winner.id])}
+                                className="btn btn-sm"
+                                style={{ fontSize: "0.72rem", padding: "4px 8px", backgroundColor: "rgba(217, 119, 6, 0.1)", color: "#d97706", border: "1px solid rgba(217, 119, 6, 0.2)", fontWeight: 700 }}
+                                title="Move back to pending queue"
+                              >
+                                ↩ Back
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

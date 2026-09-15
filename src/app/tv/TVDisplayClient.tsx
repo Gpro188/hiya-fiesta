@@ -58,8 +58,8 @@ export default function TVDisplayClient({
   const [currentDate, setCurrentDate] = useState("");
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  // View Area Mode: 'OVERALL', 'FADHILA', 'FADHEELA', 'ZONES'
-  const [viewArea, setViewArea] = useState<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES'>('OVERALL');
+  // View Area Mode: 'OVERALL', 'FADHILA', 'FADHEELA', 'ZONES', 'SHOWCASE'
+  const [viewArea, setViewArea] = useState<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES' | 'SHOWCASE'>('OVERALL');
   const [autoCycleView, setAutoCycleView] = useState(true);
 
   // Clock timer
@@ -72,19 +72,21 @@ export default function TVDisplayClient({
     return () => clearInterval(timer);
   }, []);
 
-  // TV Auto-Refresh: Refresh server component data every 15 seconds to fetch new winner declarations live
+  // TV Auto-Refresh: Refresh server component data every 10 seconds to fetch new winner declarations live
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       router.refresh();
-    }, 15000);
+    }, 10000);
     return () => clearInterval(refreshInterval);
   }, [router]);
 
   // Auto-cycle through View Area Types every 12 seconds
   useEffect(() => {
     if (!autoCycleView) return;
-    const views: Array<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES'> = 
-      isStateFest ? ['OVERALL', 'FADHILA', 'FADHEELA', 'ZONES'] : ['OVERALL', 'FADHILA', 'FADHEELA'];
+    const views: Array<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES' | 'SHOWCASE'> = 
+      isStateFest 
+        ? ['OVERALL', 'FADHILA', 'FADHEELA', 'ZONES', 'SHOWCASE'] 
+        : ['OVERALL', 'FADHILA', 'FADHEELA', 'SHOWCASE'];
     
     const timer = setInterval(() => {
       setViewArea(prev => {
@@ -467,6 +469,7 @@ export default function TVDisplayClient({
             { id: 'FADHILA', label: '🌸 Fadhila Champions', color: '#ec4899' },
             { id: 'FADHEELA', label: '🌺 Fadheela Champions', color: '#8b5cf6' },
             ...(isStateFest ? [{ id: 'ZONES', label: '🌍 Zonal Champions', color: '#0284c7' }] : []),
+            { id: 'SHOWCASE', label: '✨ 🏆 Champions TV Show Spotlight', color: '#d97706' }
           ].map(tab => {
             const isActive = viewArea === tab.id;
             return (
@@ -540,8 +543,263 @@ export default function TVDisplayClient({
         ))}
       </div>
 
-      {/* MAIN CONTENT GRID */}
-      <main style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '1.5rem' }}>
+      {/* MAIN CONTENT: SHOWCASE TV SPOTLIGHT OR STANDARD LEADERBOARD GRID */}
+      {viewArea === 'SHOWCASE' ? (
+        <section style={{
+          backgroundColor: panelBg,
+          borderRadius: '16px',
+          border: `2px solid ${gold}66`,
+          padding: '2rem',
+          background: theme === 'dark'
+            ? 'radial-gradient(ellipse at 50% 0%, rgba(251,191,36,0.18) 0%, rgba(11,17,32,0.98) 70%)'
+            : 'radial-gradient(ellipse at 50% 0%, rgba(251,191,36,0.25) 0%, #ffffff 70%)',
+          boxShadow: theme === 'dark' ? '0 0 50px rgba(251,191,36,0.15)' : '0 10px 40px rgba(251,191,36,0.18)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2rem',
+          flex: 1
+        }}>
+          {/* TV SHOW CEREMONY HEADER */}
+          <div style={{ textAlign: 'center', position: 'relative' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 16px', borderRadius: '20px', backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444', fontSize: '0.8rem', fontWeight: 900, letterSpacing: '1px', marginBottom: '10px', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <span style={{ width: '8px', height: '8px', backgroundColor: '#ef4444', borderRadius: '50%' }}></span>
+              CSWC OFFICIAL FESTIVAL BROADCAST · LIVE CHAMPIONS SPOTLIGHT
+            </div>
+            <h2 style={{ fontSize: '2.6rem', fontWeight: 900, letterSpacing: '2px', margin: '0 0 6px 0', textTransform: 'uppercase', color: gold, textShadow: '0 2px 25px rgba(251,191,36,0.5)' }}>
+              🏆 Festival Champions & Runners-Up Spotlight
+            </h2>
+            <div style={{ fontSize: '0.95rem', color: textSec, letterSpacing: '1px', fontWeight: 600 }}>
+              Category Champions Calculated <strong style={{ color: '#ec4899' }}>Strictly by Individual Programs</strong> • Overall Grand Champions By <strong style={{ color: gold }}>Total Points (Category + General)</strong>
+            </div>
+          </div>
+
+          {/* 4-PILLAR BROADCAST CARDS */}
+          <div style={{ display: 'grid', gridTemplateColumns: isStateFest ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '1.4rem' }}>
+            
+            {/* 1. OVERALL GRAND CHAMPION */}
+            <div style={{
+              backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : '#fffbeb',
+              border: `2px solid ${gold}`,
+              borderRadius: '16px',
+              padding: '1.6rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              boxShadow: '0 10px 35px rgba(251,191,36,0.2)'
+            }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 900, color: gold, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    👑 GRAND OVERALL
+                  </span>
+                  <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(251,191,36,0.15)', color: gold, fontWeight: 800 }}>
+                    Category + General
+                  </span>
+                </div>
+
+                <div style={{ textAlign: 'center', margin: '0.8rem 0' }}>
+                  <div style={{ fontSize: '2.8rem', marginBottom: '6px' }}>🏆</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: textPri, lineHeight: 1.2, minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {champions?.overallChampion?.name || leaderboard[0]?.name || 'Tallying...'}
+                  </div>
+                  {champions?.overallChampion?.place && (
+                    <div style={{ fontSize: '0.78rem', color: textSec, marginTop: '4px' }}>
+                      📍 {champions.overallChampion.place}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '3rem', fontWeight: 900, color: gold, fontFamily: 'monospace', margin: '10px 0' }}>
+                    {champions?.overallChampion?.points ?? leaderboard[0]?.points ?? 0}
+                    <span style={{ fontSize: '0.9rem', color: textSec, marginLeft: '4px' }}>PTS</span>
+                  </div>
+                  <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: '20px', backgroundColor: gold, color: '#000', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '1px' }}>
+                    👑 GRAND CHAMPION
+                  </div>
+                </div>
+              </div>
+
+              {/* Runner-ups for Overall */}
+              <div style={{ borderTop: `1px solid ${borderCol}`, paddingTop: '12px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                  <span style={{ color: textSec, fontWeight: 600 }}>🥈 Runner-Up:</span>
+                  <strong style={{ color: silver }}>{champions?.overallRunnerUp?.name || leaderboard[1]?.name || 'Tallying...'} ({champions?.overallRunnerUp?.points ?? leaderboard[1]?.points ?? 0} pts)</strong>
+                </div>
+                {leaderboard[2] && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                    <span style={{ color: textSec, fontWeight: 600 }}>🥉 2nd Runner-Up:</span>
+                    <span style={{ color: bronze, fontWeight: 800 }}>{champions?.overallSecondRunnerUp?.name || leaderboard[2]?.name} ({champions?.overallSecondRunnerUp?.points ?? leaderboard[2]?.points ?? 0} pts)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. FADHILA CATEGORY CHAMPIONS */}
+            <div style={{
+              backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : '#fdf2f8',
+              border: `2px solid #ec4899`,
+              borderRadius: '16px',
+              padding: '1.6rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              boxShadow: '0 10px 35px rgba(236,72,153,0.2)'
+            }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#ec4899', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    🌸 FADHILA CATEGORY
+                  </span>
+                  <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(236,72,153,0.15)', color: '#ec4899', fontWeight: 800 }}>
+                    Indiv Only
+                  </span>
+                </div>
+
+                <div style={{ textAlign: 'center', margin: '0.8rem 0' }}>
+                  <div style={{ fontSize: '2.8rem', marginBottom: '6px' }}>🥇</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: textPri, lineHeight: 1.2, minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {champions?.fadhilaTopInstitution?.name || 'Tallying...'}
+                  </div>
+                  {champions?.fadhilaTopInstitution?.place && (
+                    <div style={{ fontSize: '0.78rem', color: textSec, marginTop: '4px' }}>
+                      📍 {champions.fadhilaTopInstitution.place}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '3rem', fontWeight: 900, color: '#ec4899', fontFamily: 'monospace', margin: '10px 0' }}>
+                    {champions?.fadhilaTopInstitution?.points || 0}
+                    <span style={{ fontSize: '0.9rem', color: textSec, marginLeft: '4px' }}>PTS</span>
+                  </div>
+                  <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: '20px', backgroundColor: '#ec4899', color: '#fff', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '1px' }}>
+                    👑 FADHILA CHAMPION
+                  </div>
+                </div>
+              </div>
+
+              {/* Runner-Up for Fadhila */}
+              <div style={{ borderTop: `1px solid ${borderCol}`, paddingTop: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                  <span style={{ color: textSec, fontWeight: 600 }}>🥈 Runner-Up:</span>
+                  <strong style={{ color: silver }}>{champions?.fadhilaRunnerUpInstitution?.name || 'Tallying...'} ({champions?.fadhilaRunnerUpInstitution?.points || 0} pts)</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. FADHEELA CATEGORY CHAMPIONS */}
+            <div style={{
+              backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : '#f5f3ff',
+              border: `2px solid #8b5cf6`,
+              borderRadius: '16px',
+              padding: '1.6rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              boxShadow: '0 10px 35px rgba(139,92,246,0.2)'
+            }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#8b5cf6', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    🌺 FADHEELA CATEGORY
+                  </span>
+                  <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', fontWeight: 800 }}>
+                    Indiv Only
+                  </span>
+                </div>
+
+                <div style={{ textAlign: 'center', margin: '0.8rem 0' }}>
+                  <div style={{ fontSize: '2.8rem', marginBottom: '6px' }}>🥇</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: textPri, lineHeight: 1.2, minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {champions?.fadheelaTopInstitution?.name || 'Tallying...'}
+                  </div>
+                  {champions?.fadheelaTopInstitution?.place && (
+                    <div style={{ fontSize: '0.78rem', color: textSec, marginTop: '4px' }}>
+                      📍 {champions.fadheelaTopInstitution.place}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '3rem', fontWeight: 900, color: '#8b5cf6', fontFamily: 'monospace', margin: '10px 0' }}>
+                    {champions?.fadheelaTopInstitution?.points || 0}
+                    <span style={{ fontSize: '0.9rem', color: textSec, marginLeft: '4px' }}>PTS</span>
+                  </div>
+                  <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: '20px', backgroundColor: '#8b5cf6', color: '#fff', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '1px' }}>
+                    👑 FADHEELA CHAMPION
+                  </div>
+                </div>
+              </div>
+
+              {/* Runner-Up for Fadheela */}
+              <div style={{ borderTop: `1px solid ${borderCol}`, paddingTop: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                  <span style={{ color: textSec, fontWeight: 600 }}>🥈 Runner-Up:</span>
+                  <strong style={{ color: silver }}>{champions?.fadheelaRunnerUpInstitution?.name || 'Tallying...'} ({champions?.fadheelaRunnerUpInstitution?.points || 0} pts)</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. STATE REGIONAL ZONAL CHAMPION (If State Fest) */}
+            {isStateFest && (
+              <div style={{
+                backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : '#f0f9ff',
+                border: `2px solid #0284c7`,
+                borderRadius: '16px',
+                padding: '1.6rem',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                position: 'relative',
+                boxShadow: '0 10px 35px rgba(2,132,199,0.2)'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#0284c7', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      🌍 REGIONAL ZONES
+                    </span>
+                    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(2,132,199,0.15)', color: '#0284c7', fontWeight: 800 }}>
+                      Regional Total
+                    </span>
+                  </div>
+
+                  <div style={{ textAlign: 'center', margin: '0.8rem 0' }}>
+                    <div style={{ fontSize: '2.8rem', marginBottom: '6px' }}>🌍</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: textPri, lineHeight: 1.2, minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {champions?.overallTopZone?.name || 'Tallying...'}
+                    </div>
+                    <div style={{ fontSize: '3rem', fontWeight: 900, color: '#0284c7', fontFamily: 'monospace', margin: '10px 0' }}>
+                      {champions?.overallTopZone?.points || 0}
+                      <span style={{ fontSize: '0.9rem', color: textSec, marginLeft: '4px' }}>PTS</span>
+                    </div>
+                    <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: '20px', backgroundColor: '#0284c7', color: '#fff', fontWeight: 900, fontSize: '0.75rem', letterSpacing: '1px' }}>
+                      👑 CHAMPION ZONE
+                    </div>
+                  </div>
+                </div>
+
+                {/* Runner-Up for Zone */}
+                <div style={{ borderTop: `1px solid ${borderCol}`, paddingTop: '12px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                    <span style={{ color: textSec, fontWeight: 600 }}>🥈 Runner-Up Zone:</span>
+                    <strong style={{ color: silver }}>{champions?.overallRunnerUpZone?.name || 'Tallying...'} ({champions?.overallRunnerUpZone?.points || 0} pts)</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* TICKER FOOTER */}
+          <div style={{
+            textAlign: 'center',
+            borderTop: `1px solid ${borderCol}`,
+            paddingTop: '1.2rem',
+            fontSize: '0.78rem',
+            color: textSec,
+            letterSpacing: '2px',
+            fontWeight: 800,
+            textTransform: 'uppercase'
+          }}>
+            ✨ CSWC HIYA FIESTA 2026 • OFFICIAL FESTIVAL RESULTS VERIFIED & PUBLISHED LIVE • CONGRATULATIONS TO ALL TEAMS ✨
+          </div>
+        </section>
+      ) : (
+        <main style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '1.5rem' }}>
         
         {/* LEFT COL: LEADERBOARD */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -954,6 +1212,7 @@ export default function TVDisplayClient({
         </div>
 
       </main>
+      )}
 
       {/* FOOTER TICKER */}
       <footer style={{ marginTop: '1.5rem', backgroundColor: panelBg, borderRadius: '8px', border: `1px solid ${borderCol}`, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '15px' }}>

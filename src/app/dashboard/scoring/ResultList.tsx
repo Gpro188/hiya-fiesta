@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { togglePublishResult, deleteResult, publishProgramResults, unpublishProgramResults } from "./actions";
+import { togglePublishResult, deleteResult, deleteProgramResults, publishProgramResults, unpublishProgramResults } from "./actions";
 import EditResultModal from "./EditResultModal";
 
 export default function ResultList({ results, role }: { results: any[], role: string }) {
@@ -34,6 +34,8 @@ export default function ResultList({ results, role }: { results: any[], role: st
   if (results.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>No marks entered yet.</div>;
   }
+
+  const canManage = ["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(role);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
@@ -162,10 +164,59 @@ export default function ResultList({ results, role }: { results: any[], role: st
                       ✅ Approve & Publish
                     </button>
                   )}
+
+                  {canManage && (
+                    <button 
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to DELETE ALL results for "${group.program.name}"?\n\nThis will remove all entered marks and places for this program so you can re-enter cleanly.`)) {
+                          const res = await deleteProgramResults(pid);
+                          if (!res.success) alert(res.error || "Failed to delete program results");
+                        }
+                      }}
+                      className="btn"
+                      style={{ 
+                        padding: '0.25rem 0.65rem', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700, 
+                        backgroundColor: '#fef2f2',
+                        border: '1.5px solid #f87171',
+                        color: '#b91c1c',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Delete all results for this program if entered by mistake"
+                    >
+                      🗑️ Delete All
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div style={{ padding: 'var(--spacing-sm)' }}>
+              {/* TABLE COLUMN HEADERS */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(220px, 2fr) 130px 110px 100px 90px 110px',
+                padding: '6px 16px',
+                backgroundColor: 'rgba(0,0,0,0.03)',
+                borderBottom: '1px solid var(--border-color)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                color: 'var(--text-muted)',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase'
+              }}>
+                <div>Participant / Institution</div>
+                <div style={{ textAlign: 'center' }}>Place / Rank</div>
+                <div style={{ textAlign: 'center' }}>Grade</div>
+                <div style={{ textAlign: 'center' }}>Total Points</div>
+                <div style={{ textAlign: 'center' }}>Marks</div>
+                <div style={{ textAlign: 'right' }}>Actions</div>
+              </div>
+
+              <div style={{ padding: '0' }}>
                 {group.results.sort((a,b) => (a.rank || 99) - (b.rank || 99)).map((result) => {
                   const isGroupOrGeneral = group.program.type !== "INDIVIDUAL";
                   const participantName = result.candidate ? result.candidate.name : (result.team ? result.team.name : 'Unknown');
@@ -174,72 +225,164 @@ export default function ResultList({ results, role }: { results: any[], role: st
                   const showPhoto = result.candidate?.photo || result.team?.leaderPhoto;
 
                   return (
-                    <div key={result.id} style={{ 
-                      padding: 'var(--spacing-xs) var(--spacing-sm)', 
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '0.875rem'
-                    }}>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', flex: 1 }}>
-                        <div style={{ width: '25px', fontWeight: 'bold', color: result.rank === 1 ? '#FCD34D' : 'inherit' }}>
-                          {result.rank ? `${result.rank}.` : '-'}
-                        </div>
-                        
-                        {/* PHOTO DISPLAY */}
-                        <div style={{ position: 'relative' }}>
+                    <div 
+                      key={result.id} 
+                      style={{ 
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(220px, 2fr) 130px 110px 100px 90px 110px',
+                        alignItems: 'center',
+                        padding: '10px 16px', 
+                        borderBottom: '1px solid rgba(0,0,0,0.05)',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {/* PARTICIPANT & INSTITUTION */}
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0 }}>
+                        {/* Photo / Avatar */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
                           {showPhoto ? (
                             <img 
                               src={showPhoto} 
                               alt={participantName} 
-                              style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', border: `1px solid ${teamInfo?.flagColor || 'var(--border-color)'}` }}
+                              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${teamInfo?.flagColor || 'var(--border-color)'}` }}
                               onError={(e) => (e.currentTarget.style.display = 'none')}
                             />
                           ) : (
-                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
                               {isGroupOrGeneral ? '👥' : '👤'}
                             </div>
                           )}
                         </div>
 
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontWeight: 600 }}>{participantName}</span>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '8px' }}>({participantChest})</span>
-                          {isGroupOrGeneral && teamInfo?.leaderName && !result.candidate && (
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Leader: {teamInfo.leaderName}</div>
-                          )}
-                        </div>
-                        
-                        <div style={{ fontSize: '0.75rem', color: teamInfo?.flagColor || 'var(--primary)', fontWeight: 600, width: '80px' }}>
-                          {teamInfo?.name}
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {participantName}
+                            {participantChest && participantChest !== '-' && (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, marginLeft: '6px' }}>
+                                (#{participantChest})
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: teamInfo?.flagColor || '#2563eb', fontWeight: 700, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {teamInfo?.name}
+                          </div>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-                         <div style={{ fontWeight: 'bold', width: '35px', textAlign: 'right' }}>{result.marks}</div>
-                         <div style={{ width: '15px', textAlign: 'center', color: 'var(--success)', fontWeight: 'bold' }}>{result.grade || '-'}</div>
-                         
-                         <div style={{ display: 'flex', gap: '4px' }}>
-                           {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
-                             <>
-                              <button 
-                                onClick={() => setEditingResult(result)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', padding: '2px' }}
-                              >
-                                📝
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  if (confirm('Delete?')) deleteResult(result.id);
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', padding: '2px' }}
-                              >
-                                🗑️
-                              </button>
-                             </>
-                           )}
-                         </div>
+                      {/* PLACE / RANK */}
+                      <div style={{ textAlign: 'center' }}>
+                        {result.rank === 1 ? (
+                          <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '6px', backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#b45309', fontWeight: 800, fontSize: '0.78rem' }}>
+                            🥇 1st Place
+                          </span>
+                        ) : result.rank === 2 ? (
+                          <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '6px', backgroundColor: '#f1f5f9', border: '1px solid #94a3b8', color: '#475569', fontWeight: 800, fontSize: '0.78rem' }}>
+                            🥈 2nd Place
+                          </span>
+                        ) : result.rank === 3 ? (
+                          <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '6px', backgroundColor: '#ffedd5', border: '1px solid #f97316', color: '#c2410c', fontWeight: 800, fontSize: '0.78rem' }}>
+                            🥉 3rd Place
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>—</span>
+                        )}
+                      </div>
+
+                      {/* GRADE */}
+                      <div style={{ textAlign: 'center' }}>
+                        {result.grade === "A" ? (
+                          <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', border: '1px solid #86efac', color: '#15803d', fontWeight: 800, fontSize: '0.78rem' }}>
+                            ⭐ Grade A
+                          </span>
+                        ) : result.grade === "B" ? (
+                          <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#eff6ff', border: '1px solid #93c5fd', color: '#1d4ed8', fontWeight: 800, fontSize: '0.78rem' }}>
+                            ✨ Grade B
+                          </span>
+                        ) : result.grade === "C" ? (
+                          <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fef3c7', border: '1px solid #fde047', color: '#854d0e', fontWeight: 800, fontSize: '0.78rem' }}>
+                            Grade C
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>—</span>
+                        )}
+                      </div>
+
+                      {/* TOTAL POINTS */}
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'baseline',
+                          gap: '3px',
+                          padding: '3px 9px',
+                          borderRadius: '8px',
+                          backgroundColor: '#fdf2f8',
+                          border: '1.5px solid #f472b6'
+                        }}>
+                          <span style={{ fontWeight: 900, color: '#db2777', fontSize: '1rem', fontFamily: 'monospace' }}>
+                            {result.points !== undefined && result.points !== null ? result.points : 0}
+                          </span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#9d174d' }}>PTS</span>
+                        </div>
+                      </div>
+
+                      {/* MARKS */}
+                      <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
+                        {result.marks && result.marks > 0 ? (
+                          <span>{result.marks}</span>
+                        ) : (
+                          <span style={{ color: '#cbd5e1' }}>—</span>
+                        )}
+                      </div>
+
+                      {/* ACTIONS: EDIT & DELETE */}
+                      <div style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                        {canManage && (
+                          <>
+                            <button 
+                              onClick={() => setEditingResult(result)}
+                              style={{ 
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid #bfdbfe', 
+                                backgroundColor: '#eff6ff', 
+                                color: '#1d4ed8', 
+                                cursor: 'pointer', 
+                                fontSize: '0.75rem', 
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }}
+                              title="Edit Place, Grade, Points or Marks"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (confirm(`Delete result for ${participantName}?`)) {
+                                  const res = await deleteResult(result.id);
+                                  if (!res.success) alert(res.error || "Failed to delete");
+                                }
+                              }}
+                              style={{ 
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid #fecaca', 
+                                backgroundColor: '#fef2f2', 
+                                color: '#b91c1c', 
+                                cursor: 'pointer', 
+                                fontSize: '0.75rem', 
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }}
+                              title="Delete this result"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

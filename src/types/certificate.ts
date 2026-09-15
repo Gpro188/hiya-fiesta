@@ -60,6 +60,10 @@ export interface CertificateWinner {
   marks?: number;
   type: 'INDIVIDUAL' | 'GROUP';
   stageType?: string; // "ON_STAGE" | "OFF_STAGE"
+  isPublished?: boolean;
+  publishedAt?: string | null;
+  isPrinted?: boolean;
+  printedAt?: string | null;
 }
 
 export const DEFAULT_CERTIFICATE_LAYOUT: CertificateLayoutConfig = {

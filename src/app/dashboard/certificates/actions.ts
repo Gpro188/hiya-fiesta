@@ -339,6 +339,23 @@ export async function getCertificateWinners(params: {
     ]
   });
 
+  // Query which certificates have been printed
+  const resultIds = results.map(r => r.id);
+  const printLogs = await prisma.systemAuditLog.findMany({
+    where: {
+      action: "CERTIFICATE_PRINTED",
+      entityType: "RESULT",
+      entityId: { in: resultIds }
+    },
+    orderBy: { timestamp: "desc" }
+  });
+  const printMap = new Map<string, Date>();
+  printLogs.forEach(log => {
+    if (!printMap.has(log.entityId)) {
+      printMap.set(log.entityId, log.timestamp);
+    }
+  });
+
   const winners: CertificateWinner[] = results.map((res) => {
     const isTeam = !!res.teamId && !res.candidateId;
     const cand = res.candidate;
@@ -365,6 +382,11 @@ export async function getCertificateWinners(params: {
     const categoryName = prog.category?.name || cand?.category?.name || "General";
     const zoneName = event.zone?.name || inst?.zone?.name || "Zonal Fest";
 
+    const isPrinted = printMap.has(res.id);
+    const printedAt = printMap.get(res.id)?.toISOString() || null;
+    const isPublished = Boolean(res.isPublished);
+    const publishedAt = res.isPublished ? res.updatedAt.toISOString() : null;
+
     return {
       id: res.id,
       candidateName,
@@ -386,7 +408,11 @@ export async function getCertificateWinners(params: {
       eventName: event.name,
       marks: res.marks,
       type: isTeam ? "GROUP" : "INDIVIDUAL",
-      stageType: prog.stageType || undefined
+      stageType: prog.stageType || undefined,
+      isPublished,
+      publishedAt,
+      isPrinted,
+      printedAt
     };
   });
 
@@ -404,3 +430,57 @@ export async function getCertificateWinners(params: {
 
   return winners;
 }
+
+export async function markCertificatesPrinted(resultIds: string[]) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MEDIA"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (!resultIds || resultIds.length === 0) return { success: true };
+
+    const now = new Date();
+    await Promise.all(resultIds.map(async (id) => {
+      await prisma.systemAuditLog.create({
+        data: {
+          userId: session.user.id || "admin",
+          userName: session.user.name || "Administrator",
+          action: "CERTIFICATE_PRINTED",
+          entityType: "RESULT",
+          entityId: id,
+          reason: "Certificate printed on-time",
+          timestamp: now
+        }
+      });
+    }));
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Failed to mark certificates printed:", err);
+    return { success: false, error: err.message || "Failed to mark printed" };
+  }
+}
+
+export async function unmarkCertificatesPrinted(resultIds: string[]) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MEDIA"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (!resultIds || resultIds.length === 0) return { success: true };
+
+    await prisma.systemAuditLog.deleteMany({
+      where: {
+        action: "CERTIFICATE_PRINTED",
+        entityType: "RESULT",
+        entityId: { in: resultIds }
+      }
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Failed to unmark certificates printed:", err);
+    return { success: false, error: err.message || "Failed to unmark printed" };
+  }
+}
+

@@ -72,6 +72,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       where: { 
         isPublished: true,
         OR: [
+          { program: { eventId: eventObj.id } },
           { team: { eventId: eventObj.id } },
           { candidate: { team: { eventId: eventObj.id } } }
         ]
@@ -85,11 +86,20 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
           select: { 
             teamId: true,
             categoryId: true,
-            category: { select: { name: true } },
+            category: { select: { id: true, name: true } },
             team: {
               select: {
+                id: true,
+                name: true,
+                prefixCode: true,
+                flagColor: true,
                 institution: {
                   select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    place: true,
+                    logoUrl: true,
                     zoneId: true,
                     zone: { select: { id: true, name: true, code: true } }
                   }
@@ -100,8 +110,17 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
         },
         team: {
           select: {
+            id: true,
+            name: true,
+            prefixCode: true,
+            flagColor: true,
             institution: {
               select: {
+                id: true,
+                name: true,
+                code: true,
+                place: true,
+                logoUrl: true,
                 zoneId: true,
                 zone: { select: { id: true, name: true, code: true } }
               }
@@ -122,6 +141,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       where: { 
         isPublished: true,
         OR: [
+          { program: { eventId: eventObj.id } },
           { team: { eventId: eventObj.id } },
           { candidate: { team: { eventId: eventObj.id } } }
         ]
@@ -143,6 +163,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
           some: { 
             isPublished: true,
             OR: [
+              { program: { eventId: eventObj.id } },
               { team: { eventId: eventObj.id } },
               { candidate: { team: { eventId: eventObj.id } } }
             ]
@@ -153,6 +174,9 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
   ]);
 
   // Maps for Institutions: Overall, Fadhila, Fadheela
+  const allTeamsList = [...teams];
+  const allTeamsById = new Map<string, any>(teams.map(t => [t.id, t]));
+
   const teamScoreMap = new Map<string, { points: number, gold: number, silver: number, bronze: number }>();
   const fadhilaTeamScoreMap = new Map<string, { points: number, gold: number, silver: number, bronze: number }>();
   const fadheelaTeamScoreMap = new Map<string, { points: number, gold: number, silver: number, bronze: number }>();
@@ -196,7 +220,18 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
   };
 
   allPublishedResults.forEach(r => {
-    const tid = r.teamId || r.candidate?.teamId;
+    const tObj = r.candidate?.team || r.team;
+    const tid = tObj?.id || r.teamId || r.candidate?.teamId;
+
+    // Dynamically register team/institution if not already present
+    if (tid && tObj && !allTeamsById.has(tid)) {
+      allTeamsById.set(tid, tObj);
+      allTeamsList.push(tObj);
+      teamScoreMap.set(tid, { points: 0, gold: 0, silver: 0, bronze: 0 });
+      fadhilaTeamScoreMap.set(tid, { points: 0, gold: 0, silver: 0, bronze: 0 });
+      fadheelaTeamScoreMap.set(tid, { points: 0, gold: 0, silver: 0, bronze: 0 });
+    }
+
     const cat = detectCategory(r);
     const pts = r.points || 0;
     const rank = r.rank;
@@ -230,7 +265,13 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
 
     // Zone Points (via institution's zone)
     const zone = r.team?.institution?.zone || r.candidate?.team?.institution?.zone;
-    if (zone && zoneScoreMap.has(zone.id)) {
+    if (zone) {
+      if (!zoneScoreMap.has(zone.id)) {
+        zoneScoreMap.set(zone.id, { points: 0, gold: 0, silver: 0, bronze: 0, name: zone.name, code: zone.code });
+        fadhilaZoneScoreMap.set(zone.id, { points: 0, gold: 0, silver: 0, bronze: 0, name: zone.name, code: zone.code });
+        fadheelaZoneScoreMap.set(zone.id, { points: 0, gold: 0, silver: 0, bronze: 0, name: zone.name, code: zone.code });
+      }
+
       // 1. Overall Zone Points (Includes ALL: Category Individual + Category Group + General)
       const zOverall = zoneScoreMap.get(zone.id)!;
       zOverall.points += pts;
@@ -259,7 +300,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
 
   // Map Institution Leaderboard
   const mapTeamLeaderboard = (scoreMap: Map<string, { points: number, gold: number, silver: number, bronze: number }>) => {
-    return teams.map(t => {
+    return allTeamsList.map(t => {
       const s = scoreMap.get(t.id) || { points: 0, gold: 0, silver: 0, bronze: 0 };
       return {
         id: t.id,

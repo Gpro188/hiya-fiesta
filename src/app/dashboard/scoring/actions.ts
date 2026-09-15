@@ -502,7 +502,7 @@ export async function unpublishProgramResults(programId: string) {
 export async function deleteResult(id: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
     const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
@@ -510,26 +510,75 @@ export async function deleteResult(id: string) {
     await prisma.result.delete({ where: { id } });
     await recalculateProgramResults(result.programId);
     revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
+    revalidatePath("/dashboard/certificates");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to delete result" };
   }
 }
 
-export async function updateResultMark(id: string, marks: number, manualRank?: number | null, manualGrade?: string | null) {
+export async function deleteProgramResults(programId: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.result.deleteMany({
+      where: { programId }
+    });
+
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
+    revalidatePath("/dashboard/certificates");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to delete program results" };
+  }
+}
+
+export async function updateResultMark(
+  id: string, 
+  marks: number, 
+  manualRank?: number | null, 
+  manualGrade?: string | null,
+  customPoints?: number | null
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
     
-    const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
+    const result = await prisma.result.findUnique({ 
+      where: { id }, 
+      include: { 
+        program: {
+          include: { category: { include: { pointMatrix: true } } }
+        } 
+      } 
+    });
     if (!result) return { success: false, error: "Result not found" };
 
-    if (manualRank !== undefined && manualRank !== null || manualGrade !== undefined && manualGrade !== null) {
+    if (customPoints !== undefined && customPoints !== null) {
+      await prisma.result.update({
+        where: { id },
+        data: { marks: marks || 0, rank: manualRank || null, grade: manualGrade || null, points: customPoints }
+      });
+    } else if (manualRank !== undefined && manualRank !== null || manualGrade !== undefined && manualGrade !== null) {
       let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
       if (result.program.type !== "INDIVIDUAL") {
         pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+      }
+      if (result.program.category?.pointMatrix) {
+        const matrix = result.program.category.pointMatrix;
+        const str = result.program.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
+        if (str) {
+          try { pointsConfig = JSON.parse(str); } catch (e) {}
+        }
       }
 
       let points = 0;
@@ -543,14 +592,17 @@ export async function updateResultMark(id: string, marks: number, manualRank?: n
 
       await prisma.result.update({ 
         where: { id }, 
-        data: { marks, rank: manualRank, grade: manualGrade, points } 
+        data: { marks: marks || 0, rank: manualRank, grade: manualGrade, points } 
       });
     } else {
-      await prisma.result.update({ where: { id }, data: { marks, rank: null, grade: null, points: 0 } });
+      await prisma.result.update({ where: { id }, data: { marks: marks || 0, rank: null, grade: null, points: 0 } });
       await recalculateProgramResults(result.programId);
     }
     
     revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
+    revalidatePath("/dashboard/certificates");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to update result" };

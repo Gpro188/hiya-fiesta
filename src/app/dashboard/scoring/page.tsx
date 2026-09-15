@@ -235,6 +235,7 @@ export default async function ScoringPage(props: {
     prisma.result.findMany({
       where: { 
         OR: [
+          { program: { eventId: activeEventId } },
           { team: { eventId: activeEventId } },
           { candidate: { team: { eventId: activeEventId } } }
         ]
@@ -252,8 +253,10 @@ export default async function ScoringPage(props: {
               select: {
                 id: true,
                 name: true,
+                flagColor: true,
                 institution: {
                   select: {
+                    id: true,
                     name: true,
                     zone: { select: { id: true, name: true, code: true } }
                   }
@@ -266,8 +269,10 @@ export default async function ScoringPage(props: {
           select: {
             id: true,
             name: true,
+            flagColor: true,
             institution: {
               select: {
+                id: true,
                 name: true,
                 zone: { select: { id: true, name: true, code: true } }
               }
@@ -313,7 +318,7 @@ export default async function ScoringPage(props: {
     zoneName?: string;
   }> = {};
 
-  const eventTeams = activeEvent.teams || [];
+  const eventTeams = [...(activeEvent.teams || [])];
   eventTeams.forEach(team => {
     teamScoresMap[team.id] = { 
       publishedPoints: 0, 
@@ -339,7 +344,28 @@ export default async function ScoringPage(props: {
   }> = {};
 
   allResultsForScore.forEach(result => {
-    const teamId = result.teamId || result.candidate?.teamId;
+    const tObj = result.candidate?.team || result.team;
+    const teamId = tObj?.id || result.teamId || result.candidate?.teamId;
+
+    // Dynamically register team/institution if not already in teamScoresMap
+    if (teamId && !teamScoresMap[teamId]) {
+      teamScoresMap[teamId] = {
+        publishedPoints: 0,
+        totalPoints: 0,
+        fadhilaPublished: 0,
+        fadhilaTotal: 0,
+        fadheelaPublished: 0,
+        fadheelaTotal: 0,
+        zoneName: tObj?.institution?.zone?.name || undefined
+      };
+      eventTeams.push({
+        id: teamId,
+        name: tObj?.institution?.name || tObj?.name || "Institution",
+        institution: tObj?.institution,
+        flagColor: tObj?.flagColor || null
+      } as any);
+    }
+
     const cat = detectCategory(result.program?.category?.name, result.candidate?.category?.name);
     const pts = result.points || 0;
     const isPub = Boolean(result.isPublished);
