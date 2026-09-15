@@ -459,25 +459,7 @@ export default function TVDisplayClient({
         </div>
       </div>
 
-      {/* STATS BAR */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: panelBg, padding: '0.8rem 1.6rem', borderRadius: '10px', border: `1px solid ${borderCol}`, marginBottom: '1.2rem' }}>
-        {[
-          { icon: '🏛️', value: stats.institutions, label: 'INSTITUTIONS' },
-          { icon: '👥', value: stats.students, label: 'STUDENTS' },
-          { icon: '🏆', value: stats.competitions, label: 'COMPETITIONS' },
-          { icon: '📋', value: stats.resultsPublished, label: 'RESULTS PUBLISHED' },
-          { icon: '👑', value: champions?.fadhilaTopInstitution ? `${champions.fadhilaTopInstitution.points} pts` : '0 pts', label: 'FADHILA LEADER' },
-          { icon: '👑', value: champions?.fadheelaTopInstitution ? `${champions.fadheelaTopInstitution.points} pts` : '0 pts', label: 'FADHEELA LEADER' },
-        ].map((stat, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: idx !== 5 ? '1.5rem' : 0, borderRight: idx !== 5 ? `1px solid ${borderCol}` : 'none' }}>
-            <div style={{ fontSize: '1.3rem' }}>{stat.icon}</div>
-            <div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: theme === 'dark' ? 'white' : '#1e293b' }}>{stat.value}</div>
-              <div style={{ fontSize: '0.62rem', color: textSec, letterSpacing: '1px', fontWeight: 700 }}>{stat.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+
 
       {/* MAIN CONTENT: SHOWCASE TV SPOTLIGHT OR STANDARD LEADERBOARD GRID */}
       {viewArea === 'SHOWCASE' ? (
