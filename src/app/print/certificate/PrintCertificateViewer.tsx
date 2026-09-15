@@ -49,26 +49,29 @@ export default function PrintCertificateViewer({
     }
   }, [eventId]);
 
-  const formatPlace = (rank: number, formatType?: string) => {
+  const formatPlace = (rank: number, formatType?: string, uppercase = false) => {
+    let val = '';
     if (formatType === 'word') {
-      return rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
+      val = rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
+    } else if (formatType === 'wordonly') {
+      val = rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
+    } else if (formatType === 'number') {
+      val = rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
+    } else {
+      // default ordinal
+      val = rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
     }
-    if (formatType === 'wordonly') {
-      return rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
-    }
-    if (formatType === 'number') {
-      return rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
-    }
-    // default ordinal
-    return rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
+    return uppercase ? val.toUpperCase() : val;
   };
 
-  const formatGrade = (grade: string | null | undefined, prefix = 'With ', suffix = ' Grade') => {
+  const formatGrade = (grade: string | null | undefined, prefix = 'With ', suffix = ' Grade', uppercase = false) => {
     if (!grade || grade.trim() === '' || grade === '-') return '';
-    return `${prefix}${grade.trim()}${suffix}`;
+    const text = `${prefix}${grade.trim()}${suffix}`;
+    return uppercase ? text.toUpperCase() : text;
   };
 
   const [stageFilter, setStageFilter] = useState<string>("ALL");
+  const [fullCapitalLetters, setFullCapitalLetters] = useState(true);
 
   const displayedWinners = winners.filter(w => {
     if (stageFilter === "ALL") return true;
@@ -143,7 +146,30 @@ export default function PrintCertificateViewer({
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+          {/* Full Capital Letters Option */}
+          <label style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px", 
+            fontSize: "0.85rem", 
+            cursor: "pointer",
+            backgroundColor: fullCapitalLetters ? "rgba(37, 99, 235, 0.2)" : "rgba(255,255,255,0.06)",
+            border: fullCapitalLetters ? "1.5px solid #60a5fa" : "1px solid rgba(255,255,255,0.15)",
+            padding: "4px 10px",
+            borderRadius: "6px"
+          }}>
+            <input
+              type="checkbox"
+              checked={fullCapitalLetters}
+              onChange={(e) => setFullCapitalLetters(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: "#3b82f6", cursor: "pointer" }}
+            />
+            <span style={{ fontWeight: fullCapitalLetters ? 800 : 600, color: fullCapitalLetters ? "#93c5fd" : "#e2e8f0" }}>
+              🔠 FULL CAPITAL LETTERS
+            </span>
+          </label>
+
           <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", cursor: "pointer" }}>
             <input
               type="checkbox"
@@ -245,11 +271,13 @@ export default function PrintCertificateViewer({
                   color: layout.fields.candidateName.color,
                   textAlign: layout.fields.candidateName.textAlign,
                   letterSpacing: layout.fields.candidateName.letterSpacing ? `${layout.fields.candidateName.letterSpacing}px` : undefined,
-                  textTransform: layout.fields.candidateName.textTransform || 'none',
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.candidateName.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {candidate.candidateName}
+                {(fullCapitalLetters || layout.fields.candidateName.textTransform === 'uppercase') 
+                  ? (candidate.candidateName || '').toUpperCase() 
+                  : candidate.candidateName}
               </div>
             )}
 
@@ -271,10 +299,14 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.institutionName.fontFamily,
                   color: layout.fields.institutionName.color,
                   textAlign: layout.fields.institutionName.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.institutionName.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {candidate.institutionName}{candidate.institutionPlace ? `, ${candidate.institutionPlace}` : ''}
+                {(() => {
+                  const inst = `${candidate.institutionName || ''}${candidate.institutionPlace ? `, ${candidate.institutionPlace}` : ''}`;
+                  return (fullCapitalLetters || layout.fields.institutionName.textTransform === 'uppercase') ? inst.toUpperCase() : inst;
+                })()}
               </div>
             )}
 
@@ -296,10 +328,11 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.place.fontFamily,
                   color: layout.fields.place.color,
                   textAlign: layout.fields.place.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.place.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {formatPlace(candidate.rank, layout.fields.place.formatType)}
+                {formatPlace(candidate.rank, layout.fields.place.formatType, fullCapitalLetters || layout.fields.place.textTransform === 'uppercase')}
               </div>
             )}
 
@@ -321,10 +354,11 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.grade.fontFamily,
                   color: layout.fields.grade.color,
                   textAlign: layout.fields.grade.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.grade.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {formatGrade(candidate.grade, layout.fields.grade.prefix, layout.fields.grade.suffix)}
+                {formatGrade(candidate.grade, layout.fields.grade.prefix, layout.fields.grade.suffix, fullCapitalLetters || layout.fields.grade.textTransform === 'uppercase')}
               </div>
             )}
 
@@ -346,10 +380,13 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.programName.fontFamily,
                   color: layout.fields.programName.color,
                   textAlign: layout.fields.programName.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.programName.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {candidate.programName}
+                {(fullCapitalLetters || layout.fields.programName.textTransform === 'uppercase') 
+                  ? (candidate.programName || '').toUpperCase() 
+                  : candidate.programName}
               </div>
             )}
 
@@ -371,10 +408,14 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.categoryName.fontFamily,
                   color: layout.fields.categoryName.color,
                   textAlign: layout.fields.categoryName.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.categoryName.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {layout.fields.categoryName.prefix || ''}{candidate.categoryName}{layout.fields.categoryName.suffix || ''}
+                {(() => {
+                  const cat = `${layout.fields.categoryName.prefix || ''}${candidate.categoryName || ''}${layout.fields.categoryName.suffix || ''}`;
+                  return (fullCapitalLetters || layout.fields.categoryName.textTransform === 'uppercase') ? cat.toUpperCase() : cat;
+                })()}
               </div>
             )}
 
@@ -396,10 +437,14 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.chestNumber.fontFamily,
                   color: layout.fields.chestNumber.color,
                   textAlign: layout.fields.chestNumber.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.chestNumber.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {layout.fields.chestNumber.prefix || ''}{candidate.chestNumber}{layout.fields.chestNumber.suffix || ''}
+                {(() => {
+                  const chest = `${layout.fields.chestNumber.prefix || ''}${candidate.chestNumber || ''}${layout.fields.chestNumber.suffix || ''}`;
+                  return (fullCapitalLetters || layout.fields.chestNumber.textTransform === 'uppercase') ? chest.toUpperCase() : chest;
+                })()}
               </div>
             )}
 
@@ -421,10 +466,14 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.zoneName.fontFamily,
                   color: layout.fields.zoneName.color,
                   textAlign: layout.fields.zoneName.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.zoneName.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                {candidate.zoneName || "CSWC Fest"}
+                {(() => {
+                  const zone = candidate.zoneName || "CSWC Fest";
+                  return (fullCapitalLetters || layout.fields.zoneName.textTransform === 'uppercase') ? zone.toUpperCase() : zone;
+                })()}
               </div>
             )}
 
@@ -446,10 +495,11 @@ export default function PrintCertificateViewer({
                   fontFamily: layout.fields.dateYear.fontFamily,
                   color: layout.fields.dateYear.color,
                   textAlign: layout.fields.dateYear.textAlign,
+                  textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.dateYear.textTransform || 'none'),
                   whiteSpace: "nowrap"
                 }}
               >
-                September 2026
+                {(fullCapitalLetters || layout.fields.dateYear.textTransform === 'uppercase') ? "SEPTEMBER 2026" : "September 2026"}
               </div>
             )}
           </div>

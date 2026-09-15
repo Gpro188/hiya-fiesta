@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { togglePublishResult, deleteResult, publishProgramResults } from "./actions";
+import { togglePublishResult, deleteResult, publishProgramResults, unpublishProgramResults } from "./actions";
 import EditResultModal from "./EditResultModal";
 
 export default function ResultList({ results, role }: { results: any[], role: string }) {
@@ -70,24 +70,39 @@ export default function ResultList({ results, role }: { results: any[], role: st
           const group = groupedResults[pid];
           const isFullyPublished = group.results.every(r => r.isPublished);
           const hasPending = group.results.some(r => !r.isPublished);
+          const hasPublished = group.results.some(r => r.isPublished);
 
           return (
-            <div key={pid} className="glass-panel" style={{ padding: '0', overflow: 'hidden', border: isFullyPublished ? '1px solid var(--success)' : '1px solid var(--warning)' }}>
+            <div key={pid} className="glass-panel" style={{ padding: '0', overflow: 'hidden', border: isFullyPublished ? '1.5px solid var(--success)' : '1px solid var(--warning)' }}>
               <div style={{ 
                 padding: 'var(--spacing-sm) var(--spacing-md)', 
                 backgroundColor: isFullyPublished ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px',
                 borderBottom: '1px solid var(--border-color)'
               }}>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '1rem' }}>{group.program.name}</h4>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{group.program.name}</span>
+                    <span style={{ 
+                      fontSize: '0.68rem', 
+                      padding: '2px 6px', 
+                      borderRadius: '4px', 
+                      backgroundColor: isFullyPublished ? '#dcfce7' : '#fef3c7',
+                      color: isFullyPublished ? '#15803d' : '#92400e',
+                      fontWeight: 800
+                    }}>
+                      {isFullyPublished ? "🟢 PUBLISHED" : "🟡 PENDING REVIEW"}
+                    </span>
+                  </h4>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                     {group.program.category?.name || 'General'} • {group.program.type}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
                    <a 
                     href={`/print/results/${pid}`}
                     target="_blank"
@@ -96,6 +111,33 @@ export default function ResultList({ results, role }: { results: any[], role: st
                   >
                     🖨️ {isFullyPublished ? "Notice Board" : "Announce Print"}
                   </a>
+
+                  {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && hasPublished && (
+                    <button 
+                      onClick={() => {
+                        if (confirm(`Unpublish results for ${group.program.name} back to Pending status so you can check and make changes?`)) {
+                          unpublishProgramResults(pid);
+                        }
+                      }}
+                      className="btn"
+                      style={{ 
+                        padding: '0.25rem 0.75rem', 
+                        fontSize: '0.76rem', 
+                        fontWeight: 700, 
+                        backgroundColor: '#fffbeb',
+                        border: '1.5px solid #f59e0b',
+                        color: '#b45309',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Unpublish this program's results to make corrections and re-verify"
+                    >
+                      ↩️ Unpublish (Check)
+                    </button>
+                  )}
 
                   {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && hasPending && (
                     <button 
@@ -108,7 +150,7 @@ export default function ResultList({ results, role }: { results: any[], role: st
                       style={{ 
                         padding: '0.25rem 0.75rem', 
                         fontSize: '0.78rem', 
-                        fontWeight: 800,
+                        fontWeight: 800, 
                         backgroundColor: '#16a34a',
                         borderColor: '#15803d',
                         color: '#fff',

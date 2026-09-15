@@ -19,6 +19,7 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
   const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
   const [candidateLimitPerTeam, setCandidateLimitPerTeam] = useState(1);
   const [duration, setDuration] = useState(10);
+  const [durationMode, setDurationMode] = useState("AUTO");
   const [description, setDescription] = useState("");
   const [evaluationCriteria, setEvaluationCriteria] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,7 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
       eventId,
       candidateLimitPerTeam: parseInt(candidateLimitPerTeam.toString()) || 1,
       duration: parseInt(duration.toString()) || 10,
+      durationMode,
       description,
       evaluationCriteria,
       stageType,
@@ -154,8 +156,29 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
       )}
 
       <div className="form-group">
+        <label className="form-label">Schedule Timing Mode</label>
+        <select 
+          className="form-input" 
+          value={durationMode}
+          onChange={(e) => setDurationMode(e.target.value)}
+        >
+          <option value="AUTO">Auto (Per Team for Group/General, Per Candidate for Individual)</option>
+          <option value="PER_TEAM">👥 Per Group / Team (Multiply duration by team count)</option>
+          <option value="TOTAL_FIXED">⏱️ Fixed Total Time (Direct total minutes for program, no multiplication)</option>
+          <option value="PER_CANDIDATE">👤 Per Candidate (Multiply duration by candidate count)</option>
+        </select>
+        <span className="field-helper">Controls how the scheduler calculates total venue time for this program across all zones.</span>
+      </div>
+
+      <div className="form-group">
         <label className="form-label">
-          {type === "INDIVIDUAL" ? "Duration Per Candidate" : "Total Program Duration"} (Minutes)
+          {durationMode === 'TOTAL_FIXED' 
+            ? "Fixed Total Program Duration (Minutes)" 
+            : durationMode === 'PER_TEAM' 
+            ? "Duration Per Group / Team (Minutes)" 
+            : durationMode === 'PER_CANDIDATE' 
+            ? "Duration Per Candidate (Minutes)" 
+            : (type === "INDIVIDUAL" ? "Duration Per Candidate (Minutes)" : "Duration Per Group / Team (Minutes)")}
         </label>
         <input 
           type="number" 
@@ -165,7 +188,11 @@ export default function ProgramForm({ events, userRole }: { events: EventType[],
           min="1"
           required
         />
-        <span className="field-helper">Time allocated in minutes. Used for schedule planning.</span>
+        <span className="field-helper">
+          {durationMode === 'TOTAL_FIXED' 
+            ? "Entire program will take exactly this many minutes regardless of teams/candidates." 
+            : "Time allocated in minutes. Used for schedule planning."}
+        </span>
       </div>
 
       {isSuperAdmin && (

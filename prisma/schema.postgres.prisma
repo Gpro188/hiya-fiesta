@@ -217,6 +217,7 @@ model Program {
   duration              Int                 @default(10)
   stageType             String              @default("ON_STAGE")
   candidateLimitPerTeam Int                 @default(1)
+  durationMode          String?             @default("AUTO")
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   description           String?

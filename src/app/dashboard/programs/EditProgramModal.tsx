@@ -13,6 +13,7 @@ export default function EditProgramModal({ program, categories, onClose, userRol
   const [categoryId, setCategoryId] = useState(program.categoryId || "");
   const [candidateLimitPerTeam, setCandidateLimitPerTeam] = useState(program.candidateLimitPerTeam || 1);
   const [duration, setDuration] = useState(program.duration || 10);
+  const [durationMode, setDurationMode] = useState(program.durationMode || "AUTO");
   const [description, setDescription] = useState(program.description || "");
   const [evaluationCriteria, setEvaluationCriteria] = useState(program.evaluationCriteria || "");
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,7 @@ export default function EditProgramModal({ program, categories, onClose, userRol
       categoryId: (type === "GENERAL" || type === "INSTITUTION") ? null : (categoryId || null),
       candidateLimitPerTeam: parseInt(candidateLimitPerTeam.toString()) || 1,
       duration: parseInt(duration.toString()) || 10,
+      durationMode,
       description,
       evaluationCriteria,
       stageType,
@@ -118,13 +120,35 @@ export default function EditProgramModal({ program, categories, onClose, userRol
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Total Duration (Minutes)</label>
+            <label className="form-label">Schedule Timing Mode</label>
+            <select 
+              className="form-input" 
+              value={durationMode}
+              onChange={(e) => setDurationMode(e.target.value)}
+            >
+              <option value="AUTO">Auto (Per Team for Group/General, Per Candidate for Individual)</option>
+              <option value="PER_TEAM">👥 Per Group / Team (Multiply duration by team count)</option>
+              <option value="TOTAL_FIXED">⏱️ Fixed Total Time (Direct total minutes for program, no multiplication)</option>
+              <option value="PER_CANDIDATE">👤 Per Candidate (Multiply duration by candidate count)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              {durationMode === 'TOTAL_FIXED' 
+                ? "Fixed Total Program Duration (Minutes)" 
+                : durationMode === 'PER_TEAM' 
+                ? "Duration Per Group / Team (Minutes)" 
+                : durationMode === 'PER_CANDIDATE' 
+                ? "Duration Per Candidate (Minutes)" 
+                : (type === "INDIVIDUAL" ? "Duration Per Candidate (Minutes)" : "Duration Per Group / Team (Minutes)")}
+            </label>
             <input 
               type="number" 
               className="form-input" 
               value={duration} 
               onChange={(e) => setDuration(parseInt(e.target.value))} 
-              min="1"
+              min="1" 
               required 
             />
           </div>

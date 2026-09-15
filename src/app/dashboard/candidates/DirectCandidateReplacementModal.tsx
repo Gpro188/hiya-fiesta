@@ -338,7 +338,8 @@ export default function DirectCandidateReplacementModal({
                       fontWeight: 600,
                     }}
                   >
-                    <option value="ALL">🌐 All Zones</option>
+                    <option value="ALL">🌐 All Zones & State Fest</option>
+                    <option value="STATE">👑 CSWC State Fest (Grand Finale)</option>
                     {zones.map((z) => (
                       <option key={z.id} value={z.id}>
                         {z.name} ({z.code})

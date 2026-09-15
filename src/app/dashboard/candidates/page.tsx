@@ -442,6 +442,7 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
           role={session.user.role} 
           categories={categories} 
           isSchedulePublished={canPrintCards}
+          zones={zones}
         />
       </div>
     </div>

@@ -13,6 +13,8 @@ interface ProgramSlotReport {
   name: string;
   type?: string;
   candidateCount: number;
+  teamCount?: number;
+  durationMode?: string | null;
   durationPerCandidate: number;
   durationMinutes: number;
   startTime: string;
@@ -521,10 +523,22 @@ export default function ZoneScheduleAnalyzer({
                                             </span>
                                           </td>
                                           <td style={{ padding: "6px 8px", fontWeight: 700, color: p.candidateCount > 0 ? "#059669" : "#94a3b8" }}>
-                                            👥 {p.candidateCount}
+                                            {p.durationMode === 'TOTAL_FIXED' ? (
+                                              <span>⏱️ {p.candidateCount} cands</span>
+                                            ) : (p.teamCount !== undefined && p.teamCount > 0 && (p.durationMode === 'PER_TEAM' || p.type === 'GROUP' || p.type === 'GENERAL')) ? (
+                                              <span>👥 {p.teamCount} Teams ({p.candidateCount} cands)</span>
+                                            ) : (
+                                              <span>👥 {p.candidateCount}</span>
+                                            )}
                                           </td>
                                           <td style={{ padding: "6px 8px", color: "#64748b" }}>
-                                            {p.durationPerCandidate} min
+                                            {p.durationMode === 'TOTAL_FIXED' ? (
+                                              <span style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 600 }}>Fixed Total</span>
+                                            ) : (p.teamCount !== undefined && p.teamCount > 0 && (p.durationMode === 'PER_TEAM' || p.type === 'GROUP' || p.type === 'GENERAL')) ? (
+                                              <span>{p.durationPerCandidate} min/team</span>
+                                            ) : (
+                                              <span>{p.durationPerCandidate} min/cand</span>
+                                            )}
                                           </td>
                                           <td style={{ padding: "6px 8px", fontWeight: 700, color: "#0f172a" }}>
                                             {p.durationMinutes} mins

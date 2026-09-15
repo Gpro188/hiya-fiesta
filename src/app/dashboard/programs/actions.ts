@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-export async function createProgram(data: { programCode?: string | null, name: string, type: string, categoryId: string | null, eventId: string, candidateLimitPerTeam?: number, duration?: number, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
+export async function createProgram(data: { programCode?: string | null, name: string, type: string, categoryId: string | null, eventId: string, candidateLimitPerTeam?: number, duration?: number, durationMode?: string, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
@@ -20,6 +20,7 @@ export async function createProgram(data: { programCode?: string | null, name: s
         eventId: data.eventId,
         candidateLimitPerTeam: data.candidateLimitPerTeam || 1,
         duration: data.duration || 10,
+        durationMode: data.durationMode || "AUTO",
         description: data.description,
         evaluationCriteria: data.evaluationCriteria,
         stageType: data.stageType || "ON_STAGE",
@@ -34,7 +35,7 @@ export async function createProgram(data: { programCode?: string | null, name: s
   }
 }
 
-export async function updateProgram(id: string, data: { programCode?: string | null, name: string, type: string, categoryId: string | null, candidateLimitPerTeam?: number, duration?: number, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
+export async function updateProgram(id: string, data: { programCode?: string | null, name: string, type: string, categoryId: string | null, candidateLimitPerTeam?: number, duration?: number, durationMode?: string, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
@@ -49,6 +50,7 @@ export async function updateProgram(id: string, data: { programCode?: string | n
         categoryId: data.categoryId,
         candidateLimitPerTeam: data.candidateLimitPerTeam,
         duration: data.duration,
+        durationMode: data.durationMode,
         description: data.description,
         evaluationCriteria: data.evaluationCriteria,
         stageType: data.stageType,
@@ -185,6 +187,7 @@ export async function syncMasterPrograms(targetEventId: string) {
           eventId: targetEventId,
           venue: mProg.venue,
           duration: mProg.duration,
+          durationMode: mProg.durationMode || "AUTO",
           description: mProg.description,
           evaluationCriteria: mProg.evaluationCriteria,
           stageType: mProg.stageType,
@@ -270,6 +273,7 @@ export async function pushMasterProgramsToAllZones() {
             eventId: zone.id,
             venue: mProg.venue,
             duration: mProg.duration,
+            durationMode: mProg.durationMode || "AUTO",
             description: mProg.description,
             evaluationCriteria: mProg.evaluationCriteria,
             stageType: mProg.stageType,
@@ -285,6 +289,7 @@ export async function pushMasterProgramsToAllZones() {
                 type: mProg.type,
                 categoryId: targetCatId,
                 duration: mProg.duration,
+                durationMode: mProg.durationMode || "AUTO",
                 description: mProg.description,
                 evaluationCriteria: mProg.evaluationCriteria,
                 stageType: mProg.stageType,

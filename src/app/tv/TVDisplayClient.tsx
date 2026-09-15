@@ -5,23 +5,54 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 
+interface TVDisplayClientProps {
+  event: any;
+  leaderboard: any[];
+  fadhilaLeaderboard?: any[];
+  fadheelaLeaderboard?: any[];
+  zoneLeaderboard?: any[];
+  fadhilaZoneLeaderboard?: any[];
+  fadheelaZoneLeaderboard?: any[];
+  champions?: {
+    fadhilaTopInstitution?: any;
+    fadheelaTopInstitution?: any;
+    fadhilaTopInstitutions?: any[];
+    fadheelaTopInstitutions?: any[];
+    overallTopZone?: any;
+    fadhilaTopZone?: any;
+    fadheelaTopZone?: any;
+    topZones?: any[];
+    fadhilaTopZones?: any[];
+    fadheelaTopZones?: any[];
+  };
+  isStateFest?: boolean;
+  recentWinners: any[];
+  allEvents: any[];
+  stats: any;
+}
+
 export default function TVDisplayClient({ 
   event, 
   leaderboard, 
+  fadhilaLeaderboard = [],
+  fadheelaLeaderboard = [],
+  zoneLeaderboard = [],
+  fadhilaZoneLeaderboard = [],
+  fadheelaZoneLeaderboard = [],
+  champions,
+  isStateFest = false,
   recentWinners, 
   allEvents,
   stats
-}: { 
-  event: any, 
-  leaderboard: any[], 
-  recentWinners: any[], 
-  allEvents: any[],
-  stats: any
-}) {
+}: TVDisplayClientProps) {
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  // View Area Mode: 'OVERALL', 'FADHILA', 'FADHEELA', 'ZONES'
+  const [viewArea, setViewArea] = useState<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES'>('OVERALL');
+  const [autoCycleView, setAutoCycleView] = useState(true);
 
   // Clock timer
   useEffect(() => {
@@ -41,6 +72,21 @@ export default function TVDisplayClient({
     return () => clearInterval(refreshInterval);
   }, [router]);
 
+  // Auto-cycle through View Area Types every 12 seconds
+  useEffect(() => {
+    if (!autoCycleView) return;
+    const views: Array<'OVERALL' | 'FADHILA' | 'FADHEELA' | 'ZONES'> = 
+      isStateFest ? ['OVERALL', 'FADHILA', 'FADHEELA', 'ZONES'] : ['OVERALL', 'FADHILA', 'FADHEELA'];
+    
+    const timer = setInterval(() => {
+      setViewArea(prev => {
+        const nextIdx = (views.indexOf(prev) + 1) % views.length;
+        return views[nextIdx];
+      });
+    }, 12000);
+    return () => clearInterval(timer);
+  }, [autoCycleView, isStateFest]);
+
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   // Colors based on theme
@@ -53,8 +99,38 @@ export default function TVDisplayClient({
   const silver = '#94a3b8';
   const bronze = '#b45309';
 
-  const top3 = leaderboard.slice(0, 3);
-  const rest = leaderboard.slice(3, 8);
+  // Active dataset based on viewArea
+  const currentLeaderboard = viewArea === 'FADHILA' 
+    ? fadhilaLeaderboard 
+    : viewArea === 'FADHEELA' 
+    ? fadheelaLeaderboard 
+    : viewArea === 'ZONES'
+    ? zoneLeaderboard
+    : leaderboard;
+
+  const activeTop3 = currentLeaderboard.slice(0, 3);
+
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'FADHILA' | 'FADHEELA'>('ALL');
+  const [autoSlide, setAutoSlide] = useState(true);
+
+  // Auto-slide between categories in Recent Winners (ALL -> FADHILA -> FADHEELA) every 8 seconds
+  useEffect(() => {
+    if (!autoSlide) return;
+    const catOrder: Array<'ALL' | 'FADHILA' | 'FADHEELA'> = ['ALL', 'FADHILA', 'FADHEELA'];
+    const timer = setInterval(() => {
+      setCategoryFilter(prev => {
+        const nextIdx = (catOrder.indexOf(prev) + 1) % catOrder.length;
+        return catOrder[nextIdx];
+      });
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [autoSlide]);
+
+  const filteredWinners = recentWinners.filter(res => {
+    if (categoryFilter === 'ALL') return true;
+    const catName = (res.program?.category?.name || '').toUpperCase();
+    return catName.includes(categoryFilter);
+  });
 
   return (
     <div style={{ backgroundColor: bg, color: textPri, minHeight: '100vh', padding: '1rem 2rem', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column' }}>
@@ -76,7 +152,7 @@ export default function TVDisplayClient({
       </div>
 
       {/* HEADER SECTION */}
-      <header style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '1.5rem', paddingTop: '1rem' }}>
+      <header style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '1rem', paddingTop: '1rem' }}>
         
         {/* Left: Branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -94,11 +170,14 @@ export default function TVDisplayClient({
           <h2 style={{ fontSize: '2rem', fontWeight: 900, margin: '0 0 4px 0', letterSpacing: '2px', textTransform: 'uppercase', color: theme === 'dark' ? 'white' : '#1e3a8a' }}>
             {event.name}
           </h2>
-          <div style={{ fontSize: '0.85rem', color: textSec, letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 700 }}>
-            Real-Time Institution Standings
-          </div>
-          <div style={{ display: 'inline-block', color: theme === 'dark' ? '#38bdf8' : '#A5003A', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '1px' }}>
-            CURRENT COMPETITION: <span style={{ color: textPri }}>AWAITING NEXT</span>
+          <div style={{ fontSize: '0.85rem', color: textSec, letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 700 }}>
+            {viewArea === 'FADHILA' 
+              ? '🌸 Fadhila Category Standings & Champions' 
+              : viewArea === 'FADHEELA' 
+              ? '🌺 Fadheela Category Standings & Champions' 
+              : viewArea === 'ZONES' 
+              ? '🌍 Zonal Championships Standings' 
+              : '🏆 Overall Institution Standings'}
           </div>
         </div>
 
@@ -115,21 +194,250 @@ export default function TVDisplayClient({
         </div>
       </header>
 
+      {/* ========================================================================= */}
+      {/* CATEGORY & ZONE CHAMPIONS HERO BANNER                                     */}
+      {/* ========================================================================= */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isStateFest ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', 
+        gap: '12px', 
+        marginBottom: '1rem' 
+      }}>
+        {/* 1. Overall Leading Institution */}
+        <div style={{
+          backgroundColor: panelBg,
+          borderRadius: '10px',
+          border: '1.5px solid rgba(251, 191, 36, 0.4)',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: theme === 'dark' 
+            ? 'linear-gradient(135deg, rgba(251,191,36,0.12) 0%, rgba(11,17,32,0.95) 100%)' 
+            : 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)',
+          boxShadow: '0 4px 12px rgba(251,191,36,0.08)'
+        }}>
+          <div style={{ fontSize: '1.8rem' }}>🏆</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: gold, letterSpacing: '1px', textTransform: 'uppercase' }}>
+              OVERALL LEADER
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: textPri }}>
+              {leaderboard[0]?.name || 'Tallying...'}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: textSec }}>
+              {leaderboard[0]?.place ? `📍 ${leaderboard[0].place}` : leaderboard[0]?.code || ''}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 900, color: gold, fontFamily: 'monospace' }}>
+              {leaderboard[0]?.points || 0}
+            </div>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, color: textSec }}>PTS</div>
+          </div>
+        </div>
+
+        {/* 2. Fadhila Top Institution */}
+        <div style={{
+          backgroundColor: panelBg,
+          borderRadius: '10px',
+          border: '1.5px solid rgba(236, 72, 153, 0.4)',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: theme === 'dark' 
+            ? 'linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(11,17,32,0.95) 100%)' 
+            : 'linear-gradient(135deg, #fdf2f8 0%, #ffffff 100%)',
+          boxShadow: '0 4px 12px rgba(236,72,153,0.08)'
+        }}>
+          <div style={{ fontSize: '1.8rem' }}>🌸</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#ec4899', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              FADHILA CHAMPION
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: textPri }}>
+              {champions?.fadhilaTopInstitution?.name || 'Tallying...'}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: textSec }}>
+              {champions?.fadhilaTopInstitution?.place ? `📍 ${champions.fadhilaTopInstitution.place}` : champions?.fadhilaTopInstitution?.code || ''}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ec4899', fontFamily: 'monospace' }}>
+              {champions?.fadhilaTopInstitution?.points || 0}
+            </div>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, color: textSec }}>PTS</div>
+          </div>
+        </div>
+
+        {/* 3. Fadheela Top Institution */}
+        <div style={{
+          backgroundColor: panelBg,
+          borderRadius: '10px',
+          border: '1.5px solid rgba(139, 92, 246, 0.4)',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: theme === 'dark' 
+            ? 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(11,17,32,0.95) 100%)' 
+            : 'linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%)',
+          boxShadow: '0 4px 12px rgba(139,92,246,0.08)'
+        }}>
+          <div style={{ fontSize: '1.8rem' }}>🌺</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#a855f7', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              FADHEELA CHAMPION
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: textPri }}>
+              {champions?.fadheelaTopInstitution?.name || 'Tallying...'}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: textSec }}>
+              {champions?.fadheelaTopInstitution?.place ? `📍 ${champions.fadheelaTopInstitution.place}` : champions?.fadheelaTopInstitution?.code || ''}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#a855f7', fontFamily: 'monospace' }}>
+              {champions?.fadheelaTopInstitution?.points || 0}
+            </div>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, color: textSec }}>PTS</div>
+          </div>
+        </div>
+
+        {/* 4. State Fest Top Zone (if State Fest) */}
+        {isStateFest && (
+          <div style={{
+            backgroundColor: panelBg,
+            borderRadius: '10px',
+            border: '1.5px solid rgba(14, 165, 233, 0.4)',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: theme === 'dark' 
+              ? 'linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(11,17,32,0.95) 100%)' 
+              : 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)',
+            boxShadow: '0 4px 12px rgba(14,165,233,0.08)'
+          }}>
+            <div style={{ fontSize: '1.8rem' }}>🌍</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#0284c7', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                TOP ZONE (STATE)
+              </div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: textPri }}>
+                {champions?.overallTopZone?.name || 'Tallying...'}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: textSec, display: 'flex', gap: '6px' }}>
+                <span>🌸 {champions?.fadhilaTopZone?.name?.replace(' Zone', '') || '-'}</span>
+                <span>•</span>
+                <span>🌺 {champions?.fadheelaTopZone?.name?.replace(' Zone', '') || '-'}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0284c7', fontFamily: 'monospace' }}>
+                {champions?.overallTopZone?.points || 0}
+              </div>
+              <div style={{ fontSize: '0.55rem', fontWeight: 700, color: textSec }}>PTS</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* VIEW AREA TYPE SWITCHER TOOLBAR                                           */}
+      {/* ========================================================================= */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: panelBg,
+        padding: '8px 14px',
+        borderRadius: '10px',
+        border: `1px solid ${borderCol}`,
+        marginBottom: '1.2rem',
+        flexWrap: 'wrap',
+        gap: '10px'
+      }}>
+        {/* Left: View Area Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '1px', color: textSec, textTransform: 'uppercase', marginRight: '6px' }}>
+            VIEW AREA TYPE:
+          </span>
+
+          {[
+            { id: 'OVERALL', label: '🏛️ Overall Standings', color: '#2563eb' },
+            { id: 'FADHILA', label: '🌸 Fadhila Champions', color: '#ec4899' },
+            { id: 'FADHEELA', label: '🌺 Fadheela Champions', color: '#8b5cf6' },
+            ...(isStateFest ? [{ id: 'ZONES', label: '🌍 Zonal Champions', color: '#0284c7' }] : []),
+          ].map(tab => {
+            const isActive = viewArea === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setViewArea(tab.id as any);
+                  setAutoCycleView(false); // Pause auto-cycle on manual click
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: `1px solid ${isActive ? tab.color : 'transparent'}`,
+                  backgroundColor: isActive ? tab.color : (theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#f1f5f9'),
+                  color: isActive ? '#ffffff' : textPri,
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none'
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: Auto Cycle Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setAutoCycleView(p => !p)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: `1px solid ${autoCycleView ? '#10b981' : borderCol}`,
+              backgroundColor: autoCycleView ? 'rgba(16,185,129,0.15)' : 'transparent',
+              color: autoCycleView ? '#10b981' : textSec,
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>{autoCycleView ? '🔄 AUTO-CYCLE (12s)' : '⏸️ AUTO-CYCLE PAUSED'}</span>
+          </button>
+        </div>
+      </div>
+
       {/* STATS BAR */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: panelBg, padding: '1rem 2rem', borderRadius: '12px', border: `1px solid ${borderCol}`, marginBottom: '1.5rem', boxShadow: theme === 'dark' ? 'none' : '0 4px 15px rgba(0,0,0,0.02)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: panelBg, padding: '0.8rem 1.6rem', borderRadius: '10px', border: `1px solid ${borderCol}`, marginBottom: '1.2rem' }}>
         {[
           { icon: '🏛️', value: stats.institutions, label: 'INSTITUTIONS' },
           { icon: '👥', value: stats.students, label: 'STUDENTS' },
           { icon: '🏆', value: stats.competitions, label: 'COMPETITIONS' },
           { icon: '📋', value: stats.resultsPublished, label: 'RESULTS PUBLISHED' },
-          { icon: '🎤', value: 'STAGE 5', label: 'RUNNING' },
-          { icon: '📡', value: 'LIVE', label: 'BROADCAST' },
+          { icon: '🌸', value: champions?.fadhilaTopInstitution ? `${champions.fadhilaTopInstitution.points} pts` : '0 pts', label: 'FADHILA LEADER' },
+          { icon: '🌺', value: champions?.fadheelaTopInstitution ? `${champions.fadheelaTopInstitution.points} pts` : '0 pts', label: 'FADHEELA LEADER' },
         ].map((stat, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: idx !== 5 ? '2rem' : 0, borderRight: idx !== 5 ? `1px solid ${borderCol}` : 'none' }}>
-            <div style={{ fontSize: '1.5rem', filter: theme === 'dark' ? 'none' : 'hue-rotate(240deg) saturate(300%)' }}>{stat.icon}</div>
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: idx !== 5 ? '1.5rem' : 0, borderRight: idx !== 5 ? `1px solid ${borderCol}` : 'none' }}>
+            <div style={{ fontSize: '1.3rem' }}>{stat.icon}</div>
             <div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: theme === 'dark' ? 'white' : '#1e293b' }}>{stat.value}</div>
-              <div style={{ fontSize: '0.65rem', color: textSec, letterSpacing: '1px', fontWeight: 700 }}>{stat.label}</div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: theme === 'dark' ? 'white' : '#1e293b' }}>{stat.value}</div>
+              <div style={{ fontSize: '0.62rem', color: textSec, letterSpacing: '1px', fontWeight: 700 }}>{stat.label}</div>
             </div>
           </div>
         ))}
@@ -144,8 +452,14 @@ export default function TVDisplayClient({
           {/* PODIUM */}
           <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🏆 TOP INSTITUTIONS
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {viewArea === 'FADHILA' 
+                  ? '🌸 FADHILA CATEGORY TOP 3 INSTITUTIONS' 
+                  : viewArea === 'FADHEELA' 
+                  ? '🌺 FADHEELA CATEGORY TOP 3 INSTITUTIONS' 
+                  : viewArea === 'ZONES' 
+                  ? '🌍 TOP 3 REGIONAL ZONES (STATE FEST)' 
+                  : '🏆 OVERALL TOP 3 INSTITUTIONS'}
               </div>
               <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>
                 AUTO-UPDATING LIVE SCORE MATRIX <span style={{ color: '#10b981' }}>●</span>
@@ -155,106 +469,128 @@ export default function TVDisplayClient({
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '1.5rem', paddingBottom: '1rem' }}>
               
               {/* 2nd Place */}
-              {top3[1] && (
+              {activeTop3[1] && (
                 <div style={{ flex: 1, backgroundColor: theme === 'dark' ? 'rgba(30,41,59,0.5)' : '#f1f5f9', border: `1px solid ${borderCol}`, borderRadius: '12px', padding: '1.5rem 1rem', textAlign: 'center', position: 'relative' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: silver, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', margin: '-30px auto 10px auto', border: `4px solid ${panelBg}` }}>2</div>
-                  {top3[1].logoUrl ? (
-                    <img src={top3[1].logoUrl} alt={top3[1].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  {activeTop3[1].logoUrl ? (
+                    <img src={activeTop3[1].logoUrl} alt={activeTop3[1].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
                   ) : (
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[1].flagColor || silver, margin: '0 auto 6px auto' }} />
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeTop3[1].flagColor || silver, margin: '0 auto 6px auto' }} />
                   )}
                   <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{top3[1].name}</div>
-                    {top3[1].place && (
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{activeTop3[1].name}</div>
+                    {activeTop3[1].place && (
                       <div style={{ fontSize: '0.66rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
-                        📍 {top3[1].place}
+                        📍 {activeTop3[1].place}
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[1].points}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{activeTop3[1].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
-                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[1].change}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {activeTop3[1].change || 0}</div>
                 </div>
               )}
 
               {/* 1st Place */}
-              {top3[0] && (
+              {activeTop3[0] && (
                 <div style={{ flex: 1.2, backgroundColor: theme === 'dark' ? 'rgba(251,191,36,0.05)' : '#fffbeb', border: `1px solid ${gold}`, borderRadius: '12px', padding: '2rem 1rem', textAlign: 'center', position: 'relative', boxShadow: theme === 'dark' ? `0 0 30px rgba(251,191,36,0.1)` : `0 10px 30px rgba(251,191,36,0.2)` }}>
                   <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: gold, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.5rem', margin: '-40px auto 10px auto', border: `4px solid ${panelBg}` }}>1</div>
-                  {top3[0].logoUrl ? (
-                    <img src={top3[0].logoUrl} alt={top3[0].name} style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  {activeTop3[0].logoUrl ? (
+                    <img src={activeTop3[0].logoUrl} alt={activeTop3[0].name} style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
                   ) : (
-                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: top3[0].flagColor || gold, margin: '0 auto 6px auto' }} />
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: activeTop3[0].flagColor || gold, margin: '0 auto 6px auto' }} />
                   )}
                   <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>{top3[0].name}</div>
-                    {top3[0].place && (
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>{activeTop3[0].name}</div>
+                    {activeTop3[0].place && (
                       <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
-                        📍 {top3[0].place}
+                        📍 {activeTop3[0].place}
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 900, color: gold, margin: '10px 0 0 0' }}>{top3[0].points}</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 900, color: gold, margin: '10px 0 0 0' }}>{activeTop3[0].points}</div>
                   <div style={{ fontSize: '0.75rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
-                  <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[0].change}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {activeTop3[0].change || 0}</div>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: `linear-gradient(to top, ${gold}40, transparent)`, height: '30px', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px', fontSize: '0.7rem', color: gold, fontWeight: 800, letterSpacing: '2px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '6px' }}>LEADING</div>
                 </div>
               )}
 
               {/* 3rd Place */}
-              {top3[2] && (
+              {activeTop3[2] && (
                 <div style={{ flex: 1, backgroundColor: theme === 'dark' ? 'rgba(30,41,59,0.5)' : '#f1f5f9', border: `1px solid ${borderCol}`, borderRadius: '12px', padding: '1.5rem 1rem', textAlign: 'center', position: 'relative' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: bronze, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', margin: '-30px auto 10px auto', border: `4px solid ${panelBg}` }}>3</div>
-                  {top3[2].logoUrl ? (
-                    <img src={top3[2].logoUrl} alt={top3[2].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
+                  {activeTop3[2].logoUrl ? (
+                    <img src={activeTop3[2].logoUrl} alt={activeTop3[2].name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '50%', margin: '0 auto 6px auto', display: 'block', backgroundColor: 'white', padding: '2px' }} />
                   ) : (
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: top3[2].flagColor || bronze, margin: '0 auto 6px auto' }} />
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeTop3[2].flagColor || bronze, margin: '0 auto 6px auto' }} />
                   )}
                   <div style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{top3[2].name}</div>
-                    {top3[2].place && (
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{activeTop3[2].name}</div>
+                    {activeTop3[2].place && (
                       <div style={{ fontSize: '0.66rem', color: textSec, fontWeight: 500, marginTop: '2px' }}>
-                        📍 {top3[2].place}
+                        📍 {activeTop3[2].place}
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{top3[2].points}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: textPri, margin: '10px 0 0 0' }}>{activeTop3[2].points}</div>
                   <div style={{ fontSize: '0.7rem', color: textSec, letterSpacing: '1px' }}>POINTS</div>
-                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {top3[2].change}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700, marginTop: '5px' }}>↑ {activeTop3[2].change || 0}</div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* TABLE */}
-          <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          {/* DYNAMIC LEADERBOARD TABLE (OVERALL / FADHILA / FADHEELA / ZONES) */}
+          <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, flex: 1, overflow: 'hidden' }}>
+            <div style={{ padding: '0.8rem 1rem', borderBottom: `1px solid ${borderCol}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: textSec }}>
+                {viewArea === 'FADHILA' 
+                  ? `🌸 Fadhila Category Standings (${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
+                  : viewArea === 'FADHEELA' 
+                  ? `🌺 Fadheela Category Standings (${currentLeaderboard.filter((t: any) => t.points > 0).length} Scored / ${currentLeaderboard.length} Total)` 
+                  : viewArea === 'ZONES' 
+                  ? `🌍 Regional Zones Standings (${currentLeaderboard.length} Zones)` 
+                  : `All Institutions Leaderboard (${currentLeaderboard.length})`}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700 }}>
+                ● LIVE TALLY
+              </span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
-                <tr style={{ color: textSec, fontSize: '0.65rem', letterSpacing: '1px', borderBottom: `1px solid ${borderCol}` }}>
-                  <th style={{ padding: '1rem', textAlign: 'left' }}>RANK</th>
-                  <th style={{ padding: '1rem', textAlign: 'left' }}>INSTITUTION</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>CODE</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>POINTS</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>GOLD</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>SILVER</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>BRONZE</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>CHANGE</th>
-                  <th style={{ padding: '1rem', textAlign: 'right' }}>UPDATED</th>
+                <tr style={{ color: textSec, fontSize: '0.65rem', letterSpacing: '1px', borderBottom: `1px solid ${borderCol}`, backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'left', width: '70px' }}>RANK</th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'left' }}>
+                    {viewArea === 'ZONES' ? 'ZONE NAME' : 'INSTITUTION'}
+                  </th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'center', width: '100px' }}>CODE</th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'center', width: '130px', color: '#38bdf8' }}>TOTAL POINTS</th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'center', width: '90px' }}>STATUS</th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'right', width: '90px' }}>UPDATED</th>
                 </tr>
               </thead>
               <tbody>
-                {rest.map((t, idx) => (
-                  <tr key={t.id} style={{ borderBottom: `1px solid ${borderCol}` }}>
-                    <td style={{ padding: '0.85rem 1rem', color: textSec }}>#{idx + 4}</td>
+                {currentLeaderboard.map((t: any, idx: number) => (
+                  <tr key={t.id} style={{ 
+                    borderBottom: `1px solid ${borderCol}`,
+                    backgroundColor: idx === 0 
+                      ? (theme === 'dark' ? 'rgba(251,191,36,0.06)' : 'rgba(251,191,36,0.08)')
+                      : 'transparent'
+                  }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 800, color: idx === 0 ? gold : idx === 1 ? silver : idx === 2 ? bronze : textSec }}>
+                      {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
+                    </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {t.logoUrl ? (
-                          <img src={t.logoUrl} alt={t.name} style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px', flexShrink: 0 }} />
+                        {viewArea === 'ZONES' ? (
+                          <span style={{ fontSize: '1.1rem' }}>🌍</span>
+                        ) : t.logoUrl ? (
+                          <img src={t.logoUrl} alt={t.name} style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white', padding: '1px', flexShrink: 0 }} />
                         ) : (
                           <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.flagColor || '#ec4899', display: 'inline-block', flexShrink: 0 }}></span>
                         )}
                         <div>
-                          <div>{t.name}</div>
+                          <div style={{ color: idx === 0 ? gold : textPri }}>{t.name}</div>
                           {t.place && (
                             <div style={{ fontSize: '0.68rem', color: textSec, fontWeight: 500, marginTop: '1px' }}>
                               📍 {t.place}
@@ -263,15 +599,16 @@ export default function TVDisplayClient({
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: textSec }}>{t.prefixCode}</td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 800, color: '#38bdf8', fontSize: '0.9rem' }}>{t.points}</td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>{t.gold}</td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>{t.silver}</td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>{t.bronze}</td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: t.changeType === 'up' ? '#10b981' : '#ef4444', fontWeight: 700, fontSize: '0.7rem' }}>
-                      {t.changeType === 'up' ? '↑' : '↓'} {String(t.change).padStart(2, '0')}
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: textSec, fontWeight: 600 }}>{t.code || t.prefixCode}</td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 900, color: '#38bdf8', fontSize: '1.05rem', fontFamily: 'monospace' }}>
+                      {t.points}
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'right', color: textSec, fontSize: '0.7rem' }}>{currentTime.substring(0, 5)}</td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center', color: '#10b981', fontWeight: 700, fontSize: '0.72rem' }}>
+                      {idx === 0 ? '👑 LEADER' : `↑ 00`}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'right', color: textSec, fontSize: '0.72rem', fontFamily: 'monospace' }}>
+                      {currentTime ? currentTime.substring(0, 5) : '--:--'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -279,39 +616,97 @@ export default function TVDisplayClient({
           </div>
         </div>
 
-        {/* RIGHT COL: RECENT RESULTS */}
+        {/* RIGHT COL: RECENT RESULTS WITH FADHILA & FADHEELA CATEGORY SLIDING */}
         <div style={{ backgroundColor: panelBg, borderRadius: '12px', border: `1px solid ${borderCol}`, padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📢 RECENT WINNER DECLARATIONS
+              📢 RECENT WINNERS
             </div>
-            <Link 
-              href={`/fest/${event.id}/results`}
-              style={{ 
-                fontSize: '0.72rem', 
-                color: '#38bdf8', 
-                letterSpacing: '1px', 
-                textDecoration: 'none', 
-                fontWeight: 700,
-                padding: '3px 8px',
-                borderRadius: '4px',
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.2)'
-              }}
-            >
-              VIEW ALL →
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setAutoSlide(p => !p)}
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: autoSlide ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)',
+                  color: autoSlide ? '#10b981' : textSec,
+                  fontWeight: 700
+                }}
+                title="Toggle Auto-sliding category carousel"
+              >
+                {autoSlide ? '🔄 AUTO-SLIDING (8s)' : '⏸️ PAUSED'}
+              </button>
+              <Link 
+                href={`/fest/${event.id}/results`}
+                style={{ 
+                  fontSize: '0.72rem', 
+                  color: '#38bdf8', 
+                  letterSpacing: '1px', 
+                  textDecoration: 'none', 
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)'
+                }}
+              >
+                VIEW ALL →
+              </Link>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {recentWinners.length === 0 ? (
+          {/* Category Tabs / Slide Bar (FADHILA & FADHEELA) */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+            {[
+              { id: 'ALL', label: '🌐 All Results' },
+              { id: 'FADHILA', label: '🌸 Fadhila' },
+              { id: 'FADHEELA', label: '🌺 Fadheela' },
+            ].map((cat) => {
+              const isActive = categoryFilter === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter(cat.id as any);
+                    setAutoSlide(false); // user clicked, pause auto slide for a moment
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.5px',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: isActive 
+                      ? (cat.id === 'FADHILA' ? '#ec4899' : cat.id === 'FADHEELA' ? '#8b5cf6' : '#2563eb')
+                      : 'transparent',
+                    color: isActive ? '#ffffff' : textSec,
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none'
+                  }}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '550px' }}>
+            {filteredWinners.length === 0 ? (
               <div style={{ textAlign: 'center', color: textSec, padding: '3rem 1rem' }}>
                 <div style={{ fontSize: '1.75rem', marginBottom: '8px' }}>⏳</div>
-                <div style={{ fontWeight: 600 }}>No results declared yet.</div>
+                <div style={{ fontWeight: 600 }}>No {categoryFilter === 'ALL' ? '' : categoryFilter} results declared yet.</div>
                 <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>New winners will appear here in real-time.</div>
               </div>
             ) : (
-              recentWinners.map((res) => {
+              filteredWinners.slice(0, 6).map((res) => {
                 const isState = event.type === 'STATE';
                 const inst = formatInstitutionDisplay(res.candidate ? res.candidate.team : res.team);
                 const zoneName = res.candidate ? res.candidate.team?.event?.name : res.team?.event?.name;

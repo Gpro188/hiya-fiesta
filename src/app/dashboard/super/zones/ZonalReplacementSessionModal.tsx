@@ -62,6 +62,7 @@ export default function ZonalReplacementSessionModal({
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId);
   const isAll = selectedZoneId === "ALL";
+  const isState = selectedZoneId === "STATE";
 
   // Presets
   const applyPresetHours = (hours: number) => {
@@ -138,7 +139,7 @@ export default function ZonalReplacementSessionModal({
     });
 
     if (res.success) {
-      const zoneLabel = isAll ? "ALL ZONES" : selectedZone?.name || selectedZoneId;
+      const zoneLabel = isState ? "CSWC State Fest (Grand Finale)" : isAll ? "All Regional Zones & State Fest" : selectedZone?.name || selectedZoneId;
       alert(`✅ Replacement session updated successfully for ${zoneLabel}! (${res.affectedTeams} institutions affected)`);
       if (onUpdated) onUpdated();
       onClose();
@@ -246,7 +247,8 @@ export default function ZonalReplacementSessionModal({
                 fontWeight: 700,
               }}
             >
-              <option value="ALL">🌐 All Regional Zones (Entire Festival Bulk Session)</option>
+              <option value="ALL">🌐 All Regional Zones & State Fest (Entire Festival Bulk Session)</option>
+              <option value="STATE">👑 CSWC State Fest / Grand Finale</option>
               {zones.map((z) => (
                 <option key={z.id} value={z.id}>
                   📍 {z.name} ({z.code}) — {z.totalInstitutions || 0} Colleges
@@ -590,11 +592,11 @@ export default function ZonalReplacementSessionModal({
           >
             {stageType === "LOCK" ? (
               <span>
-                🔒 <strong>Locking Action:</strong> This will close all replacement sessions and lock all institutions in <strong>{isAll ? "All Regional Zones" : selectedZone?.name}</strong>.
+                🔒 <strong>Locking Action:</strong> This will close all replacement sessions and lock all institutions in <strong>{isState ? "CSWC State Fest (Grand Finale)" : isAll ? "All Regional Zones & State Fest" : selectedZone?.name}</strong>.
               </span>
             ) : (
               <span>
-                ⏱️ <strong>Session Scope:</strong> This will open candidate replacement for <strong>{stageType === "BOTH" ? "Both Off-Stage & On-Stage" : stageType === "OFF_STAGE" ? "Off-Stage Programs" : "On-Stage Programs"}</strong> in <strong>{isAll ? "All Regional Zones" : selectedZone?.name}</strong>
+                ⏱️ <strong>Session Scope:</strong> This will open candidate replacement for <strong>{stageType === "BOTH" ? "Both Off-Stage & On-Stage" : stageType === "OFF_STAGE" ? "Off-Stage Programs" : "On-Stage Programs"}</strong> in <strong>{isState ? "CSWC State Fest (Grand Finale)" : isAll ? "All Regional Zones & State Fest" : selectedZone?.name}</strong>
                 {enableSchedule && endDate ? ` until ${new Date(endDate).toLocaleString("en-IN")}` : " indefinitely"}.
               </span>
             )}

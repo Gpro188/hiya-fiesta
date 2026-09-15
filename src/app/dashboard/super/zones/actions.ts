@@ -259,45 +259,76 @@ export async function updateZonalReplacementSession(options: {
     const unlockStart = scheduleWindow?.startDate ? new Date(scheduleWindow.startDate) : null;
     const unlockEnd = scheduleWindow?.endDate ? new Date(scheduleWindow.endDate) : null;
 
-    // Find target zones
+    // Find target zones and state events
     const isAll = zoneId === "ALL";
-    const targetZones = await prisma.zone.findMany({
-      where: isAll ? {} : { id: zoneId },
-      include: {
-        institutions: {
-          select: {
-            id: true,
-            teams: { select: { id: true, eventId: true } }
-          }
-        },
-        events: {
-          where: { type: "ZONE" },
-          select: { id: true }
-        }
-      }
-    });
+    const isState = zoneId === "STATE";
 
-    if (targetZones.length === 0) {
-      return { success: false, error: "No matching zones found." };
+    let targetZones: any[] = [];
+    let stateEvents: any[] = [];
+
+    if (isAll || !isState) {
+      targetZones = await prisma.zone.findMany({
+        where: isAll ? {} : { id: zoneId },
+        include: {
+          institutions: {
+            select: {
+              id: true,
+              teams: { select: { id: true, eventId: true } }
+            }
+          },
+          events: {
+            where: { type: "ZONE" },
+            select: { id: true }
+          }
+        }
+      });
     }
 
-    // Collect all team IDs and Zone Event IDs across the target zones
+    if (isAll || isState) {
+      // Find State / Grand Finale events
+      stateEvents = await prisma.event.findMany({
+        where: {
+          OR: [
+            { type: "STATE" },
+            { parentId: null }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          teams: { select: { id: true } }
+        }
+      });
+    }
+
+    if (targetZones.length === 0 && stateEvents.length === 0) {
+      return { success: false, error: "No matching zones or state events found." };
+    }
+
+    // Collect all team IDs and Zone Event IDs across the target zones and state events
     const allTeamIds: string[] = [];
     const allEventIds: string[] = [];
 
     for (const z of targetZones) {
-      z.institutions.forEach(inst => {
-        inst.teams.forEach(t => {
+      z.institutions.forEach((inst: any) => {
+        inst.teams.forEach((t: any) => {
           if (!allTeamIds.includes(t.id)) allTeamIds.push(t.id);
         });
       });
-      z.events.forEach(ev => {
+      z.events.forEach((ev: any) => {
         if (!allEventIds.includes(ev.id)) allEventIds.push(ev.id);
       });
     }
 
+    for (const se of stateEvents) {
+      if (!allEventIds.includes(se.id)) allEventIds.push(se.id);
+      se.teams.forEach((t: any) => {
+        if (!allTeamIds.includes(t.id)) allTeamIds.push(t.id);
+      });
+    }
+
     // If no teams found directly under institution.teams, also check teams by eventId
-    if (allTeamIds.length === 0 && allEventIds.length > 0) {
+    if (allEventIds.length > 0) {
       const teamsByEvent = await prisma.team.findMany({
         where: { eventId: { in: allEventIds } },
         select: { id: true }
@@ -379,7 +410,11 @@ export async function updateZonalReplacementSession(options: {
       }
     });
 
-    const zoneNames = targetZones.map(z => z.name).join(", ");
+    const zoneNames = isState
+      ? "CSWC State Fest (Grand Finale)"
+      : isAll
+      ? "All Regional Zones & State Fest"
+      : targetZones.map(z => z.name).join(", ");
     const scheduleLog = unlockStart || unlockEnd
       ? ` [Window: ${unlockStart ? unlockStart.toLocaleString('en-IN') : 'Immediate'} to ${unlockEnd ? unlockEnd.toLocaleString('en-IN') : 'Indefinite'}]`
       : '';

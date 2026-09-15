@@ -267,15 +267,33 @@ export default function AdminScheduler({
   };
 
   const handleDurationChange = (venue: string, programId: string, newMinPerItem: number) => {
-    // newMinPerItem is per-candidate/team value; compute total = minPerItem × count
     const currentProg = (groupedPrograms[venue] || []).find(p => p.id === programId);
     let newTotalDuration = newMinPerItem;
     if (currentProg) {
+      const modeSelect = document.getElementById(`mode-${programId}`) as HTMLSelectElement | null;
+      const selectedMode = modeSelect?.value || currentProg.durationMode || 'AUTO';
       const zoneCandidates = getZoneCandidatesForProgram(currentProg.assignments, targetZoneId);
-      const count = currentProg.type === 'GROUP'
-        ? new Set(zoneCandidates.map((a: any) => a.candidate?.teamId).filter(Boolean)).size
-        : zoneCandidates.length;
-      newTotalDuration = count > 0 ? count * newMinPerItem : newMinPerItem;
+      const uniqueTeams = new Set(zoneCandidates.map((a: any) => a.candidate?.teamId).filter(Boolean));
+      const teamCount = uniqueTeams.size > 0 ? uniqueTeams.size : (zoneCandidates.length > 0 ? Math.ceil(zoneCandidates.length / (currentProg.candidateLimitPerTeam || 1)) : 0);
+
+      let effectiveMode = selectedMode;
+      if (effectiveMode === 'AUTO') {
+        if (currentProg.type === 'GROUP' || currentProg.type === 'GENERAL' || (currentProg.candidateLimitPerTeam && currentProg.candidateLimitPerTeam > 1)) {
+          effectiveMode = 'PER_TEAM';
+        } else if (currentProg.type === 'INDIVIDUAL') {
+          effectiveMode = 'PER_CANDIDATE';
+        } else {
+          effectiveMode = 'TOTAL_FIXED';
+        }
+      }
+
+      if (effectiveMode === 'TOTAL_FIXED') {
+        newTotalDuration = newMinPerItem; // Fixed total duration: no multiplication!
+      } else if (effectiveMode === 'PER_TEAM') {
+        newTotalDuration = teamCount > 0 ? teamCount * newMinPerItem : newMinPerItem;
+      } else {
+        newTotalDuration = zoneCandidates.length > 0 ? zoneCandidates.length * newMinPerItem : newMinPerItem;
+      }
     }
 
     const venueProgs = (groupedPrograms[venue] || []).map(p => p.id === programId ? { ...p, duration: newTotalDuration } : p);
@@ -294,6 +312,16 @@ export default function AdminScheduler({
         return p;
       });
     });
+  };
+
+  const handleModeChange = (venue: string, programId: string, newMode: string) => {
+    const durInput = document.getElementById(`dur-${programId}`) as HTMLInputElement | null;
+    const currentVal = parseInt(durInput?.value || "5") || 5;
+
+    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, durationMode: newMode } : p));
+    setTimeout(() => {
+      handleDurationChange(venue, programId, currentVal);
+    }, 50);
   };
 
   // Apply & Save all sequential timings from 9:00 AM to all programs in the venue
@@ -390,14 +418,14 @@ export default function AdminScheduler({
     }
   };
 
-  const handleUpdate = async (id: string, venue: string, startTime: string, duration: number, stageType: string, judgeIds: string[]) => {
+  const handleUpdate = async (id: string, venue: string, startTime: string, duration: number, stageType: string, judgeIds: string[], durationMode?: string) => {
     setLoadingId(id);
     try {
-      // Find the venue programs and update this program's duration
+      // Find the venue programs and update this program's duration and durationMode
       const venueProgs = (groupedPrograms[venue] || []).map(p => {
         if (p.id === id) {
           const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
-          return { ...p, venue, duration, stageType, judges: assignedJudges };
+          return { ...p, venue, duration, stageType, durationMode: durationMode || p.durationMode, judges: assignedJudges };
         }
         return p;
       });
@@ -417,6 +445,7 @@ export default function AdminScheduler({
               venue, 
               duration, 
               stageType, 
+              durationMode: durationMode || p.durationMode,
               judges: assignedJudges,
               startTime: updateMap.get(p.id) || startTime 
             };
@@ -434,6 +463,7 @@ export default function AdminScheduler({
         startTime: item.predictedStart.toISOString(),
         duration: item.duration,
         stageType: item.program.stageType,
+        durationMode: item.program.id === id ? durationMode : item.program.durationMode,
         judgeIds: item.program.judges?.map((j: any) => j.id) || []
       }));
 
@@ -445,6 +475,7 @@ export default function AdminScheduler({
           startTime: updateMap.get(id) || startTime,
           duration,
           stageType,
+          durationMode,
           judgeIds
         }, eventId);
       } else {
@@ -1213,23 +1244,31 @@ export default function AdminScheduler({
                                 <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
                                   {program.category?.name || "General"}
                                 </span>
-                                <span style={{
-                                  fontSize: "0.70rem",
-                                  fontWeight: 700,
-                                  padding: "2px 8px",
-                                  borderRadius: "4px",
-                                  backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
-                                  color: item.candidateCount > 0 ? "#059669" : "#64748b",
-                                  border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
-                                }}>
-                                  {program.type === "INDIVIDUAL" ? (
-                                    <>👥 {item.candidateCount} Candidates {item.candidateCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
-                                  ) : program.type === "GROUP" ? (
-                                    <>👥 {item.teamCount} Teams {item.teamCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
-                                  ) : (
-                                    <>👥 {item.candidateCount} Candidates ({item.duration} mins)</>
-                                  )}
-                                </span>
+                                {(() => {
+                                  const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
+                                  const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
+                                    ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
+
+                                  return (
+                                    <span style={{
+                                      fontSize: "0.70rem",
+                                      fontWeight: 700,
+                                      padding: "2px 8px",
+                                      borderRadius: "4px",
+                                      backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
+                                      color: item.candidateCount > 0 ? "#059669" : "#64748b",
+                                      border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
+                                    }}>
+                                      {isFixedTime ? (
+                                        <>⏱️ Fixed Total: {item.duration} mins ({item.teamCount} Teams / {item.candidateCount} Candidates)</>
+                                      ) : isTeamBased ? (
+                                        <>👥 {item.teamCount} Teams {item.candidateCount > item.teamCount ? `(${item.candidateCount} Candidates)` : ""} {item.teamCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                      ) : (
+                                        <>👥 {item.candidateCount} Candidates {item.candidateCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                      )}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
@@ -1282,30 +1321,63 @@ export default function AdminScheduler({
                         {isBreak && (
                           <input type="hidden" id={`venue-${program.id}`} value={program.venue || ""} />
                         )}
-                        
-                        {/* Duration input: shows per-candidate/team minutes; total = count × perItem is stored */}
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title="Minutes per performer; Total = count × this value">
-                            {program.type === "INDIVIDUAL" ? "Min / Candidate" : program.type === "GROUP" ? "Min / Team" : "Duration (mins)"}
-                          </label>
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <input 
-                              type="number" 
-                              className="form-input" 
-                              key={`dur-${program.id}-${item.durationPerItem}`}
-                              defaultValue={item.durationPerItem || 5} 
-                              id={`dur-${program.id}`}
-                              min={1}
-                              onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 1)}
-                              style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px" }}
-                            />
-                            {(program.type === "INDIVIDUAL" || program.type === "GROUP") && item.candidateCount > 0 && (
-                              <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                                = <strong>{item.duration}m</strong> total
-                              </span>
-                            )}
-                          </div>
-                        </div>
+
+                        {(() => {
+                          const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
+                          const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
+                            ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
+
+                          return (
+                            <>
+                              {/* Timing Mode selector: Per Group / Fixed Total / Per Candidate */}
+                              {!isBreak && (
+                                <div className="form-group" style={{ marginBottom: 0, minWidth: "160px" }}>
+                                  <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Timing Mode</label>
+                                  <select
+                                    id={`mode-${program.id}`}
+                                    className="form-input"
+                                    defaultValue={isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE"}
+                                    onChange={(e) => handleModeChange(venue, program.id, e.target.value)}
+                                    style={{ padding: "4px 6px", fontSize: "0.75rem", height: "30px", fontWeight: 600 }}
+                                  >
+                                    <option value="PER_TEAM">👥 Per Group/Team (Teams × Mins)</option>
+                                    <option value="TOTAL_FIXED">⏱️ Fixed Total Time (No multiplier)</option>
+                                    <option value="PER_CANDIDATE">👤 Per Candidate (Candidates × Mins)</option>
+                                  </select>
+                                </div>
+                              )}
+                              
+                              {/* Duration input: shows per-candidate/team minutes or total minutes */}
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title={isFixedTime ? "Direct total duration for the program" : "Minutes per team or candidate"}>
+                                  {isFixedTime ? "Total Time (mins)" : isTeamBased ? "Min / Group (Team)" : "Min / Candidate"}
+                                </label>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <input 
+                                    type="number" 
+                                    className="form-input" 
+                                    key={`dur-${program.id}-${isFixedTime ? item.duration : item.durationPerItem}-${isFixedTime ? 'fixed' : isTeamBased ? 'team' : 'cand'}`}
+                                    defaultValue={isFixedTime ? (item.duration || 10) : (item.durationPerItem || 5)} 
+                                    id={`dur-${program.id}`}
+                                    min={1}
+                                    onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 1)}
+                                    style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px" }}
+                                  />
+                                  {!isFixedTime && isTeamBased && item.teamCount > 0 && (
+                                    <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                      = <strong>{item.duration}m</strong> total
+                                    </span>
+                                  )}
+                                  {!isFixedTime && !isTeamBased && item.candidateCount > 0 && (
+                                    <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                      = <strong>{item.duration}m</strong> total
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                         
                         {/* Stage Type */}
                         {!isBreak && (
@@ -1328,10 +1400,25 @@ export default function AdminScheduler({
                           disabled={loadingId === program.id}
                           onClick={() => {
                             const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
-                            // Read per-item minutes from input, then compute total for storage
-                            const perItemMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
-                            const count = program.type === 'GROUP' ? item.teamCount : item.candidateCount;
-                            const d = count > 0 ? count * perItemMins : perItemMins;
+                            const modeSelect = document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null;
+                            const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
+                            const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
+                              ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
+                            const modeVal = modeSelect?.value || (isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE");
+                            const enteredMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
+                            
+                            let d = enteredMins;
+                            if (modeVal === "PER_TEAM") {
+                              const count = item.teamCount > 0 ? item.teamCount : (item.candidateCount > 0 ? Math.ceil(item.candidateCount / (program.candidateLimitPerTeam || 1)) : 1);
+                              d = count * enteredMins;
+                            } else if (modeVal === "PER_CANDIDATE") {
+                              const count = item.candidateCount > 0 ? item.candidateCount : 1;
+                              d = count * enteredMins;
+                            } else {
+                              // TOTAL_FIXED: direct total minutes!
+                              d = enteredMins;
+                            }
+
                             const s = (document.getElementById(`stage-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
                             
                             let judgeIds: string[] = [];
@@ -1343,7 +1430,7 @@ export default function AdminScheduler({
                             }
                             
                             // Automatically uses the auto-calculated 9:00 AM sequential start time!
-                            handleUpdate(program.id, v, item.predictedStart.toISOString(), d, s, judgeIds);
+                            handleUpdate(program.id, v, item.predictedStart.toISOString(), d, s, judgeIds, modeVal);
                           }}
                         >
                           {loadingId === program.id ? "..." : "Save"}

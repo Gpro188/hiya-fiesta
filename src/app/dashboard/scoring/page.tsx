@@ -79,7 +79,14 @@ export default async function ScoringPage(props: {
           id: true,
           name: true,
           flagColor: true,
-          magazineCode: true
+          magazineCode: true,
+          institution: {
+            select: {
+              id: true,
+              name: true,
+              zone: { select: { id: true, name: true, code: true } }
+            }
+          }
         }
       }
     }
@@ -235,25 +242,141 @@ export default async function ScoringPage(props: {
         points: true,
         isPublished: true,
         teamId: true,
-        candidate: { select: { teamId: true } }
+        candidate: { 
+          select: { 
+            teamId: true,
+            category: { select: { name: true } },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                institution: {
+                  select: {
+                    name: true,
+                    zone: { select: { id: true, name: true, code: true } }
+                  }
+                }
+              }
+            }
+          } 
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
+            institution: {
+              select: {
+                name: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            }
+          }
+        },
+        program: {
+          select: {
+            category: { select: { name: true } }
+          }
+        }
       }
     })
   ]);
 
   const pendingPrograms = allPrograms.filter(p => p.results.length === 0);
 
-  const teamScoresMap: Record<string, { publishedPoints: number, totalPoints: number }> = {};
+  const detectCategory = (progCatName?: string | null, candCatName?: string | null): "FADHILA" | "FADHEELA" | "OTHER" => {
+    const raw = `${progCatName || ""} ${candCatName || ""}`.toLowerCase().trim();
+    if (raw.includes("fadheela") || raw.includes("fadhila high") || raw.includes("senior") || raw.includes("fadhela")) {
+      return "FADHEELA";
+    }
+    if (raw.includes("fadhila") || raw.includes("junior") || raw.includes("fadhl")) {
+      return "FADHILA";
+    }
+    return "OTHER";
+  };
+
+  const isStateFest = !activeEvent.parentId || 
+    activeEvent.name.toLowerCase().includes("state") || 
+    activeEvent.name.toLowerCase().includes("grand");
+
+  const teamScoresMap: Record<string, { 
+    publishedPoints: number; 
+    totalPoints: number;
+    fadhilaPublished: number;
+    fadhilaTotal: number;
+    fadheelaPublished: number;
+    fadheelaTotal: number;
+    zoneName?: string;
+  }> = {};
+
   const eventTeams = activeEvent.teams || [];
   eventTeams.forEach(team => {
-    teamScoresMap[team.id] = { publishedPoints: 0, totalPoints: 0 };
+    teamScoresMap[team.id] = { 
+      publishedPoints: 0, 
+      totalPoints: 0,
+      fadhilaPublished: 0,
+      fadhilaTotal: 0,
+      fadheelaPublished: 0,
+      fadheelaTotal: 0,
+      zoneName: (team as any).institution?.zone?.name || undefined
+    };
   });
+
+  const zoneScoresMap: Record<string, {
+    id: string;
+    name: string;
+    code: string;
+    publishedPoints: number;
+    totalPoints: number;
+    fadhilaPublished: number;
+    fadhilaTotal: number;
+    fadheelaPublished: number;
+    fadheelaTotal: number;
+  }> = {};
 
   allResultsForScore.forEach(result => {
     const teamId = result.teamId || result.candidate?.teamId;
+    const cat = detectCategory(result.program?.category?.name, result.candidate?.category?.name);
+    const pts = result.points || 0;
+    const isPub = Boolean(result.isPublished);
+
     if (teamId && teamScoresMap[teamId]) {
-      teamScoresMap[teamId].totalPoints += result.points;
-      if (result.isPublished) {
-        teamScoresMap[teamId].publishedPoints += result.points;
+      teamScoresMap[teamId].totalPoints += pts;
+      if (isPub) teamScoresMap[teamId].publishedPoints += pts;
+
+      if (cat === "FADHILA") {
+        teamScoresMap[teamId].fadhilaTotal += pts;
+        if (isPub) teamScoresMap[teamId].fadhilaPublished += pts;
+      } else if (cat === "FADHEELA") {
+        teamScoresMap[teamId].fadheelaTotal += pts;
+        if (isPub) teamScoresMap[teamId].fadheelaPublished += pts;
+      }
+    }
+
+    // Zone aggregation (for State Fest or multi-zone views)
+    const zone = result.team?.institution?.zone || result.candidate?.team?.institution?.zone;
+    if (zone && zone.id) {
+      if (!zoneScoresMap[zone.id]) {
+        zoneScoresMap[zone.id] = {
+          id: zone.id,
+          name: zone.name,
+          code: zone.code || zone.name.substring(0, 3).toUpperCase(),
+          publishedPoints: 0,
+          totalPoints: 0,
+          fadhilaPublished: 0,
+          fadhilaTotal: 0,
+          fadheelaPublished: 0,
+          fadheelaTotal: 0,
+        };
+      }
+      zoneScoresMap[zone.id].totalPoints += pts;
+      if (isPub) zoneScoresMap[zone.id].publishedPoints += pts;
+
+      if (cat === "FADHILA") {
+        zoneScoresMap[zone.id].fadhilaTotal += pts;
+        if (isPub) zoneScoresMap[zone.id].fadhilaPublished += pts;
+      } else if (cat === "FADHEELA") {
+        zoneScoresMap[zone.id].fadheelaTotal += pts;
+        if (isPub) zoneScoresMap[zone.id].fadheelaPublished += pts;
       }
     }
   });
@@ -262,9 +385,16 @@ export default async function ScoringPage(props: {
     id: team.id,
     name: team.name,
     flagColor: team.flagColor,
+    zoneName: (team as any).institution?.zone?.name || null,
     publishedPoints: teamScoresMap[team.id]?.publishedPoints || 0,
-    totalPoints: teamScoresMap[team.id]?.totalPoints || 0
+    totalPoints: teamScoresMap[team.id]?.totalPoints || 0,
+    fadhilaPublished: teamScoresMap[team.id]?.fadhilaPublished || 0,
+    fadhilaTotal: teamScoresMap[team.id]?.fadhilaTotal || 0,
+    fadheelaPublished: teamScoresMap[team.id]?.fadheelaPublished || 0,
+    fadheelaTotal: teamScoresMap[team.id]?.fadheelaTotal || 0,
   }));
+
+  const zoneScores = Object.values(zoneScoresMap);
 
   return (
     <div className="animate-fade-in">
@@ -315,9 +445,16 @@ export default async function ScoringPage(props: {
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-            <div data-tour="scoring-teams">
-              <TeamScorePreview scores={teamScores} />
-            </div>
+            {/* Hide Team points leaderboard from Stage Juries */}
+            {session.user.role !== "JUDGE" && !judgeVenue && (
+              <div data-tour="scoring-teams">
+                <TeamScorePreview 
+                  scores={teamScores} 
+                  zoneScores={zoneScores}
+                  isStateFest={isStateFest}
+                />
+              </div>
+            )}
 
             <div data-tour="scoring-pending" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
               <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

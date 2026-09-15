@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 
 export async function updateProgramSchedule(
   id: string, 
-  data: { venue: string | null, startTime: string | null, duration?: number, stageType?: string, judgeIds?: string[] },
+  data: { venue: string | null, startTime: string | null, duration?: number, stageType?: string, durationMode?: string, judgeIds?: string[] },
   targetEventId?: string
 ) {
   try {
@@ -18,7 +18,7 @@ export async function updateProgramSchedule(
 
     const currentProg = await prisma.program.findUnique({
       where: { id },
-      select: { id: true, eventId: true, name: true, programCode: true, categoryId: true, type: true, stageType: true }
+      select: { id: true, eventId: true, name: true, programCode: true, categoryId: true, type: true, stageType: true, durationMode: true }
     });
 
     if (!currentProg) return { success: false, error: "Program not found" };
@@ -41,11 +41,12 @@ export async function updateProgramSchedule(
           data: {
             name: currentProg.name,
             programCode: currentProg.programCode,
-            type: currentProg.type || "INDIVIDUAL",
+            type: currentProg.type,
             categoryId: currentProg.categoryId,
             eventId: targetEventId,
-            stageType: data.stageType || currentProg.stageType || "ON_STAGE",
-            duration: data.duration ?? 10,
+            stageType: data.stageType || currentProg.stageType,
+            duration: data.duration || 10,
+            durationMode: data.durationMode || currentProg.durationMode || "AUTO",
             venue: data.venue,
             startTime: data.startTime ? new Date(data.startTime) : null
           }
@@ -62,6 +63,9 @@ export async function updateProgramSchedule(
       duration: data.duration !== undefined ? data.duration : undefined,
       stageType: data.stageType !== undefined ? data.stageType : undefined,
     };
+    if (data.durationMode !== undefined) {
+      updateData.durationMode = data.durationMode;
+    }
 
     if (data.judgeIds !== undefined) {
       updateData.judges = {
@@ -598,7 +602,7 @@ export async function deleteVenue(eventId: string, venueName: string) {
 export async function applySequentialVenueSchedule(
   eventId: string,
   venue: string,
-  programUpdates: Array<{ id: string; startTime: string; duration: number; stageType?: string; judgeIds?: string[] }>
+  programUpdates: Array<{ id: string; startTime: string; duration: number; stageType?: string; durationMode?: string; judgeIds?: string[] }>
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -616,7 +620,7 @@ export async function applySequentialVenueSchedule(
     const targetProgramIds = programUpdates.map(p => p.id);
     const existingPrograms = await prisma.program.findMany({
       where: { id: { in: targetProgramIds } },
-      select: { id: true, eventId: true, programCode: true, name: true, categoryId: true, type: true, stageType: true }
+      select: { id: true, eventId: true, programCode: true, name: true, categoryId: true, type: true, stageType: true, durationMode: true }
     });
     const progMap = new Map(existingPrograms.map(p => [p.id, p]));
 
@@ -624,7 +628,7 @@ export async function applySequentialVenueSchedule(
     if (isZoneEvent) {
       zoneProgramsForMatching = await prisma.program.findMany({
         where: { eventId },
-        select: { id: true, programCode: true, name: true, categoryId: true, type: true, stageType: true }
+        select: { id: true, programCode: true, name: true, categoryId: true, type: true, stageType: true, durationMode: true }
       });
     }
 
@@ -649,6 +653,7 @@ export async function applySequentialVenueSchedule(
               eventId: eventId,
               stageType: item.stageType || p.stageType || "ON_STAGE",
               duration: item.duration || 10,
+              durationMode: item.durationMode || p.durationMode || "AUTO",
               venue: venue,
               startTime: new Date(item.startTime),
               ...(item.judgeIds && item.judgeIds.length > 0 ? {
@@ -669,6 +674,7 @@ export async function applySequentialVenueSchedule(
         duration: item.duration,
       };
       if (item.stageType) data.stageType = item.stageType;
+      if (item.durationMode) data.durationMode = item.durationMode;
       if (item.judgeIds) {
         data.judges = {
           set: item.judgeIds.map(id => ({ id }))
@@ -806,6 +812,8 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
           stageType: mProg.stageType,
           venue: mProg.venue,
           duration: mProg.duration,
+          durationMode: mProg.durationMode,
+          candidateLimitPerTeam: mProg.candidateLimitPerTeam,
           category: mProg.category,
           assignments: [] as any[]
         });
@@ -824,6 +832,8 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
             stageType: prog.stageType,
             venue: prog.venue,
             duration: prog.duration,
+            durationMode: prog.durationMode,
+            candidateLimitPerTeam: prog.candidateLimitPerTeam,
             category: prog.category,
             assignments: []
           };
@@ -884,6 +894,8 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
             name: slot.program.name,
             type: slot.program.type,
             candidateCount: slot.candidateCount,
+            teamCount: slot.teamCount,
+            durationMode: slot.program.durationMode,
             durationPerCandidate: slot.durationPerItem,
             durationMinutes: slot.duration,
             startTime: formatTimeAmPm(slot.predictedStart),

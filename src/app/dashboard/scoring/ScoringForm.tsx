@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { batchSubmitProgramMarks } from "./actions";
+import { batchSubmitProgramMarks, assignJudgesToVenueAction } from "./actions";
 import { isInstitutionProgram } from "@/lib/programUtils";
 
 interface ScoringEntry {
@@ -30,6 +30,7 @@ export default function ScoringForm({
   userRole?: string;
   userVenue?: string | null;
 }) {
+  const isStageJury = userRole === "JUDGE" || Boolean(userVenue);
   const [eventId, setEventId] = useState(events[0]?.id || "");
   const [selectedVenue, setSelectedVenue] = useState<string>(userVenue || "");
   const [categoryId, setCategoryId] = useState("");
@@ -37,6 +38,9 @@ export default function ScoringForm({
   const [programSearch, setProgramSearch] = useState("");
   const [evaluator1, setEvaluator1] = useState("");
   const [evaluator2, setEvaluator2] = useState("");
+  const [assignToVenue, setAssignToVenue] = useState(true);
+  const [assigningVenueJuries, setAssigningVenueJuries] = useState(false);
+  const [venueAssignMessage, setVenueAssignMessage] = useState<string | null>(null);
   const [entries, setEntries] = useState<ScoringEntry[]>([]);
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -283,9 +287,12 @@ export default function ScoringForm({
     }
 
     const isJudge = userRole === "JUDGE";
+    const currentVenue = selecteCSWCgram?.venue || selectedVenue;
     const result = await batchSubmitProgramMarks({
       eventId,
       programId,
+      venue: currentVenue,
+      assignToVenue,
       publishImmediately: isJudge ? false : publishImmediately,
       evaluator1,
       evaluator2,
@@ -531,12 +538,12 @@ export default function ScoringForm({
               <div>
                 <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>Venue Juries & Consensus Valuation</strong>
                 <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                  Stage / Venue: <strong>{selecteCSWCgram.venue || "Main Stage"}</strong> • Select which <strong>2 Juries</strong> evaluated this session
+                  Stage / Venue: <strong>{selecteCSWCgram.venue || selectedVenue || "Main Stage"}</strong> • Select which <strong>2 Juries</strong> evaluated this session
                 </div>
               </div>
             </div>
             <div style={{ fontSize: '0.74rem', backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>
-              4 Venue Juries Total • 2 Evaluating at a time
+              Venue Juries Consensus Mode
             </div>
           </div>
 
@@ -552,16 +559,22 @@ export default function ScoringForm({
                 style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator1 ? '2px solid #3b82f6' : '1px solid #cbd5e1' }}
               >
                 <option value="">-- Choose Evaluator 1 --</option>
-                {selecteCSWCgram.judges?.map((j: any) => (
-                  <option key={`prog_j1_${j.id}`} value={j.username}>
-                    ⭐ Assigned Venue Jury: {j.username}
-                  </option>
-                ))}
-                {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
-                  <option key={`all_j1_${j.id}`} value={j.username}>
-                    Jury: {j.username} {j.place ? `(${j.place})` : ''}
-                  </option>
-                ))}
+                {selecteCSWCgram.judges && selecteCSWCgram.judges.length > 0 && (
+                  <optgroup label={`🏛️ Current Program / Venue Juries`}>
+                    {selecteCSWCgram.judges.map((j: any) => (
+                      <option key={`prog_j1_${j.id}`} value={j.username}>
+                        ⭐ Assigned Venue Jury: {j.username}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="📋 All Available Fest Juries">
+                  {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                    <option key={`all_j1_${j.id}`} value={j.username}>
+                      {j.place ? `[${j.place}] ` : ''}{j.username} {j.phone && j.phone !== "ACTIVE" ? `(${j.phone})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -576,19 +589,90 @@ export default function ScoringForm({
                 style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator2 ? '2px solid #ec4899' : '1px solid #cbd5e1' }}
               >
                 <option value="">-- Choose Evaluator 2 --</option>
-                {selecteCSWCgram.judges?.map((j: any) => (
-                  <option key={`prog_j2_${j.id}`} value={j.username}>
-                    ⭐ Assigned Venue Jury: {j.username}
-                  </option>
-                ))}
-                {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
-                  <option key={`all_j2_${j.id}`} value={j.username}>
-                    Jury: {j.username} {j.place ? `(${j.place})` : ''}
-                  </option>
-                ))}
+                {selecteCSWCgram.judges && selecteCSWCgram.judges.length > 0 && (
+                  <optgroup label={`🏛️ Current Program / Venue Juries`}>
+                    {selecteCSWCgram.judges.map((j: any) => (
+                      <option key={`prog_j2_${j.id}`} value={j.username}>
+                        ⭐ Assigned Venue Jury: {j.username}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="📋 All Available Fest Juries">
+                  {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                    <option key={`all_j2_${j.id}`} value={j.username}>
+                      {j.place ? `[${j.place}] ` : ''}{j.username} {j.phone && j.phone !== "ACTIVE" ? `(${j.phone})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
           </div>
+
+          {/* Option to assign selected juries to Venue */}
+          <div style={{
+            marginTop: '12px',
+            padding: '10px 14px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.83rem', fontWeight: 700, color: '#1e3a8a' }}>
+              <input
+                type="checkbox"
+                checked={assignToVenue}
+                onChange={(e) => setAssignToVenue(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: '#2563eb' }}
+              />
+              <span>
+                🏛️ Assign selected juries to Venue &quot;{selecteCSWCgram.venue || selectedVenue || "Main Stage"}&quot; (Applies when saving result)
+              </span>
+            </label>
+
+            {(evaluator1 || evaluator2) && (
+              <button
+                type="button"
+                disabled={assigningVenueJuries}
+                onClick={async () => {
+                  setAssigningVenueJuries(true);
+                  setVenueAssignMessage(null);
+                  const currentV = selecteCSWCgram.venue || selectedVenue || "Main Stage";
+                  const res = await assignJudgesToVenueAction(eventId, currentV, [evaluator1, evaluator2].filter(Boolean));
+                  if (res.success) {
+                    setVenueAssignMessage(`✅ Successfully assigned to all ${res.count} programs at ${currentV}!`);
+                    setTimeout(() => setVenueAssignMessage(null), 4500);
+                  } else {
+                    setVenueAssignMessage(`❌ ${res.error}`);
+                  }
+                  setAssigningVenueJuries(false);
+                }}
+                className="btn"
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  backgroundColor: '#eff6ff',
+                  border: '1.5px solid #3b82f6',
+                  color: '#1d4ed8',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {assigningVenueJuries ? "Assigning..." : "📌 Assign Juries to Venue Now"}
+              </button>
+            )}
+          </div>
+
+          {venueAssignMessage && (
+            <div style={{ marginTop: '8px', fontSize: '0.82rem', fontWeight: 700, color: venueAssignMessage.startsWith('✅') ? '#15803d' : '#b91c1c' }}>
+              {venueAssignMessage}
+            </div>
+          )}
 
           <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0', fontSize: '0.74rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>📝</span>
@@ -718,7 +802,9 @@ export default function ScoringForm({
                     <th style={{ padding: '12px 16px' }}>Institution / Team</th>
                     <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
                     <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
-                    <th style={{ padding: '12px 16px', width: '115px', textAlign: 'center' }}>Points</th>
+                    {!isStageJury && (
+                      <th style={{ padding: '12px 16px', width: '115px', textAlign: 'center' }}>Points</th>
+                    )}
                     <th style={{ padding: '12px 16px', width: '135px' }}>Marks (Optional)</th>
                   </tr>
                 </thead>
@@ -795,10 +881,12 @@ export default function ScoringForm({
                         </select>
                       </td>
 
-                      {/* Calculated Points */}
-                      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 900, fontSize: '1.05rem', color: entry.points > 0 ? 'var(--primary, #e6007e)' : '#9ca3af', fontFamily: "'IBM Plex Mono', monospace" }}>
-                        {entry.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 600 }}>pts</span>
-                      </td>
+                      {/* Calculated Points - Hidden in Stage Jury Portal */}
+                      {!isStageJury && (
+                        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 900, fontSize: '1.05rem', color: entry.points > 0 ? 'var(--primary, #e6007e)' : '#9ca3af', fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {entry.points} <span style={{ fontSize: '0.72rem', color: '#7a7480', fontWeight: 600 }}>pts</span>
+                        </td>
+                      )}
 
                       {/* Optional Tabulation Total Marks Input */}
                       <td style={{ padding: '8px 16px' }}>
@@ -840,7 +928,7 @@ export default function ScoringForm({
               gap: '12px'
             }}>
               <p style={{ margin: 0, fontSize: '0.8rem', color: '#7a7480' }}>
-                💡 <strong>Tip:</strong> Entering marks automatically calculates the grade (A ≥ 80, B ≥ 60). Points update dynamically in real time.
+                💡 <strong>Tip:</strong> Entering marks automatically calculates the grade (A ≥ 80, B ≥ 60).{!isStageJury && " Points update dynamically in real time."}
               </p>
               
               <button 

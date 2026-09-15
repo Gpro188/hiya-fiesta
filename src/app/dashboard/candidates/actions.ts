@@ -450,9 +450,20 @@ export async function searchCandidatesForReplacement(query: string, zoneId?: str
     const where: any = {};
 
     if (zoneId && zoneId !== "ALL") {
-      where.team = {
-        event: { zoneId }
-      };
+      if (zoneId === "STATE") {
+        where.team = {
+          event: {
+            OR: [
+              { type: "STATE" },
+              { parentId: null }
+            ]
+          }
+        };
+      } else {
+        where.team = {
+          event: { zoneId }
+        };
+      }
     }
 
     if (q) {

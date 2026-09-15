@@ -215,6 +215,8 @@ export async function submitMarks(data: {
 export async function batchSubmitProgramMarks(data: {
   eventId: string;
   programId: string;
+  venue?: string;
+  assignToVenue?: boolean;
   publishImmediately?: boolean;
   evaluator1?: string;
   evaluator2?: string;
@@ -255,6 +257,19 @@ export async function batchSubmitProgramMarks(data: {
       }
     }
 
+    // Pre-fetch candidate teamIds to ensure teamId is saved on results for quick aggregation
+    const candidateIds = data.entries.map(e => e.candidateId).filter(Boolean) as string[];
+    const candidateTeamMap = new Map<string, string>();
+    if (candidateIds.length > 0) {
+      const candidates = await prisma.candidate.findMany({
+        where: { id: { in: candidateIds } },
+        select: { id: true, teamId: true }
+      });
+      candidates.forEach(c => {
+        if (c.teamId) candidateTeamMap.set(c.id, c.teamId);
+      });
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const entry of data.entries) {
         // Compute combined points if rank or grade provided
@@ -271,6 +286,7 @@ export async function batchSubmitProgramMarks(data: {
         }
 
         if (entry.candidateId) {
+          const candTeamId = entry.teamId || candidateTeamMap.get(entry.candidateId) || undefined;
           await tx.result.upsert({
             where: { candidateId_programId: { candidateId: entry.candidateId, programId: data.programId } },
             update: {
@@ -278,11 +294,13 @@ export async function batchSubmitProgramMarks(data: {
               rank: entry.rank || null,
               grade: entry.grade || null,
               points: calcPoints,
-              isPublished: shouldPublish
+              isPublished: shouldPublish,
+              ...(candTeamId ? { teamId: candTeamId } : {})
             },
             create: {
               candidateId: entry.candidateId,
               programId: data.programId,
+              teamId: candTeamId,
               marks: entry.marks,
               rank: entry.rank || null,
               grade: entry.grade || null,
@@ -298,7 +316,7 @@ export async function batchSubmitProgramMarks(data: {
               rank: entry.rank || null,
               grade: entry.grade || null,
               points: calcPoints,
-              isPublished: data.publishImmediately ?? false
+              isPublished: shouldPublish
             },
             create: {
               teamId: entry.teamId,
@@ -307,7 +325,7 @@ export async function batchSubmitProgramMarks(data: {
               rank: entry.rank || null,
               grade: entry.grade || null,
               points: calcPoints,
-              isPublished: data.publishImmediately ?? false
+              isPublished: shouldPublish
             }
           });
         }
@@ -321,6 +339,7 @@ export async function batchSubmitProgramMarks(data: {
         select: { id: true }
       });
       if (judges.length > 0) {
+        // Assign to current program
         await prisma.program.update({
           where: { id: data.programId },
           data: {
@@ -329,15 +348,100 @@ export async function batchSubmitProgramMarks(data: {
             }
           }
         }).catch(() => {});
+
+        // If assignToVenue is selected, also assign these juries to all programs in this venue!
+        if (data.assignToVenue && (data.venue || program.venue)) {
+          const v = data.venue || program.venue;
+          const targetEvent = await prisma.event.findUnique({
+            where: { id: data.eventId },
+            select: { id: true, parentId: true }
+          });
+          const progEventId = targetEvent?.parentId || data.eventId;
+
+          const venuePrograms = await prisma.program.findMany({
+            where: {
+              eventId: progEventId,
+              venue: { equals: v, mode: "insensitive" }
+            },
+            select: { id: true }
+          });
+
+          for (const vp of venuePrograms) {
+            await prisma.program.update({
+              where: { id: vp.id },
+              data: {
+                judges: {
+                  set: judges.map(j => ({ id: j.id }))
+                }
+              }
+            }).catch(() => {});
+          }
+        }
       }
     }
 
     revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {
     console.error("Batch submission failed:", error);
     return { success: false, error: error.message || "Failed to save batch results" };
+  }
+}
+
+// Standalone action to assign juries directly to a venue
+export async function assignJudgesToVenueAction(eventId: string, venue: string, judgeUsernames: string[]) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const cleanNames = judgeUsernames.map(u => u.trim()).filter(Boolean);
+    if (cleanNames.length === 0) {
+      return { success: false, error: "Please select at least one evaluator / jury." };
+    }
+
+    const judges = await prisma.user.findMany({
+      where: { username: { in: cleanNames, mode: "insensitive" } },
+      select: { id: true }
+    });
+
+    if (judges.length === 0) {
+      return { success: false, error: "Selected juries were not found in user database." };
+    }
+
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, parentId: true }
+    });
+    const progEventId = targetEvent?.parentId || eventId;
+
+    const venuePrograms = await prisma.program.findMany({
+      where: {
+        eventId: progEventId,
+        venue: { equals: venue, mode: "insensitive" }
+      },
+      select: { id: true }
+    });
+
+    for (const vp of venuePrograms) {
+      await prisma.program.update({
+        where: { id: vp.id },
+        data: {
+          judges: {
+            set: judges.map(j => ({ id: j.id }))
+          }
+        }
+      }).catch(() => {});
+    }
+
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/juries");
+    return { success: true, count: venuePrograms.length };
+  } catch (error: any) {
+    console.error("assignJudgesToVenueAction error:", error);
+    return { success: false, error: error.message || "Failed to assign juries to venue" };
   }
 }
 
@@ -349,6 +453,8 @@ export async function togglePublishResult(id: string, isPublished: boolean) {
     }
     await prisma.result.update({ where: { id }, data: { isPublished } });
     revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to update publication status" };
@@ -366,10 +472,30 @@ export async function publishProgramResults(programId: string) {
       data: { isPublished: true }
     });
     revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
     revalidatePath("/");
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to publish program results" };
+  }
+}
+
+export async function unpublishProgramResults(programId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    await prisma.result.updateMany({
+      where: { programId },
+      data: { isPublished: false }
+    });
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/tv");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to unpublish program results" };
   }
 }
 

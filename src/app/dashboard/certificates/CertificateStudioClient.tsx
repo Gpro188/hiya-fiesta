@@ -70,6 +70,9 @@ export default function CertificateStudioClient({
   // Show template background on screen in Studio
   const [showTemplateBgInStudio, setShowTemplateBgInStudio] = useState(true);
 
+  // Full capital letters option (enabled by default for printing)
+  const [fullCapitalLetters, setFullCapitalLetters] = useState(true);
+
   // Dragging state on canvas
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -251,23 +254,25 @@ export default function CertificateStudioClient({
   };
 
   // Format Place Value based on formatType
-  const formatPlace = (rank: number, formatType?: string) => {
+  const formatPlace = (rank: number, formatType?: string, uppercase = false) => {
+    let val = '';
     if (formatType === 'word') {
-      return rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
+      val = rank === 1 ? 'First Place' : rank === 2 ? 'Second Place' : 'Third Place';
+    } else if (formatType === 'wordonly') {
+      val = rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
+    } else if (formatType === 'number') {
+      val = rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
+    } else {
+      val = rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
     }
-    if (formatType === 'wordonly') {
-      return rank === 1 ? 'First' : rank === 2 ? 'Second' : 'Third';
-    }
-    if (formatType === 'number') {
-      return rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
-    }
-    return rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : '3rd Place';
+    return uppercase ? val.toUpperCase() : val;
   };
 
   // Format Grade Value (Crucial: omit if null)
-  const formatGrade = (grade: string | null | undefined, prefix = 'With ', suffix = ' Grade') => {
+  const formatGrade = (grade: string | null | undefined, prefix = 'With ', suffix = ' Grade', uppercase = false) => {
     if (!grade || grade.trim() === '' || grade === '-') return '';
-    return `${prefix}${grade.trim()}${suffix}`;
+    const text = `${prefix}${grade.trim()}${suffix}`;
+    return uppercase ? text.toUpperCase() : text;
   };
 
   // Available font families
@@ -545,7 +550,34 @@ export default function CertificateStudioClient({
               </span>
             </div>
 
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setFullCapitalLetters(prev => !prev)}
+                className={`btn btn-sm ${fullCapitalLetters ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontWeight: 800,
+                  backgroundColor: fullCapitalLetters ? "#1e40af" : undefined,
+                  color: fullCapitalLetters ? "#ffffff" : undefined,
+                  borderColor: fullCapitalLetters ? "#1d4ed8" : undefined,
+                }}
+                title="When ON, all printed certificate fields (Candidate Name, Institution, Place, Program, Category, Grade) print in uppercase capital letters"
+              >
+                <span>🔠 FULL CAPITAL LETTERS:</span>
+                <span style={{
+                  backgroundColor: fullCapitalLetters ? "#10b981" : "#94a3b8",
+                  color: "#fff",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                  fontSize: "0.7rem"
+                }}>
+                  {fullCapitalLetters ? "ON" : "OFF"}
+                </span>
+              </button>
+
               <button
                 type="button"
                 disabled={winners.length === 0}
@@ -821,11 +853,32 @@ export default function CertificateStudioClient({
                 </div>
               </div>
 
-              {/* Field Area Calibrator */}
+              {/* Field Positioning & Size Controls */}
               <div className="glass-panel" style={{ padding: "18px" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem", fontWeight: 700, color: "var(--primary)" }}>
-                  2. Field Area Positioning
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--primary)" }}>
+                    2. Field Area Positioning
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allCaps = Object.values(layout.fields).every(f => f.textTransform === 'uppercase');
+                      const newTransform = allCaps ? 'none' : 'uppercase';
+                      setLayout(prev => {
+                        const updatedFields: any = { ...prev.fields };
+                        Object.keys(updatedFields).forEach(k => {
+                          updatedFields[k] = { ...updatedFields[k], textTransform: newTransform };
+                        });
+                        return { ...prev, fields: updatedFields };
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    style={{ padding: "4px 10px", fontSize: "0.75rem", fontWeight: 700, borderColor: "var(--primary)", color: "var(--primary)" }}
+                    title="Toggle all fields to full capital letters"
+                  >
+                    🔠 {Object.values(layout.fields).every(f => f.textTransform === 'uppercase') ? "Reset Capitalization" : "All Fields UPPERCASE"}
+                  </button>
+                </div>
 
                 {/* Field Selector Tabs */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
@@ -995,6 +1048,24 @@ export default function CertificateStudioClient({
                             />
                           </div>
                         </div>
+                      </div>
+
+                      {/* Text Transform / Casing */}
+                      <div>
+                        <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 700, marginBottom: "4px" }}>
+                          Text Casing (Capitalization)
+                        </label>
+                        <select
+                          value={field.textTransform || 'none'}
+                          onChange={(e) => updateFieldConfig(selectedFieldKey, { textTransform: e.target.value as any })}
+                          className="input"
+                          style={{ padding: "4px 8px" }}
+                        >
+                          <option value="none">Normal (As Entered)</option>
+                          <option value="uppercase">UPPERCASE (FULL CAPITAL LETTERS)</option>
+                          <option value="capitalize">Capitalize (Title Case)</option>
+                          <option value="lowercase">lowercase</option>
+                        </select>
                       </div>
 
                       {/* Place-specific format options */}
@@ -1177,13 +1248,17 @@ export default function CertificateStudioClient({
                   let textToDisplay = "";
                   if (fKey === 'candidateName') textToDisplay = activeWinnerForStudio.candidateName;
                   else if (fKey === 'institutionName') textToDisplay = activeWinnerForStudio.institutionName;
-                  else if (fKey === 'place') textToDisplay = formatPlace(activeWinnerForStudio.rank, field.formatType);
-                  else if (fKey === 'grade') textToDisplay = formatGrade(activeWinnerForStudio.grade, field.prefix, field.suffix);
+                  else if (fKey === 'place') textToDisplay = formatPlace(activeWinnerForStudio.rank, field.formatType, fullCapitalLetters || field.textTransform === 'uppercase');
+                  else if (fKey === 'grade') textToDisplay = formatGrade(activeWinnerForStudio.grade, field.prefix, field.suffix, fullCapitalLetters || field.textTransform === 'uppercase');
                   else if (fKey === 'programName') textToDisplay = activeWinnerForStudio.programName;
                   else if (fKey === 'categoryName') textToDisplay = `${field.prefix || ''}${activeWinnerForStudio.categoryName}${field.suffix || ''}`;
                   else if (fKey === 'chestNumber') textToDisplay = `${field.prefix || ''}${activeWinnerForStudio.chestNumber}${field.suffix || ''}`;
                   else if (fKey === 'zoneName') textToDisplay = activeWinnerForStudio.zoneName || "CSWC Hiya Fiesta";
                   else if (fKey === 'dateYear') textToDisplay = "September 2026";
+
+                  if (fullCapitalLetters || field.textTransform === 'uppercase') {
+                    textToDisplay = textToDisplay.toUpperCase();
+                  }
 
                   // Skip rendering grade if candidate has none
                   if (fKey === 'grade' && (!activeWinnerForStudio.grade || activeWinnerForStudio.grade === '-')) {
@@ -1212,7 +1287,7 @@ export default function CertificateStudioClient({
                         color: field.color,
                         textAlign: field.textAlign,
                         letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
-                        textTransform: field.textTransform || 'none',
+                        textTransform: fullCapitalLetters ? 'uppercase' : (field.textTransform || 'none'),
                         cursor: "pointer",
                         padding: "2px 6px",
                         borderRadius: "4px",
@@ -1321,11 +1396,13 @@ export default function CertificateStudioClient({
                     color: layout.fields.candidateName.color,
                     textAlign: layout.fields.candidateName.textAlign,
                     letterSpacing: layout.fields.candidateName.letterSpacing ? `${layout.fields.candidateName.letterSpacing}px` : undefined,
-                    textTransform: layout.fields.candidateName.textTransform || 'none',
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.candidateName.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {candidate.candidateName}
+                  {(fullCapitalLetters || layout.fields.candidateName.textTransform === 'uppercase') 
+                    ? (candidate.candidateName || '').toUpperCase() 
+                    : candidate.candidateName}
                 </div>
               )}
 
@@ -1347,10 +1424,15 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.institutionName.fontFamily,
                     color: layout.fields.institutionName.color,
                     textAlign: layout.fields.institutionName.textAlign,
+                    letterSpacing: layout.fields.institutionName.letterSpacing ? `${layout.fields.institutionName.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.institutionName.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {candidate.institutionName}{candidate.institutionPlace ? `, ${candidate.institutionPlace}` : ''}
+                  {(() => {
+                    const inst = `${candidate.institutionName || ''}${candidate.institutionPlace ? `, ${candidate.institutionPlace}` : ''}`;
+                    return (fullCapitalLetters || layout.fields.institutionName.textTransform === 'uppercase') ? inst.toUpperCase() : inst;
+                  })()}
                 </div>
               )}
 
@@ -1372,10 +1454,12 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.place.fontFamily,
                     color: layout.fields.place.color,
                     textAlign: layout.fields.place.textAlign,
+                    letterSpacing: layout.fields.place.letterSpacing ? `${layout.fields.place.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.place.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {formatPlace(candidate.rank, layout.fields.place.formatType)}
+                  {formatPlace(candidate.rank, layout.fields.place.formatType, fullCapitalLetters || layout.fields.place.textTransform === 'uppercase')}
                 </div>
               )}
 
@@ -1397,10 +1481,12 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.grade.fontFamily,
                     color: layout.fields.grade.color,
                     textAlign: layout.fields.grade.textAlign,
+                    letterSpacing: layout.fields.grade.letterSpacing ? `${layout.fields.grade.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.grade.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {formatGrade(candidate.grade, layout.fields.grade.prefix, layout.fields.grade.suffix)}
+                  {formatGrade(candidate.grade, layout.fields.grade.prefix, layout.fields.grade.suffix, fullCapitalLetters || layout.fields.grade.textTransform === 'uppercase')}
                 </div>
               )}
 
@@ -1422,10 +1508,14 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.programName.fontFamily,
                     color: layout.fields.programName.color,
                     textAlign: layout.fields.programName.textAlign,
+                    letterSpacing: layout.fields.programName.letterSpacing ? `${layout.fields.programName.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.programName.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {candidate.programName}
+                  {(fullCapitalLetters || layout.fields.programName.textTransform === 'uppercase') 
+                    ? (candidate.programName || '').toUpperCase() 
+                    : candidate.programName}
                 </div>
               )}
 
@@ -1447,10 +1537,15 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.categoryName.fontFamily,
                     color: layout.fields.categoryName.color,
                     textAlign: layout.fields.categoryName.textAlign,
+                    letterSpacing: layout.fields.categoryName.letterSpacing ? `${layout.fields.categoryName.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.categoryName.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {layout.fields.categoryName.prefix || ''}{candidate.categoryName}{layout.fields.categoryName.suffix || ''}
+                  {(() => {
+                    const cat = `${layout.fields.categoryName.prefix || ''}${candidate.categoryName || ''}${layout.fields.categoryName.suffix || ''}`;
+                    return (fullCapitalLetters || layout.fields.categoryName.textTransform === 'uppercase') ? cat.toUpperCase() : cat;
+                  })()}
                 </div>
               )}
 
@@ -1472,15 +1567,20 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.chestNumber.fontFamily,
                     color: layout.fields.chestNumber.color,
                     textAlign: layout.fields.chestNumber.textAlign,
+                    letterSpacing: layout.fields.chestNumber.letterSpacing ? `${layout.fields.chestNumber.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.chestNumber.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {layout.fields.chestNumber.prefix || ''}{candidate.chestNumber}{layout.fields.chestNumber.suffix || ''}
+                  {(() => {
+                    const chest = `${layout.fields.chestNumber.prefix || ''}${candidate.chestNumber || ''}${layout.fields.chestNumber.suffix || ''}`;
+                    return (fullCapitalLetters || layout.fields.chestNumber.textTransform === 'uppercase') ? chest.toUpperCase() : chest;
+                  })()}
                 </div>
               )}
 
               {/* Zone Name */}
-              {layout.fields.zoneName.enabled && (
+              {layout.fields.zoneName && layout.fields.zoneName.enabled && (
                 <div
                   style={{
                     position: "absolute",
@@ -1497,15 +1597,20 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.zoneName.fontFamily,
                     color: layout.fields.zoneName.color,
                     textAlign: layout.fields.zoneName.textAlign,
+                    letterSpacing: layout.fields.zoneName.letterSpacing ? `${layout.fields.zoneName.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.zoneName.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {candidate.zoneName || "CSWC Fest"}
+                  {(() => {
+                    const zone = candidate.zoneName || "CSWC Fest";
+                    return (fullCapitalLetters || layout.fields.zoneName.textTransform === 'uppercase') ? zone.toUpperCase() : zone;
+                  })()}
                 </div>
               )}
 
               {/* Date / Year */}
-              {layout.fields.dateYear.enabled && (
+              {layout.fields.dateYear && layout.fields.dateYear.enabled && (
                 <div
                   style={{
                     position: "absolute",
@@ -1522,10 +1627,12 @@ export default function CertificateStudioClient({
                     fontFamily: layout.fields.dateYear.fontFamily,
                     color: layout.fields.dateYear.color,
                     textAlign: layout.fields.dateYear.textAlign,
+                    letterSpacing: layout.fields.dateYear.letterSpacing ? `${layout.fields.dateYear.letterSpacing}px` : undefined,
+                    textTransform: fullCapitalLetters ? 'uppercase' : (layout.fields.dateYear.textTransform || 'none'),
                     whiteSpace: "nowrap"
                   }}
                 >
-                  September 2026
+                  {(fullCapitalLetters || layout.fields.dateYear.textTransform === 'uppercase') ? "SEPTEMBER 2026" : "September 2026"}
                 </div>
               )}
             </div>

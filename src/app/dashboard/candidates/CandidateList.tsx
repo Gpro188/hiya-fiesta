@@ -26,12 +26,14 @@ export default function CandidateList({
   candidates, 
   role, 
   categories,
-  isSchedulePublished = true 
+  isSchedulePublished = true,
+  zones = [] 
 }: { 
   candidates: CandidateType[], 
   role: string, 
   categories: any[],
-  isSchedulePublished?: boolean 
+  isSchedulePublished?: boolean,
+  zones?: any[] 
 }) {
   const [editingCandidate, setEditingCandidate] = useState<CandidateType | null>(null);
   const [replacementModalCandidateId, setReplacementModalCandidateId] = useState<string | null>(null);
@@ -98,57 +100,45 @@ export default function CandidateList({
                         fontFamily: 'monospace',
                         border: '1px solid rgba(16, 185, 129, 0.3)'
                       }}>
-                        {candidate.chestNumber}
+                        #{candidate.chestNumber}
                       </span>
                       {candidate.replacedFromChest && (
-                        <div style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 800, marginTop: '3px' }} title={candidate.replacementNote || `Replaced from Chest #${candidate.replacedFromChest}`}>
-                          🔁 From #{candidate.replacedFromChest}
+                        <div style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600, marginTop: '2px' }} title={candidate.replacementNote || 'Replaced'}>
+                          (repl. #{candidate.replacedFromChest})
                         </div>
                       )}
                     </div>
                   ) : (
-                    <span style={{ 
-                      color: 'var(--text-muted)', 
-                      fontSize: '0.75rem', 
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                      padding: '3px 6px', 
-                      borderRadius: '4px', 
-                      border: '1px dashed var(--border-color)'
-                    }}>
-                      Pending
-                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                   )}
                 </td>
 
-                {/* Photo Column */}
+                {/* Candidate Photo */}
                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                   {photoSrc ? (
                     <img 
                       src={photoSrc} 
-                      alt={candidate.name} 
-                      style={{ 
-                        width: '38px', 
-                        height: '38px', 
-                        borderRadius: '6px', 
-                        objectFit: 'cover', 
+                      alt={candidate.name}
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
                         border: '1.5px solid var(--border-color)',
-                        display: 'block',
-                        margin: '0 auto'
-                      }} 
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                        display: 'inline-block'
+                      }}
                     />
                   ) : (
-                    <div style={{ 
-                      width: '38px', 
-                      height: '38px', 
-                      borderRadius: '6px', 
-                      backgroundColor: 'rgba(255,255,255,0.05)', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
+                    <div style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       fontSize: '0.9rem',
-                      margin: '0 auto',
-                      border: '1px dashed var(--border-color)'
+                      color: 'var(--text-muted)'
                     }}>
                       👤
                     </div>
@@ -157,63 +147,53 @@ export default function CandidateList({
 
                 {/* Candidate Name & UID */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.95rem' }}>
-                      {candidate.name}
-                    </span>
-                    {candidate.replacedFromChest && (
-                      <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }} title={candidate.replacementNote || `Replaced from Chest #${candidate.replacedFromChest}`}>
-                        Replaced from #{candidate.replacedFromChest}
-                      </span>
-                    )}
-                  </div>
+                  <div style={{ fontWeight: 600 }}>{candidate.name}</div>
                   {candidate.uid && (
-                    <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600, marginTop: '2px' }}>
+                    <span style={{ 
+                      fontSize: '0.72rem', 
+                      color: 'var(--text-secondary)',
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      fontFamily: 'monospace'
+                    }}>
                       UID: {candidate.uid}
-                    </div>
+                    </span>
                   )}
                 </td>
 
+                {/* Team / Institution */}
                 {!isInstitutionRole && (
-                  <td style={{ padding: 'var(--spacing-sm)', fontSize: '0.85rem' }}>
-                    {(() => {
-                      const { name: instName, place: instPlace } = formatInstitutionDisplay(candidate.team);
-                      return (
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{instName}</div>
-                          {instPlace && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                              <span>📍</span> {instPlace}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                  <td style={{ padding: 'var(--spacing-sm)' }}>
+                    <div style={{ fontSize: '0.875rem' }}>
+                      {formatInstitutionDisplay(candidate.team).name}
+                    </div>
+                    {formatInstitutionDisplay(candidate.team).place && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        📍 {formatInstitutionDisplay(candidate.team).place}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {candidate.team.event.name}
+                    </div>
                   </td>
                 )}
 
+                {/* Category */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                  <span style={{ 
-                    fontSize: '0.78rem', 
-                    fontWeight: 600, 
-                    padding: '2px 8px', 
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--border-color)'
-                  }}>
+                  <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
                     {candidate.category.name}
                   </span>
                 </td>
 
+                {/* Programs count */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
                   <span style={{ 
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
                     fontSize: '0.85rem',
-                    fontWeight: 600
+                    fontWeight: candidate._count.programs > 0 ? 600 : 400,
+                    color: candidate._count.programs > 0 ? 'var(--text-primary)' : 'var(--text-muted)'
                   }}>
-                    <span>📜</span> {candidate._count.programs}
+                    {candidate._count.programs} assigned
                   </span>
                 </td>
 
@@ -221,36 +201,34 @@ export default function CandidateList({
                 <td style={{ padding: 'var(--spacing-sm)' }}>
                   {candidate.isApproved ? (
                     <span style={{ 
-                      display: 'inline-flex',
-                      alignItems: 'center',
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
                       gap: '4px',
-                      color: 'var(--success)', 
-                      fontSize: '0.8rem', 
-                      fontWeight: 700,
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                      padding: '3px 8px', 
-                      borderRadius: '4px' 
+                      fontSize: '0.75rem', 
+                      color: 'var(--success)',
+                      fontWeight: 600
                     }}>
-                      ✓ Confirmed
+                      <span>✓</span> Approved
                     </span>
                   ) : (
                     <span style={{ 
-                      color: 'var(--warning)', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
                       fontSize: '0.75rem', 
-                      backgroundColor: 'rgba(245, 158, 11, 0.1)', 
-                      padding: '3px 8px', 
-                      borderRadius: '4px',
+                      color: 'var(--warning)',
                       fontWeight: 600
                     }}>
-                      ⏳ Pending Zone Admin
+                      <span>⏳</span> Pending
                     </span>
                   )}
                 </td>
 
                 {/* Actions */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && !candidate.isApproved && (
+                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                    {/* Zone Admins or Admins can approve */}
+                    {["ZONE_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role) && !candidate.isApproved && (
                       <button 
                         onClick={async () => {
                           const result = await approveCandidate(candidate.id);
@@ -259,49 +237,32 @@ export default function CandidateList({
                           }
                         }}
                         className="btn btn-primary" 
-                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', backgroundColor: 'var(--success)' }}
                       >
                         Approve
                       </button>
                     )}
-                    
-                    {["MANAGER", "INSTITUTION_MANAGER", "ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
-                      <a 
-                        href={`/dashboard/assignments?candidateId=${candidate.id}`}
-                        className="btn btn-secondary"
-                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none' }}
-                      >
-                        Programs
-                      </a>
-                    )}
 
-                    {/* Direct Candidate Replacement for Super Admin & Admin */}
-                    {["ADMIN", "SUPER_ADMIN"].includes(role) && (
-                      <button 
-                        onClick={() => setReplacementModalCandidateId(candidate.id)}
-                        className="btn btn-secondary" 
-                        style={{ 
-                          padding: '0.2rem 0.5rem', 
-                          fontSize: '0.75rem', 
-                          fontWeight: 700, 
-                          backgroundColor: 'rgba(245, 158, 11, 0.15)', 
-                          color: '#d97706', 
-                          borderColor: '#f59e0b' 
-                        }}
-                        title="Directly replace this candidate with another student"
-                      >
-                        🔄 Replace
-                      </button>
-                    )}
-
-                    {/* Only allow editing if not approved (for Manager) or always (for Admin / Super Admin) */}
-                    {(["ADMIN", "SUPER_ADMIN"].includes(role) || !candidate.isApproved) && (
+                    {/* Allow editing candidate info */}
+                    {(["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) || (!candidate.isApproved && isInstitutionRole)) && (
                       <button 
                         onClick={() => setEditingCandidate(candidate)}
                         className="btn btn-secondary" 
                         style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                       >
                         Edit
+                      </button>
+                    )}
+
+                    {/* Direct Candidate & Program Replacement for Admins */}
+                    {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+                      <button 
+                        onClick={() => setReplacementModalCandidateId(candidate.id)}
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: '#f43f5e', borderColor: 'rgba(244, 63, 94, 0.4)' }}
+                        title="Replace candidate or swap program"
+                      >
+                        🔄 Replace
                       </button>
                     )}
                     
@@ -362,6 +323,7 @@ export default function CandidateList({
       {replacementModalCandidateId && (
         <DirectCandidateReplacementModal
           initialCandidateId={replacementModalCandidateId}
+          zones={zones}
           onClose={() => setReplacementModalCandidateId(null)}
           onReplaced={() => window.location.reload()}
         />

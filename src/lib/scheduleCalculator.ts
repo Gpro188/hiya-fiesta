@@ -37,10 +37,12 @@ export interface ProgramLike {
   id: string;
   programCode?: string | null;
   name: string;
-  type?: string; // "INDIVIDUAL" | "GROUP" | "GENERAL" | "BREAK"
+  type?: string; // "INDIVIDUAL" | "GROUP" | "GENERAL" | "INSTITUTION" | "BREAK"
   stageType?: string; // "ON_STAGE" | "OFF_STAGE" | "BREAK"
   venue?: string | null;
   duration?: number; // base duration in minutes (e.g. 5, 8, 10, 60)
+  durationMode?: string | null; // "AUTO" | "PER_TEAM" | "PER_CANDIDATE" | "TOTAL_FIXED"
+  candidateLimitPerTeam?: number;
   startTime?: string | Date | null;
   assignments?: ProgramAssignmentLike[];
   category?: { id?: string; name?: string } | null;
@@ -63,6 +65,7 @@ export interface CalculatedProgramSlot {
   teamCount: number;
   duration: number; // total calculated minutes
   durationPerItem: number; // minutes per candidate / team
+  durationMode?: string;
   predictedStart: Date;
   predictedEnd: Date;
   filteredAssignments: ProgramAssignmentLike[];
@@ -112,7 +115,7 @@ export function calculateDynamicProgramDuration(
   program: ProgramLike,
   filteredAssignments: ProgramAssignmentLike[],
   options: CalculationOptions = {}
-): { duration: number; candidateCount: number; teamCount: number; durationPerItem: number } {
+): { duration: number; candidateCount: number; teamCount: number; durationPerItem: number; durationMode: string } {
   const isBreak = program.type === "BREAK" || program.stageType === "BREAK";
   if (isBreak) {
     return {
@@ -120,6 +123,7 @@ export function calculateDynamicProgramDuration(
       candidateCount: 0,
       teamCount: 0,
       durationPerItem: program.duration || 15,
+      durationMode: "TOTAL_FIXED"
     };
   }
 
@@ -127,50 +131,48 @@ export function calculateDynamicProgramDuration(
   const uniqueTeams = new Set(
     filteredAssignments.map(a => a.candidate?.teamId).filter(Boolean)
   );
-  const teamCount = uniqueTeams.size;
+  const rawTeamCount = uniqueTeams.size;
+  const limitPerTeam = program.candidateLimitPerTeam || 1;
+  const teamCount = rawTeamCount > 0 ? rawTeamCount : (candidateCount > 0 ? Math.ceil(candidateCount / limitPerTeam) : 0);
 
   const progType = (program.type || "INDIVIDUAL").toUpperCase();
   const baseProgDuration = program.duration && program.duration > 0 ? program.duration : 5;
 
-  if (progType === "INDIVIDUAL") {
-    if (options.minutesPerCandidate) {
-      // Explicit override: compute total from per-candidate minutes
-      const minPerCandidate = options.minutesPerCandidate;
-      if (candidateCount === 0) {
-        return { duration: minPerCandidate, candidateCount: 0, teamCount: 0, durationPerItem: minPerCandidate };
-      }
-      const duration = candidateCount * minPerCandidate;
-      return { duration, candidateCount, teamCount, durationPerItem: minPerCandidate };
+  // Determine effective timing mode
+  let effectiveMode = (program.durationMode || "AUTO").toUpperCase();
+  if (effectiveMode === "AUTO") {
+    if (progType === "GROUP" || progType === "GENERAL" || limitPerTeam > 1) {
+      effectiveMode = "PER_TEAM";
+    } else if (progType === "INDIVIDUAL") {
+      effectiveMode = "PER_CANDIDATE";
+    } else {
+      effectiveMode = "TOTAL_FIXED";
     }
-    // No override: program.duration IS the total duration stored in DB.
-    // Derive per-candidate minutes from total ÷ count.
-    if (candidateCount === 0) {
-      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
-      return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem };
-    }
-    const minPerCandidate = Math.max(1, Math.round(baseProgDuration / candidateCount));
+  }
+
+  // 1. TOTAL_FIXED: Program has a fixed duration for the whole session (e.g. written exams, quizzes, or fixed group slot)
+  if (effectiveMode === "TOTAL_FIXED") {
+    const duration = baseProgDuration;
     return {
-      duration: baseProgDuration, // keep the stored total as-is
+      duration,
       candidateCount,
       teamCount,
-      durationPerItem: minPerCandidate,
+      durationPerItem: duration,
+      durationMode: "TOTAL_FIXED"
     };
   }
 
-  if (progType === "GROUP") {
+  // 2. PER_TEAM: Multiplied by Group / Team Count (e.g. Mashup, Group Song, Skit, Kolkali)
+  if (effectiveMode === "PER_TEAM") {
     if (options.minutesPerTeam) {
-      // Explicit override: compute total from per-team minutes
       const minPerTeam = options.minutesPerTeam;
-      if (teamCount === 0) {
-        return { duration: minPerTeam, candidateCount: 0, teamCount: 0, durationPerItem: minPerTeam };
-      }
-      const duration = teamCount * minPerTeam;
-      return { duration, candidateCount, teamCount, durationPerItem: minPerTeam };
+      const duration = teamCount > 0 ? teamCount * minPerTeam : minPerTeam;
+      return { duration, candidateCount, teamCount, durationPerItem: minPerTeam, durationMode: "PER_TEAM" };
     }
-    // No override: program.duration IS total. Derive per-team.
+    // No override: derive per-team minutes from stored total duration
     if (teamCount === 0) {
-      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
-      return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem };
+      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 8;
+      return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem, durationMode: "PER_TEAM" };
     }
     const minPerTeam = Math.max(1, Math.round(baseProgDuration / teamCount));
     return {
@@ -178,16 +180,27 @@ export function calculateDynamicProgramDuration(
       candidateCount,
       teamCount,
       durationPerItem: minPerTeam,
+      durationMode: "PER_TEAM"
     };
   }
 
-  // GENERAL or simultaneous programs (e.g. Quiz, general off-stage, or single-session stage)
-  const duration = baseProgDuration > 0 ? baseProgDuration : 60;
+  // 3. PER_CANDIDATE: Multiplied by Individual Candidate Count
+  if (options.minutesPerCandidate) {
+    const minPerCandidate = options.minutesPerCandidate;
+    const duration = candidateCount > 0 ? candidateCount * minPerCandidate : minPerCandidate;
+    return { duration, candidateCount, teamCount, durationPerItem: minPerCandidate, durationMode: "PER_CANDIDATE" };
+  }
+  if (candidateCount === 0) {
+    const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
+    return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem, durationMode: "PER_CANDIDATE" };
+  }
+  const minPerCandidate = Math.max(1, Math.round(baseProgDuration / candidateCount));
   return {
-    duration,
+    duration: baseProgDuration,
     candidateCount,
     teamCount,
-    durationPerItem: duration,
+    durationPerItem: minPerCandidate,
+    durationMode: "PER_CANDIDATE"
   };
 }
 
