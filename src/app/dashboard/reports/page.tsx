@@ -162,6 +162,15 @@ export default async function ReportsPage(props: {
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Off-stage valuation sheet to send to Zonal Centers. Mark entry with Candidate Photos, Chest Numbers, Zone-based for all off-stage programs.</p>
           </a>
+
+          <a href="/print/zonal-offstage-valuation?type=magazine" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #7e22ce', backgroundColor: 'rgba(126,34,206,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📖</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#7e22ce' }}>Zonal Magazine Valuation Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(126,34,206,0.12)', color: '#7e22ce', fontWeight: 800 }}>MAGAZINE CODES</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official Magazine evaluation sheets for Zonal centers. Evaluates physical magazine copies by Magazine Code (MAG-01, MAG-02) with blind judging option.</p>
+          </a>
           
           <a href={`/print/tabulation?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🧮</div>

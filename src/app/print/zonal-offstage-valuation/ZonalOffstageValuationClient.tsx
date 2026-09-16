@@ -24,6 +24,7 @@ type ProgramValuationSheet = {
   categoryName: string;
   duration: number;
   venue: string | null;
+  evaluationCriteria?: string | null;
   candidates: CandidateEntry[];
 };
 
@@ -62,6 +63,7 @@ export default function ZonalOffstageValuationClient({
     initialProgramId || "ALL"
   );
   const [filterConfirmedOnly, setFilterConfirmedOnly] = useState<boolean>(false);
+  const [blindMode, setBlindMode] = useState<boolean>(false);
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
 
   // Active Zone data
@@ -69,10 +71,11 @@ export default function ZonalOffstageValuationClient({
 
   // Filter programs in this zone
   const visiblePrograms = (activeZone?.programs || []).filter((p) => {
-    if (selectedProgramId !== "ALL" && p.programId !== selectedProgramId) {
-      return false;
+    if (selectedProgramId === "ALL") return true;
+    if (selectedProgramId === "MAGAZINE") {
+      return p.programName.toLowerCase().includes("magazine") || p.programCode === "43";
     }
-    return true;
+    return p.programId === selectedProgramId;
   });
 
   const totalCandidatesInZone = (activeZone?.programs || []).reduce(
@@ -165,11 +168,19 @@ export default function ZonalOffstageValuationClient({
                 <option value="ALL">
                   All Off-Stage Programs ({activeZone?.programs.length || 0})
                 </option>
-                {(activeZone?.programs || []).map((p) => (
-                  <option key={p.programId} value={p.programId}>
-                    [{p.programCode || "P"}] {p.programName} ({p.candidates.length} candidates)
+                {activeZone?.programs.some((p) => p.programName.toLowerCase().includes("magazine") || p.programCode === "43") && (
+                  <option value="MAGAZINE" style={{ fontWeight: 800, color: "#d8b4fe" }}>
+                    📖 Magazine Evaluation Only
                   </option>
-                ))}
+                )}
+                {(activeZone?.programs || []).map((p) => {
+                  const isMag = p.programName.toLowerCase().includes("magazine") || p.programCode === "43";
+                  return (
+                    <option key={p.programId} value={p.programId}>
+                      [{p.programCode || "P"}] {p.programName} ({p.candidates.length} {isMag ? "magazines" : "candidates"})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -184,6 +195,28 @@ export default function ZonalOffstageValuationClient({
                 />
                 <label htmlFor="confOnly" style={{ fontSize: "0.75rem", color: "#cbd5e1", cursor: "pointer", fontWeight: 600 }}>
                   Confirmed Only
+                </label>
+              </div>
+
+              {/* Blind Judging Mode Toggle */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                backgroundColor: blindMode ? "rgba(234, 179, 8, 0.15)" : "transparent",
+                padding: "3px 8px",
+                borderRadius: "5px",
+                border: blindMode ? "1px solid #eab308" : "1px solid #475569"
+              }}>
+                <input
+                  type="checkbox"
+                  id="blindMode"
+                  checked={blindMode}
+                  onChange={(e) => setBlindMode(e.target.checked)}
+                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                />
+                <label htmlFor="blindMode" style={{ fontSize: "0.75rem", color: blindMode ? "#fde047" : "#cbd5e1", cursor: "pointer", fontWeight: 700 }}>
+                  🙈 Blind Judging (Hide Names)
                 </label>
               </div>
 
@@ -301,6 +334,7 @@ export default function ZonalOffstageValuationClient({
           </div>
         ) : (
           visiblePrograms.map((prog, pIdx) => {
+            const isMagazine = prog.programName.toLowerCase().includes("magazine") || prog.programCode === "43";
             const candidates = filterConfirmedOnly
               ? prog.candidates.filter((c) => c.isConfirmed)
               : prog.candidates;
@@ -320,11 +354,13 @@ export default function ZonalOffstageValuationClient({
               >
                 {/* ── Sheet Header ── */}
                 <div style={{ borderBottom: "2px solid #0f172a", paddingBottom: "8px", marginBottom: "10px", textAlign: "center" }}>
-                  <div style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#8E0033" }}>
+                  <div style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: isMagazine ? "#7e22ce" : "#8E0033" }}>
                     {festName}
                   </div>
                   <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "2px" }}>
-                    CSWC STATE FESTIVAL 2026 • OFF-STAGE VALUATION & MARK ENTRY RECORD
+                    {isMagazine
+                      ? "CSWC STATE FESTIVAL 2026 • ZONAL MAGAZINE VALUATION & MARK ENTRY RECORD"
+                      : "CSWC STATE FESTIVAL 2026 • OFF-STAGE VALUATION & MARK ENTRY RECORD"}
                   </div>
                   {festMoto && (
                     <div style={{ fontSize: "0.72rem", fontStyle: "italic", color: "#64748b", marginTop: "1px" }}>
@@ -338,17 +374,17 @@ export default function ZonalOffstageValuationClient({
                   display: "grid",
                   gridTemplateColumns: "1.6fr 1fr",
                   gap: "12px",
-                  backgroundColor: "#f8fafc",
-                  border: "1.5px solid #0f172a",
+                  backgroundColor: isMagazine ? "#faf5ff" : "#f8fafc",
+                  border: isMagazine ? "1.5px solid #7e22ce" : "1.5px solid #0f172a",
                   borderRadius: "4px",
                   padding: "8px 12px",
                   marginBottom: "8px",
                   fontSize: "0.82rem",
                 }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px", flexWrap: "wrap" }}>
                       <span style={{
-                        backgroundColor: "#8E0033",
+                        backgroundColor: isMagazine ? "#7e22ce" : "#8E0033",
                         color: "#ffffff",
                         padding: "2px 6px",
                         borderRadius: "3px",
@@ -361,6 +397,32 @@ export default function ZonalOffstageValuationClient({
                       <strong style={{ fontSize: "1.02rem", color: "#0f172a" }}>
                         {prog.programName}
                       </strong>
+                      {isMagazine && (
+                        <span style={{
+                          backgroundColor: "#f3e8ff",
+                          color: "#7e22ce",
+                          border: "1px solid #d8b4fe",
+                          fontSize: "0.7rem",
+                          fontWeight: 800,
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                        }}>
+                          📖 INSTITUTION MAGAZINE SUBMISSION
+                        </span>
+                      )}
+                      {blindMode && (
+                        <span style={{
+                          backgroundColor: "#fef3c7",
+                          color: "#b45309",
+                          border: "1px solid #fde68a",
+                          fontSize: "0.7rem",
+                          fontWeight: 800,
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                        }}>
+                          🙈 BLIND JUDGING ACTIVE
+                        </span>
+                      )}
                     </div>
                     <div style={{ color: "#334155", fontSize: "0.78rem", marginTop: "2px" }}>
                       <strong>Category:</strong> <span style={{ fontWeight: 700 }}>{prog.categoryName}</span> • <strong>Duration:</strong> {prog.duration} Min • <strong>Max Marks:</strong> 100
@@ -375,40 +437,76 @@ export default function ZonalOffstageValuationClient({
                       Valuation Center: <strong>{prog.venue || "Zonal Center"}</strong>
                     </div>
                     <div style={{ fontSize: "0.76rem", color: "#475569", marginTop: "1px" }}>
-                      Registered Candidates in Zone: <strong>{candidates.length}</strong>
+                      {isMagazine ? "Total Submitted Magazines: " : "Registered Candidates in Zone: "}
+                      <strong style={{ color: isMagazine ? "#7e22ce" : "#0f172a" }}>{candidates.length}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* ── Mark Entry Instructions for Judges ── */}
-                <div style={{
-                  padding: "4px 10px",
-                  backgroundColor: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  borderRadius: "4px",
-                  fontSize: "0.72rem",
-                  color: "#991b1b",
-                  marginBottom: "8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}>
-                  <span>
-                    <strong>Valuation Protocol:</strong> Verify candidate scripts with official <strong>Chest Number</strong> and candidate photo. Marks must be entered in ink without overwriting.
-                  </span>
-                  <span>
-                    <strong>Evaluation:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
-                  </span>
-                </div>
+                {isMagazine ? (
+                  <div style={{
+                    padding: "6px 10px",
+                    backgroundColor: "#faf5ff",
+                    border: "1.5px solid #d8b4fe",
+                    borderRadius: "4px",
+                    fontSize: "0.72rem",
+                    color: "#581c87",
+                    marginBottom: "8px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                      <span>
+                        <strong>📖 Magazine Valuation Protocol:</strong> Verify physical magazine copies by official <strong>Magazine Code</strong> (e.g. MAG-01) on the top-right cover. Marks must be entered in ink without overwriting.
+                      </span>
+                      <span>
+                        <strong>Evaluation:</strong> Max Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
+                      </span>
+                    </div>
+                    {prog.evaluationCriteria && (
+                      <div style={{ fontSize: "0.7rem", color: "#6b21a8", borderTop: "1px dashed #d8b4fe", paddingTop: "4px" }}>
+                        <strong>മൂല്യനിർണ്ണയ മാനദണ്ഡങ്ങൾ (Official Evaluation Criteria):</strong> {prog.evaluationCriteria}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "4px 10px",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "4px",
+                    fontSize: "0.72rem",
+                    color: "#991b1b",
+                    marginBottom: "8px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}>
+                    <span>
+                      <strong>Valuation Protocol:</strong> Verify candidate scripts with official <strong>Chest Number</strong> and candidate photo. Marks must be entered in ink without overwriting.
+                    </span>
+                    <span>
+                      <strong>Evaluation:</strong> Maximum Score (100) &bull; Obtained Score &bull; Grade &bull; Place (1st, 2nd, 3rd)
+                    </span>
+                  </div>
+                )}
 
                 {/* ── Candidates Mark Entry Table ── */}
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: orientation === "landscape" ? "0.84rem" : "0.8rem", border: "1.5px solid #0f172a", marginBottom: "10px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "30px" }}>Sl</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "80px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "46px" }}>Photo</th>
-                      <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>Candidate Name & UID</th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "100px" : "85px" }}>
+                        {isMagazine ? "Magazine Code" : "Chest No."}
+                      </th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 2px", width: "46px" }}>
+                        {isMagazine ? "Entry" : "Photo"}
+                      </th>
+                      <th style={{ border: "1px solid #0f172a", padding: "6px 6px", textAlign: "left" }}>
+                        {isMagazine ? "Institution / Magazine Name" : "Candidate Name & UID"}
+                      </th>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", width: orientation === "landscape" ? "85px" : "70px" }}>Inst. Code</th>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "90px" : "70px" }}>Maximum Score</th>
                       <th style={{ border: "1px solid #0f172a", padding: "6px 4px", width: orientation === "landscape" ? "110px" : "85px", backgroundColor: "#1e293b" }}>Obtained Score</th>
@@ -421,7 +519,9 @@ export default function ZonalOffstageValuationClient({
                     {candidates.length === 0 ? (
                       <tr>
                         <td colSpan={10} style={{ padding: "20px", textAlign: "center", color: "#64748b" }}>
-                          No candidates registered for this program in this zone.
+                          {isMagazine
+                            ? "No physical magazine submissions registered for this zone."
+                            : "No candidates registered for this program in this zone."}
                         </td>
                       </tr>
                     ) : (
@@ -434,14 +534,15 @@ export default function ZonalOffstageValuationClient({
                             {c.chestNumber ? (
                               <span style={{
                                 display: "inline-block",
-                                backgroundColor: "#fdf2f4",
-                                border: "1.5px solid #8E0033",
-                                color: "#8E0033",
+                                backgroundColor: isMagazine ? "#faf5ff" : "#fdf2f4",
+                                border: `1.5px solid ${isMagazine ? "#7e22ce" : "#8E0033"}`,
+                                color: isMagazine ? "#7e22ce" : "#8E0033",
                                 fontWeight: 900,
                                 fontSize: "0.9rem",
                                 padding: "2px 6px",
                                 borderRadius: "3px",
                                 letterSpacing: "0.5px",
+                                fontFamily: "monospace",
                               }}>
                                 {c.chestNumber}
                               </span>
@@ -452,7 +553,22 @@ export default function ZonalOffstageValuationClient({
                             )}
                           </td>
                           <td style={{ border: "1px solid #0f172a", padding: "2px 2px", textAlign: "center", verticalAlign: "middle" }}>
-                            {c.candidatePhoto ? (
+                            {isMagazine ? (
+                              <div style={{
+                                width: "30px",
+                                height: "36px",
+                                backgroundColor: "#f5f3ff",
+                                border: "1px solid #d8b4fe",
+                                borderRadius: "2px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                margin: "0 auto",
+                                fontSize: "1.1rem",
+                              }}>
+                                📖
+                              </div>
+                            ) : c.candidatePhoto ? (
                               <img
                                 src={c.candidatePhoto}
                                 alt={c.candidateName}
@@ -485,27 +601,53 @@ export default function ZonalOffstageValuationClient({
                             )}
                           </td>
                           <td style={{ border: "1px solid #0f172a", padding: "3px 6px" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>
-                              {c.candidateName}
-                            </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontFamily: "monospace", marginTop: "1px" }}>
-                              UID: {c.candidateUid || "—"}
-                            </div>
+                            {blindMode ? (
+                              <div>
+                                <span style={{
+                                  fontFamily: "monospace",
+                                  fontSize: "0.8rem",
+                                  fontWeight: 700,
+                                  color: "#64748b",
+                                  backgroundColor: "#f1f5f9",
+                                  padding: "2px 6px",
+                                  borderRadius: "3px",
+                                  border: "1px dashed #cbd5e1"
+                                }}>
+                                  [CONFIDENTIAL — BLIND JUDGING]
+                                </span>
+                                <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: "1px" }}>
+                                  Evaluated strictly by code #{c.chestNumber || "—"}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>
+                                  {c.candidateName}
+                                </div>
+                                <div style={{ fontSize: "0.68rem", color: "#64748b", fontFamily: "monospace", marginTop: "1px" }}>
+                                  {isMagazine ? (c.institutionPlace ? `Place: ${c.institutionPlace}` : `Code: ${c.institutionCode || "—"}`) : `UID: ${c.candidateUid || "—"}`}
+                                </div>
+                              </div>
+                            )}
                           </td>
-                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }} title={`${c.institutionName || ""} ${c.institutionPlace ? `(${c.institutionPlace})` : ""}`}>
-                            <span style={{
-                              display: "inline-block",
-                              backgroundColor: "#f1f5f9",
-                              border: "1px solid #cbd5e1",
-                              color: "#0f172a",
-                              fontWeight: 800,
-                              fontFamily: "monospace",
-                              fontSize: "0.82rem",
-                              padding: "2px 6px",
-                              borderRadius: "3px",
-                            }}>
-                              {c.institutionCode || "—"}
-                            </span>
+                          <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center" }} title={blindMode ? "" : `${c.institutionName || ""} ${c.institutionPlace ? `(${c.institutionPlace})` : ""}`}>
+                            {blindMode ? (
+                              <span style={{ color: "#94a3b8", fontFamily: "monospace", letterSpacing: "2px" }}>***</span>
+                            ) : (
+                              <span style={{
+                                display: "inline-block",
+                                backgroundColor: "#f1f5f9",
+                                border: "1px solid #cbd5e1",
+                                color: "#0f172a",
+                                fontWeight: 800,
+                                fontFamily: "monospace",
+                                fontSize: "0.82rem",
+                                padding: "2px 6px",
+                                borderRadius: "3px",
+                              }}>
+                                {c.institutionCode || "—"}
+                              </span>
+                            )}
                           </td>
                           {/* Maximum Score */}
                           <td style={{ border: "1px solid #0f172a", padding: "3px 4px", textAlign: "center", fontWeight: 700, color: "#334155" }}>
