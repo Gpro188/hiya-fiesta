@@ -293,16 +293,18 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 800, color: '#1a1420', fontSize: '0.92rem', wordBreak: 'break-word' }}>
-                          {res.candidate?.name || res.team?.name}
+                          {res.candidate ? res.candidate.name : (res.team?.institution?.name || res.team?.name)}
                         </div>
                         {(() => {
-                          const instObj = res.candidate?.team || res.team || { name: res.candidate?.institution?.name };
+                          const instObj = res.candidate?.institution || res.candidate?.team?.institution || res.team?.institution || res.team;
                           const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
                           return (
                             <div>
-                              <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700, wordBreak: 'break-word' }}>
-                                {instName}
-                              </div>
+                              {res.candidate && (
+                                <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700, wordBreak: 'break-word' }}>
+                                  {instName}
+                                </div>
+                              )}
                               {instPlace && (
                                 <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '1px', fontWeight: 500 }}>
                                   📍 {instPlace}
@@ -314,6 +316,17 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                         {res.candidate?.chestNumber && (
                           <div style={{ fontSize: '0.7rem', color: '#a1a1aa', fontFamily: "'IBM Plex Mono', monospace" }}>
                             Chest #{res.candidate.chestNumber}
+                          </div>
+                        )}
+                        {/* If team result with registered student participants */}
+                        {res.teamParticipants && res.teamParticipants.length > 0 && (
+                          <div style={{ marginTop: '5px', fontSize: '0.72rem', color: '#475569', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 800, color: '#8E0033' }}>👥 Members ({res.teamParticipants.length}):</span>
+                            {res.teamParticipants.map((p: any) => (
+                              <span key={p.id} style={{ backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                                {p.name} {p.chestNumber ? `(#${p.chestNumber})` : ''}
+                              </span>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -421,10 +434,14 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                   {/* Winners List */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                       {results.slice(0, 4).map((result: any, idx: number) => {
-                          const name = result.candidate?.name || result.team?.name || '';
+                          const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
                           const chest = result.candidate?.chestNumber || '';
-                          const instName = result.candidate?.institution?.name || result.candidate?.team?.name || '';
-                          const instPlace = result.candidate?.institution?.place || '';
+                          const instName = result.candidate
+                            ? (result.candidate?.institution?.name || result.candidate?.team?.institution?.name || result.candidate?.team?.name || '')
+                            : (result.teamParticipants && result.teamParticipants.length > 0
+                                ? result.teamParticipants.map((p: any) => p.name).join(', ')
+                                : '');
+                          const instPlace = result.candidate?.institution?.place || result.team?.institution?.place || '';
                           const rankNum = result.rank || (idx + 1);
                           
                           // Match the green/orange/red colors from the reference design

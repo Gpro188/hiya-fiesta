@@ -504,6 +504,20 @@ const getCacheCSWCgramResults = unstable_cache(
       include: {
         category: true,
         event: true,
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: {
+                  include: {
+                    institution: { select: { name: true, place: true } }
+                  }
+                },
+                institution: { select: { name: true, place: true } }
+              }
+            }
+          }
+        },
         results: {
           where: { 
             isPublished: true,
@@ -532,6 +546,28 @@ const getCacheCSWCgramResults = unstable_cache(
     });
 
     if (!program) return { program: null, settings: null };
+
+    const mappedResults = program.results.map((r: any) => {
+      if (r.teamId && !r.candidateId) {
+        const participants = (program.assignments || [])
+          .filter((a: any) => a.candidate?.teamId === r.teamId || a.candidate?.institutionId === r.team?.institutionId)
+          .map((a: any) => ({
+            id: a.candidate.id,
+            name: a.candidate.name,
+            chestNumber: a.candidate.chestNumber
+          }));
+        return {
+          ...r,
+          teamParticipants: participants
+        };
+      }
+      return r;
+    });
+
+    const programWithMappedResults = {
+      ...program,
+      results: mappedResults
+    };
 
     // Use provided eventId for settings if available, otherwise use program.eventId
     const settingsEventId = eventId || program.eventId;
@@ -563,7 +599,7 @@ const getCacheCSWCgramResults = unstable_cache(
         }
     }
 
-    return { program, settings };
+    return { program: programWithMappedResults, settings };
   },
   ['program-results'],
   { revalidate: 60, tags: ['results'] }

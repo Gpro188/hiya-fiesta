@@ -45,7 +45,7 @@ export default async function PrintCertificatePage(props: {
   });
 
   const filteredWinners = searchParams.candidateId
-    ? winners.filter(w => w.id === searchParams.candidateId)
+    ? winners.filter(w => w.id === searchParams.candidateId || w.candidateId === searchParams.candidateId || w.resultId === searchParams.candidateId)
     : winners;
 
   return (

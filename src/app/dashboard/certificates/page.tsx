@@ -63,12 +63,23 @@ export default async function CertificatesDashboardPage(props: {
           combined.push(pp);
         }
       }
+      const filteredProgs = combined.filter(p => {
+        const name = (p.name || "").toLowerCase();
+        return !name.includes("magazine") && p.programCode !== "43" && (p.type || "").toUpperCase() !== "INSTITUTION";
+      });
       return {
         ...ev,
-        programs: combined
+        programs: filteredProgs
       };
     }
-    return ev;
+    const filteredProgs = ev.programs.filter(p => {
+      const name = (p.name || "").toLowerCase();
+      return !name.includes("magazine") && p.programCode !== "43" && (p.type || "").toUpperCase() !== "INSTITUTION";
+    });
+    return {
+      ...ev,
+      programs: filteredProgs
+    };
   }));
 
   const allZones = await prisma.zone.findMany({

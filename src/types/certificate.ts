@@ -40,10 +40,13 @@ export interface CertificateLayoutConfig {
 
 export interface CertificateWinner {
   id: string;
+  resultId?: string;
+  candidateId?: string;
   candidateName: string;
   chestNumber: string;
   institutionName: string;
   institutionPlace?: string;
+  teamName?: string;
   programId: string;
   programName: string;
   programCode?: string;

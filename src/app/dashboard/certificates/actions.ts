@@ -221,12 +221,23 @@ export async function getCertificateEventsAndMetadata() {
           combined.push(pp);
         }
       }
+      const filteredProgs = combined.filter(p => {
+        const name = (p.name || "").toLowerCase();
+        return !name.includes("magazine") && p.programCode !== "43" && (p.type || "").toUpperCase() !== "INSTITUTION";
+      });
       return {
         ...ev,
-        programs: combined
+        programs: filteredProgs
       };
     }
-    return ev;
+    const filteredProgs = ev.programs.filter(p => {
+      const name = (p.name || "").toLowerCase();
+      return !name.includes("magazine") && p.programCode !== "43" && (p.type || "").toUpperCase() !== "INSTITUTION";
+    });
+    return {
+      ...ev,
+      programs: filteredProgs
+    };
   }));
 
   const allZones = await prisma.zone.findMany({
@@ -339,13 +350,63 @@ export async function getCertificateWinners(params: {
     ]
   });
 
+  // Filter out Magazine programs ("BUT IN MAGAZIN NO NEED CERTIFICATE")
+  const filteredResults = results.filter(res => {
+    const prog = res.program;
+    const name = (prog.name || "").toLowerCase();
+    const isMag = name.includes("magazine") || prog.programCode === "43" || (prog.type || "").toUpperCase() === "INSTITUTION";
+    return !isMag;
+  });
+
+  // Query candidate assignments for General/Group programs and team results
+  const teamResults = filteredResults.filter(r => (r.teamId && !r.candidateId) || r.program.type === "GENERAL" || r.program.type === "GROUP");
+  const teamProgramIds = Array.from(new Set(teamResults.map(r => r.programId)));
+  const teamIds = Array.from(new Set(teamResults.map(r => r.teamId).filter(Boolean))) as string[];
+
+  let teamAssignments: any[] = [];
+  if (teamProgramIds.length > 0 && teamIds.length > 0) {
+    teamAssignments = await prisma.programAssignment.findMany({
+      where: {
+        programId: { in: teamProgramIds },
+        candidate: {
+          teamId: { in: teamIds }
+        }
+      },
+      include: {
+        candidate: {
+          include: {
+            category: true,
+            institution: { include: { zone: true } },
+            team: {
+              include: {
+                institution: { include: { zone: true } }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { slotNumber: "asc" },
+        { candidate: { chestNumber: "asc" } },
+        { candidate: { name: "asc" } }
+      ]
+    });
+  }
+
+  const assignmentsByProgramAndTeam = new Map<string, any[]>();
+  for (const a of teamAssignments) {
+    const key = `${a.programId}_${a.candidate.teamId}`;
+    if (!assignmentsByProgramAndTeam.has(key)) {
+      assignmentsByProgramAndTeam.set(key, []);
+    }
+    assignmentsByProgramAndTeam.get(key)!.push(a.candidate);
+  }
+
   // Query which certificates have been printed
-  const resultIds = results.map(r => r.id);
   const printLogs = await prisma.systemAuditLog.findMany({
     where: {
       action: "CERTIFICATE_PRINTED",
-      entityType: "RESULT",
-      entityId: { in: resultIds }
+      entityType: "RESULT"
     },
     orderBy: { timestamp: "desc" }
   });
@@ -356,21 +417,16 @@ export async function getCertificateWinners(params: {
     }
   });
 
-  const winners: CertificateWinner[] = results.map((res) => {
+  const winners: CertificateWinner[] = [];
+
+  for (const res of filteredResults) {
     const isTeam = !!res.teamId && !res.candidateId;
     const cand = res.candidate;
     const team = res.team;
     const prog = res.program;
     const event = prog.event;
 
-    const candidateName = cand?.name || team?.name || "Participant";
-    const chestNumber = cand?.chestNumber || cand?.team?.magazineCode || "-";
-    const inst = cand?.institution || cand?.team?.institution || team?.institution;
-    const institutionName = inst?.name || "Institution";
-    const institutionPlace = inst?.place || "";
-
     const rank = res.rank || 1;
-    const placeWord = rank === 1 ? "First Place" : rank === 2 ? "Second Place" : "Third Place";
     const placeOrdinal = rank === 1 ? "1st Place" : rank === 2 ? "2nd Place" : "3rd Place";
 
     // Grade handling: if no grade, grade is null so it's omitted
@@ -380,19 +436,79 @@ export async function getCertificateWinners(params: {
     const gradeText = hasGrade ? `${rawGrade} Grade` : null;
 
     const categoryName = prog.category?.name || cand?.category?.name || "General";
-    const zoneName = event.zone?.name || inst?.zone?.name || "Zonal Fest";
+    const zoneName = event.zone?.name || cand?.institution?.zone?.name || team?.institution?.zone?.name || "Zonal Fest";
 
-    const isPrinted = printMap.has(res.id);
-    const printedAt = printMap.get(res.id)?.toISOString() || null;
     const isPublished = Boolean(res.isPublished);
     const publishedAt = res.isPublished ? res.updatedAt.toISOString() : null;
 
-    return {
+    // Check if this is a Team/General program with registered participants
+    if (res.teamId && (!res.candidateId || prog.type === "GENERAL" || prog.type === "GROUP")) {
+      const key = `${res.programId}_${res.teamId}`;
+      const candidates = assignmentsByProgramAndTeam.get(key) || [];
+
+      if (candidates.length > 0) {
+        for (const assignedCand of candidates) {
+          const compId = `${res.id}_${assignedCand.id}`;
+          const isPrinted = printMap.has(compId) || printMap.has(res.id);
+          const printedAt = printMap.get(compId)?.toISOString() || printMap.get(res.id)?.toISOString() || null;
+          const inst = assignedCand.institution || assignedCand.team?.institution || team?.institution;
+          const institutionName = inst?.name || team?.name || "Institution";
+          const institutionPlace = inst?.place || "";
+
+          winners.push({
+            id: compId,
+            resultId: res.id,
+            candidateId: assignedCand.id,
+            candidateName: assignedCand.name,
+            chestNumber: assignedCand.chestNumber || "-",
+            institutionName,
+            institutionPlace,
+            teamName: team?.name,
+            programId: prog.id,
+            programName: prog.name,
+            programCode: prog.programCode || undefined,
+            categoryId: prog.categoryId || undefined,
+            categoryName: prog.category?.name || assignedCand.category?.name || "General",
+            rank,
+            placeText: placeOrdinal,
+            grade,
+            gradeText,
+            zoneId: event.zoneId || undefined,
+            zoneName: event.zone?.name || inst?.zone?.name || "Zonal Fest",
+            eventId: event.id,
+            eventName: event.name,
+            marks: res.marks,
+            type: "GROUP",
+            stageType: prog.stageType || undefined,
+            isPublished,
+            publishedAt,
+            isPrinted,
+            printedAt
+          });
+        }
+        continue;
+      }
+    }
+
+    // Individual Candidate or Fallback Team Winner
+    const candidateName = cand?.name || team?.name || "Participant";
+    const chestNumber = cand?.chestNumber || "-";
+    const inst = cand?.institution || cand?.team?.institution || team?.institution;
+    const institutionName = inst?.name || team?.name || "Institution";
+    const institutionPlace = inst?.place || "";
+
+    const isPrinted = printMap.has(res.id);
+    const printedAt = printMap.get(res.id)?.toISOString() || null;
+
+    winners.push({
       id: res.id,
+      resultId: res.id,
+      candidateId: cand?.id,
       candidateName,
       chestNumber,
       institutionName,
       institutionPlace,
+      teamName: team?.name,
       programId: prog.id,
       programName: prog.name,
       programCode: prog.programCode || undefined,
@@ -413,8 +529,8 @@ export async function getCertificateWinners(params: {
       publishedAt,
       isPrinted,
       printedAt
-    };
-  });
+    });
+  }
 
   // Apply optional search filter: Candidate name, Chest #, Program name, Program code/number, Institution name
   if (searchQuery && searchQuery.trim() !== "") {
@@ -452,6 +568,20 @@ export async function markCertificatesPrinted(resultIds: string[]) {
           timestamp: now
         }
       });
+      if (id.includes("_")) {
+        const baseResultId = id.split("_")[0];
+        await prisma.systemAuditLog.create({
+          data: {
+            userId: session.user.id || "admin",
+            userName: session.user.name || "Administrator",
+            action: "CERTIFICATE_PRINTED",
+            entityType: "RESULT",
+            entityId: baseResultId,
+            reason: "Team result certificate printed",
+            timestamp: now
+          }
+        });
+      }
     }));
 
     return { success: true };
@@ -469,11 +599,19 @@ export async function unmarkCertificatesPrinted(resultIds: string[]) {
     }
     if (!resultIds || resultIds.length === 0) return { success: true };
 
+    const allIdsToDelete = new Set<string>();
+    for (const id of resultIds) {
+      allIdsToDelete.add(id);
+      if (id.includes("_")) {
+        allIdsToDelete.add(id.split("_")[0]);
+      }
+    }
+
     await prisma.systemAuditLog.deleteMany({
       where: {
         action: "CERTIFICATE_PRINTED",
         entityType: "RESULT",
-        entityId: { in: resultIds }
+        entityId: { in: Array.from(allIdsToDelete) }
       }
     });
 
