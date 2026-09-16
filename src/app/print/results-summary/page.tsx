@@ -14,13 +14,39 @@ export default async function ZonalResultsSummaryPage(props: {
 
   // Find active event or first event if not provided
   if (!eventId) {
-    const defaultEv = await prisma.event.findFirst({
+    // 1. First look for events that have actual published results (e.g. Thrissur Zone)
+    const evWithResults = await prisma.event.findFirst({
       where: {
-        statusOverride: { in: ["LIVE", "COMPLETED", "SCHEDULE_PUBLISHED"] }
+        OR: [
+          { programs: { some: { results: { some: { isPublished: true } } } } },
+          { teams: { some: { candidates: { some: { results: { some: { isPublished: true } } } } } } },
+          { teams: { some: { results: { some: { isPublished: true } } } } }
+        ],
+        parentId: { not: null }
       },
       orderBy: { updatedAt: "desc" }
-    }) || await prisma.event.findFirst({ orderBy: { updatedAt: "desc" } });
-    eventId = defaultEv?.id;
+    }) || await prisma.event.findFirst({
+      where: {
+        OR: [
+          { programs: { some: { results: { some: { isPublished: true } } } } },
+          { teams: { some: { candidates: { some: { results: { some: { isPublished: true } } } } } } },
+          { teams: { some: { results: { some: { isPublished: true } } } } }
+        ]
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    if (evWithResults) {
+      eventId = evWithResults.id;
+    } else {
+      const defaultEv = await prisma.event.findFirst({
+        where: {
+          statusOverride: { in: ["COMPLETED", "LIVE", "SCHEDULE_PUBLISHED"] }
+        },
+        orderBy: { updatedAt: "desc" }
+      }) || await prisma.event.findFirst({ orderBy: { updatedAt: "desc" } });
+      eventId = defaultEv?.id;
+    }
   }
 
   if (!eventId) {
@@ -38,13 +64,42 @@ export default async function ZonalResultsSummaryPage(props: {
       include: { zone: true, parent: true }
     }),
     prisma.event.findMany({
-      where: { parentId: null },
-      include: { subEvents: true, zone: true },
-      orderBy: { name: "asc" }
+      include: {
+        zone: true,
+        parent: true,
+        _count: {
+          select: {
+            teams: true,
+            programs: true
+          }
+        }
+      },
+      orderBy: [
+        { zone: { name: "asc" } },
+        { name: "asc" }
+      ]
     }),
     getSettings(eventId),
     getPublicEventData(eventId)
   ]);
+
+  // Query published results counts for each event for the zone selector badge
+  const eventResultCounts = await Promise.all(
+    allEvents.map(async (ev) => {
+      const count = await prisma.result.count({
+        where: {
+          OR: [
+            { program: { eventId: ev.id } },
+            { candidate: { team: { eventId: ev.id } } },
+            { team: { eventId: ev.id } }
+          ],
+          isPublished: true
+        }
+      });
+      return { id: ev.id, count };
+    })
+  );
+  const countMap: Record<string, number> = Object.fromEntries(eventResultCounts.map(c => [c.id, c.count]));
 
   const data = publicRes.data || {
     leaderboard: [],
@@ -152,30 +207,56 @@ export default async function ZonalResultsSummaryPage(props: {
         </div>
 
         {/* Sub-Events / Zone Switcher */}
-        {allEvents.length > 1 && (
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid #1e293b", overflowX: "auto" }}>
-            <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 700 }}>Select Zone/Event:</span>
-            {allEvents.map((ev) => {
-              const isSelected = ev.id === eventId;
-              return (
-                <a
-                  key={ev.id}
-                  href={`/print/results-summary?eventId=${ev.id}`}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "0.76rem",
-                    fontWeight: isSelected ? 800 : 600,
-                    textDecoration: "none",
-                    backgroundColor: isSelected ? "#0284c7" : "#1e293b",
-                    color: "#ffffff",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  {ev.name} {ev.zone ? `(${ev.zone.name})` : ""}
-                </a>
-              );
-            })}
+        {allEvents.length > 0 && (
+          <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #1e293b" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Select Fest / Zone:
+              </span>
+              <span style={{ fontSize: "0.72rem", color: "#cbd5e1" }}>
+                Active Zone: <strong style={{ color: "#38bdf8" }}>{activeEv?.zone?.name || activeEv?.name}</strong>
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", overflowX: "auto", paddingBottom: "4px" }}>
+              {allEvents.map((ev) => {
+                const isSelected = ev.id === eventId;
+                const resCount = countMap[ev.id] || 0;
+                const hasResults = resCount > 0;
+                return (
+                  <a
+                    key={ev.id}
+                    href={`/print/results-summary?eventId=${ev.id}`}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "0.78rem",
+                      fontWeight: isSelected ? 900 : 700,
+                      textDecoration: "none",
+                      backgroundColor: isSelected ? "#f59e0b" : hasResults ? "#0f766e" : "#1e293b",
+                      color: isSelected ? "#78350f" : "#ffffff",
+                      whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      border: isSelected ? "1.5px solid #d97706" : "1px solid transparent",
+                      boxShadow: isSelected ? "0 2px 8px rgba(245, 158, 11, 0.4)" : "none"
+                    }}
+                  >
+                    <span>{ev.zone ? `${ev.zone.name} Zone` : ev.name}</span>
+                    <span style={{
+                      fontSize: "0.68rem",
+                      fontWeight: 800,
+                      backgroundColor: isSelected ? "#78350f" : hasResults ? "#134e4a" : "#334155",
+                      color: isSelected ? "#fef3c7" : "#e2e8f0",
+                      padding: "1px 6px",
+                      borderRadius: "10px"
+                    }}>
+                      {hasResults ? `✓ ${resCount} results` : "0 results"}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

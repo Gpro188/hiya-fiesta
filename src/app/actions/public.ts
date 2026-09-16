@@ -48,7 +48,12 @@ const getCachedPublicEventData = unstable_cache(
 
       // 2. Get Teams
       prisma.team.findMany({
-        where: { eventId },
+        where: {
+          OR: [
+            { eventId },
+            { event: { parentId: eventId } }
+          ]
+        },
         select: {
           id: true,
           name: true,
@@ -64,8 +69,11 @@ const getCachedPublicEventData = unstable_cache(
         where: {
           OR: [
             { program: { eventId } },
+            { program: { event: { parentId: eventId } } },
             { candidate: { team: { eventId } } },
-            { team: { eventId } }
+            { candidate: { team: { event: { parentId: eventId } } } },
+            { team: { eventId } },
+            { team: { event: { parentId: eventId } } }
           ],
           isPublished: true
         },
