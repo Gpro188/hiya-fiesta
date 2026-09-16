@@ -178,6 +178,15 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master sheet to map code letters to identities and tally judge scores.</p>
           </a>
 
+          <a href={`/print/results-summary?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #d97706', backgroundColor: 'rgba(217,119,6,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🏆</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#b45309' }}>Zonal Results &amp; Championship Announcement</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontWeight: 800 }}>STAGE DECLARATION</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official declaration document for Zonal Admins &amp; stage announcers: Overall Grand Champions, Fadhila &amp; Fadheela Category Champions, Festival Top Star (Kalaathilakam), and complete institution standings with official signatures.</p>
+          </a>
+
           <a href="/dashboard/certificates" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #059669', backgroundColor: 'rgba(5,150,105,0.03)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>

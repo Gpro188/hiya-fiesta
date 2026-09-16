@@ -502,6 +502,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           icon: "📊",
           href: "/print/tabulation",
         },
+        {
+          name: "Results & Champions",
+          subtitle: "Final announcement sheet",
+          icon: "🏆",
+          href: "/print/results-summary",
+          highlight: true,
+        },
       ],
     });
   }

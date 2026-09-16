@@ -502,122 +502,99 @@ export default async function PrintTabulationPage(props: {
               }}
             >
               {/* Header repeated for every program */}
-              <div style={{ textAlign: "center", marginBottom: "8px", borderBottom: "2px solid #0f172a", paddingBottom: "6px" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 900, textTransform: "uppercase", color: "#8E0033", letterSpacing: "1px" }}>
+              <div style={{ textAlign: "center", marginBottom: "6px", borderBottom: "2px solid #0f172a", paddingBottom: "4px" }}>
+                <div style={{ fontSize: orientation === "landscape" ? "1.12rem" : "1.25rem", fontWeight: 900, textTransform: "uppercase", color: "#8E0033", letterSpacing: "0.5px" }}>
                   {settings.festName}
                 </div>
-                <div style={{ fontSize: "0.88rem", fontWeight: 800, textTransform: "uppercase", color: "#1e293b", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#1e293b", marginTop: "1px" }}>
                   Official Judgement Tabulation Sheet
                 </div>
                 {activeEv && (
-                  <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#475569", marginTop: "2px" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", marginTop: "1px" }}>
                     {activeEv.name} {activeEv.zone ? `(${activeEv.zone.name})` : ""}
                   </div>
                 )}
-                <div style={{
-                  display: "inline-block",
-                  backgroundColor: "#0f172a",
-                  color: "#ffffff",
-                  padding: "3px 12px",
-                  borderRadius: "4px",
-                  fontSize: "0.85rem",
-                  fontWeight: 800,
-                  marginTop: "4px",
-                }}>
-                  STAGE: {program.venue || "Main Stage"}
-                </div>
               </div>
 
               {/* Program Meta & Score-to-Grade Reference Box */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "1.8fr 1fr 1.2fr",
-                gap: "10px",
+                gridTemplateColumns: orientation === "landscape" ? "2fr 1.1fr 1.4fr" : "1.8fr 1fr 1.2fr",
+                gap: "8px",
                 border: "1.5px solid #0f172a",
                 backgroundColor: "#f8fafc",
                 borderRadius: "4px",
-                padding: "8px 12px",
-                marginBottom: "8px",
-                fontSize: "0.82rem",
+                padding: "5px 10px",
+                marginBottom: "6px",
+                fontSize: "0.78rem",
                 alignItems: "center",
               }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1px" }}>
                     <span style={{
                       backgroundColor: "#8E0033",
                       color: "#fff",
-                      padding: "2px 6px",
+                      padding: "1px 5px",
                       borderRadius: "3px",
                       fontWeight: 900,
-                      fontSize: "0.82rem",
+                      fontSize: "0.78rem",
                       fontFamily: "monospace",
                     }}>
                       CODE: {program.programCode || "P"}
                     </span>
-                    <strong style={{ fontSize: "1.1rem", color: "#0f172a" }}>
+                    <strong style={{ fontSize: "0.98rem", color: "#0f172a" }}>
                       {program.name}
                     </strong>
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "2px" }}>
+                  <div style={{ fontSize: "0.74rem", color: "#475569" }}>
                     Category: <strong style={{ color: "#8E0033" }}>{program.category?.name || "General"}</strong> • Stage: <strong>{program.stageType}</strong> • Type: <strong>{program.type}</strong>
                   </div>
                 </div>
 
-                <div style={{ borderLeft: "1px solid #cbd5e1", paddingLeft: "10px" }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>
-                    Stage: {program.venue || "Main Stage"}
+                <div style={{ borderLeft: "1px solid #cbd5e1", paddingLeft: "8px" }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.82rem", color: "#0f172a" }}>
+                    Stage: <span style={{ backgroundColor: "#0f172a", color: "#fff", padding: "1px 6px", borderRadius: "3px" }}>{program.venue || "Main Stage"}</span>
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "2px" }}>
-                    Duration: <strong>{program.duration} min</strong>
-                  </div>
-                  <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: "2px" }}>
-                    {isGeneral ? (
-                      <>Total Teams: <strong>{teamRows.length}</strong> (Candidates: {candidateAssignments.length})</>
+                  <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: "2px" }}>
+                    Duration: <strong>{program.duration} min</strong> • {isGeneral ? (
+                      <>Teams: <strong>{teamRows.length}</strong> (Candidates: {candidateAssignments.length})</>
                     ) : (
-                      <>Total Candidates: <strong>{candidateAssignments.length}</strong></>
+                      <>Candidates: <strong>{candidateAssignments.length}</strong></>
                     )}
                   </div>
                 </div>
 
-                {/* Right: Official Score to Grade Reference Box (Image) */}
+                {/* Right: Official Score to Grade Reference Box */}
                 <div style={{ textAlign: "right" }}>
                   <div style={{
                     display: "inline-block",
                     backgroundColor: "#ffffff",
-                    border: "1.5px solid #0f172a",
+                    border: "1.2px solid #0f172a",
                     borderRadius: "3px",
                     overflow: "hidden",
-                    fontSize: "0.70rem",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    fontSize: "0.68rem",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                   }}>
                     <table style={{ borderCollapse: "collapse", textAlign: "center", margin: 0 }}>
                       <thead>
                         <tr style={{ backgroundColor: "#dcfce7", color: "#065f46" }}>
-                          <th style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800 }}>GRADE</th>
-                          <th style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800 }}>TOTAL (200)</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800 }}>A (160–200)</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800 }}>B (120–159)</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800 }}>C (80–119)</th>
+                          <th style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800 }}>Below 80</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#166534" }}>A GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>160 – 200</td>
-                        </tr>
-                        <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#1e40af" }}>B GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>120 – 159</td>
-                        </tr>
-                        <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#b45309" }}>C GRADE</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>80 – 119</td>
-                        </tr>
-                        <tr>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 800, color: "#991b1b" }}>118 &amp; Below</td>
-                          <td style={{ border: "1px solid #0f172a", padding: "2px 8px", fontWeight: 700 }}>NO GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#166534" }}>A GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#1e40af" }}>B GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#b45309" }}>C GRADE</td>
+                          <td style={{ border: "1px solid #0f172a", padding: "1px 6px", fontWeight: 800, color: "#991b1b" }}>NO GRADE</td>
                         </tr>
                       </tbody>
                     </table>
-                    <div style={{ fontSize: "0.62rem", color: "#64748b", textAlign: "center", marginTop: "2px", fontStyle: "italic" }}>
-                      Jury 1 (100) + Jury 2 (100)
+                    <div style={{ fontSize: "0.60rem", color: "#64748b", textAlign: "center", padding: "1px 0", fontStyle: "italic", backgroundColor: "#f8fafc" }}>
+                      Total Score = Jury 1 (100) + Jury 2 (100)
                     </div>
                   </div>
                 </div>
@@ -625,59 +602,67 @@ export default async function PrintTabulationPage(props: {
 
               {/* Tabulation Table: General (By Team) OR Individual (By Candidate) */}
               {(isGeneral ? teamRows.length === 0 : candidateAssignments.length === 0) ? (
-                <div style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "30px", border: "1px dashed #cbd5e1", borderRadius: "4px" }}>
+                <div style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "20px", border: "1px dashed #cbd5e1", borderRadius: "4px" }}>
                   {isGeneral ? "No teams registered for this general program in this zone yet." : "No candidates registered for this program in this zone yet."}
                 </div>
               ) : isGeneral ? (
                 /* GENERAL PROGRAM: 1 ROW PER TEAM */
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", border: "1.5px solid #0f172a", marginBottom: "14px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem", border: "1.5px solid #0f172a", marginBottom: "8px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "42px" }}>Sl</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "85px", backgroundColor: "#1e293b" }}>Code Letter</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 6px", width: "110px" }}>Chest Nos.</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 10px", textAlign: "left" }}>Team / Institution Name</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "110px" }}>Total (200)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Grade</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Place</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 8px", width: "140px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "36px" }}>Sl</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "75px", backgroundColor: "#1e293b" }}>Code Letter</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 4px", width: "115px" }}>Chest Nos.</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Team / Institution Name</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px" }}>Total (200)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "70px" }}>Grade</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "65px" }}>Place</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 6px", width: "125px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {teamRows.map((tRow, index) => {
                       return (
-                        <tr key={tRow.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "48px" }}>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 800, textAlign: "center" }}>
+                        <tr key={tRow.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "34px" }}>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", fontWeight: 800, textAlign: "center" }}>
                             {index + 1}
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}>
-                            <div style={{ width: "44px", height: "28px", border: "1.5px dashed #475569", margin: "0 auto", borderRadius: "3px", backgroundColor: "#ffffff" }}></div>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", textAlign: "center" }}>
+                            <div style={{ width: "38px", height: "22px", border: "1.2px dashed #475569", margin: "0 auto", borderRadius: "3px", backgroundColor: "#ffffff" }}></div>
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 900, fontSize: "0.85rem", color: "#8E0033", textAlign: "center", fontFamily: "monospace" }}>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", fontWeight: 900, fontSize: "0.78rem", color: "#8E0033", textAlign: "center", fontFamily: "monospace", maxWidth: "115px", wordBreak: "break-word", lineHeight: 1.15 }}>
                             {tRow.chestNumbers || "-"}
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", textAlign: "left" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.90rem" }}>🏛️ {tRow.teamName}</div>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "3px 6px", textAlign: "left" }}>
+                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>🏛️ {tRow.teamName}</div>
                             {tRow.memberNames && (
-                              <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: "2px" }}>
-                                <strong>Members:</strong> {tRow.memberNames}
+                              <div style={{ 
+                                fontSize: "0.66rem", 
+                                color: "#64748b", 
+                                marginTop: "1px", 
+                                whiteSpace: "nowrap", 
+                                overflow: "hidden", 
+                                textOverflow: "ellipsis", 
+                                maxWidth: "260px" 
+                              }} title={tRow.memberNames}>
+                                <span style={{ fontWeight: 700, color: "#334155" }}>({tRow.candidates?.length || 1} M):</span> {tRow.memberNames}
                               </div>
                             )}
                           </td>
                           {/* Jury 1 Marks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
                           {/* Jury 2 Marks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
                           {/* Total Score */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Grade */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Place */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Remarks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px" }}></td>
                         </tr>
                       );
                     })}
@@ -685,19 +670,19 @@ export default async function PrintTabulationPage(props: {
                 </table>
               ) : (
                 /* INDIVIDUAL PROGRAM: 1 ROW PER CANDIDATE */
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", border: "1.5px solid #0f172a", marginBottom: "14px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem", border: "1.5px solid #0f172a", marginBottom: "8px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "42px" }}>Sl</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "85px", backgroundColor: "#1e293b" }}>Code Letter</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 6px", width: "90px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 10px", textAlign: "left" }}>Candidate Name / Institution</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "110px" }}>Total (200)</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Grade</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Place</th>
-                      <th style={{ border: "1px solid #334155", padding: "7px 8px", width: "140px" }}>Remarks</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "36px" }}>Sl</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "75px", backgroundColor: "#1e293b" }}>Code Letter</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 4px", width: "85px" }}>Chest No.</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Candidate Name / Institution</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px" }}>Total (200)</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "70px" }}>Grade</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "65px" }}>Place</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 6px", width: "125px" }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -706,32 +691,32 @@ export default async function PrintTabulationPage(props: {
                       const instName = c.institution?.name || c.team?.institution?.name || c.team?.name || "-";
 
                       return (
-                        <tr key={assignment.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "44px" }}>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 800, textAlign: "center" }}>
+                        <tr key={assignment.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "34px" }}>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", fontWeight: 800, textAlign: "center" }}>
                             {index + 1}
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}>
-                            <div style={{ width: "44px", height: "28px", border: "1.5px dashed #475569", margin: "0 auto", borderRadius: "3px", backgroundColor: "#ffffff" }}></div>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", textAlign: "center" }}>
+                            <div style={{ width: "38px", height: "22px", border: "1.2px dashed #475569", margin: "0 auto", borderRadius: "3px", backgroundColor: "#ffffff" }}></div>
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 900, fontSize: "0.95rem", color: "#8E0033", textAlign: "center", fontFamily: "monospace" }}>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px 4px", fontWeight: 900, fontSize: "0.85rem", color: "#8E0033", textAlign: "center", fontFamily: "monospace" }}>
                             {c.chestNumber || "-"}
                           </td>
-                          <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", textAlign: "left" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a" }}>{c.name}</div>
-                            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{instName}</div>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "3px 6px", textAlign: "left" }}>
+                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>{c.name}</div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.15 }}>{instName}</div>
                           </td>
                           {/* Jury 1 Marks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
                           {/* Jury 2 Marks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
                           {/* Total Score */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Grade */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Place */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px", textAlign: "center" }}></td>
                           {/* Remarks */}
-                          <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}></td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "2px" }}></td>
                         </tr>
                       );
                     })}
@@ -741,16 +726,16 @@ export default async function PrintTabulationPage(props: {
 
               {/* Consensus Signatures Box */}
               <div style={{
-                marginTop: "16px",
+                marginTop: "8px",
                 border: "1.5px solid #0f172a",
                 borderRadius: "4px",
-                padding: "10px 14px",
+                padding: "6px 10px",
                 backgroundColor: "#fafafa",
-                fontSize: "0.78rem",
+                fontSize: "0.74rem",
                 pageBreakInside: "avoid",
                 breakInside: "avoid",
               }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "8px", paddingBottom: "6px", borderBottom: "1px dashed #cbd5e1" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "4px", paddingBottom: "4px", borderBottom: "1px dashed #cbd5e1" }}>
                   <div>
                     <strong>Evaluator:</strong> JURY 1 &amp; JURY 2
                   </div>
@@ -762,22 +747,22 @@ export default async function PrintTabulationPage(props: {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginTop: "16px", textAlign: "center" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginTop: "8px", textAlign: "center" }}>
                   <div>
-                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Jury 1 Name &amp; Signature</div>
+                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 800, fontSize: "0.72rem" }}>Jury 1 Signature</div>
                   </div>
                   <div>
-                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Jury 2 Name &amp; Signature</div>
+                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 800, fontSize: "0.72rem" }}>Jury 2 Signature</div>
                   </div>
                   <div>
-                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Stage Manager Signature</div>
+                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 800, fontSize: "0.72rem" }}>Stage Manager Signature</div>
                   </div>
                   <div>
-                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "26px", marginBottom: "4px" }}></div>
-                    <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>Tabulator / Chief Controller</div>
+                    <div style={{ borderBottom: "1.5px solid #0f172a", height: "18px", marginBottom: "3px" }}></div>
+                    <div style={{ fontWeight: 800, fontSize: "0.72rem" }}>Tabulator / Chief Controller</div>
                   </div>
                 </div>
               </div>
@@ -802,7 +787,7 @@ export default async function PrintTabulationPage(props: {
             .tabulation-sheet-page {
               box-shadow: none !important;
               border: none !important;
-              padding: ${orientation === "landscape" ? "5mm 8mm" : "4mm 6mm"} !important;
+              padding: ${orientation === "landscape" ? "2mm 4mm" : "4mm 6mm"} !important;
               margin: 0 !important;
               page-break-after: always !important;
               break-after: page !important;
@@ -817,7 +802,7 @@ export default async function PrintTabulationPage(props: {
             }
             @page {
               size: A4 ${orientation};
-              margin: ${orientation === "landscape" ? "6mm 8mm" : "4mm"};
+              margin: ${orientation === "landscape" ? "4mm 5mm" : "4mm"};
             }
           }
         `,

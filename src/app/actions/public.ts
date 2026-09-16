@@ -109,7 +109,8 @@ const getCachedPublicEventData = unstable_cache(
               name: true, 
               programCode: true, 
               type: true, 
-              stageType: true 
+              stageType: true,
+              category: { select: { id: true, name: true } }
             } 
           }
         }
@@ -128,12 +129,31 @@ const getCachedPublicEventData = unstable_cache(
       prisma.programAssignment.groupBy({ by: ['candidateId'], where: { program: { eventId } } })
     ]);
 
+    // Helper to detect category
+    const detectProgCat = (r: any): 'FADHILA' | 'FADHEELA' | 'GENERAL' => {
+      const progCat = (r.program?.category?.name || '').toUpperCase();
+      if (progCat.includes('FADHILA')) return 'FADHILA';
+      if (progCat.includes('FADHEELA')) return 'FADHEELA';
+
+      const candCat = (r.candidate?.category?.name || '').toUpperCase();
+      if (candCat.includes('FADHILA')) return 'FADHILA';
+      if (candCat.includes('FADHEELA')) return 'FADHEELA';
+
+      return 'GENERAL';
+    };
+
     // --- Team Leaderboard ---
     const teamScores: Record<string, { 
       id: string, 
       name: string, 
       place: string | null,
       points: number, 
+      fadhilaPoints: number,
+      fadheelaPoints: number,
+      generalPoints: number,
+      gold: number,
+      silver: number,
+      bronze: number,
       flagColor: string | null, 
       leaderName: string | null, 
       leaderPhoto: string | null, 
@@ -159,6 +179,12 @@ const getCachedPublicEventData = unstable_cache(
         name: cleanName,
         place: rawPlace || null,
         points: 0,
+        fadhilaPoints: 0,
+        fadheelaPoints: 0,
+        generalPoints: 0,
+        gold: 0,
+        silver: 0,
+        bronze: 0,
         flagColor: t.flagColor,
         leaderName: t.leaderName,
         leaderPhoto: t.leaderPhoto,
@@ -205,16 +231,49 @@ const getCachedPublicEventData = unstable_cache(
             name: cleanName,
             place: rawPlace || null,
             points: 0,
+            fadhilaPoints: 0,
+            fadheelaPoints: 0,
+            generalPoints: 0,
+            gold: 0,
+            silver: 0,
+            bronze: 0,
             flagColor: teamFlag,
             leaderName: null,
             leaderPhoto: teamLeaderPhoto,
             logoUrl: matchingTeam?.institution?.logoUrl || null
           };
         }
-        teamScores[teamId].points += res.points;
+
+        const pts = res.points || 0;
+        teamScores[teamId].points += pts;
+
+        if (res.rank === 1) teamScores[teamId].gold += 1;
+        else if (res.rank === 2) teamScores[teamId].silver += 1;
+        else if (res.rank === 3) teamScores[teamId].bronze += 1;
+
+        const cat = detectProgCat(res);
+        const isIndiv = res.candidateId && res.program?.type === "INDIVIDUAL";
+
+        // Category champions count strictly by individual programs
+        if (cat === "FADHILA" && isIndiv) {
+          teamScores[teamId].fadhilaPoints += pts;
+        } else if (cat === "FADHEELA" && isIndiv) {
+          teamScores[teamId].fadheelaPoints += pts;
+        } else {
+          teamScores[teamId].generalPoints += pts;
+        }
       }
     });
+
     const leaderboard = Object.values(teamScores).sort((a, b) => b.points - a.points);
+
+    const fadhilaLeaderboard = Object.values(teamScores)
+      .filter(t => t.fadhilaPoints > 0)
+      .sort((a, b) => b.fadhilaPoints - a.fadhilaPoints || b.gold - a.gold || b.silver - a.silver);
+
+    const fadheelaLeaderboard = Object.values(teamScores)
+      .filter(t => t.fadheelaPoints > 0)
+      .sort((a, b) => b.fadheelaPoints - a.fadheelaPoints || b.gold - a.gold || b.silver - a.silver);
 
     // --- Category Top 3 Champions with Detailed Results & Point Types ---
     const candidateScores: Record<string, { 
@@ -378,6 +437,41 @@ const getCachedPublicEventData = unstable_cache(
       winners: p.winners.sort((a, b) => (a.rank || 99) - (b.rank || 99)).slice(0, 3)
     })).slice(0, 5);
 
+    const findCategoryStar = (catPrefix: string) => {
+      for (const [catName, stars] of Object.entries(categoryStars)) {
+        if (catName.toUpperCase().includes(catPrefix) && stars.length > 0) {
+          return stars[0];
+        }
+      }
+      return null;
+    };
+
+    const formatStar = (star: any) => {
+      if (!star) return null;
+      return {
+        ...star,
+        totalPoints: star.points,
+        institutionName: star.teamName,
+      };
+    };
+
+    const champions = {
+      overallChampion: leaderboard[0] || null,
+      overallRunnerUp: leaderboard[1] || null,
+      overallSecondRunnerUp: leaderboard[2] || null,
+      fadhilaTopInstitution: fadhilaLeaderboard[0] || null,
+      fadhilaRunnerUpInstitution: fadhilaLeaderboard[1] || null,
+      fadhilaSecondRunnerUpInstitution: fadhilaLeaderboard[2] || null,
+      fadheelaTopInstitution: fadheelaLeaderboard[0] || null,
+      fadheelaRunnerUpInstitution: fadheelaLeaderboard[1] || null,
+      fadheelaSecondRunnerUpInstitution: fadheelaLeaderboard[2] || null,
+      overallTopStar: formatStar(topStars[0]),
+      fadhilaTopStar: formatStar(findCategoryStar("FADHILA")),
+      fadheelaTopStar: formatStar(findCategoryStar("FADHEELA")),
+      fadhilaLeaderboard,
+      fadheelaLeaderboard,
+    };
+
     return { 
         latestResults,
         latestPublishedPrograms,
@@ -385,6 +479,7 @@ const getCachedPublicEventData = unstable_cache(
         teams, 
         topStars, 
         categoryStars,
+        champions,
         stats
     };
   },

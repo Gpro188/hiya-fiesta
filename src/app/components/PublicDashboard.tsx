@@ -20,6 +20,7 @@ export default function PublicDashboard({
     teams: any[],
     topStars: any[],
     categoryStars: Record<string, any[]>,
+    champions?: any,
     stats?: {
         totalPrograms: number,
         publisheCSWCgrams: number,
@@ -85,10 +86,57 @@ export default function PublicDashboard({
     return () => clearInterval(timer);
   }, [publishedPrograms.length]);
 
-  const maxPoints = Math.max(...data.leaderboard.map(t => t.points), 1);
-  const top1 = data.leaderboard[0];
-  const top2 = data.leaderboard[1];
-  const top3 = data.leaderboard[2];
+  const [standingsCategory, setStandingsCategory] = useState<"ALL" | "FADHILA" | "FADHEELA">("ALL");
+  const [copiedNotice, setCopiedNotice] = useState(false);
+
+  const activeLeaderboard = standingsCategory === "FADHILA"
+    ? (data.champions?.fadhilaLeaderboard || []).map((t: any) => ({ ...t, points: t.fadhilaPoints }))
+    : standingsCategory === "FADHEELA"
+    ? (data.champions?.fadheelaLeaderboard || []).map((t: any) => ({ ...t, points: t.fadheelaPoints }))
+    : data.leaderboard;
+
+  const maxPoints = Math.max(...activeLeaderboard.map((t: any) => t.points), 1);
+  const top1 = activeLeaderboard[0];
+  const top2 = activeLeaderboard[1];
+  const top3 = activeLeaderboard[2];
+
+  const handleCopyAnnouncement = () => {
+    const c = data.champions;
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+    
+    const lines = [
+      `🏆 *HIYA FIESTA 2026 — OFFICIAL FESTIVAL CHAMPIONS* 🏆`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `👑 *OVERALL GRAND CHAMPIONS:*`,
+      c?.overallChampion ? `🥇 Champion: *${c.overallChampion.name}* (${c.overallChampion.points} PTS)` : `🥇 Champion: *${top1?.name || '—'}* (${top1?.points || 0} PTS)`,
+      c?.overallRunnerUp ? `🥈 1st Runner Up: *${c.overallRunnerUp.name}* (${c.overallRunnerUp.points} PTS)` : (top2 ? `🥈 1st Runner Up: *${top2.name}* (${top2.points} PTS)` : ''),
+      c?.overallSecondRunnerUp ? `🥉 2nd Runner Up: *${c.overallSecondRunnerUp.name}* (${c.overallSecondRunnerUp.points} PTS)` : (top3 ? `🥉 2nd Runner Up: *${top3.name}* (${top3.points} PTS)` : ''),
+      ``,
+      `🌺 *FADHILA CATEGORY CHAMPION:*`,
+      c?.fadhilaTopInstitution ? `🥇 1st: *${c.fadhilaTopInstitution.name}* (${c.fadhilaTopInstitution.fadhilaPoints} PTS)` : '🥇 1st: —',
+      c?.fadhilaRunnerUpInstitution ? `🥈 2nd: *${c.fadhilaRunnerUpInstitution.name}* (${c.fadhilaRunnerUpInstitution.fadhilaPoints} PTS)` : '',
+      c?.fadhilaSecondRunnerUpInstitution ? `🥉 3rd: *${c.fadhilaSecondRunnerUpInstitution.name}* (${c.fadhilaSecondRunnerUpInstitution.fadhilaPoints} PTS)` : '',
+      ``,
+      `🌸 *FADHEELA CATEGORY CHAMPION:*`,
+      c?.fadheelaTopInstitution ? `🥇 1st: *${c.fadheelaTopInstitution.name}* (${c.fadheelaTopInstitution.fadheelaPoints} PTS)` : '🥇 1st: —',
+      c?.fadheelaRunnerUpInstitution ? `🥈 2nd: *${c.fadheelaRunnerUpInstitution.name}* (${c.fadheelaRunnerUpInstitution.fadheelaPoints} PTS)` : '',
+      c?.fadheelaSecondRunnerUpInstitution ? `🥉 3rd: *${c.fadheelaSecondRunnerUpInstitution.name}* (${c.fadheelaSecondRunnerUpInstitution.fadheelaPoints} PTS)` : '',
+      ``,
+      `⭐ *FESTIVAL TOP STAR (KALAATHILAKAM):*`,
+      c?.overallTopStar ? `👑 *${c.overallTopStar.name}* (Chest: #${c.overallTopStar.chestNumber || '-'}) — ${c.overallTopStar.institutionName || '-'} (${c.overallTopStar.totalPoints} PTS)` : '—',
+      c?.fadhilaTopStar ? `🌺 Fadhila Top Star: *${c.fadhilaTopStar.name}* (${c.fadhilaTopStar.totalPoints} PTS)` : '',
+      c?.fadheelaTopStar ? `🌸 Fadheela Top Star: *${c.fadheelaTopStar.name}* (${c.fadheelaTopStar.totalPoints} PTS)` : '',
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `✨ Verified & Published by CSWC Hiya Fiesta 2026`,
+      `🔗 Live Standings: ${currentUrl}`
+    ].filter(Boolean);
+
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopiedNotice(true);
+    setTimeout(() => setCopiedNotice(false), 3500);
+  };
 
   // Latest published highlight banner
   const latestPublished = data.latestResults[0];
@@ -585,30 +633,502 @@ export default function PublicDashboard({
 
           {/* STANDINGS TAB */}
           {!searchQuery && activeTab === "standings" && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+
+              {/* ── Official Champions & Category Winners Showcase ── */}
+              {data.champions && (data.champions.overallChampion || data.champions.fadhilaTopInstitution || data.champions.fadheelaTopInstitution || data.champions.overallTopStar) && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #181124 0%, #261234 40%, #170d22 100%)',
+                  borderRadius: '24px',
+                  padding: 'clamp(20px, 3.5vw, 32px)',
+                  color: '#ffffff',
+                  boxShadow: '0 16px 40px -8px rgba(24, 17, 36, 0.4), 0 0 0 1px rgba(245, 158, 11, 0.25)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  {/* Decorative ambient background glows */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '-60px',
+                    right: '-40px',
+                    width: '240px',
+                    height: '240px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(230, 0, 126, 0.25) 0%, transparent 70%)',
+                    pointerEvents: 'none'
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-60px',
+                    left: '-40px',
+                    width: '240px',
+                    height: '240px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, transparent 70%)',
+                    pointerEvents: 'none'
+                  }} />
+
+                  {/* Showcase Header */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    marginBottom: '24px',
+                    borderBottom: '1px solid rgba(255,255,255,0.12)',
+                    paddingBottom: '16px',
+                    position: 'relative',
+                    zIndex: 2
+                  }}>
+                    <div>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.2) 0%, rgba(230, 0, 126, 0.2) 100%)',
+                        border: '1px solid rgba(245, 158, 11, 0.5)',
+                        padding: '4px 12px',
+                        borderRadius: '9999px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        color: '#FDE68A',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '8px'
+                      }}>
+                        <span>👑</span> OFFICIAL CHAMPIONSHIPS DECLARATION
+                      </div>
+                      <h2 style={{
+                        fontSize: 'clamp(1.25rem, 3.2vw, 1.65rem)',
+                        fontFamily: "'Fraunces', serif",
+                        fontWeight: 900,
+                        color: '#FFFFFF',
+                        margin: 0,
+                        letterSpacing: '-0.2px'
+                      }}>
+                        Grand Champions &amp; Category Winners
+                      </h2>
+                      <p style={{
+                        fontSize: '0.82rem',
+                        color: '#D8B4E2',
+                        margin: '4px 0 0',
+                        fontFamily: "'Inter', sans-serif"
+                      }}>
+                        Live festival summary: Overall Champions, Fadhila &amp; Fadheela Champions, and Top Star
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Announcement Copy Button */}
+                    <button
+                      onClick={handleCopyAnnouncement}
+                      style={{
+                        background: copiedNotice
+                          ? 'linear-gradient(135deg, #10B981, #059669)'
+                          : 'linear-gradient(135deg, #25D366, #128C7E)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 6px 20px rgba(37, 211, 102, 0.35)',
+                        transition: 'all 0.2s',
+                        fontFamily: "'Inter', sans-serif"
+                      }}
+                      title="Copy official announcement text for WhatsApp broadcast"
+                    >
+                      {copiedNotice ? (
+                        <>
+                          <span style={{ fontSize: '1.1rem' }}>✓</span>
+                          <span>Announcement Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: '1.1rem' }}>📋</span>
+                          <span>Copy WhatsApp Announcement</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 3 Showcase Pillars (Grid) */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '18px',
+                    position: 'relative',
+                    zIndex: 2
+                  }}>
+                    
+                    {/* Pillar 1: Overall Grand Champions */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                      borderRadius: '18px',
+                      padding: '18px',
+                      backdropFilter: 'blur(8px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#FDE68A', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          🏆 Overall Champions
+                        </span>
+                        <span style={{ fontSize: '0.70rem', background: '#F59E0B', color: '#78350F', fontWeight: 900, padding: '2px 8px', borderRadius: '9999px' }}>
+                          GRAND TROPHY
+                        </span>
+                      </div>
+
+                      {/* 1st Place Champion Card */}
+                      {data.champions.overallChampion ? (
+                        <div style={{
+                          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%)',
+                          border: '1px solid rgba(245, 158, 11, 0.6)',
+                          borderRadius: '12px',
+                          padding: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px'
+                        }}>
+                          <div style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #FDE68A, #F59E0B)',
+                            color: '#78350F',
+                            fontWeight: 900,
+                            fontSize: '1.1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            🥇
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.70rem', color: '#FDE68A', fontWeight: 700, textTransform: 'uppercase' }}>
+                              Grand Champion
+                            </div>
+                            <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {data.champions.overallChampion.name}
+                            </div>
+                            {data.champions.overallChampion.place && (
+                              <div style={{ fontSize: '0.70rem', color: '#CBD5E1' }}>
+                                📍 {data.champions.overallChampion.place}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#FDE68A', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.overallChampion.points}
+                            </div>
+                            <div style={{ fontSize: '0.62rem', color: '#CBD5E1', fontWeight: 700 }}>PTS</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.80rem', color: '#94A3B8' }}>Awaiting Results</div>
+                      )}
+
+                      {/* 2nd & 3rd Place Rows */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.80rem' }}>
+                        {data.champions.overallRunnerUp && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                              <span style={{ fontWeight: 900, color: '#E2E8F0' }}>🥈 2nd:</span>
+                              <span style={{ color: '#F1F5F9', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {data.champions.overallRunnerUp.name}
+                              </span>
+                            </div>
+                            <span style={{ fontWeight: 800, color: '#E2E8F0', fontFamily: "'IBM Plex Mono', monospace", flexShrink: 0, paddingLeft: '8px' }}>
+                              {data.champions.overallRunnerUp.points} PTS
+                            </span>
+                          </div>
+                        )}
+                        {data.champions.overallSecondRunnerUp && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                              <span style={{ fontWeight: 900, color: '#FDBA74' }}>🥉 3rd:</span>
+                              <span style={{ color: '#F1F5F9', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {data.champions.overallSecondRunnerUp.name}
+                              </span>
+                            </div>
+                            <span style={{ fontWeight: 800, color: '#FDBA74', fontFamily: "'IBM Plex Mono', monospace", flexShrink: 0, paddingLeft: '8px' }}>
+                              {data.champions.overallSecondRunnerUp.points} PTS
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pillar 2: Category Champions (Fadhila & Fadheela) */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1.5px solid rgba(230, 0, 126, 0.4)',
+                      borderRadius: '18px',
+                      padding: '18px',
+                      backdropFilter: 'blur(8px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#F472B6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          🌸 Category Champions
+                        </span>
+                        <span style={{ fontSize: '0.70rem', background: '#E6007E', color: '#FFFFFF', fontWeight: 900, padding: '2px 8px', borderRadius: '9999px' }}>
+                          INDIVIDUAL WINS
+                        </span>
+                      </div>
+
+                      {/* Fadhila Category Box */}
+                      <div style={{
+                        background: 'rgba(230, 0, 126, 0.10)',
+                        border: '1px solid rgba(230, 0, 126, 0.3)',
+                        borderRadius: '12px',
+                        padding: '10px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#F472B6', textTransform: 'uppercase' }}>
+                            🌺 Fadhila Category
+                          </span>
+                          {data.champions.fadhilaTopInstitution && (
+                            <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#FBCFE8', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.fadhilaTopInstitution.fadhilaPoints} PTS
+                            </span>
+                          )}
+                        </div>
+                        {data.champions.fadhilaTopInstitution ? (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.90rem', color: '#FFFFFF' }}>
+                              🥇 {data.champions.fadhilaTopInstitution.name}
+                            </div>
+                            {data.champions.fadhilaRunnerUpInstitution && (
+                              <div style={{ fontSize: '0.72rem', color: '#CBD5E1', marginTop: '3px' }}>
+                                🥈 2nd: {data.champions.fadhilaRunnerUpInstitution.name} ({data.champions.fadhilaRunnerUpInstitution.fadhilaPoints} PTS)
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.74rem', color: '#94A3B8' }}>Awaiting Category Results</div>
+                        )}
+                      </div>
+
+                      {/* Fadheela Category Box */}
+                      <div style={{
+                        background: 'rgba(168, 85, 247, 0.10)',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        borderRadius: '12px',
+                        padding: '10px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#C084FC', textTransform: 'uppercase' }}>
+                            🌸 Fadheela Category
+                          </span>
+                          {data.champions.fadheelaTopInstitution && (
+                            <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#E9D5FF', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.fadheelaTopInstitution.fadheelaPoints} PTS
+                            </span>
+                          )}
+                        </div>
+                        {data.champions.fadheelaTopInstitution ? (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.90rem', color: '#FFFFFF' }}>
+                              🥇 {data.champions.fadheelaTopInstitution.name}
+                            </div>
+                            {data.champions.fadheelaRunnerUpInstitution && (
+                              <div style={{ fontSize: '0.72rem', color: '#CBD5E1', marginTop: '3px' }}>
+                                🥈 2nd: {data.champions.fadheelaRunnerUpInstitution.name} ({data.champions.fadheelaRunnerUpInstitution.fadheelaPoints} PTS)
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.74rem', color: '#94A3B8' }}>Awaiting Category Results</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pillar 3: Festival Top Star (Kalaathilakam) */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1.5px solid rgba(56, 189, 248, 0.4)',
+                      borderRadius: '18px',
+                      padding: '18px',
+                      backdropFilter: 'blur(8px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          ⭐ Festival Top Star
+                        </span>
+                        <span style={{ fontSize: '0.70rem', background: '#0284C7', color: '#FFFFFF', fontWeight: 900, padding: '2px 8px', borderRadius: '9999px' }}>
+                          KALAATHILAKAM
+                        </span>
+                      </div>
+
+                      {data.champions.overallTopStar ? (
+                        <div style={{
+                          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(14, 165, 233, 0.08) 100%)',
+                          border: '1px solid rgba(56, 189, 248, 0.5)',
+                          borderRadius: '12px',
+                          padding: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px'
+                        }}>
+                          <div style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #38BDF8, #0284C7)',
+                            color: '#FFFFFF',
+                            fontWeight: 900,
+                            fontSize: '1.2rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)'
+                          }}>
+                            👑
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.68rem', color: '#BAE6FD', fontWeight: 700, textTransform: 'uppercase' }}>
+                              Golden Performer • #{data.champions.overallTopStar.chestNumber || '-'}
+                            </div>
+                            <div style={{ fontWeight: 900, fontSize: '0.98rem', color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {data.champions.overallTopStar.name}
+                            </div>
+                            <div style={{ fontSize: '0.70rem', color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {data.champions.overallTopStar.institutionName || '-'}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#38BDF8', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.overallTopStar.totalPoints}
+                            </div>
+                            <div style={{ fontSize: '0.62rem', color: '#CBD5E1', fontWeight: 700 }}>PTS</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.80rem', color: '#94A3B8' }}>Awaiting Individual Results</div>
+                      )}
+
+                      {/* Category Top Performers */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.74rem' }}>
+                        {data.champions.fadhilaTopStar && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                            <span style={{ color: '#F472B6' }}>🌺 Fadhila: <strong>{data.champions.fadhilaTopStar.name}</strong></span>
+                            <span style={{ color: '#FBCFE8', fontWeight: 800 }}>{data.champions.fadhilaTopStar.totalPoints} PTS</span>
+                          </div>
+                        )}
+                        {data.champions.fadheelaTopStar && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                            <span style={{ color: '#C084FC' }}>🌸 Fadheela: <strong>{data.champions.fadheelaTopStar.name}</strong></span>
+                            <span style={{ color: '#E9D5FF', fontWeight: 800 }}>{data.champions.fadheelaTopStar.totalPoints} PTS</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
               
               {/* Full Width Section: Team Leaderboard & Podium */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '1.25rem' }}>🏆</span>
-                  <div>
-                    <h2 style={{ 
-                      fontSize: '1.35rem', 
-                      fontFamily: "'Fraunces', serif",
-                      fontWeight: 800, 
-                      color: '#1a1420', 
-                      margin: 0 
-                    }}>
-                      Team Leaderboard
-                    </h2>
-                    <p style={{ fontSize: '0.8rem', color: '#7a7480', margin: 0, fontFamily: "'Inter', sans-serif" }}>
-                      Live cumulative standings across all events
-                    </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>🏆</span>
+                    <div>
+                      <h2 style={{ 
+                        fontSize: '1.35rem', 
+                        fontFamily: "'Fraunces', serif",
+                        fontWeight: 800, 
+                        color: '#1a1420', 
+                        margin: 0 
+                      }}>
+                        Team Leaderboard
+                      </h2>
+                      <p style={{ fontSize: '0.8rem', color: '#7a7480', margin: 0, fontFamily: "'Inter', sans-serif" }}>
+                        {standingsCategory === 'FADHILA'
+                          ? 'Fadhila Category Standings (Individual Programs)'
+                          : standingsCategory === 'FADHEELA'
+                          ? 'Fadheela Category Standings (Individual Programs)'
+                          : 'Live cumulative standings across all programs & events'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Category Switcher Pills */}
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#F1F5F9',
+                    padding: '4px',
+                    borderRadius: '9999px'
+                  }}>
+                    <button
+                      onClick={() => setStandingsCategory('ALL')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        background: standingsCategory === 'ALL' ? '#E6007E' : 'transparent',
+                        color: standingsCategory === 'ALL' ? '#FFFFFF' : '#475569',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      🏆 Overall ({data.leaderboard.length})
+                    </button>
+                    <button
+                      onClick={() => setStandingsCategory('FADHILA')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        background: standingsCategory === 'FADHILA' ? '#E6007E' : 'transparent',
+                        color: standingsCategory === 'FADHILA' ? '#FFFFFF' : '#475569',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      🌺 Fadhila ({(data.champions?.fadhilaLeaderboard || []).length})
+                    </button>
+                    <button
+                      onClick={() => setStandingsCategory('FADHEELA')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        background: standingsCategory === 'FADHEELA' ? '#E6007E' : 'transparent',
+                        color: standingsCategory === 'FADHEELA' ? '#FFFFFF' : '#475569',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      🌸 Fadheela ({(data.champions?.fadheelaLeaderboard || []).length})
+                    </button>
                   </div>
                 </div>
 
                 {/* Top 3 Leaderboard: Desktop Step Podium & Mobile Compact Horizontal Ribbon Strip */}
-                {data.leaderboard.length > 0 && (
+                {activeLeaderboard.length > 0 && (
                   <div>
                     {/* DESKTOP / TABLET: 3D Step Podium View */}
                     <div 
@@ -1107,9 +1627,9 @@ export default function PublicDashboard({
                 )}
 
                 {/* Ranked List of Remaining Teams (Starting from 4th Position) */}
-                {data.leaderboard.length > 3 ? (
+                {activeLeaderboard.length > 3 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {data.leaderboard.slice(3).map((team, index) => {
+                    {activeLeaderboard.slice(3).map((team: any, index: number) => {
                       const rank = index + 4;
                       const rankColor = '#7a7480';
                       return (
@@ -1234,7 +1754,7 @@ export default function PublicDashboard({
                   gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
                   gap: '20px' 
                 }}>
-                  {data.leaderboard.map((team, idx) => {
+                  {activeLeaderboard.map((team: any, idx: number) => {
                     const topBorderColor = idx === 0 ? '#e6007e' : idx === 1 ? '#1f6d5a' : idx === 2 ? '#d97706' : '#f2d9e6';
                     return (
                       <div 
