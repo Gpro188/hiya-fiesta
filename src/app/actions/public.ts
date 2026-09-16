@@ -91,6 +91,7 @@ const getCachedPublicEventData = unstable_cache(
                   institution: { select: { logoUrl: true, name: true, place: true } } 
                 } 
               }, 
+              institution: { select: { name: true, place: true } },
               category: { select: { id: true, name: true } } 
             } 
           },
@@ -281,6 +282,8 @@ const getCachedPublicEventData = unstable_cache(
       name: string, 
       chestNumber: string | null,
       teamName: string, 
+      institutionName: string,
+      institutionPlace: string | null,
       teamPrefix: string | null,
       teamColor: string | null, 
       categoryName: string,
@@ -305,11 +308,26 @@ const getCachedPublicEventData = unstable_cache(
       
       const candId = res.candidate.id;
       if (!candidateScores[candId]) {
+        const candInst = res.candidate.institution || res.candidate.team?.institution;
+        let cleanInstName = (candInst?.name || res.candidate.team?.name || "").trim();
+        let rawInstPlace = (candInst?.place || "").trim();
+
+        if (!rawInstPlace && cleanInstName.includes(",")) {
+          const parts = cleanInstName.split(",");
+          cleanInstName = parts[0].trim();
+          rawInstPlace = parts.slice(1).join(",").trim();
+        } else if (rawInstPlace && cleanInstName.toLowerCase().includes(rawInstPlace.toLowerCase())) {
+          const escaped = rawInstPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          cleanInstName = cleanInstName.replace(new RegExp(`,\\s*${escaped}$`, 'i'), '').trim();
+        }
+
         candidateScores[candId] = {
           id: candId,
           name: res.candidate.name,
           chestNumber: res.candidate.chestNumber || null,
           teamName: res.candidate.team?.name || "Team",
+          institutionName: cleanInstName || res.candidate.team?.name || "Institution",
+          institutionPlace: rawInstPlace || null,
           teamPrefix: res.candidate.team?.prefixCode || null,
           teamColor: res.candidate.team?.flagColor || null,
           categoryName: res.candidate.category?.name || "General",
@@ -451,8 +469,18 @@ const getCachedPublicEventData = unstable_cache(
       return {
         ...star,
         totalPoints: star.points,
-        institutionName: star.teamName,
+        institutionName: star.institutionName || star.teamName,
+        institutionPlace: star.institutionPlace || "",
       };
+    };
+
+    const getCategoryStarsList = (catPrefix: string) => {
+      for (const [catName, stars] of Object.entries(categoryStars)) {
+        if (catName.toUpperCase().includes(catPrefix) && stars.length > 0) {
+          return stars.map(formatStar);
+        }
+      }
+      return [];
     };
 
     const champions = {
@@ -468,6 +496,8 @@ const getCachedPublicEventData = unstable_cache(
       overallTopStar: formatStar(topStars[0]),
       fadhilaTopStar: formatStar(findCategoryStar("FADHILA")),
       fadheelaTopStar: formatStar(findCategoryStar("FADHEELA")),
+      fadhilaCategoryStars: getCategoryStarsList("FADHILA"),
+      fadheelaCategoryStars: getCategoryStarsList("FADHEELA"),
       fadhilaLeaderboard,
       fadheelaLeaderboard,
     };

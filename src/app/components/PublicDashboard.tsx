@@ -122,11 +122,9 @@ export default function PublicDashboard({
       c?.fadheelaTopInstitution ? `🥇 1st: *${c.fadheelaTopInstitution.name}* (${c.fadheelaTopInstitution.fadheelaPoints} PTS)` : '🥇 1st: —',
       c?.fadheelaRunnerUpInstitution ? `🥈 2nd: *${c.fadheelaRunnerUpInstitution.name}* (${c.fadheelaRunnerUpInstitution.fadheelaPoints} PTS)` : '',
       c?.fadheelaSecondRunnerUpInstitution ? `🥉 3rd: *${c.fadheelaSecondRunnerUpInstitution.name}* (${c.fadheelaSecondRunnerUpInstitution.fadheelaPoints} PTS)` : '',
-      ``,
-      `⭐ *FESTIVAL TOP STAR (KALAATHILAKAM):*`,
-      c?.overallTopStar ? `👑 *${c.overallTopStar.name}* (Chest: #${c.overallTopStar.chestNumber || '-'}) — ${c.overallTopStar.institutionName || '-'} (${c.overallTopStar.totalPoints} PTS)` : '—',
-      c?.fadhilaTopStar ? `🌺 Fadhila Top Star: *${c.fadhilaTopStar.name}* (${c.fadhilaTopStar.totalPoints} PTS)` : '',
-      c?.fadheelaTopStar ? `🌸 Fadheela Top Star: *${c.fadheelaTopStar.name}* (${c.fadheelaTopStar.totalPoints} PTS)` : '',
+      `⭐ *KALAATHILAKAM (INDIVIDUAL CHAMPIONS):*`,
+      c?.fadhilaTopStar ? `🌺 *Fadhila Kalaathilakam:* *${c.fadhilaTopStar.name}* (Chest: #${c.fadhilaTopStar.chestNumber || '-'}) — *${c.fadhilaTopStar.institutionName || '-'}*${c.fadhilaTopStar.institutionPlace ? `, ${c.fadhilaTopStar.institutionPlace}` : ''} (${c.fadhilaTopStar.totalPoints} PTS)` : '',
+      c?.fadheelaTopStar ? `🌸 *Fadheela Kalaathilakam:* *${c.fadheelaTopStar.name}* (Chest: #${c.fadheelaTopStar.chestNumber || '-'}) — *${c.fadheelaTopStar.institutionName || '-'}*${c.fadheelaTopStar.institutionPlace ? `, ${c.fadheelaTopStar.institutionPlace}` : ''} (${c.fadheelaTopStar.totalPoints} PTS)` : '',
       ``,
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `✨ Verified & Published by CSWC Hiya Fiesta 2026`,
@@ -953,7 +951,7 @@ export default function PublicDashboard({
                       </div>
                     </div>
 
-                    {/* Pillar 3: Festival Top Star (Kalaathilakam) */}
+                    {/* Pillar 3: Kalaathilakam (Category Top Stars) */}
                     <div style={{
                       background: 'rgba(255, 255, 255, 0.05)',
                       border: '1.5px solid rgba(56, 189, 248, 0.4)',
@@ -966,74 +964,88 @@ export default function PublicDashboard({
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          ⭐ Festival Top Star
+                          👑 Kalaathilakam
                         </span>
                         <span style={{ fontSize: '0.70rem', background: '#0284C7', color: '#FFFFFF', fontWeight: 900, padding: '2px 8px', borderRadius: '9999px' }}>
-                          KALAATHILAKAM
+                          TOP STARS
                         </span>
                       </div>
 
-                      {data.champions.overallTopStar ? (
-                        <div style={{
-                          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(14, 165, 233, 0.08) 100%)',
-                          border: '1px solid rgba(56, 189, 248, 0.5)',
-                          borderRadius: '12px',
-                          padding: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px'
-                        }}>
-                          <div style={{
-                            width: '46px',
-                            height: '46px',
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #38BDF8, #0284C7)',
-                            color: '#FFFFFF',
-                            fontWeight: 900,
-                            fontSize: '1.2rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)'
-                          }}>
-                            👑
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '0.68rem', color: '#BAE6FD', fontWeight: 700, textTransform: 'uppercase' }}>
-                              Golden Performer • #{data.champions.overallTopStar.chestNumber || '-'}
-                            </div>
-                            <div style={{ fontWeight: 900, fontSize: '0.98rem', color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {data.champions.overallTopStar.name}
-                            </div>
-                            <div style={{ fontSize: '0.70rem', color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {data.champions.overallTopStar.institutionName || '-'}
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#38BDF8', fontFamily: "'IBM Plex Mono', monospace" }}>
-                              {data.champions.overallTopStar.totalPoints}
-                            </div>
-                            <div style={{ fontSize: '0.62rem', color: '#CBD5E1', fontWeight: 700 }}>PTS</div>
-                          </div>
+                      {/* Fadhila Kalaathilakam Box */}
+                      <div style={{
+                        background: 'rgba(244, 63, 94, 0.12)',
+                        border: '1px solid rgba(244, 63, 94, 0.4)',
+                        borderRadius: '12px',
+                        padding: '10px 12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#FDA4AF', textTransform: 'uppercase' }}>
+                            🌺 Fadhila Kalaathilakam
+                          </span>
+                          {data.champions.fadhilaTopStar && (
+                            <span style={{ fontSize: '0.80rem', fontWeight: 900, color: '#FECDD3', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.fadhilaTopStar.totalPoints} PTS
+                            </span>
+                          )}
                         </div>
-                      ) : (
-                        <div style={{ fontSize: '0.80rem', color: '#94A3B8' }}>Awaiting Individual Results</div>
-                      )}
-
-                      {/* Category Top Performers */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.74rem' }}>
-                        {data.champions.fadhilaTopStar && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
-                            <span style={{ color: '#F472B6' }}>🌺 Fadhila: <strong>{data.champions.fadhilaTopStar.name}</strong></span>
-                            <span style={{ color: '#FBCFE8', fontWeight: 800 }}>{data.champions.fadhilaTopStar.totalPoints} PTS</span>
+                        {data.champions.fadhilaTopStar ? (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.90rem', color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🥇 {data.champions.fadhilaTopStar.name}
+                              {data.champions.fadhilaTopStar.chestNumber && (
+                                <span style={{ fontSize: '0.72rem', color: '#FDA4AF', fontWeight: 700, marginLeft: '6px' }}>
+                                  #{data.champions.fadhilaTopStar.chestNumber}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#CBD5E1', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🏛️ {data.champions.fadhilaTopStar.institutionName || data.champions.fadhilaTopStar.teamName}
+                              {data.champions.fadhilaTopStar.institutionPlace && (
+                                <span style={{ color: '#94A3B8' }}> ({data.champions.fadhilaTopStar.institutionPlace})</span>
+                              )}
+                            </div>
                           </div>
+                        ) : (
+                          <div style={{ fontSize: '0.74rem', color: '#94A3B8' }}>Awaiting Fadhila Results</div>
                         )}
-                        {data.champions.fadheelaTopStar && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
-                            <span style={{ color: '#C084FC' }}>🌸 Fadheela: <strong>{data.champions.fadheelaTopStar.name}</strong></span>
-                            <span style={{ color: '#E9D5FF', fontWeight: 800 }}>{data.champions.fadheelaTopStar.totalPoints} PTS</span>
+                      </div>
+
+                      {/* Fadheela Kalaathilakam Box */}
+                      <div style={{
+                        background: 'rgba(139, 92, 246, 0.12)',
+                        border: '1px solid rgba(139, 92, 246, 0.4)',
+                        borderRadius: '12px',
+                        padding: '10px 12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#DDD6FE', textTransform: 'uppercase' }}>
+                            🌸 Fadheela Kalaathilakam
+                          </span>
+                          {data.champions.fadheelaTopStar && (
+                            <span style={{ fontSize: '0.80rem', fontWeight: 900, color: '#EDE9FE', fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {data.champions.fadheelaTopStar.totalPoints} PTS
+                            </span>
+                          )}
+                        </div>
+                        {data.champions.fadheelaTopStar ? (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.90rem', color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🥇 {data.champions.fadheelaTopStar.name}
+                              {data.champions.fadheelaTopStar.chestNumber && (
+                                <span style={{ fontSize: '0.72rem', color: '#DDD6FE', fontWeight: 700, marginLeft: '6px' }}>
+                                  #{data.champions.fadheelaTopStar.chestNumber}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#CBD5E1', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🏛️ {data.champions.fadheelaTopStar.institutionName || data.champions.fadheelaTopStar.teamName}
+                              {data.champions.fadheelaTopStar.institutionPlace && (
+                                <span style={{ color: '#94A3B8' }}> ({data.champions.fadheelaTopStar.institutionPlace})</span>
+                              )}
+                            </div>
                           </div>
+                        ) : (
+                          <div style={{ fontSize: '0.74rem', color: '#94A3B8' }}>Awaiting Fadheela Results</div>
                         )}
                       </div>
                     </div>
