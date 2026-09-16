@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -438,8 +439,55 @@ export default async function PrintTabulationPage(props: {
         </div>
       ) : (
         printablePrograms.map((program) => {
+          const isGeneral = isProgramGeneral(program);
           const candidateAssignments = program.filteredAssignments;
           const criteriaList = parseCriteria(program.evaluationCriteria);
+
+          type TeamRow = {
+            id: string;
+            teamId: string;
+            teamName: string;
+            slotNumber?: number;
+            chestNumbers: string;
+            memberNames: string;
+            candidates: any[];
+          };
+
+          let teamRows: TeamRow[] = [];
+          if (isGeneral) {
+            const teamMap = new Map<string, TeamRow>();
+            for (const a of candidateAssignments) {
+              const c = a.candidate;
+              const t = c.team;
+              const tId = t?.id || c.teamId || c.institutionId || c.name;
+              const tName = t?.name || c.institution?.name || c.team?.institution?.name || "Team";
+              if (!teamMap.has(tId)) {
+                teamMap.set(tId, {
+                  id: a.id,
+                  teamId: tId,
+                  teamName: tName,
+                  slotNumber: a.slotNumber,
+                  chestNumbers: c.chestNumber || "",
+                  memberNames: c.name || "",
+                  candidates: [c]
+                });
+              } else {
+                const existing = teamMap.get(tId)!;
+                existing.candidates.push(c);
+                if (c.chestNumber && !existing.chestNumbers.includes(c.chestNumber)) {
+                  existing.chestNumbers = existing.chestNumbers
+                    ? `${existing.chestNumbers}, ${c.chestNumber}`
+                    : c.chestNumber;
+                }
+                if (c.name && !existing.memberNames.includes(c.name)) {
+                  existing.memberNames = existing.memberNames
+                    ? `${existing.memberNames}, ${c.name}`
+                    : c.name;
+                }
+              }
+            }
+            teamRows = Array.from(teamMap.values());
+          }
 
           return (
             <div
@@ -523,7 +571,11 @@ export default async function PrintTabulationPage(props: {
                     Duration: <strong>{program.duration} min</strong>
                   </div>
                   <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: "2px" }}>
-                    Total Candidates: <strong>{candidateAssignments.length}</strong>
+                    {isGeneral ? (
+                      <>Total Teams: <strong>{teamRows.length}</strong> (Candidates: {candidateAssignments.length})</>
+                    ) : (
+                      <>Total Candidates: <strong>{candidateAssignments.length}</strong></>
+                    )}
                   </div>
                 </div>
 
@@ -571,12 +623,68 @@ export default async function PrintTabulationPage(props: {
                 </div>
               </div>
 
-              {/* Candidate Tabulation Table: Sl | Code Letter | Chest No | Candidate Name & Inst | Jury 1 (100) | Jury 2 (100) | Total Score | Grade | Place | Remarks */}
-              {candidateAssignments.length === 0 ? (
+              {/* Tabulation Table: General (By Team) OR Individual (By Candidate) */}
+              {(isGeneral ? teamRows.length === 0 : candidateAssignments.length === 0) ? (
                 <div style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "30px", border: "1px dashed #cbd5e1", borderRadius: "4px" }}>
-                  No candidates registered for this program in this zone yet.
+                  {isGeneral ? "No teams registered for this general program in this zone yet." : "No candidates registered for this program in this zone yet."}
                 </div>
+              ) : isGeneral ? (
+                /* GENERAL PROGRAM: 1 ROW PER TEAM */
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", border: "1.5px solid #0f172a", marginBottom: "14px" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "42px" }}>Sl</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "85px", backgroundColor: "#1e293b" }}>Code Letter</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 6px", width: "110px" }}>Chest Nos.</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 10px", textAlign: "left" }}>Team / Institution Name</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "105px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "110px" }}>Total (200)</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Grade</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 4px", width: "75px" }}>Place</th>
+                      <th style={{ border: "1px solid #334155", padding: "7px 8px", width: "140px" }}>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamRows.map((tRow, index) => {
+                      return (
+                        <tr key={tRow.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "48px" }}>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 800, textAlign: "center" }}>
+                            {index + 1}
+                          </td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}>
+                            <div style={{ width: "44px", height: "28px", border: "1.5px dashed #475569", margin: "0 auto", borderRadius: "3px", backgroundColor: "#ffffff" }}></div>
+                          </td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", fontWeight: 900, fontSize: "0.85rem", color: "#8E0033", textAlign: "center", fontFamily: "monospace" }}>
+                            {tRow.chestNumbers || "-"}
+                          </td>
+                          <td style={{ border: "1px solid #cbd5e1", padding: "6px 8px", textAlign: "left" }}>
+                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.90rem" }}>🏛️ {tRow.teamName}</div>
+                            {tRow.memberNames && (
+                              <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: "2px" }}>
+                                <strong>Members:</strong> {tRow.memberNames}
+                              </div>
+                            )}
+                          </td>
+                          {/* Jury 1 Marks */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          {/* Jury 2 Marks */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>
+                          {/* Total Score */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          {/* Grade */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          {/* Place */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center" }}></td>
+                          {/* Remarks */}
+                          <td style={{ border: "1px solid #cbd5e1", padding: "4px" }}></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               ) : (
+                /* INDIVIDUAL PROGRAM: 1 ROW PER CANDIDATE */
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", border: "1.5px solid #0f172a", marginBottom: "14px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>

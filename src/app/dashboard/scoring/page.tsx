@@ -114,6 +114,7 @@ export default async function ScoringPage(props: {
         venue: true,
         type: true,
         categoryId: true,
+        candidateLimitPerTeam: true,
         judges: {
           select: {
             id: true,

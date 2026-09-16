@@ -1,12 +1,17 @@
 export const isProgramGeneral = (p: { 
   type?: string | null; 
   category?: { name?: string | null } | null; 
-  categoryId?: string | null 
+  categoryId?: string | null;
+  name?: string | null;
+  candidateLimitPerTeam?: number | null;
 } | null | undefined): boolean => {
   if (!p) return false;
-  if (p.type === "GENERAL") return true;
+  const type = (p.type || "").toUpperCase();
+  if (type === "GENERAL" || type === "GROUP") return true;
+  if (p.candidateLimitPerTeam && p.candidateLimitPerTeam > 1) return true;
   if (!p.category && !p.categoryId) return true;
-  if (p.category?.name?.toUpperCase() === "GENERAL") return true;
+  const catName = (p.category?.name || "").toUpperCase();
+  if (catName.includes("GENERAL")) return true;
   return false;
 };
 

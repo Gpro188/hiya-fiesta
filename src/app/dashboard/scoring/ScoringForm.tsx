@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { batchSubmitProgramMarks, assignJudgesToVenueAction } from "./actions";
-import { isInstitutionProgram } from "@/lib/programUtils";
+import { isInstitutionProgram, isProgramGeneral } from "@/lib/programUtils";
 
 interface ScoringEntry {
   participantId: string;
@@ -137,7 +137,8 @@ export default function ScoringForm({
   });
 
   const selecteCSWCgram = allPrograms.find((p: any) => p.id === programId);
-  const isIndividual = selecteCSWCgram?.type === "INDIVIDUAL" && !isInstitutionProgram(selecteCSWCgram);
+  const isGeneral = isProgramGeneral(selecteCSWCgram);
+  const isIndividual = !isGeneral && selecteCSWCgram?.type === "INDIVIDUAL" && !isInstitutionProgram(selecteCSWCgram);
 
   // When selected program changes, build list of all candidates / teams with existing scores
   useEffect(() => {
@@ -181,7 +182,33 @@ export default function ScoringForm({
         };
       });
     } else {
-      const teams = selectedEvent?.teams || [];
+      // For general / group / team programs: extract unique teams from registered candidate assignments
+      const registeredTeamMap = new Map<string, any>();
+      const assignments = selecteCSWCgram.assignments || [];
+      for (const a of assignments) {
+        const t = a.candidate?.team;
+        if (t && !registeredTeamMap.has(t.id)) {
+          registeredTeamMap.set(t.id, t);
+        }
+      }
+
+      // Also preserve any teams that have recorded results already
+      for (const res of existingResults) {
+        if (res.teamId && !registeredTeamMap.has(res.teamId)) {
+          const matchingTeam = selectedEvent?.teams?.find((t: any) => t.id === res.teamId);
+          if (matchingTeam) {
+            registeredTeamMap.set(res.teamId, matchingTeam);
+          }
+        }
+      }
+
+      // If registered teams exist from assignments or results, show only those registered teams!
+      // Otherwise fallback to all event teams (for institutional/magazine programs where candidates aren't assigned)
+      let teams = Array.from(registeredTeamMap.values());
+      if (teams.length === 0) {
+        teams = selectedEvent?.teams || [];
+      }
+
       initialEntries = teams.map((t: any) => {
         const res = existingResults.find((r: any) => r.teamId === t.id);
         return {
@@ -798,8 +825,14 @@ export default function ScoringForm({
                     ) : isInstitutionProgram(selecteCSWCgram) ? (
                       <th style={{ padding: '12px 16px', width: '130px', color: '#9333ea' }}>Magazine Code</th>
                     ) : null}
-                    <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
-                    <th style={{ padding: '12px 16px' }}>Institution / Team</th>
+                    {isIndividual ? (
+                      <>
+                        <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
+                        <th style={{ padding: '12px 16px' }}>Institution / Team</th>
+                      </>
+                    ) : (
+                      <th colSpan={2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
+                    )}
                     <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
                     <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
                     {!isStageJury && (
@@ -827,13 +860,20 @@ export default function ScoringForm({
                         </td>
                       ) : null}
 
-                      <td style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420' }}>
-                        {entry.name}
-                      </td>
-
-                      <td style={{ padding: '12px 16px', color: '#4b5563', fontWeight: 600, fontSize: '0.82rem' }}>
-                        {entry.teamName || '-'}
-                      </td>
+                      {isIndividual ? (
+                        <>
+                          <td style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420' }}>
+                            {entry.name}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#4b5563', fontWeight: 600, fontSize: '0.82rem' }}>
+                            {entry.teamName || '-'}
+                          </td>
+                        </>
+                      ) : (
+                        <td colSpan={2} style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420', fontSize: '0.95rem' }}>
+                          🏛️ {entry.name}
+                        </td>
+                      )}
 
                       {/* Place / Rank Select */}
                       <td style={{ padding: '8px 16px' }}>

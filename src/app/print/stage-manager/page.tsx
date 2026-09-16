@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export const dynamic = 'force-dynamic';
 
@@ -266,7 +267,46 @@ export default async function PrintStageManagerPage(props: {
         Object.entries(venues).map(([venueName, venuePrograms]) => (
           <div key={venueName}>
             {venuePrograms.map((program) => {
+              const isGeneral = isProgramGeneral(program);
               const candidateAssignments = program.filteredAssignments;
+
+              type TeamGroup = {
+                id: string;
+                teamId: string;
+                teamName: string;
+                slotNumber?: number;
+                candidates: Array<{
+                  id: string;
+                  name: string;
+                  chestNumber?: string;
+                  uid?: string;
+                  photo?: string;
+                  photoUrl?: string;
+                }>;
+              };
+
+              let teamGroups: TeamGroup[] = [];
+              if (isGeneral) {
+                const teamMap = new Map<string, TeamGroup>();
+                for (const a of candidateAssignments) {
+                  const c = a.candidate;
+                  const t = c.team;
+                  const tId = t?.id || c.teamId || c.institutionId || c.name;
+                  const tName = t?.name || c.institution?.name || c.team?.institution?.name || "Team";
+                  if (!teamMap.has(tId)) {
+                    teamMap.set(tId, {
+                      id: a.id,
+                      teamId: tId,
+                      teamName: tName,
+                      slotNumber: a.slotNumber,
+                      candidates: [c]
+                    });
+                  } else {
+                    teamMap.get(tId)!.candidates.push(c);
+                  }
+                }
+                teamGroups = Array.from(teamMap.values());
+              }
 
               return (
                 <div 
@@ -321,15 +361,128 @@ export default async function PrintStageManagerPage(props: {
                           </div>
                         )}
                         <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Duration: <strong>{program.duration} min</strong></div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Candidates: <strong>{candidateAssignments.length}</strong></div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          {isGeneral ? (
+                            <>Total Teams: <strong>{teamGroups.length}</strong> (Candidates: {candidateAssignments.length})</>
+                          ) : (
+                            <>Total Candidates: <strong>{candidateAssignments.length}</strong></>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {candidateAssignments.length === 0 ? (
+                    {(isGeneral ? teamGroups.length === 0 : candidateAssignments.length === 0) ? (
                       <div style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '30px', border: '1px dashed #cbd5e1', borderRadius: '4px' }}>
-                        No candidates assigned yet.
+                        {isGeneral ? 'No teams assigned to this general program yet.' : 'No candidates assigned yet.'}
+                      </div>
+                    ) : isGeneral ? (
+                      /* GENERAL PROGRAM: 1 ENTRY PER TEAM WITH PARTICIPANT PHOTOS FOR CODE LETTER VERIFICATION */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {teamGroups.map((group, index) => {
+                          return (
+                            <div 
+                              key={group.id} 
+                              style={{ 
+                                border: '1.5px solid #0f172a', 
+                                borderRadius: '4px', 
+                                padding: '10px 14px', 
+                                backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                pageBreakInside: 'avoid',
+                                breakInside: 'avoid',
+                              }}
+                            >
+                              {/* Team Control Header Row */}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                  {/* Slot Number */}
+                                  <div style={{ textAlign: 'center', minWidth: '40px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Slot</div>
+                                    <div style={{ fontWeight: 900, fontSize: '1.2rem', color: '#0f172a' }}>{group.slotNumber || index + 1}</div>
+                                  </div>
+
+                                  {/* Code Letter Entry Box for this Team */}
+                                  <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#8E0033', fontWeight: 800, textTransform: 'uppercase' }}>Code Letter</div>
+                                    <div style={{ width: '58px', height: '34px', border: '2px dashed #0f172a', borderRadius: '4px', backgroundColor: '#ffffff', margin: '0 auto' }}></div>
+                                  </div>
+
+                                  {/* Team Name */}
+                                  <div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Team / Institution</div>
+                                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>🏛️ {group.teamName}</div>
+                                  </div>
+                                </div>
+
+                                {/* Present Checkbox & Remarks */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.80rem', fontWeight: 800, color: '#0f172a' }}>Present:</span>
+                                    <div style={{ width: '24px', height: '24px', border: '1.5px solid #0f172a', borderRadius: '3px', backgroundColor: '#ffffff' }}></div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Remarks:</span>
+                                    <div style={{ width: '130px', borderBottom: '1px solid #94a3b8', height: '20px' }}></div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Team Participants List with Photo for Verification */}
+                              <div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px' }}>
+                                  Team Participants for Code Letter Verification ({group.candidates.length}):
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                  {group.candidates.map((c) => {
+                                    const photoSrc = c.photo || c.photoUrl;
+                                    return (
+                                      <div 
+                                        key={c.id} 
+                                        style={{ 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          gap: '8px', 
+                                          border: '1px solid #cbd5e1', 
+                                          borderRadius: '4px', 
+                                          padding: '5px 8px', 
+                                          backgroundColor: '#ffffff',
+                                          minWidth: '180px'
+                                        }}
+                                      >
+                                        {photoSrc ? (
+                                          <img 
+                                            src={photoSrc} 
+                                            alt={c.name} 
+                                            style={{ width: '38px', height: '46px', objectFit: 'cover', borderRadius: '3px', border: '1px solid #cbd5e1', flexShrink: 0 }} 
+                                          />
+                                        ) : (
+                                          <div style={{ width: '38px', height: '46px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px', fontSize: '1.1rem', border: '1px dashed #cbd5e1', flexShrink: 0 }}>
+                                            👤
+                                          </div>
+                                        )}
+                                        <div>
+                                          <div style={{ fontWeight: 900, fontSize: '0.85rem', color: '#8E0033', fontFamily: 'monospace' }}>
+                                            #{c.chestNumber || '-'}
+                                          </div>
+                                          <div style={{ fontWeight: 800, fontSize: '0.80rem', color: '#0f172a', lineHeight: 1.2 }}>
+                                            {c.name}
+                                          </div>
+                                          {c.uid && (
+                                            <div style={{ fontSize: '0.66rem', color: '#64748b' }}>
+                                              UID: {c.uid}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
+                      /* INDIVIDUAL PROGRAM: 1 ROW PER CANDIDATE TABLE */
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', border: '1.5px solid #0f172a' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#0f172a', color: '#ffffff', textAlign: 'left' }}>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
+import { isProgramGeneral } from "@/lib/programUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -342,7 +343,27 @@ export default async function PrintValuationPage(props: {
         </div>
       ) : (
         printablePrograms.flatMap((program) => {
+          const isGeneral = isProgramGeneral(program);
           const candidateAssignments = program.filteredAssignments;
+
+          // For General programs: group candidate assignments by team so 1 row = 1 team
+          let evaluationRows: any[] = candidateAssignments;
+          if (isGeneral) {
+            const teamMap = new Map<string, any>();
+            for (const a of candidateAssignments) {
+              const c = a.candidate;
+              const tId = c.team?.id || c.teamId || c.institutionId || c.name;
+              if (!teamMap.has(tId)) {
+                teamMap.set(tId, {
+                  id: `team_${tId}`,
+                  teamId: tId,
+                  team: c.team,
+                  slotNumber: a.slotNumber
+                });
+              }
+            }
+            evaluationRows = Array.from(teamMap.values());
+          }
 
           let juryCopies = [1, 2];
           if (copyMode === "jury1") juryCopies = [1];
@@ -431,7 +452,11 @@ export default async function PrintValuationPage(props: {
                       Duration: <strong>{program.duration} Min</strong> • Max: <strong>100</strong>
                     </div>
                     <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: "2px" }}>
-                      Participants: <strong>{candidateAssignments.length}</strong>
+                      {isGeneral ? (
+                        <>Teams: <strong>{evaluationRows.length}</strong> (Candidates: {candidateAssignments.length})</>
+                      ) : (
+                        <>Participants: <strong>{candidateAssignments.length}</strong></>
+                      )}
                     </div>
                   </div>
 
@@ -476,8 +501,8 @@ export default async function PrintValuationPage(props: {
                   </div>
                 </div>
 
-                {/* ── Clean Jury Valuation Table: ONLY Code Letter, Chest No, Name, Total Score, Grade, Place, Remarks ── */}
-                {candidateAssignments.length === 0 ? (
+                {/* ── Clean Jury Valuation Table: ONLY Code Letter, Score, Remarks ── */}
+                {evaluationRows.length === 0 ? (
                   <div style={{
                     padding: "30px",
                     textAlign: "center",
@@ -487,7 +512,7 @@ export default async function PrintValuationPage(props: {
                     marginBottom: "12px",
                     fontSize: "0.85rem",
                   }}>
-                    No candidates registered for this program in this zone yet.
+                    {isGeneral ? "No teams registered for this general program in this zone yet." : "No candidates registered for this program in this zone yet."}
                   </div>
                 ) : (
                   <table style={{
@@ -512,9 +537,9 @@ export default async function PrintValuationPage(props: {
                       </tr>
                     </thead>
                     <tbody>
-                      {candidateAssignments.map((assignment: any, idx: number) => {
+                      {evaluationRows.map((row: any, idx: number) => {
                         return (
-                          <tr key={assignment.id} style={{
+                          <tr key={row.id} style={{
                             backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
                             textAlign: "center",
                             height: "46px",
