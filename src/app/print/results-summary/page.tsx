@@ -180,12 +180,21 @@ export default async function ZonalResultsSummaryPage(props: {
         )}
       </div>
 
-      {/* ── Printable Official Document Sheet ── */}
-      <div className="results-summary-page" style={{
+      {/* ── Page Indicator Toolbar for Screen View ── */}
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", color: "#64748b", fontSize: "0.78rem" }}>
+        <span>📄 Sheet 1 of 2: Executive Championship &amp; Kalaathilakam Declaration</span>
+        <span>Standard A4 Portrait Print Ready</span>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      {/* ── PAGE 1: EXECUTIVE CHAMPIONSHIPS & KALAATHILAKAM DECLARATION ── */}
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      <div className="results-summary-page print-page" style={{
         backgroundColor: "#ffffff",
         border: "2px solid #0f172a",
         padding: "24px 28px",
-        borderRadius: "4px"
+        borderRadius: "4px",
+        marginBottom: "28px"
       }}>
         
         {/* Official Header */}
@@ -231,7 +240,7 @@ export default async function ZonalResultsSummaryPage(props: {
             alignItems: "center",
             marginBottom: "10px"
           }}>
-            <span style={{ fontSize: "0.88rem", fontWeight: 900, color: "#92400e", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.90rem", fontWeight: 900, color: "#92400e", textTransform: "uppercase" }}>
               🏆 PART I: OVERALL GRAND CHAMPIONSHIP
             </span>
             <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "#b45309" }}>
@@ -246,24 +255,24 @@ export default async function ZonalResultsSummaryPage(props: {
               border: "2px solid #f59e0b",
               backgroundColor: "#fffbeb",
               borderRadius: "6px",
-              padding: "12px",
+              padding: "14px 12px",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, color: "#b45309", textTransform: "uppercase" }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 900, color: "#b45309", textTransform: "uppercase" }}>
                 🥇 GRAND CHAMPION (1ST PLACE)
               </div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
+              <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
                 {champions.overallChampion?.name || "—"}
               </div>
               {champions.overallChampion?.place && (
-                <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginTop: "2px" }}>
                   📍 {champions.overallChampion.place}
                 </div>
               )}
-              <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#b45309", marginTop: "6px", fontFamily: "monospace" }}>
-                {champions.overallChampion?.points || 0} <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>PTS</span>
+              <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#b45309", marginTop: "6px", fontFamily: "monospace" }}>
+                {champions.overallChampion?.points || 0} <span style={{ fontSize: "0.80rem", fontWeight: 700 }}>PTS</span>
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#475569", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.74rem", color: "#475569", marginTop: "3px" }}>
                 🥇 {champions.overallChampion?.gold || 0} Gold • 🥈 {champions.overallChampion?.silver || 0} Silver • 🥉 {champions.overallChampion?.bronze || 0} Bronze
               </div>
             </div>
@@ -273,24 +282,24 @@ export default async function ZonalResultsSummaryPage(props: {
               border: "1.5px solid #94a3b8",
               backgroundColor: "#f8fafc",
               borderRadius: "6px",
-              padding: "12px",
+              padding: "14px 12px",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, color: "#475569", textTransform: "uppercase" }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 900, color: "#475569", textTransform: "uppercase" }}>
                 🥈 1ST RUNNER UP (2ND PLACE)
               </div>
-              <div style={{ fontSize: "1.02rem", fontWeight: 800, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
+              <div style={{ fontSize: "1.08rem", fontWeight: 800, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
                 {champions.overallRunnerUp?.name || "—"}
               </div>
               {champions.overallRunnerUp?.place && (
-                <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginTop: "2px" }}>
                   📍 {champions.overallRunnerUp.place}
                 </div>
               )}
-              <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#334155", marginTop: "6px", fontFamily: "monospace" }}>
-                {champions.overallRunnerUp?.points || 0} <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>PTS</span>
+              <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#334155", marginTop: "6px", fontFamily: "monospace" }}>
+                {champions.overallRunnerUp?.points || 0} <span style={{ fontSize: "0.80rem", fontWeight: 700 }}>PTS</span>
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#475569", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.74rem", color: "#475569", marginTop: "3px" }}>
                 🥇 {champions.overallRunnerUp?.gold || 0} Gold • 🥈 {champions.overallRunnerUp?.silver || 0} Silver • 🥉 {champions.overallRunnerUp?.bronze || 0} Bronze
               </div>
             </div>
@@ -300,24 +309,24 @@ export default async function ZonalResultsSummaryPage(props: {
               border: "1.5px solid #f97316",
               backgroundColor: "#fff7ed",
               borderRadius: "6px",
-              padding: "12px",
+              padding: "14px 12px",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, color: "#c2410c", textTransform: "uppercase" }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 900, color: "#c2410c", textTransform: "uppercase" }}>
                 🥉 2ND RUNNER UP (3RD PLACE)
               </div>
-              <div style={{ fontSize: "1.02rem", fontWeight: 800, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
+              <div style={{ fontSize: "1.08rem", fontWeight: 800, color: "#0f172a", marginTop: "4px", lineHeight: 1.2 }}>
                 {champions.overallSecondRunnerUp?.name || "—"}
               </div>
               {champions.overallSecondRunnerUp?.place && (
-                <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginTop: "2px" }}>
                   📍 {champions.overallSecondRunnerUp.place}
                 </div>
               )}
-              <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#c2410c", marginTop: "6px", fontFamily: "monospace" }}>
-                {champions.overallSecondRunnerUp?.points || 0} <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>PTS</span>
+              <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#c2410c", marginTop: "6px", fontFamily: "monospace" }}>
+                {champions.overallSecondRunnerUp?.points || 0} <span style={{ fontSize: "0.80rem", fontWeight: 700 }}>PTS</span>
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#475569", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.74rem", color: "#475569", marginTop: "3px" }}>
                 🥇 {champions.overallSecondRunnerUp?.gold || 0} Gold • 🥈 {champions.overallSecondRunnerUp?.silver || 0} Silver • 🥉 {champions.overallSecondRunnerUp?.bronze || 0} Bronze
               </div>
             </div>
@@ -326,38 +335,38 @@ export default async function ZonalResultsSummaryPage(props: {
         </div>
 
         {/* ── PART II: CATEGORY CHAMPIONSHIPS (INSTITUTIONS) ── */}
-        <div style={{ marginBottom: "16px" }}>
+        <div style={{ marginBottom: "18px" }}>
           <div style={{
             backgroundColor: "#fdf2f8",
             border: "1.5px solid #f472b6",
             borderLeft: "6px solid #e6007e",
-            padding: "5px 12px",
-            marginBottom: "8px"
+            padding: "6px 12px",
+            marginBottom: "10px"
           }}>
-            <span style={{ fontSize: "0.84rem", fontWeight: 900, color: "#9d174d", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.88rem", fontWeight: 900, color: "#9d174d", textTransform: "uppercase" }}>
               🌺 PART II: CATEGORY CHAMPIONSHIPS (INSTITUTIONS)
             </span>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             {/* Fadhila Category Box */}
-            <div style={{ border: "1.2px solid #fbcfe8", backgroundColor: "#fff1f2", padding: "10px 14px", borderRadius: "6px" }}>
+            <div style={{ border: "1.5px solid #fbcfe8", backgroundColor: "#fff1f2", padding: "12px 14px", borderRadius: "6px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ fontSize: "0.82rem", color: "#e11d48", textTransform: "uppercase" }}>🌺 FADHILA CATEGORY CHAMPION</strong>
-                <span style={{ fontSize: "0.92rem", fontWeight: 900, color: "#e11d48", fontFamily: "monospace" }}>
+                <strong style={{ fontSize: "0.84rem", color: "#e11d48", textTransform: "uppercase" }}>🌺 FADHILA CATEGORY CHAMPION</strong>
+                <span style={{ fontSize: "1.05rem", fontWeight: 900, color: "#e11d48", fontFamily: "monospace" }}>
                   {champions.fadhilaTopInstitution?.fadhilaPoints || 0} PTS
                 </span>
               </div>
-              <div style={{ fontSize: "1.02rem", fontWeight: 900, color: "#0f172a", marginTop: "3px" }}>
+              <div style={{ fontSize: "1.08rem", fontWeight: 900, color: "#0f172a", marginTop: "4px" }}>
                 🥇 1st: {champions.fadhilaTopInstitution?.name || "—"}
               </div>
               {champions.fadhilaTopInstitution?.place && (
-                <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: "1px" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginTop: "1px" }}>
                   📍 {champions.fadhilaTopInstitution.place}
                 </div>
               )}
               {champions.fadhilaRunnerUpInstitution && (
-                <div style={{ fontSize: "0.75rem", color: "#475569", marginTop: "5px", borderTop: "1px dashed #fecdd3", paddingTop: "4px" }}>
+                <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "6px", borderTop: "1px dashed #fecdd3", paddingTop: "5px" }}>
                   🥈 2nd: <strong>{champions.fadhilaRunnerUpInstitution.name}</strong> ({champions.fadhilaRunnerUpInstitution.fadhilaPoints} PTS)
                   {champions.fadhilaSecondRunnerUpInstitution && (
                     <span> • 🥉 3rd: <strong>{champions.fadhilaSecondRunnerUpInstitution.name}</strong> ({champions.fadhilaSecondRunnerUpInstitution.fadhilaPoints} PTS)</span>
@@ -367,23 +376,23 @@ export default async function ZonalResultsSummaryPage(props: {
             </div>
 
             {/* Fadheela Category Box */}
-            <div style={{ border: "1.2px solid #e9d5ff", backgroundColor: "#faf5ff", padding: "10px 14px", borderRadius: "6px" }}>
+            <div style={{ border: "1.5px solid #e9d5ff", backgroundColor: "#faf5ff", padding: "12px 14px", borderRadius: "6px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ fontSize: "0.82rem", color: "#7c3aed", textTransform: "uppercase" }}>🌸 FADHEELA CATEGORY CHAMPION</strong>
-                <span style={{ fontSize: "0.92rem", fontWeight: 900, color: "#7c3aed", fontFamily: "monospace" }}>
+                <strong style={{ fontSize: "0.84rem", color: "#7c3aed", textTransform: "uppercase" }}>🌸 FADHEELA CATEGORY CHAMPION</strong>
+                <span style={{ fontSize: "1.05rem", fontWeight: 900, color: "#7c3aed", fontFamily: "monospace" }}>
                   {champions.fadheelaTopInstitution?.fadheelaPoints || 0} PTS
                 </span>
               </div>
-              <div style={{ fontSize: "1.02rem", fontWeight: 900, color: "#0f172a", marginTop: "3px" }}>
+              <div style={{ fontSize: "1.08rem", fontWeight: 900, color: "#0f172a", marginTop: "4px" }}>
                 🥇 1st: {champions.fadheelaTopInstitution?.name || "—"}
               </div>
               {champions.fadheelaTopInstitution?.place && (
-                <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: "1px" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginTop: "1px" }}>
                   📍 {champions.fadheelaTopInstitution.place}
                 </div>
               )}
               {champions.fadheelaRunnerUpInstitution && (
-                <div style={{ fontSize: "0.75rem", color: "#475569", marginTop: "5px", borderTop: "1px dashed #e9d5ff", paddingTop: "4px" }}>
+                <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "6px", borderTop: "1px dashed #e9d5ff", paddingTop: "5px" }}>
                   🥈 2nd: <strong>{champions.fadheelaRunnerUpInstitution.name}</strong> ({champions.fadheelaRunnerUpInstitution.fadheelaPoints} PTS)
                   {champions.fadheelaSecondRunnerUpInstitution && (
                     <span> • 🥉 3rd: <strong>{champions.fadheelaSecondRunnerUpInstitution.name}</strong> ({champions.fadheelaSecondRunnerUpInstitution.fadheelaPoints} PTS)</span>
@@ -400,10 +409,10 @@ export default async function ZonalResultsSummaryPage(props: {
             backgroundColor: "#f0fdf4",
             border: "1.5px solid #86efac",
             borderLeft: "6px solid #16a34a",
-            padding: "5px 12px",
-            marginBottom: "8px"
+            padding: "6px 12px",
+            marginBottom: "10px"
           }}>
-            <span style={{ fontSize: "0.84rem", fontWeight: 900, color: "#166534", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.88rem", fontWeight: 900, color: "#166534", textTransform: "uppercase" }}>
               👑 PART III: KALAATHILAKAM (INDIVIDUAL CATEGORY CHAMPIONS)
             </span>
           </div>
@@ -412,20 +421,20 @@ export default async function ZonalResultsSummaryPage(props: {
             
             {/* FADHILA KALAATHILAKAM CARD */}
             <div style={{
-              border: "1.5px solid #f43f5e",
+              border: "2px solid #f43f5e",
               backgroundColor: "#fff1f2",
               borderRadius: "6px",
-              padding: "10px 14px",
+              padding: "14px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between"
             }}>
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1.5px solid #fecdd3", paddingBottom: "4px", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "0.80rem", fontWeight: 900, color: "#be123c", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1.5px solid #fecdd3", paddingBottom: "5px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "0.86rem", fontWeight: 900, color: "#be123c", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     🌺 FADHILA KALAATHILAKAM
                   </span>
-                  <span style={{ fontSize: "0.68rem", fontWeight: 900, backgroundColor: "#f43f5e", color: "#ffffff", padding: "1px 7px", borderRadius: "10px" }}>
+                  <span style={{ fontSize: "0.70rem", fontWeight: 900, backgroundColor: "#f43f5e", color: "#ffffff", padding: "2px 8px", borderRadius: "10px" }}>
                     TOP PERFORMER
                   </span>
                 </div>
@@ -434,13 +443,13 @@ export default async function ZonalResultsSummaryPage(props: {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: "0.70rem", fontWeight: 800, color: "#e11d48", textTransform: "uppercase" }}>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#e11d48", textTransform: "uppercase" }}>
                           🥇 1st Rank • Chest #{fadhilaStar.chestNumber || "—"}
                         </div>
-                        <div style={{ fontSize: "1.05rem", fontWeight: 900, color: "#0f172a", marginTop: "2px", lineHeight: 1.2 }}>
+                        <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#0f172a", marginTop: "3px", lineHeight: 1.2 }}>
                           {fadhilaStar.name}
                         </div>
-                        <div style={{ fontSize: "0.80rem", fontWeight: 800, color: "#334155", marginTop: "3px" }}>
+                        <div style={{ fontSize: "0.84rem", fontWeight: 800, color: "#334155", marginTop: "4px" }}>
                           🏛️ {fadhilaStar.institutionName || fadhilaStar.teamName}
                           {fadhilaStar.institutionPlace && (
                             <span style={{ fontWeight: 600, color: "#64748b" }}> ({fadhilaStar.institutionPlace})</span>
@@ -448,17 +457,17 @@ export default async function ZonalResultsSummaryPage(props: {
                         </div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, color: "#e11d48", fontFamily: "monospace" }}>
-                          {fadhilaStar.totalPoints || fadhilaStar.points} <span style={{ fontSize: "0.70rem", fontWeight: 700 }}>PTS</span>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#e11d48", fontFamily: "monospace" }}>
+                          {fadhilaStar.totalPoints || fadhilaStar.points} <span style={{ fontSize: "0.74rem", fontWeight: 700 }}>PTS</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Fadhila Runners-up */}
                     {fadhilaRunnersUp.length > 0 && (
-                      <div style={{ borderTop: "1px dashed #fda4af", marginTop: "8px", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ borderTop: "1.2px dashed #fda4af", marginTop: "10px", paddingTop: "8px", display: "flex", flexDirection: "column", gap: "5px" }}>
                         {fadhilaRunnersUp.map((ru: any, idx: number) => (
-                          <div key={ru.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.73rem" }}>
+                          <div key={ru.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.76rem" }}>
                             <div style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "6px" }}>
                               <span style={{ fontWeight: 800 }}>{idx === 0 ? "🥈 2nd:" : "🥉 3rd:"}</span>{" "}
                               <strong>{ru.name}</strong> #{ru.chestNumber || "—"} — {ru.institutionName || ru.teamName}
@@ -473,7 +482,7 @@ export default async function ZonalResultsSummaryPage(props: {
                     )}
                   </div>
                 ) : (
-                  <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontStyle: "italic", padding: "8px 0" }}>
+                  <div style={{ fontSize: "0.80rem", color: "#94a3b8", fontStyle: "italic", padding: "10px 0" }}>
                     Awaiting Fadhila category results
                   </div>
                 )}
@@ -482,20 +491,20 @@ export default async function ZonalResultsSummaryPage(props: {
 
             {/* FADHEELA KALAATHILAKAM CARD */}
             <div style={{
-              border: "1.5px solid #8b5cf6",
+              border: "2px solid #8b5cf6",
               backgroundColor: "#faf5ff",
               borderRadius: "6px",
-              padding: "10px 14px",
+              padding: "14px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between"
             }}>
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1.5px solid #ddd6fe", paddingBottom: "4px", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "0.80rem", fontWeight: 900, color: "#6d28d9", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1.5px solid #ddd6fe", paddingBottom: "5px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "0.86rem", fontWeight: 900, color: "#6d28d9", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     🌸 FADHEELA KALAATHILAKAM
                   </span>
-                  <span style={{ fontSize: "0.68rem", fontWeight: 900, backgroundColor: "#8b5cf6", color: "#ffffff", padding: "1px 7px", borderRadius: "10px" }}>
+                  <span style={{ fontSize: "0.70rem", fontWeight: 900, backgroundColor: "#8b5cf6", color: "#ffffff", padding: "2px 8px", borderRadius: "10px" }}>
                     TOP PERFORMER
                   </span>
                 </div>
@@ -504,13 +513,13 @@ export default async function ZonalResultsSummaryPage(props: {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: "0.70rem", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
                           🥇 1st Rank • Chest #{fadheelaStar.chestNumber || "—"}
                         </div>
-                        <div style={{ fontSize: "1.05rem", fontWeight: 900, color: "#0f172a", marginTop: "2px", lineHeight: 1.2 }}>
+                        <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#0f172a", marginTop: "3px", lineHeight: 1.2 }}>
                           {fadheelaStar.name}
                         </div>
-                        <div style={{ fontSize: "0.80rem", fontWeight: 800, color: "#334155", marginTop: "3px" }}>
+                        <div style={{ fontSize: "0.84rem", fontWeight: 800, color: "#334155", marginTop: "4px" }}>
                           🏛️ {fadheelaStar.institutionName || fadheelaStar.teamName}
                           {fadheelaStar.institutionPlace && (
                             <span style={{ fontWeight: 600, color: "#64748b" }}> ({fadheelaStar.institutionPlace})</span>
@@ -518,17 +527,17 @@ export default async function ZonalResultsSummaryPage(props: {
                         </div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, color: "#7c3aed", fontFamily: "monospace" }}>
-                          {fadheelaStar.totalPoints || fadheelaStar.points} <span style={{ fontSize: "0.70rem", fontWeight: 700 }}>PTS</span>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#7c3aed", fontFamily: "monospace" }}>
+                          {fadheelaStar.totalPoints || fadheelaStar.points} <span style={{ fontSize: "0.74rem", fontWeight: 700 }}>PTS</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Fadheela Runners-up */}
                     {fadheelaRunnersUp.length > 0 && (
-                      <div style={{ borderTop: "1px dashed #c4b5fd", marginTop: "8px", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ borderTop: "1.2px dashed #c4b5fd", marginTop: "10px", paddingTop: "8px", display: "flex", flexDirection: "column", gap: "5px" }}>
                         {fadheelaRunnersUp.map((ru: any, idx: number) => (
-                          <div key={ru.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.73rem" }}>
+                          <div key={ru.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.76rem" }}>
                             <div style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "6px" }}>
                               <span style={{ fontWeight: 800 }}>{idx === 0 ? "🥈 2nd:" : "🥉 3rd:"}</span>{" "}
                               <strong>{ru.name}</strong> #{ru.chestNumber || "—"} — {ru.institutionName || ru.teamName}
@@ -543,7 +552,7 @@ export default async function ZonalResultsSummaryPage(props: {
                     )}
                   </div>
                 ) : (
-                  <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontStyle: "italic", padding: "8px 0" }}>
+                  <div style={{ fontSize: "0.80rem", color: "#94a3b8", fontStyle: "italic", padding: "10px 0" }}>
                     Awaiting Fadheela category results
                   </div>
                 )}
@@ -553,33 +562,96 @@ export default async function ZonalResultsSummaryPage(props: {
           </div>
         </div>
 
+        {/* Page 1 Footer Note */}
+        <div style={{
+          marginTop: "16px",
+          paddingTop: "8px",
+          borderTop: "1.5px solid #0f172a",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          color: "#475569"
+        }}>
+          <span>{settings.festName} • OFFICIAL CHAMPIONSHIP DECLARATION</span>
+          <span style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "2px 8px", borderRadius: "4px" }}>
+            PAGE 1 OF 2 • OVERALL STANDINGS ON REVERSE ⏩
+          </span>
+        </div>
+
+      </div>
+
+      {/* ── Page Indicator Toolbar for Screen View ── */}
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", color: "#64748b", fontSize: "0.78rem" }}>
+        <span>📄 Sheet 2 of 2: Tabulation Standings &amp; Official Attestation</span>
+        <span>Standard A4 Portrait Print Ready</span>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      {/* ── PAGE 2: COMPLETE INSTITUTION STANDINGS & OFFICIAL ATTESTATION ── */}
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      <div className="results-summary-page print-page" style={{
+        backgroundColor: "#ffffff",
+        border: "2px solid #0f172a",
+        padding: "24px 28px",
+        borderRadius: "4px"
+      }}>
+        
+        {/* Page 2 Mini Header */}
+        <div style={{ textAlign: "center", borderBottom: "2px solid #0f172a", paddingBottom: "10px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#8E0033", textTransform: "uppercase" }}>
+                {settings.festName}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "#475569", fontWeight: 700 }}>
+                ZONE: {activeEv?.zone?.name || activeEv?.name || "ALL ZONES"} • DATE: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
+              </div>
+            </div>
+            <div style={{
+              backgroundColor: "#0f172a",
+              color: "#ffffff",
+              padding: "4px 12px",
+              borderRadius: "4px",
+              fontSize: "0.80rem",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
+            }}>
+              TABULATION SUMMARY &amp; AUDIT
+            </div>
+          </div>
+        </div>
+
         {/* ── PART 4: COMPLETE INSTITUTION STANDINGS TABLE ── */}
-        <div style={{ marginBottom: "18px" }}>
+        <div style={{ marginBottom: "20px" }}>
           <div style={{
             backgroundColor: "#0f172a",
             color: "#ffffff",
-            padding: "5px 12px",
-            fontSize: "0.84rem",
+            padding: "6px 12px",
+            fontSize: "0.86rem",
             fontWeight: 900,
             textTransform: "uppercase",
-            letterSpacing: "0.5px"
+            letterSpacing: "0.5px",
+            marginBottom: "6px"
           }}>
             📊 PART IV: COMPLETE INSTITUTION STANDINGS (TABULATION SUMMARY)
           </div>
 
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem", border: "1.5px solid #0f172a" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem", border: "1.5px solid #0f172a" }}>
             <thead>
               <tr style={{ backgroundColor: "#1e293b", color: "#ffffff", textAlign: "center" }}>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "40px" }}>Rank</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 8px", textAlign: "left" }}>Institution Name</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 6px", width: "100px" }}>Place</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "80px", backgroundColor: "#334155" }}>Fadhila</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "80px", backgroundColor: "#334155" }}>Fadheela</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "75px" }}>General</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "45px" }}>🥇 1st</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "45px" }}>🥈 2nd</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "45px" }}>🥉 3rd</th>
-                <th style={{ border: "1px solid #475569", padding: "5px 4px", width: "90px", backgroundColor: "#8E0033", color: "#ffffff" }}>TOTAL</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "45px" }}>Rank</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 8px", textAlign: "left" }}>Institution Name</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 6px", width: "110px" }}>Place</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "80px", backgroundColor: "#334155" }}>Fadhila</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "80px", backgroundColor: "#334155" }}>Fadheela</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "75px" }}>General</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "45px" }}>🥇 1st</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "45px" }}>🥈 2nd</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "45px" }}>🥉 3rd</th>
+                <th style={{ border: "1px solid #475569", padding: "6px 4px", width: "95px", backgroundColor: "#8E0033", color: "#ffffff" }}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -597,34 +669,34 @@ export default async function ZonalResultsSummaryPage(props: {
                       fontWeight: rank <= 3 ? 700 : 500
                     }}
                   >
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px 2px", textAlign: "center", fontWeight: 900 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px 2px", textAlign: "center", fontWeight: 900 }}>
                       {rank === 1 ? "🥇 1" : rank === 2 ? "🥈 2" : rank === 3 ? "🥉 3" : rank}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px 8px", textAlign: "left" }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px 8px", textAlign: "left" }}>
                       <span style={{ fontWeight: 800, color: "#0f172a" }}>{team.name}</span>
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px 6px", textAlign: "center", color: "#64748b" }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px 6px", textAlign: "center", color: "#64748b" }}>
                       {team.place || "—"}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", fontFamily: "monospace", color: "#e11d48", fontWeight: 700 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", fontFamily: "monospace", color: "#e11d48", fontWeight: 700 }}>
                       {team.fadhilaPoints || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", fontFamily: "monospace", color: "#7c3aed", fontWeight: 700 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", fontFamily: "monospace", color: "#7c3aed", fontWeight: 700 }}>
                       {team.fadheelaPoints || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", fontFamily: "monospace", color: "#475569" }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", fontFamily: "monospace", color: "#475569" }}>
                       {team.generalPoints || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", color: "#b45309", fontWeight: 800 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", color: "#b45309", fontWeight: 800 }}>
                       {team.gold || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", color: "#475569", fontWeight: 800 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", color: "#475569", fontWeight: 800 }}>
                       {team.silver || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", color: "#c2410c", fontWeight: 800 }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", color: "#c2410c", fontWeight: 800 }}>
                       {team.bronze || 0}
                     </td>
-                    <td style={{ border: "1px solid #cbd5e1", padding: "4px", textAlign: "center", fontFamily: "monospace", fontSize: "0.85rem", fontWeight: 900, color: "#8E0033", backgroundColor: isChampion ? "#fef3c7" : "transparent" }}>
+                    <td style={{ border: "1px solid #cbd5e1", padding: "5px", textAlign: "center", fontFamily: "monospace", fontSize: "0.88rem", fontWeight: 900, color: "#8E0033", backgroundColor: isChampion ? "#fef3c7" : "transparent" }}>
                       {team.points || 0}
                     </td>
                   </tr>
@@ -636,51 +708,69 @@ export default async function ZonalResultsSummaryPage(props: {
 
         {/* ── PART 5: OFFICIAL ATTESTATION & SIGNATORIES ── */}
         <div style={{
-          marginTop: "16px",
+          marginTop: "24px",
           border: "1.5px solid #0f172a",
           borderRadius: "4px",
-          padding: "10px 14px",
+          padding: "14px 16px",
           backgroundColor: "#fafafa",
           pageBreakInside: "avoid"
         }}>
-          <div style={{ fontSize: "0.72rem", color: "#475569", marginBottom: "8px", fontStyle: "italic", textAlign: "center" }}>
-            We hereby certify that the above results and championship declarations have been duly tabulated, audited, and approved in accordance with festival by-laws.
+          <div style={{ fontSize: "0.76rem", color: "#475569", marginBottom: "12px", fontStyle: "italic", textAlign: "center" }}>
+            We hereby certify that the above results, individual awards, and championship declarations have been duly tabulated, audited, and approved in accordance with official festival regulations and by-laws.
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px", textAlign: "center", marginTop: "14px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", textAlign: "center", marginTop: "18px" }}>
             <div>
-              <div style={{ borderBottom: "1.5px solid #0f172a", height: "24px", marginBottom: "4px" }}></div>
-              <div style={{ fontWeight: 800, fontSize: "0.74rem" }}>Chief Tabulator</div>
-              <div style={{ fontSize: "0.65rem", color: "#64748b" }}>Result Audit &amp; Scrutiny</div>
+              <div style={{ borderBottom: "1.5px solid #0f172a", height: "32px", marginBottom: "6px" }}></div>
+              <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Chief Tabulator</div>
+              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Result Audit &amp; Scrutiny</div>
             </div>
             <div>
-              <div style={{ borderBottom: "1.5px solid #0f172a", height: "24px", marginBottom: "4px" }}></div>
-              <div style={{ fontWeight: 800, fontSize: "0.74rem" }}>Program Convener</div>
-              <div style={{ fontSize: "0.65rem", color: "#64748b" }}>Event Management Committee</div>
+              <div style={{ borderBottom: "1.5px solid #0f172a", height: "32px", marginBottom: "6px" }}></div>
+              <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Program Convener</div>
+              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Event Management Committee</div>
             </div>
             <div>
-              <div style={{ borderBottom: "1.5px solid #0f172a", height: "24px", marginBottom: "4px" }}></div>
-              <div style={{ fontWeight: 800, fontSize: "0.74rem" }}>Zonal General Secretary</div>
-              <div style={{ fontSize: "0.65rem", color: "#64748b" }}>Executive Declaration</div>
+              <div style={{ borderBottom: "1.5px solid #0f172a", height: "32px", marginBottom: "6px" }}></div>
+              <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Zonal General Secretary</div>
+              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>Executive Declaration</div>
             </div>
             <div>
               <div style={{
                 border: "1.5px dashed #475569",
-                height: "44px",
-                margin: "0 auto 4px",
-                width: "80px",
+                height: "50px",
+                margin: "0 auto 6px",
+                width: "90px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "0.62rem",
+                fontSize: "0.66rem",
                 color: "#64748b",
                 fontWeight: 700
               }}>
                 OFFICIAL SEAL
               </div>
-              <div style={{ fontWeight: 800, fontSize: "0.74rem" }}>Zonal President</div>
+              <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>Zonal President</div>
             </div>
           </div>
+        </div>
+
+        {/* Page 2 Footer */}
+        <div style={{
+          marginTop: "16px",
+          paddingTop: "8px",
+          borderTop: "1.5px solid #0f172a",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          color: "#475569"
+        }}>
+          <span>{settings.festName} • OFFICIAL TABULATION SUMMARY</span>
+          <span style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "2px 8px", borderRadius: "4px" }}>
+            PAGE 2 OF 2 • COMPLETE AUDIT RECORD
+          </span>
         </div>
 
       </div>
@@ -701,12 +791,27 @@ export default async function ZonalResultsSummaryPage(props: {
             .results-summary-page {
               box-shadow: none !important;
               border: 1.5px solid #000000 !important;
-              padding: 4mm 6mm !important;
+              padding: 6mm 8mm !important;
               margin: 0 !important;
+              box-sizing: border-box !important;
+            }
+            .print-page {
+              page-break-after: always !important;
+              break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              min-height: 275mm !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justifyContent: space-between !important;
+            }
+            .print-page:last-child {
+              page-break-after: auto !important;
+              break-after: auto !important;
             }
             @page {
               size: A4 portrait;
-              margin: 6mm 8mm;
+              margin: 8mm 8mm;
             }
           }
         `
