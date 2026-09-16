@@ -1218,6 +1218,49 @@ export async function transferProgramToAnotherCandidate(data: {
         }
       });
 
+      // Synchronize to twin program (parent or child) with matching programCode so mark entry and scoring stay aligned
+      try {
+        const assignedProg = await tx.program.findUnique({
+          where: { id: assignment.programId },
+          include: { event: true }
+        });
+        if (assignedProg?.programCode) {
+          const twinProgs = await tx.program.findMany({
+            where: {
+              programCode: assignedProg.programCode,
+              id: { not: assignedProg.id },
+              OR: [
+                ...(assignedProg.event.parentId ? [{ eventId: assignedProg.event.parentId }] : []),
+                { event: { parentId: assignedProg.eventId } }
+              ]
+            }
+          });
+          for (const tp of twinProgs) {
+            await tx.programAssignment.deleteMany({
+              where: {
+                programId: tp.id,
+                candidateId: assignment.candidateId
+              }
+            });
+            const existingTwin = await tx.programAssignment.findFirst({
+              where: { programId: tp.id, candidateId: targetCandidateId }
+            });
+            if (!existingTwin) {
+              await tx.programAssignment.create({
+                data: {
+                  candidateId: targetCandidateId,
+                  programId: tp.id,
+                  replacedFromChest: oldChestNumber,
+                  replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName})`,
+                }
+              });
+            }
+          }
+        }
+      } catch (twinErr) {
+        console.error("Twin program sync error:", twinErr);
+      }
+
       return {
         targetCandidateId,
         targetName,

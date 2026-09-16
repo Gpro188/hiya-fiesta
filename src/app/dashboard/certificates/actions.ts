@@ -361,18 +361,23 @@ export async function getCertificateWinners(params: {
   // Query candidate assignments for General/Group programs and team results
   const teamResults = filteredResults.filter(r => (r.teamId && !r.candidateId) || r.program.type === "GENERAL" || r.program.type === "GROUP");
   const teamProgramIds = Array.from(new Set(teamResults.map(r => r.programId)));
+  const teamProgramCodes = Array.from(new Set(teamResults.map(r => r.program.programCode).filter(Boolean))) as string[];
   const teamIds = Array.from(new Set(teamResults.map(r => r.teamId).filter(Boolean))) as string[];
 
   let teamAssignments: any[] = [];
-  if (teamProgramIds.length > 0 && teamIds.length > 0) {
+  if ((teamProgramIds.length > 0 || teamProgramCodes.length > 0) && teamIds.length > 0) {
     teamAssignments = await prisma.programAssignment.findMany({
       where: {
-        programId: { in: teamProgramIds },
+        OR: [
+          { programId: { in: teamProgramIds } },
+          { program: { programCode: { in: teamProgramCodes } } }
+        ],
         candidate: {
           teamId: { in: teamIds }
         }
       },
       include: {
+        program: { select: { id: true, programCode: true } },
         candidate: {
           include: {
             category: true,
@@ -400,6 +405,17 @@ export async function getCertificateWinners(params: {
       assignmentsByProgramAndTeam.set(key, []);
     }
     assignmentsByProgramAndTeam.get(key)!.push(a.candidate);
+
+    if (a.program?.programCode) {
+      const codeKey = `${a.program.programCode}_${a.candidate.teamId}`;
+      if (!assignmentsByProgramAndTeam.has(codeKey)) {
+        assignmentsByProgramAndTeam.set(codeKey, []);
+      }
+      const existingInCodeKey = assignmentsByProgramAndTeam.get(codeKey)!;
+      if (!existingInCodeKey.some((c: any) => c.id === a.candidate.id)) {
+        existingInCodeKey.push(a.candidate);
+      }
+    }
   }
 
   // Query which certificates have been printed
@@ -444,7 +460,10 @@ export async function getCertificateWinners(params: {
     // Check if this is a Team/General program with registered participants
     if (res.teamId && (!res.candidateId || prog.type === "GENERAL" || prog.type === "GROUP")) {
       const key = `${res.programId}_${res.teamId}`;
-      const candidates = assignmentsByProgramAndTeam.get(key) || [];
+      let candidates = assignmentsByProgramAndTeam.get(key) || [];
+      if (candidates.length === 0 && prog.programCode) {
+        candidates = assignmentsByProgramAndTeam.get(`${prog.programCode}_${res.teamId}`) || [];
+      }
 
       if (candidates.length > 0) {
         for (const assignedCand of candidates) {

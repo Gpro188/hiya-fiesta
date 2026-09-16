@@ -148,7 +148,7 @@ export default function CertificateStudioClient({
     setFilterCategoryId("ALL");
     setFilterRank("ALL");
     setSearchQuery("");
-    refreshWinners(newId, "ALL", "ALL", "ALL", "");
+    refreshWinners(newId, "ALL", "ALL", "ALL", "ALL", "");
   };
 
   // Sample winner fallback for previewing calibration when no results are entered yet

@@ -99,7 +99,7 @@ export default async function ScoringPage(props: {
 
   const judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
 
-  const [programsForScoring, availableJudges] = await Promise.all([
+  const [programsForScoring, availableJudges, childProgramsWithAssignments] = await Promise.all([
     prisma.program.findMany({
       where: { 
         eventId: programsEventId,
@@ -173,12 +173,70 @@ export default async function ScoringPage(props: {
       where: { role: "JUDGE" },
       select: { id: true, username: true, place: true, phone: true },
       orderBy: { username: 'asc' }
-    })
+    }),
+    activeEvent.parentId
+      ? prisma.program.findMany({
+          where: {
+            eventId: activeEvent.id,
+            assignments: { some: { candidate: { team: { eventId: activeEventId } } } }
+          },
+          select: {
+            programCode: true,
+            assignments: {
+              where: {
+                candidate: { team: { eventId: activeEventId } }
+              },
+              select: {
+                id: true,
+                candidate: {
+                  select: {
+                    id: true,
+                    name: true,
+                    chestNumber: true,
+                    team: {
+                      select: {
+                        id: true,
+                        name: true,
+                        flagColor: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+      : Promise.resolve([])
   ]);
+
+  // Index child program assignments by programCode so any candidate assigned on child event is never omitted
+  const childAssignmentsByCode = new Map<string, any[]>();
+  for (const cp of childProgramsWithAssignments) {
+    if (cp.programCode) {
+      if (!childAssignmentsByCode.has(cp.programCode)) {
+        childAssignmentsByCode.set(cp.programCode, []);
+      }
+      childAssignmentsByCode.get(cp.programCode)!.push(...cp.assignments);
+    }
+  }
+
+  const mergedProgramsForScoring = programsForScoring.map(p => {
+    if (!p.programCode || !childAssignmentsByCode.has(p.programCode)) {
+      return p;
+    }
+    const extraAssignments = childAssignmentsByCode.get(p.programCode) || [];
+    const existingCandidateIds = new Set(p.assignments.map(a => a.candidate.id));
+    const toAdd = extraAssignments.filter(a => !existingCandidateIds.has(a.candidate.id));
+    if (toAdd.length === 0) return p;
+    return {
+      ...p,
+      assignments: [...p.assignments, ...toAdd]
+    };
+  });
 
   const activeEventWithPrograms = {
     ...activeEvent,
-    programs: programsForScoring
+    programs: mergedProgramsForScoring
   };
 
   if (!activeEvent) redirect("/dashboard/scoring");
