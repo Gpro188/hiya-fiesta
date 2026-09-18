@@ -48,12 +48,7 @@ const getCachedPublicEventData = unstable_cache(
 
       // 2. Get Teams
       prisma.team.findMany({
-        where: {
-          OR: [
-            { eventId },
-            { event: { parentId: eventId } }
-          ]
-        },
+        where: { eventId },
         select: {
           id: true,
           name: true,
@@ -69,11 +64,8 @@ const getCachedPublicEventData = unstable_cache(
         where: {
           OR: [
             { program: { eventId } },
-            { program: { event: { parentId: eventId } } },
             { candidate: { team: { eventId } } },
-            { candidate: { team: { event: { parentId: eventId } } } },
-            { team: { eventId } },
-            { team: { event: { parentId: eventId } } }
+            { team: { eventId } }
           ],
           isPublished: true
         },
@@ -163,6 +155,30 @@ const getCachedPublicEventData = unstable_cache(
       gold: number,
       silver: number,
       bronze: number,
+      rank1Count: number,
+      rank1Points: number,
+      rank2Count: number,
+      rank2Points: number,
+      rank3Count: number,
+      rank3Points: number,
+      totalRankPoints: number,
+      gradeACount: number,
+      gradeAPoints: number,
+      gradeBCount: number,
+      gradeBPoints: number,
+      gradeCCount: number,
+      gradeCPoints: number,
+      totalGradePoints: number,
+      generalRank1: number,
+      generalRank1Points: number,
+      generalRank2: number,
+      generalRank2Points: number,
+      generalRank3: number,
+      generalRank3Points: number,
+      generalGradeA: number,
+      generalGradeAPoints: number,
+      generalGradeB: number,
+      generalGradeBPoints: number,
       flagColor: string | null, 
       leaderName: string | null, 
       leaderPhoto: string | null, 
@@ -194,6 +210,30 @@ const getCachedPublicEventData = unstable_cache(
         gold: 0,
         silver: 0,
         bronze: 0,
+        rank1Count: 0,
+        rank1Points: 0,
+        rank2Count: 0,
+        rank2Points: 0,
+        rank3Count: 0,
+        rank3Points: 0,
+        totalRankPoints: 0,
+        gradeACount: 0,
+        gradeAPoints: 0,
+        gradeBCount: 0,
+        gradeBPoints: 0,
+        gradeCCount: 0,
+        gradeCPoints: 0,
+        totalGradePoints: 0,
+        generalRank1: 0,
+        generalRank1Points: 0,
+        generalRank2: 0,
+        generalRank2Points: 0,
+        generalRank3: 0,
+        generalRank3Points: 0,
+        generalGradeA: 0,
+        generalGradeAPoints: 0,
+        generalGradeB: 0,
+        generalGradeBPoints: 0,
         flagColor: t.flagColor,
         leaderName: t.leaderName,
         leaderPhoto: t.leaderPhoto,
@@ -246,6 +286,30 @@ const getCachedPublicEventData = unstable_cache(
             gold: 0,
             silver: 0,
             bronze: 0,
+            rank1Count: 0,
+            rank1Points: 0,
+            rank2Count: 0,
+            rank2Points: 0,
+            rank3Count: 0,
+            rank3Points: 0,
+            totalRankPoints: 0,
+            gradeACount: 0,
+            gradeAPoints: 0,
+            gradeBCount: 0,
+            gradeBPoints: 0,
+            gradeCCount: 0,
+            gradeCPoints: 0,
+            totalGradePoints: 0,
+            generalRank1: 0,
+            generalRank1Points: 0,
+            generalRank2: 0,
+            generalRank2Points: 0,
+            generalRank3: 0,
+            generalRank3Points: 0,
+            generalGradeA: 0,
+            generalGradeAPoints: 0,
+            generalGradeB: 0,
+            generalGradeBPoints: 0,
             flagColor: teamFlag,
             leaderName: null,
             leaderPhoto: teamLeaderPhoto,
@@ -256,12 +320,51 @@ const getCachedPublicEventData = unstable_cache(
         const pts = res.points || 0;
         teamScores[teamId].points += pts;
 
-        if (res.rank === 1) teamScores[teamId].gold += 1;
-        else if (res.rank === 2) teamScores[teamId].silver += 1;
-        else if (res.rank === 3) teamScores[teamId].bronze += 1;
-
         const cat = detectProgCat(res);
         const isIndiv = res.candidateId && res.program?.type === "INDIVIDUAL";
+        const isGeneral = !isIndiv;
+
+        // Differential scoring: General / Group vs Individual
+        let rankPts = 0;
+        if (res.rank === 1) rankPts = isGeneral ? 10 : 5;
+        else if (res.rank === 2) rankPts = isGeneral ? 6 : 3;
+        else if (res.rank === 3) rankPts = isGeneral ? 3 : 1;
+
+        let grPts = 0;
+        if (res.grade === "A") grPts = 5;
+        else if (res.grade === "B") grPts = 3;
+        else if (res.grade === "C") grPts = 1;
+
+        if (res.rank === 1) {
+          teamScores[teamId].gold += 1;
+          teamScores[teamId].rank1Count += 1;
+          teamScores[teamId].rank1Points += rankPts;
+          teamScores[teamId].totalRankPoints += rankPts;
+        } else if (res.rank === 2) {
+          teamScores[teamId].silver += 1;
+          teamScores[teamId].rank2Count += 1;
+          teamScores[teamId].rank2Points += rankPts;
+          teamScores[teamId].totalRankPoints += rankPts;
+        } else if (res.rank === 3) {
+          teamScores[teamId].bronze += 1;
+          teamScores[teamId].rank3Count += 1;
+          teamScores[teamId].rank3Points += rankPts;
+          teamScores[teamId].totalRankPoints += rankPts;
+        }
+
+        if (res.grade === "A") {
+          teamScores[teamId].gradeACount += 1;
+          teamScores[teamId].gradeAPoints += grPts;
+          teamScores[teamId].totalGradePoints += grPts;
+        } else if (res.grade === "B") {
+          teamScores[teamId].gradeBCount += 1;
+          teamScores[teamId].gradeBPoints += grPts;
+          teamScores[teamId].totalGradePoints += grPts;
+        } else if (res.grade === "C") {
+          teamScores[teamId].gradeCCount += 1;
+          teamScores[teamId].gradeCPoints += grPts;
+          teamScores[teamId].totalGradePoints += grPts;
+        }
 
         // Category champions count strictly by individual programs
         if (cat === "FADHILA" && isIndiv) {
@@ -270,6 +373,23 @@ const getCachedPublicEventData = unstable_cache(
           teamScores[teamId].fadheelaPoints += pts;
         } else {
           teamScores[teamId].generalPoints += pts;
+          if (res.rank === 1) {
+            teamScores[teamId].generalRank1 += 1;
+            teamScores[teamId].generalRank1Points += rankPts;
+          } else if (res.rank === 2) {
+            teamScores[teamId].generalRank2 += 1;
+            teamScores[teamId].generalRank2Points += rankPts;
+          } else if (res.rank === 3) {
+            teamScores[teamId].generalRank3 += 1;
+            teamScores[teamId].generalRank3Points += rankPts;
+          }
+          if (res.grade === "A") {
+            teamScores[teamId].generalGradeA += 1;
+            teamScores[teamId].generalGradeAPoints += grPts;
+          } else if (res.grade === "B") {
+            teamScores[teamId].generalGradeB += 1;
+            teamScores[teamId].generalGradeBPoints += grPts;
+          }
         }
       }
     });
@@ -283,6 +403,10 @@ const getCachedPublicEventData = unstable_cache(
     const fadheelaLeaderboard = Object.values(teamScores)
       .filter(t => t.fadheelaPoints > 0)
       .sort((a, b) => b.fadheelaPoints - a.fadheelaPoints || b.gold - a.gold || b.silver - a.silver);
+
+    const generalLeaderboard = Object.values(teamScores)
+      .filter(t => t.generalPoints > 0)
+      .sort((a, b) => b.generalPoints - a.generalPoints || b.generalRank1 - a.generalRank1 || b.generalRank2 - a.generalRank2);
 
     // --- Category Top 3 Champions with Detailed Results & Point Types ---
     const candidateScores: Record<string, { 
@@ -501,6 +625,9 @@ const getCachedPublicEventData = unstable_cache(
       fadheelaTopInstitution: fadheelaLeaderboard[0] || null,
       fadheelaRunnerUpInstitution: fadheelaLeaderboard[1] || null,
       fadheelaSecondRunnerUpInstitution: fadheelaLeaderboard[2] || null,
+      generalTopInstitution: generalLeaderboard[0] || null,
+      generalRunnerUpInstitution: generalLeaderboard[1] || null,
+      generalSecondRunnerUpInstitution: generalLeaderboard[2] || null,
       overallTopStar: formatStar(topStars[0]),
       fadhilaTopStar: formatStar(findCategoryStar("FADHILA")),
       fadheelaTopStar: formatStar(findCategoryStar("FADHEELA")),
@@ -508,6 +635,7 @@ const getCachedPublicEventData = unstable_cache(
       fadheelaCategoryStars: getCategoryStarsList("FADHEELA"),
       fadhilaLeaderboard,
       fadheelaLeaderboard,
+      generalLeaderboard,
     };
 
     return { 
@@ -518,6 +646,7 @@ const getCachedPublicEventData = unstable_cache(
         topStars, 
         categoryStars,
         champions,
+        generalLeaderboard,
         stats
     };
   },
