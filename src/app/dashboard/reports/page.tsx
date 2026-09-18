@@ -68,6 +68,81 @@ export default async function ReportsPage(props: {
           <EventSwitcher events={events} activeEventId={activeEventId || ""} />
         </div>
 
+        {/* Finished Zone Results, Trophy & Certificate Audit Download */}
+        <div className="glass-panel" style={{
+          padding: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+          borderRadius: '16px',
+          border: '2px solid #f59e0b',
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 100%)',
+          boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 450px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🏆</span>
+                <h3 style={{ margin: 0, color: '#b45309', fontWeight: 800 }}>
+                  Finished Zone Results &mdash; Trophy &amp; Certificate Audit (Excel)
+                </h3>
+                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: 800, border: '1px solid #fcd34d' }}>
+                  AUDIT EXCEL (.XLSX)
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Comprehensive Excel export with <strong>6 structured sheets</strong>: Executive Summary &amp; Audit Totals, All 152 Winning Students, Program-wise Gazette, General/Group Participating Students Roster, Magazine Result (Institution-only award, zero student trophies/certs), and All Registered Zone Participants.
+              </p>
+              
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.12)', color: '#b45309', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🥇 1st Trophies: <strong>55</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(100, 116, 139, 0.12)', color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🥈 2nd Trophies: <strong>54</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(217, 119, 6, 0.12)', color: '#c2410c', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🥉 3rd Trophies: <strong>43</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 800 }}>
+                  🏆 Total Trophies: <strong>152</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.12)', color: '#4338ca', fontSize: '0.82rem', fontWeight: 800 }}>
+                  📜 Total Certificates: <strong>152</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', color: '#b91c1c', fontSize: '0.78rem', fontWeight: 600 }}>
+                  📰 Magazine: Excluded (Inst-Only)
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
+              <a
+                href="/api/reports/trophy-audit-excel"
+                download="Thrissur_Zone_Final_Results_Trophies_Certificates.xlsx"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>📥</span> Download Zone Results &amp; Trophy Audit Excel
+              </a>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                Format: Microsoft Excel (.XLSX) &bull; 6 Tabs
+              </span>
+            </div>
+          </div>
+        </div>
+
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs & Guidelines (PDF Prints)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
           {["ADMIN", "SUPER_ADMIN"].includes(role) && (
