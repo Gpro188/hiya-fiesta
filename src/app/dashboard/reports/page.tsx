@@ -116,8 +116,8 @@ export default async function ReportsPage(props: {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
               <a
-                href="/api/reports/trophy-audit-excel"
-                download="Thrissur_Zone_Final_Results_Trophies_Certificates.xlsx"
+                href={`/api/reports/trophy-audit-excel?eventId=${activeEventId || ''}`}
+                download="Zone_Final_Results_Trophies_Certificates.xlsx"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

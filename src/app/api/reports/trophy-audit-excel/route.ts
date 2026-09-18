@@ -9,7 +9,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get("eventId") || "90b65b91-0f9e-4e91-9c4c-af2ca90cee27";
     const childEventId = "c1bb351f-c165-4270-9b51-b4a2069ff4c2";
-    const zoneId = searchParams.get("zoneId") || "274203a7-aa36-4ea1-881e-0d0623f40eba";
+
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, name: true, zoneId: true, parentId: true }
+    });
+
+    const zoneId = searchParams.get("zoneId") || targetEvent?.zoneId || "274203a7-aa36-4ea1-881e-0d0623f40eba";
 
     // 1. Fetch published rank 1-3 results
     const results = await prisma.result.findMany({
@@ -20,7 +26,8 @@ export async function GET(req: NextRequest) {
           OR: [
             { eventId },
             { eventId: childEventId },
-            { event: { parentId: eventId } }
+            { event: { parentId: eventId } },
+            ...(targetEvent?.parentId ? [{ eventId: targetEvent.parentId }] : [])
           ]
         }
       },
@@ -374,11 +381,14 @@ export async function GET(req: NextRequest) {
 
     const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
 
+    const safeName = targetEvent?.name ? targetEvent.name.replace(/[^a-zA-Z0-9_-]/g, "_") : "Zone";
+    const filename = `${safeName}_Final_Results_Trophies_Certificates.xlsx`;
+
     return new NextResponse(buf, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": 'attachment; filename="Thrissur_Zone_Final_Results_Trophies_Certificates.xlsx"',
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "no-cache"
       }
     });
