@@ -201,8 +201,11 @@ export default async function PrintStageManagerPage(props: {
             <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#8E0033', textTransform: 'uppercase' }}>
               🎭 Stage Manager & Call Sheet
             </span>
+            <span style={{ fontSize: '0.72rem', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '4px', fontWeight: 800, marginLeft: '8px', border: '1px solid #bae6fd' }}>
+              ON-STAGE ONLY
+            </span>
             <span style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '8px' }}>
-              (ON STAGE Programs: {printablePrograms.length})
+              ({printablePrograms.length} Programs)
             </span>
           </div>
 

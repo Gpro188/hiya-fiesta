@@ -52,15 +52,16 @@ export default async function PrintTabulationPage(props: {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
-  const activeStageType = searchParams.stageType || "ON_STAGE";
+  const activeStageType = searchParams.stageType || "ALL";
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  let whereClause: any = {
-    stageType: activeStageType === "ALL" ? "ON_STAGE" : activeStageType
-  };
+  let whereClause: any = {};
+  if (activeStageType !== "ALL") {
+    whereClause.stageType = activeStageType;
+  }
 
   if (eventId) {
     activeEv = await prisma.event.findUnique({

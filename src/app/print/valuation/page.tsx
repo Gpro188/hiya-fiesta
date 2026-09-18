@@ -19,16 +19,16 @@ export default async function PrintValuationPage(props: {
   const searchParams = await props.searchParams;
   const eventId = searchParams.eventId;
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
-  const copyMode = searchParams.copyMode === "jury1" ? "jury1" : searchParams.copyMode === "jury2" ? "jury2" : "both";
+  const activeStageType = searchParams.stageType || "ALL";
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  // Strictly ON_STAGE programs only for Jury Valuation
-  let whereClause: any = {
-    stageType: "ON_STAGE"
-  };
+  let whereClause: any = {};
+  if (activeStageType !== "ALL") {
+    whereClause.stageType = activeStageType;
+  }
 
   if (eventId) {
     activeEv = await prisma.event.findUnique({
@@ -157,12 +157,17 @@ export default async function PrintValuationPage(props: {
     return prog.filteredAssignments.length > 0;
   });
 
+    const copyMode = searchParams.copyMode === "jury1" ? "jury1" : searchParams.copyMode === "jury2" ? "jury2" : "both";
+
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
     if (eventId) params.set("eventId", eventId);
     if (searchParams.programId && overrides.programId !== "") {
       params.set("programId", overrides.programId ?? searchParams.programId);
     }
+    const st = overrides.stageType !== undefined ? overrides.stageType : activeStageType;
+    if (st && st !== "ALL") params.set("stageType", st);
+
     const vn = overrides.venue !== undefined ? overrides.venue : activeVenue;
     if (vn && vn !== "ALL") params.set("venue", vn);
 
@@ -203,8 +208,50 @@ export default async function PrintValuationPage(props: {
               ⚖️ Jury Valuation Sheet
             </span>
             <span style={{ fontSize: "0.8rem", color: "#64748b", marginLeft: "8px" }}>
-              (ON STAGE Programs: {printablePrograms.length})
+              ({activeStageType === "ON_STAGE" ? "ON-STAGE" : activeStageType === "OFF_STAGE" ? "OFF-STAGE" : "ALL"} Programs: {printablePrograms.length})
             </span>
+          </div>
+
+          {/* Stage Type Filter Tabs */}
+          <div style={{ display: "inline-flex", borderRadius: "6px", overflow: "hidden", border: "1px solid #cbd5e1", fontSize: "0.78rem" }}>
+            <a
+              href={buildUrl({ stageType: "ALL" })}
+              style={{
+                padding: "4px 10px",
+                backgroundColor: activeStageType === "ALL" ? "#8E0033" : "#ffffff",
+                color: activeStageType === "ALL" ? "#ffffff" : "#475569",
+                textDecoration: "none",
+                fontWeight: 700,
+              }}
+            >
+              All
+            </a>
+            <a
+              href={buildUrl({ stageType: "ON_STAGE" })}
+              style={{
+                padding: "4px 10px",
+                backgroundColor: activeStageType === "ON_STAGE" ? "#8E0033" : "#ffffff",
+                color: activeStageType === "ON_STAGE" ? "#ffffff" : "#475569",
+                textDecoration: "none",
+                fontWeight: 700,
+                borderLeft: "1px solid #cbd5e1",
+              }}
+            >
+              On-Stage
+            </a>
+            <a
+              href={buildUrl({ stageType: "OFF_STAGE" })}
+              style={{
+                padding: "4px 10px",
+                backgroundColor: activeStageType === "OFF_STAGE" ? "#8E0033" : "#ffffff",
+                color: activeStageType === "OFF_STAGE" ? "#ffffff" : "#475569",
+                textDecoration: "none",
+                fontWeight: 700,
+                borderLeft: "1px solid #cbd5e1",
+              }}
+            >
+              Off-Stage
+            </a>
           </div>
 
           {/* Venue / Stage Filter */}

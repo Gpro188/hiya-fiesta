@@ -51,6 +51,27 @@ export default async function PromotionsPage() {
     }
   });
 
+  // Fetch categories for filtering
+  const categories = await prisma.category.findMany({
+    where: masterEvent ? { eventId: masterEvent.id } : {},
+    orderBy: { name: 'asc' }
+  });
+
+  // Fetch Zone programs with assignments and candidate photos for group program member inspection
+  const zonePrograms = await prisma.program.findMany({
+    where: { event: { type: "ZONE" } },
+    include: {
+      assignments: {
+        include: {
+          candidate: {
+            include: { team: true }
+          }
+        },
+        orderBy: { candidate: { chestNumber: 'asc' } }
+      }
+    }
+  });
+
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -63,6 +84,8 @@ export default async function PromotionsPage() {
       <PromotionsClient 
         zoneEvents={zoneEvents} 
         masterPrograms={masterEvent?.programs || []} 
+        categories={categories}
+        zonePrograms={zonePrograms}
         isZoneAdmin={isZoneAdmin} 
         stateConfirmEndDate={masterEvent?.stateConfirmEndDate}
       />

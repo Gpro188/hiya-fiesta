@@ -133,10 +133,13 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official stage-wise schedules with program codes, category, durations, and zone candidate counts.</p>
           </a>
           
-          <a href={`/print/stage-manager?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--primary)' }}>
+          <a href={`/print/stage-manager?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #0284c7' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--primary)' }}>Stage Manager Sheet</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Assign code letters and verify candidate photos before performance.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7' }}>Stage Manager Sheet</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 800 }}>ON-STAGE ONLY</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Strictly on-stage programs. Assign code letters and verify candidate photos before performance.</p>
           </a>
 
           <a href={`/print/off-stage-invigilation?eventId=${activeEventId}${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid #8E0033' }}>
@@ -146,54 +149,96 @@ export default async function ReportsPage(props: {
           </a>
         </div>
 
-        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Judging & Tabulation (Blind Judging)</h3>
+        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Judging &amp; Tabulation Sheets (Blind Judging)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
-          <a href={`/print/valuation?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--accent)' }}>Jury Valuation Sheet (Stage)</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blank scoring sheets for stage judges. (Hides candidate identity for blind judging).</p>
+          {/* Tabulation Sheet - On-Stage */}
+          <a href={`/print/tabulation?eventId=${activeEventId}&stageType=ON_STAGE`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #0284c7', backgroundColor: 'rgba(2,132,199,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🧮</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7' }}>Tabulation Sheet (On-Stage)</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 800 }}>ON-STAGE</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official tabulation sheet strictly for on-stage programs to tally judge scores with code letter decoders.</p>
           </a>
 
+          {/* Tabulation Sheet - Off-Stage */}
+          <a href={`/print/tabulation?eventId=${activeEventId}&stageType=OFF_STAGE`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #7c3aed', backgroundColor: 'rgba(124,58,237,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🧮</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#7c3aed' }}>Tabulation Sheet (Off-Stage)</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#ede9fe', color: '#6d28d9', fontWeight: 800 }}>OFF-STAGE</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Tabulation sheet for off-stage programs, written tests, and hall events to verify and score entries.</p>
+          </a>
+
+          {/* Tabulation Sheet - All */}
+          <a href={`/print/tabulation?eventId=${activeEventId}&stageType=ALL`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: 'var(--accent)' }}>Tabulation Sheet (All Programs)</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--text-primary)', fontWeight: 800 }}>ALL COMBINED</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master tabulation sheets for both on-stage and off-stage events in one complete batch print.</p>
+          </a>
+
+          {/* Jury Valuation Sheet - On-Stage */}
+          <a href={`/print/valuation?eventId=${activeEventId}&stageType=ON_STAGE`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⚖️</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033' }}>Jury Valuation Sheet (On-Stage)</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.1)', color: '#8E0033', fontWeight: 800 }}>STAGE JUDGES</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blind judging score sheets for stage judges with criterion breakdown and total mark columns.</p>
+          </a>
+
+          {/* Jury Valuation Sheet - Off-Stage */}
+          <a href={`/print/valuation?eventId=${activeEventId}&stageType=OFF_STAGE`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #2563eb' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#2563eb' }}>Jury Valuation Sheet (Off-Stage)</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#dbeafe', color: '#1d4ed8', fontWeight: 800 }}>OFF-STAGE JUDGES</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blind valuation sheets for off-stage competition judges with criterion breakdown and total score.</p>
+          </a>
+
+          {/* Zonal Off-Stage Valuation Sheet */}
           <a href="/print/zonal-offstage-valuation" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📋</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#8E0033' }}>Zonal Off-Stage Valuation Sheet</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontWeight: 800 }}>PHOTOS & CHEST #</span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontWeight: 800 }}>PHOTOS &amp; CHEST #</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Off-stage valuation sheet to send to Zonal Centers. Mark entry with Candidate Photos, Chest Numbers, Zone-based for all off-stage programs.</p>
           </a>
 
+          {/* Zonal Magazine Valuation Sheet */}
           <a href="/print/zonal-offstage-valuation?type=magazine" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #7e22ce', backgroundColor: 'rgba(126,34,206,0.04)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📖</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#7e22ce' }}>Zonal Magazine Valuation Sheet</h4>
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(126,34,206,0.12)', color: '#7e22ce', fontWeight: 800 }}>MAGAZINE CODES</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official Magazine evaluation sheets for Zonal centers. Evaluates physical magazine copies by Magazine Code (MAG-01, MAG-02) with blind judging option.</p>
           </a>
-          
-          <a href={`/print/tabulation?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid var(--accent)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🧮</div>
-            <h4 style={{ margin: '0 0 5px 0', color: 'var(--accent)' }}>Judgement Tabulation Sheet</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master sheet to map code letters to identities and tally judge scores.</p>
-          </a>
 
+          {/* Total Mark & Points Summary Sheet */}
           <a href={`/print/results-summary?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #d97706', backgroundColor: 'rgba(217,119,6,0.04)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🏆</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
-              <h4 style={{ margin: 0, color: '#b45309' }}>Zonal Results &amp; Championship Announcement</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontWeight: 800 }}>STAGE DECLARATION</span>
+              <h4 style={{ margin: 0, color: '#b45309', fontWeight: 800 }}>Total Mark &amp; Point Summary Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontWeight: 800 }}>OFFICIAL SUMMARY</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official declaration document for Zonal Admins &amp; stage announcers: Overall Grand Champions, Fadhila &amp; Fadheela Category Champions, Festival Top Star (Kalaathilakam), and complete institution standings with official signatures.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Full Zonal points &amp; mark breakdown: 1st/2nd/3rd counts, Grade A/B/C point tallies, Category stars (Fadhila &amp; Fadheela Kalaathilakam), General programs, and official signature declaration.</p>
           </a>
 
+          {/* Merit Certificates */}
           <a href="/dashboard/certificates" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #059669', backgroundColor: 'rgba(5,150,105,0.03)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#059669' }}>Merit Certificates (1st, 2nd, 3rd)</h4>
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontWeight: 800 }}>TRANSPARENT OVERPRINT</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official merit certificates with Place & Grade. Upload certificate template to calibrate coordinates, and overprint without background directly onto pre-printed physical certificates.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official merit certificates with Place &amp; Grade. Upload certificate template to calibrate coordinates, and overprint without background directly onto pre-printed physical certificates.</p>
           </a>
         </div>
 
@@ -237,14 +282,25 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print the master list of all candidates</p>
           </a>
           
-          <a href={`/print/id-cards?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #8E0033' }}>
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '1.5px solid #8E0033' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🆔</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#8E0033' }}>Candidate ID Cards</h4>
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.1)', color: '#8E0033', fontWeight: 700 }}>7.5 × 12.5 CM EXACT</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print ID cards with On-Stage only / Off-Stage only filtering and exact 7.5cm × 12.5cm fitting PDF export.</p>
-          </a>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print ID cards with On-Stage only / Off-Stage only filtering and exact 7.5cm × 12.5cm fitting PDF export.</p>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <a href={`/print/id-cards?eventId=${activeEventId}&stageType=ALL`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 8px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                All Candidates
+              </a>
+              <a href={`/print/id-cards?eventId=${activeEventId}&stageType=ON_STAGE`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 8px', backgroundColor: '#0284c7', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                On-Stage Only
+              </a>
+              <a href={`/print/id-cards?eventId=${activeEventId}&stageType=OFF_STAGE`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 8px', backgroundColor: '#7c3aed', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                Off-Stage Only
+              </a>
+            </div>
+          </div>
 
           <a href={`/print/stage-registrations?eventId=${activeEventId}${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #25D366' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📱</div>
