@@ -71,6 +71,18 @@ export default function CertificateStudioClient({
   // Currently previewed winner
   const [previewWinner, setPreviewWinner] = useState<CertificateWinner | null>(null);
 
+  // Single print target when printing an individual certificate row or sample test
+  const [singlePrintTarget, setSinglePrintTarget] = useState<CertificateWinner | null>(null);
+
+  // Clear single print target after print dialog finishes
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setSinglePrintTarget(null);
+    };
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
   // Save status
   const [savingLayout, setSavingLayout] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -265,16 +277,34 @@ export default function CertificateStudioClient({
     return displayedWinners.filter(w => selectedWinnerIds.has(w.id));
   }, [displayedWinners, selectedWinnerIds]);
 
+  // Determine exact list of winners to render for printing
+  const printList = useMemo(() => {
+    if (singlePrintTarget) {
+      return [singlePrintTarget];
+    }
+    if (activeTab === 'STUDIO') {
+      return [activeWinnerForStudio];
+    }
+    return candidatesToPrint;
+  }, [singlePrintTarget, activeTab, activeWinnerForStudio, candidatesToPrint]);
+
   // Execute Browser Print and auto-move to printed
   const handlePrint = (singleWinner?: CertificateWinner) => {
-    const idsToMark = singleWinner ? [singleWinner.id] : Array.from(selectedWinnerIds);
     if (singleWinner) {
+      setSinglePrintTarget(singleWinner);
       setPreviewWinner(singleWinner);
+    } else {
+      setSinglePrintTarget(null);
     }
-    // Small delay to ensure state settles, then trigger print
+
+    const idsToMark = singleWinner 
+      ? [singleWinner.id] 
+      : (selectedWinnerIds.size > 0 ? Array.from(selectedWinnerIds) : candidatesToPrint.map(c => c.id));
+
+    // Delay 200ms to allow React to render all printList certificates into DOM before window.print()
     setTimeout(async () => {
       window.print();
-      // Mark as printed and move out of pending!
+      // Auto-move to printed queue
       if (idsToMark.length > 0) {
         try {
           await markCertificatesPrinted(idsToMark);
@@ -284,7 +314,7 @@ export default function CertificateStudioClient({
           console.error("Failed to mark printed:", e);
         }
       }
-    }, 150);
+    }, 200);
   };
 
   // Manual move to printed
@@ -809,6 +839,17 @@ export default function CertificateStudioClient({
                   {fullCapitalLetters ? "ON" : "OFF"}
                 </span>
               </button>
+
+              <a
+                href={`/print/certificate?eventId=${selectedEventId}${filterProgramId !== 'ALL' ? `&programId=${filterProgramId}` : ''}${filterStageType !== 'ALL' ? `&stageType=${filterStageType}` : ''}${filterRank !== 'ALL' ? `&rank=${filterRank}` : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+                style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, padding: "10px 16px", textDecoration: "none" }}
+                title="Open dedicated standalone print page in new browser tab"
+              >
+                <span>↗ Open Standalone Print Tab</span>
+              </a>
 
               <button
                 type="button"
@@ -1682,7 +1723,7 @@ export default function CertificateStudioClient({
         - Each certificate is exactly one physical page (break-after: page).
       */}
       <div className="print-certificates-container">
-        {(previewWinner ? [previewWinner] : candidatesToPrint).map((candidate, idx) => {
+        {printList.map((candidate, idx) => {
           return (
             <div 
               key={`${candidate.id}-${idx}`}
@@ -2020,8 +2061,18 @@ export default function CertificateStudioClient({
           .certificate-print-sheet {
             page-break-after: always !important;
             break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
             margin: 0 !important;
             padding: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            background-color: transparent !important;
+          }
+
+          .certificate-print-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
         }
       `}</style>

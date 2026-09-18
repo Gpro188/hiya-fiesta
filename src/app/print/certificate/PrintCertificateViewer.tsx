@@ -543,11 +543,18 @@ export default function PrintCertificateViewer({
           .certificate-print-sheet {
             page-break-after: always !important;
             break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
             margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
             border-radius: 0 !important;
             background-color: transparent !important;
+          }
+
+          .certificate-print-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
         }
       `}</style>

@@ -99,7 +99,11 @@ export async function getCertificateLayout(eventId?: string | null): Promise<Cer
   return DEFAULT_CERTIFICATE_LAYOUT;
 }
 
-export async function saveCertificateLayout(eventId: string, config: CertificateLayoutConfig) {
+export async function saveCertificateLayout(
+  eventId: string, 
+  config: CertificateLayoutConfig,
+  lockGlobally: boolean = true
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MEDIA"].includes(session.user.role)) {
@@ -110,8 +114,8 @@ export async function saveCertificateLayout(eventId: string, config: Certificate
     const serializedConfig = JSON.stringify(config);
 
     // 1. Persist directly in Database (100% persistent across Vercel & Linux Server)
-    // Clean existing entries for this targetKey to prevent unbounded log growth
     try {
+      // Clean existing entries for this targetKey
       await prisma.systemAuditLog.deleteMany({
         where: {
           action: "CERTIFICATE_LAYOUT",
@@ -128,15 +132,16 @@ export async function saveCertificateLayout(eventId: string, config: Certificate
           entityType: "EVENT",
           entityId: targetKey,
           newValue: serializedConfig,
-          reason: "Certificate layout & calibration update"
+          reason: lockGlobally ? "Certificate layout locked globally" : "Certificate layout update"
         }
       });
 
-      // Also set default if no default exists in DB
-      const existingDefault = await prisma.systemAuditLog.findFirst({
-        where: { action: "CERTIFICATE_LAYOUT", entityId: "default" }
-      });
-      if (!existingDefault) {
+      // If lockGlobally is true, also update "default" and all related events in the fest!
+      if (lockGlobally) {
+        // Always replace default
+        await prisma.systemAuditLog.deleteMany({
+          where: { action: "CERTIFICATE_LAYOUT", entityId: "default" }
+        });
         await prisma.systemAuditLog.create({
           data: {
             userId: session.user.id || "admin",
@@ -145,9 +150,50 @@ export async function saveCertificateLayout(eventId: string, config: Certificate
             entityType: "EVENT",
             entityId: "default",
             newValue: serializedConfig,
-            reason: "Default certificate layout"
+            reason: "Default locked certificate layout for all logins"
           }
         });
+
+        // Also propagate to all related events (parent and sibling zones)
+        if (targetKey !== "default") {
+          const currentEv = await prisma.event.findUnique({
+            where: { id: targetKey },
+            select: { id: true, parentId: true }
+          });
+          const relatedIds = new Set<string>();
+          if (currentEv?.parentId) {
+            relatedIds.add(currentEv.parentId);
+            const siblings = await prisma.event.findMany({
+              where: { parentId: currentEv.parentId },
+              select: { id: true }
+            });
+            siblings.forEach(s => relatedIds.add(s.id));
+          } else if (currentEv) {
+            const children = await prisma.event.findMany({
+              where: { parentId: currentEv.id },
+              select: { id: true }
+            });
+            children.forEach(c => relatedIds.add(c.id));
+          }
+
+          for (const relId of Array.from(relatedIds)) {
+            if (relId === targetKey) continue;
+            await prisma.systemAuditLog.deleteMany({
+              where: { action: "CERTIFICATE_LAYOUT", entityId: relId }
+            });
+            await prisma.systemAuditLog.create({
+              data: {
+                userId: session.user.id || "admin",
+                userName: session.user.name || "Administrator",
+                action: "CERTIFICATE_LAYOUT",
+                entityType: "EVENT",
+                entityId: relId,
+                newValue: serializedConfig,
+                reason: "Locked Global Certificate Layout for Fest"
+              }
+            });
+          }
+        }
       }
     } catch (dbSaveErr) {
       console.error("Database save error for certificate layout:", dbSaveErr);
@@ -157,7 +203,7 @@ export async function saveCertificateLayout(eventId: string, config: Certificate
     try {
       const layouts = await readLayoutsFile();
       layouts[targetKey] = config;
-      if (!layouts["default"]) {
+      if (lockGlobally || !layouts["default"]) {
         layouts["default"] = config;
       }
       await writeLayoutsFile(layouts);
@@ -165,11 +211,15 @@ export async function saveCertificateLayout(eventId: string, config: Certificate
       console.warn("File cache write warning:", fileErr);
     }
 
-    return { success: true };
+    return { success: true, lockedGlobally: lockGlobally };
   } catch (error: any) {
     console.error("Failed to save certificate layout:", error);
     return { success: false, error: error.message || "Failed to save layout" };
   }
+}
+
+export async function fetchLockedCertificateLayout(eventId?: string | null): Promise<CertificateLayoutConfig> {
+  return await getCertificateLayout(eventId);
 }
 
 export async function getCertificateEventsAndMetadata() {
