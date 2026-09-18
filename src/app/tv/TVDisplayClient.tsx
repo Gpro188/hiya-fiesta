@@ -31,8 +31,14 @@ interface TVDisplayClientProps {
     overallRunnerUp?: any;
     overallSecondRunnerUp?: any;
     fadhilaTopInstitution?: any;
+    fadhilaRunnerUpInstitution?: any;
+    fadhilaSecondRunnerUpInstitution?: any;
     fadheelaTopInstitution?: any;
+    fadheelaRunnerUpInstitution?: any;
+    fadheelaSecondRunnerUpInstitution?: any;
     generalTopInstitution?: any;
+    generalRunnerUpInstitution?: any;
+    generalSecondRunnerUpInstitution?: any;
     fadhilaStar?: any;
     fadheelaStar?: any;
     overallStar?: any;
@@ -345,8 +351,14 @@ export default function TVDisplayClient({
   const overall2 = champions.overallRunnerUp || leaderboard[1] || null;
   const overall3 = champions.overallSecondRunnerUp || leaderboard[2] || null;
   const fadhilaTop = champions.fadhilaTopInstitution || null;
+  const fadhilaTop2 = champions.fadhilaRunnerUpInstitution || null;
+  const fadhilaTop3 = champions.fadhilaSecondRunnerUpInstitution || null;
   const fadheelaTop = champions.fadheelaTopInstitution || null;
+  const fadheelaTop2 = champions.fadheelaRunnerUpInstitution || null;
+  const fadheelaTop3 = champions.fadheelaSecondRunnerUpInstitution || null;
   const generalTop = champions.generalTopInstitution || null;
+  const generalTop2 = champions.generalRunnerUpInstitution || null;
+  const generalTop3 = champions.generalSecondRunnerUpInstitution || null;
   const fadhilaStar = champions.fadhilaStar || null;
   const fadheelaStar = champions.fadheelaStar || null;
 
@@ -478,65 +490,91 @@ export default function TVDisplayClient({
           {/* ── SLIDE 1: CATEGORY CHAMPIONS ── */}
           {leftIndex === 1 && (
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: "#facc15", fontSize: "1.1rem" }}>▶</span>
-                  <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900, color: "#ffffff" }}>Category champions</h2>
+                  <h2 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 900, color: "#ffffff" }}>Category champions</h2>
                 </div>
-                <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Fadhila · Fadheela · General</span>
+                <span style={{ fontSize: "0.74rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Top 3 per category</span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, justifyContent: "center" }}>
-                {/* Fadhila */}
-                {fadhilaTop && (
-                  <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.15) 0%, rgba(250,204,21,0.06) 100%)", border: "1.5px solid rgba(250,204,21,0.4)", borderRadius: 18, padding: "13px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "2px 10px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase" }}>Fadhila</span>
-                      <span style={{ fontSize: "1.7rem", fontWeight: 900, fontFamily: "monospace", color: "#facc15", lineHeight: 1 }}>{fadhilaTop.fadhilaPoints || fadhilaTop.points || 0}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <InstitutionLogo logoUrl={fadhilaTop.logoUrl} name={fadhilaTop.name} size={38} bg="#78350f" />
-                      <div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>{fadhilaTop.name || "—"}</div>
-                        <div style={{ fontSize: "0.74rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>{fadhilaTop.place || "Zone Center"}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, justifyContent: "center" }}>
 
-                {/* Fadheela */}
-                {fadheelaTop && (
-                  <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.06) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 18, padding: "13px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase" }}>Fadheela</span>
-                      <span style={{ fontSize: "1.7rem", fontWeight: 900, fontFamily: "monospace", color: "#fca5a5", lineHeight: 1 }}>{fadheelaTop.fadheelaPoints || fadheelaTop.points || 0}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <InstitutionLogo logoUrl={fadheelaTop.logoUrl} name={fadheelaTop.name} size={38} bg="#7f1d1d" />
-                      <div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>{fadheelaTop.name || "—"}</div>
-                        <div style={{ fontSize: "0.74rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>{fadheelaTop.place || "Zone Center"}</div>
-                      </div>
-                    </div>
+                {/* ── Fadhila Top 3 ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.12) 0%, rgba(250,204,21,0.04) 100%)", border: "1.5px solid rgba(250,204,21,0.35)", borderRadius: 16, padding: "10px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase" }}>Fadhila</span>
+                    <span style={{ fontSize: "0.66rem", color: "rgba(255,255,255,0.5)", fontWeight: 700 }}>Individual category</span>
                   </div>
-                )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {[
+                      { data: fadhilaTop, pts: fadhilaTop?.fadhilaPoints || fadhilaTop?.points },
+                      { data: fadhilaTop2, pts: fadhilaTop2?.fadhilaPoints || fadhilaTop2?.points },
+                      { data: fadhilaTop3, pts: fadhilaTop3?.fadhilaPoints || fadhilaTop3?.points }
+                    ].filter(r => r.data).map((row, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: i === 0 ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.05)", borderRadius: 10, padding: "6px 10px" }}>
+                        <MedalBadge rank={i + 1} small />
+                        <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={28} bg="#78350f" />
+                        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                          <div style={{ fontSize: "0.86rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.data.name}</div>
+                          <div style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>{row.data.place || ""}</div>
+                        </div>
+                        <span style={{ fontSize: "1.1rem", fontWeight: 900, fontFamily: "monospace", color: i === 0 ? "#facc15" : "rgba(255,255,255,0.8)", flexShrink: 0 }}>{row.pts || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                {/* General */}
-                {generalTop && (
-                  <div style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.06) 100%)", border: "1.5px solid rgba(16,185,129,0.4)", borderRadius: 18, padding: "13px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ backgroundColor: "#10b981", color: "#fff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase" }}>General</span>
-                      <span style={{ fontSize: "1.7rem", fontWeight: 900, fontFamily: "monospace", color: "#6ee7b7", lineHeight: 1 }}>{generalTop.generalPoints || generalTop.points || 0}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <InstitutionLogo logoUrl={generalTop.logoUrl} name={generalTop.name} size={38} bg="#064e3b" />
-                      <div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>{generalTop.name || "—"}</div>
-                        <div style={{ fontSize: "0.74rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>{generalTop.place || "Zone Center"}</div>
-                      </div>
-                    </div>
+                {/* ── Fadheela Top 3 ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.04) 100%)", border: "1.5px solid rgba(239,68,68,0.35)", borderRadius: 16, padding: "10px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase" }}>Fadheela</span>
+                    <span style={{ fontSize: "0.66rem", color: "rgba(255,255,255,0.5)", fontWeight: 700 }}>Individual category</span>
                   </div>
-                )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {[
+                      { data: fadheelaTop, pts: fadheelaTop?.fadheelaPoints || fadheelaTop?.points },
+                      { data: fadheelaTop2, pts: fadheelaTop2?.fadheelaPoints || fadheelaTop2?.points },
+                      { data: fadheelaTop3, pts: fadheelaTop3?.fadheelaPoints || fadheelaTop3?.points }
+                    ].filter(r => r.data).map((row, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: i === 0 ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.05)", borderRadius: 10, padding: "6px 10px" }}>
+                        <MedalBadge rank={i + 1} small />
+                        <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={28} bg="#7f1d1d" />
+                        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                          <div style={{ fontSize: "0.86rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.data.name}</div>
+                          <div style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>{row.data.place || ""}</div>
+                        </div>
+                        <span style={{ fontSize: "1.1rem", fontWeight: 900, fontFamily: "monospace", color: i === 0 ? "#fca5a5" : "rgba(255,255,255,0.8)", flexShrink: 0 }}>{row.pts || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── General Top 3 ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%)", border: "1.5px solid rgba(16,185,129,0.35)", borderRadius: 16, padding: "10px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <span style={{ backgroundColor: "#10b981", color: "#fff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase" }}>General</span>
+                    <span style={{ fontSize: "0.66rem", color: "rgba(255,255,255,0.5)", fontWeight: 700 }}>Group & offstage</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {[
+                      { data: generalTop, pts: generalTop?.generalPoints || generalTop?.points },
+                      { data: generalTop2, pts: generalTop2?.generalPoints || generalTop2?.points },
+                      { data: generalTop3, pts: generalTop3?.generalPoints || generalTop3?.points }
+                    ].filter(r => r.data).map((row, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: i === 0 ? "rgba(16,185,129,0.18)" : "rgba(255,255,255,0.05)", borderRadius: 10, padding: "6px 10px" }}>
+                        <MedalBadge rank={i + 1} small />
+                        <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={28} bg="#064e3b" />
+                        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                          <div style={{ fontSize: "0.86rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.data.name}</div>
+                          <div style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>{row.data.place || ""}</div>
+                        </div>
+                        <span style={{ fontSize: "1.1rem", fontWeight: 900, fontFamily: "monospace", color: i === 0 ? "#6ee7b7" : "rgba(255,255,255,0.8)", flexShrink: 0 }}>{row.pts || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
