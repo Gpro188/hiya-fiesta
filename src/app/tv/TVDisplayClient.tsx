@@ -41,54 +41,112 @@ interface TVDisplayClientProps {
   allEvents: any[];
 }
 
-// Laurel Wreath Medal SVG Component with custom rank
-function LaurelMedal({ rank, isGold }: { rank: number; isGold?: boolean }) {
-  const stroke = isGold ? "#0f172a" : "#ffffff";
+// ── Clean, Crisp Olympic Prize Medal (1st Gold, 2nd Silver, 3rd Bronze) ──
+function CleanRankMedal({ rank, isGoldBg }: { rank: number; isGoldBg?: boolean }) {
+  if (rank === 1) {
+    if (isGoldBg) {
+      // Inside gold row: Navy medallion with gold border and gold bold "1"
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "38px", height: "42px", flexShrink: 0 }}>
+          <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+            {/* Ribbon */}
+            <path d="M10 2L18 12L26 2H20L18 6L16 2H10Z" fill="#92400e" />
+            {/* Medallion */}
+            <circle cx="18" cy="24" r="14" fill="#0f172a" stroke="#ca8a04" strokeWidth="2.4" />
+            <circle cx="18" cy="24" r="11" fill="#1e293b" />
+            <text x="18" y="29.5" textAnchor="middle" fill="#facc15" fontSize="15" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">
+              1
+            </text>
+          </svg>
+        </div>
+      );
+    } else {
+      // Standalone or inside glass row: Shiny Gold Medallion
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "38px", height: "42px", flexShrink: 0 }}>
+          <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+            {/* Ribbon */}
+            <path d="M10 2L18 12L26 2H20L18 6L16 2H10Z" fill="#eab308" />
+            {/* Medallion */}
+            <circle cx="18" cy="24" r="14" fill="#facc15" stroke="#fef08a" strokeWidth="2" />
+            <circle cx="18" cy="24" r="11" fill="#ca8a04" />
+            <text x="18" y="29.5" textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">
+              1
+            </text>
+          </svg>
+        </div>
+      );
+    }
+  }
+
+  if (rank === 2) {
+    // Silver Medallion
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "38px", height: "42px", flexShrink: 0 }}>
+        <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+          {/* Ribbon */}
+          <path d="M10 2L18 12L26 2H20L18 6L16 2H10Z" fill="#94a3b8" />
+          {/* Medallion */}
+          <circle cx="18" cy="24" r="14" fill="#e2e8f0" stroke="#f8fafc" strokeWidth="2" />
+          <circle cx="18" cy="24" r="11" fill="#64748b" />
+          <text x="18" y="29.5" textAnchor="middle" fill="#0f172a" fontSize="15" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">
+            2
+          </text>
+        </svg>
+      </div>
+    );
+  }
+
+  if (rank === 3) {
+    // Bronze Medallion
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "38px", height: "42px", flexShrink: 0 }}>
+        <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+          {/* Ribbon */}
+          <path d="M10 2L18 12L26 2H20L18 6L16 2H10Z" fill="#c2410c" />
+          {/* Medallion */}
+          <circle cx="18" cy="24" r="14" fill="#ea580c" stroke="#fed7aa" strokeWidth="2" />
+          <circle cx="18" cy="24" r="11" fill="#9a3412" />
+          <text x="18" y="29.5" textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif">
+            3
+          </text>
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
+        width: "32px",
+        height: "32px",
+        borderRadius: "50%",
+        border: "1.5px solid rgba(255,255,255,0.4)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "44px",
-        height: "44px",
-        position: "relative",
+        fontWeight: 900,
+        fontSize: "0.95rem",
+        color: isGoldBg ? "#0f172a" : "#ffffff",
         flexShrink: 0
       }}
     >
-      <svg
-        width="42"
-        height="42"
-        viewBox="0 0 48 48"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M12 28C10 24 10 18 14 12C16 16 16 22 14 28" />
-        <path d="M16 34C13 30 13 24 18 18C20 22 20 28 18 34" />
-        <path d="M36 28C38 24 38 18 34 12C32 16 32 22 34 28" />
-        <path d="M32 34C35 30 35 24 30 18C28 22 28 28 30 34" />
-        <path d="M20 40C16 36 15 30 20 26" />
-        <path d="M28 40C32 36 33 30 28 26" />
-        <path d="M24 43V38" />
-      </svg>
-      <span
-        style={{
-          position: "absolute",
-          fontWeight: 900,
-          fontSize: "1.22rem",
-          color: stroke,
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          lineHeight: 1
-        }}
-      >
-        {rank}
-      </span>
+      {rank}
     </div>
   );
 }
+
+// Slide definition: Dual-category side-by-side OR Full-width General
+type ProgramSlide =
+  | {
+      type: "DUAL_INDIVIDUAL";
+      fadhila?: PublishedProgram | null;
+      fadheela?: PublishedProgram | null;
+    }
+  | {
+      type: "GENERAL";
+      program: PublishedProgram;
+    };
 
 export default function TVDisplayClient({
   event,
@@ -106,7 +164,7 @@ export default function TVDisplayClient({
 
   // Slide Rotation States
   const [leftIndex, setLeftIndex] = useState(0); // 0: Overall, 1: Category, 2: Kalathilakam
-  const [rightIndex, setRightIndex] = useState(0); // 0 .. publishedPrograms.length - 1
+  const [rightIndex, setRightIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   // Fade trigger states for smooth 4s transitions
@@ -159,18 +217,88 @@ export default function TVDisplayClient({
     return () => clearInterval(interval);
   }, [isPaused]);
 
-  // Right Card 4-Second Rotation: Cycles through published programs in published order
+  // Build Slides Queue:
+  // - Individual Programs: Fadhila and Fadheela split side-by-side simultaneously
+  // - General Programs: Full-width shift spanning both columns
+  const slides = useMemo<ProgramSlide[]>(() => {
+    const fadhilaList = publishedPrograms.filter(
+      (p) => p.categoryType === "FADHILA" || p.categoryTitle?.toLowerCase().includes("fadhila")
+    );
+    const fadheelaList = publishedPrograms.filter(
+      (p) => p.categoryType === "FADHEELA" || p.categoryTitle?.toLowerCase().includes("fadheela")
+    );
+    const generalList = publishedPrograms.filter(
+      (p) => p.categoryType === "GENERAL" || (!fadhilaList.includes(p) && !fadheelaList.includes(p))
+    );
+
+    const slideQueue: ProgramSlide[] = [];
+
+    // Smart pairing: match programs with identical names (e.g. Arabic Song) first
+    const usedFadhila = new Set<string>();
+    const usedFadheela = new Set<string>();
+
+    fadhilaList.forEach((fa) => {
+      const normName = fa.name.trim().toLowerCase();
+      const matched = fadheelaList.find(
+        (fd) => !usedFadheela.has(fd.id) && fd.name.trim().toLowerCase() === normName
+      );
+      if (matched) {
+        usedFadhila.add(fa.id);
+        usedFadheela.add(matched.id);
+        slideQueue.push({
+          type: "DUAL_INDIVIDUAL",
+          fadhila: fa,
+          fadheela: matched
+        });
+      }
+    });
+
+    // Pair up remaining individual programs
+    const remainingFadhila = fadhilaList.filter((fa) => !usedFadhila.has(fa.id));
+    const remainingFadheela = fadheelaList.filter((fd) => !usedFadheela.has(fd.id));
+    const maxRemaining = Math.max(remainingFadhila.length, remainingFadheela.length);
+
+    for (let i = 0; i < maxRemaining; i++) {
+      slideQueue.push({
+        type: "DUAL_INDIVIDUAL",
+        fadhila: remainingFadhila.length > 0 ? remainingFadhila[i % remainingFadhila.length] : null,
+        fadheela: remainingFadheela.length > 0 ? remainingFadheela[i % remainingFadheela.length] : null
+      });
+    }
+
+    // Add General programs (full-width single column shift)
+    for (const gen of generalList) {
+      slideQueue.push({
+        type: "GENERAL",
+        program: gen
+      });
+    }
+
+    // Fallback if no categorized items exist
+    if (slideQueue.length === 0 && publishedPrograms.length > 0) {
+      for (const prog of publishedPrograms) {
+        slideQueue.push({
+          type: "GENERAL",
+          program: prog
+        });
+      }
+    }
+
+    return slideQueue;
+  }, [publishedPrograms]);
+
+  // Right Card 4-Second Rotation: Cycles through slides
   useEffect(() => {
-    if (isPaused || publishedPrograms.length <= 1) return;
+    if (isPaused || slides.length <= 1) return;
     const interval = setInterval(() => {
       setRightFade(false);
       setTimeout(() => {
-        setRightIndex((prev) => (prev + 1) % publishedPrograms.length);
+        setRightIndex((prev) => (prev + 1) % slides.length);
         setRightFade(true);
       }, 350);
     }, 4000);
     return () => clearInterval(interval);
-  }, [isPaused, publishedPrograms.length]);
+  }, [isPaused, slides.length]);
 
   // Keyboard navigation: Spacebar toggles pause, Arrow keys skip
   useEffect(() => {
@@ -180,19 +308,19 @@ export default function TVDisplayClient({
         setIsPaused((p) => !p);
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        setRightIndex((prev) => (prev + 1) % Math.max(1, publishedPrograms.length));
+        setRightIndex((prev) => (prev + 1) % Math.max(1, slides.length));
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        setRightIndex((prev) => (prev - 1 + publishedPrograms.length) % Math.max(1, publishedPrograms.length));
+        setRightIndex((prev) => (prev - 1 + slides.length) % Math.max(1, slides.length));
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [publishedPrograms.length]);
+  }, [slides.length]);
 
-  const currentProgram = publishedPrograms[rightIndex] || null;
+  const currentSlide = slides[rightIndex] || null;
 
-  // Champions Data
+  // Champions Data for Left Card
   const overall1 = champions.overallChampion || leaderboard[0] || null;
   const overall2 = champions.overallRunnerUp || leaderboard[1] || null;
   const overall3 = champions.overallSecondRunnerUp || leaderboard[2] || null;
@@ -204,6 +332,206 @@ export default function TVDisplayClient({
   const fadhilaStar = champions.fadhilaStar || null;
   const fadheelaStar = champions.fadheelaStar || null;
   const overallStar = champions.overallStar || null;
+
+  // Helper to render a single sub-column for Fadhila or Fadheela
+  const renderCategoryColumn = (
+    prog: PublishedProgram | null | undefined,
+    categoryName: "FADHILA" | "FADHEELA",
+    badgeBg: string,
+    badgeColor: string
+  ) => {
+    if (!prog) {
+      return (
+        <div
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.04)",
+            border: "1px dashed rgba(255, 255, 255, 0.18)",
+            borderRadius: "18px",
+            padding: "16px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            textAlign: "center"
+          }}
+        >
+          <span
+            style={{
+              backgroundColor: badgeBg,
+              color: badgeColor,
+              padding: "3px 12px",
+              borderRadius: "9999px",
+              fontSize: "0.74rem",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              marginBottom: "12px"
+            }}
+          >
+            {categoryName}
+          </span>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>
+            Awaiting Next Result
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          height: "100%",
+          minHeight: 0
+        }}
+      >
+        {/* Column Header */}
+        <div
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.07)",
+            border: "1px solid rgba(255, 255, 255, 0.14)",
+            borderRadius: "16px",
+            padding: "10px 14px",
+            marginBottom: "12px"
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+            <span
+              style={{
+                backgroundColor: badgeBg,
+                color: badgeColor,
+                padding: "2px 10px",
+                borderRadius: "9999px",
+                fontSize: "0.72rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.4px"
+              }}
+            >
+              {categoryName}
+            </span>
+            <span
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.16)",
+                color: "#ffffff",
+                padding: "2px 8px",
+                borderRadius: "9999px",
+                fontSize: "0.74rem",
+                fontWeight: 800,
+                fontFamily: "monospace"
+              }}
+            >
+              #{prog.code}
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: "1.18rem",
+              fontWeight: 900,
+              color: "#ffffff",
+              lineHeight: 1.2,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap"
+            }}
+          >
+            {prog.name}
+          </div>
+        </div>
+
+        {/* Winners List */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1, justifyContent: "center" }}>
+          {prog.winners.map((w, idx) => {
+            const is1st = w.rank === 1;
+            return (
+              <div
+                key={idx}
+                style={{
+                  backgroundColor: is1st ? "#facc15" : "rgba(255, 255, 255, 0.08)",
+                  border: is1st ? "none" : "1px solid rgba(255, 255, 255, 0.16)",
+                  color: is1st ? "#0f172a" : "#ffffff",
+                  borderRadius: "14px",
+                  padding: "9px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  boxShadow: is1st ? "0 6px 18px rgba(250, 204, 21, 0.35)" : "none"
+                }}
+              >
+                {/* Left: Medal + Candidate & College */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+                  <CleanRankMedal rank={w.rank} isGoldBg={is1st} />
+                  <div style={{ minWidth: 0, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        fontSize: "1.02rem",
+                        fontWeight: 900,
+                        lineHeight: 1.15,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {w.name}
+                      {w.chestNumber && (
+                        <span style={{ fontSize: "0.78rem", fontWeight: 800, opacity: 0.82, marginLeft: "6px" }}>
+                          (#{w.chestNumber})
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.74rem",
+                        fontWeight: 700,
+                        color: is1st ? "#451a03" : "rgba(255, 255, 255, 0.72)",
+                        marginTop: "2px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {w.college}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Grade Pill & Points */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "8px", flexShrink: 0 }}>
+                  {w.grade && (
+                    <div
+                      style={{
+                        backgroundColor: is1st ? "rgba(0, 0, 0, 0.09)" : "rgba(255, 255, 255, 0.15)",
+                        padding: "2px 8px",
+                        borderRadius: "9999px",
+                        fontSize: "0.72rem",
+                        fontWeight: 800
+                      }}
+                    >
+                      {w.grade}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      fontSize: "1.45rem",
+                      fontWeight: 900,
+                      fontFamily: "monospace",
+                      lineHeight: 1,
+                      minWidth: "26px",
+                      textAlign: "right"
+                    }}
+                  >
+                    {w.points}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -221,7 +549,7 @@ export default function TVDisplayClient({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "24px 32px",
+        padding: "22px 30px",
         overflow: "hidden",
         boxSizing: "border-box"
       }}
@@ -292,7 +620,7 @@ export default function TVDisplayClient({
           alignItems: "center",
           position: "relative",
           zIndex: 10,
-          marginBottom: "16px"
+          marginBottom: "14px"
         }}
       >
         {/* Left Branding */}
@@ -415,7 +743,7 @@ export default function TVDisplayClient({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: 0, flex: 1 }}>
-                      <LaurelMedal rank={1} isGold />
+                      <CleanRankMedal rank={1} isGoldBg />
                       <div style={{ minWidth: 0, overflow: "hidden" }}>
                         <div style={{ fontSize: "1.18rem", fontWeight: 900, lineHeight: 1.15, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                           {overall1.name}
@@ -450,18 +778,18 @@ export default function TVDisplayClient({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: 0, flex: 1 }}>
-                      <LaurelMedal rank={2} />
+                      <CleanRankMedal rank={2} />
                       <div style={{ minWidth: 0, overflow: "hidden" }}>
-                        <div style={{ fontSize: "1.12rem", fontWeight: 800, lineHeight: 1.15, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "1.15rem", fontWeight: 900, lineHeight: 1.15, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                           {overall2.name}
                         </div>
-                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.65)", marginTop: "2px" }}>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.72)", marginTop: "2px" }}>
                           {overall2.place || "Zone Center"} · Runner-up
                         </div>
                       </div>
                     </div>
                     <div style={{ textAlign: "right", marginLeft: "12px", flexShrink: 0 }}>
-                      <div style={{ fontSize: "1.65rem", fontWeight: 900, lineHeight: 1, fontFamily: "monospace", color: "#ffffff" }}>
+                      <div style={{ fontSize: "1.75rem", fontWeight: 900, lineHeight: 1, fontFamily: "monospace" }}>
                         {overall2.points}
                       </div>
                       <div style={{ fontSize: "0.62rem", fontWeight: 800, color: "rgba(255, 255, 255, 0.6)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -485,18 +813,18 @@ export default function TVDisplayClient({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: 0, flex: 1 }}>
-                      <LaurelMedal rank={3} />
+                      <CleanRankMedal rank={3} />
                       <div style={{ minWidth: 0, overflow: "hidden" }}>
-                        <div style={{ fontSize: "1.12rem", fontWeight: 800, lineHeight: 1.15, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "1.15rem", fontWeight: 900, lineHeight: 1.15, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                           {overall3.name}
                         </div>
-                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.65)", marginTop: "2px" }}>
-                          {overall3.place || "Zone Center"} · Second runner-up
+                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.72)", marginTop: "2px" }}>
+                          {overall3.place || "Zone Center"} · 2nd Runner-up
                         </div>
                       </div>
                     </div>
                     <div style={{ textAlign: "right", marginLeft: "12px", flexShrink: 0 }}>
-                      <div style={{ fontSize: "1.65rem", fontWeight: 900, lineHeight: 1, fontFamily: "monospace", color: "#ffffff" }}>
+                      <div style={{ fontSize: "1.75rem", fontWeight: 900, lineHeight: 1, fontFamily: "monospace" }}>
                         {overall3.points}
                       </div>
                       <div style={{ fontSize: "0.62rem", fontWeight: 800, color: "rgba(255, 255, 255, 0.6)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -744,7 +1072,7 @@ export default function TVDisplayClient({
         </div>
 
         {/* ──────────────────────────────────────────────────────────────────── */}
-        {/* ── RIGHT CARD: Published Programs in Order (Fades in 4s) ────────── */}
+        {/* ── RIGHT CARD: Published Program Results (Fades in 4s) ───────────── */}
         {/* ──────────────────────────────────────────────────────────────────── */}
         <div
           style={{
@@ -753,187 +1081,237 @@ export default function TVDisplayClient({
             borderRadius: "24px",
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
-            padding: "24px 28px",
+            padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
             boxShadow: "0 12px 36px rgba(0, 0, 0, 0.25)",
             transition: "opacity 0.35s ease",
-            opacity: rightFade ? 1 : 0
+            opacity: rightFade ? 1 : 0,
+            minHeight: 0
           }}
         >
-          {currentProgram ? (
-            <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
+          {currentSlide ? (
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between", minHeight: 0 }}>
               {/* Top Title Bar */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ color: "#facc15", fontSize: "1.2rem" }}>▶</span>
-                    <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.3px" }}>
-                      {currentProgram.categoryTitle}
-                    </h2>
-                  </div>
-                  <span style={{ fontSize: "0.86rem", color: "rgba(255, 255, 255, 0.65)", fontWeight: 700 }}>
-                    Published order
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ color: "#facc15", fontSize: "1.1rem" }}>▶</span>
+                  <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.2px" }}>
+                    {currentSlide.type === "DUAL_INDIVIDUAL"
+                      ? "Individual program results"
+                      : "General program results"}
+                  </h2>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "0.80rem", color: "rgba(255, 255, 255, 0.68)", fontWeight: 700 }}>
+                    {currentSlide.type === "DUAL_INDIVIDUAL"
+                      ? "Fadhila & Fadheela simultaneous"
+                      : "Open to all institutions"}
+                  </span>
+                  <span
+                    style={{
+                      backgroundColor: "rgba(255, 255, 255, 0.14)",
+                      color: "#ffffff",
+                      padding: "2px 8px",
+                      borderRadius: "9999px",
+                      fontSize: "0.72rem",
+                      fontWeight: 800,
+                      fontFamily: "monospace"
+                    }}
+                  >
+                    {rightIndex + 1}/{slides.length}
                   </span>
                 </div>
+              </div>
 
-                {/* Program Header Box */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+              {/* ── CASE A: DUAL_INDIVIDUAL (Split Fadhila & Fadheela on same screen) ── */}
+              {currentSlide.type === "DUAL_INDIVIDUAL" && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "16px",
+                    flex: 1,
+                    minHeight: 0
+                  }}
+                >
+                  {/* Left Column: Fadhila */}
+                  {renderCategoryColumn(currentSlide.fadhila, "FADHILA", "#facc15", "#0f172a")}
+
+                  {/* Right Column: Fadheela */}
+                  {renderCategoryColumn(currentSlide.fadheela, "FADHEELA", "#ef4444", "#ffffff")}
+                </div>
+              )}
+
+              {/* ── CASE B: GENERAL (Full-width shift across both sides) ── */}
+              {currentSlide.type === "GENERAL" && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    flex: 1,
+                    minHeight: 0
+                  }}
+                >
+                  {/* Program Header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      border: "1px solid rgba(255, 255, 255, 0.16)",
+                      borderRadius: "18px",
+                      padding: "12px 18px",
+                      marginBottom: "12px"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                      <div
+                        style={{
+                          backgroundColor: "rgba(255, 255, 255, 0.18)",
+                          color: "#ffffff",
+                          padding: "4px 12px",
+                          borderRadius: "9999px",
+                          fontSize: "1.05rem",
+                          fontWeight: 900,
+                          fontFamily: "monospace",
+                          flexShrink: 0
+                        }}
+                      >
+                        #{currentSlide.program.code}
+                      </div>
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: "1.65rem",
+                          fontWeight: 900,
+                          color: "#ffffff",
+                          letterSpacing: "-0.3px",
+                          lineHeight: 1.15,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {currentSlide.program.name}
+                      </h3>
+                    </div>
+
                     <div
                       style={{
-                        backgroundColor: "rgba(255, 255, 255, 0.18)",
+                        backgroundColor: "#10b981",
                         color: "#ffffff",
-                        padding: "5px 14px",
+                        padding: "4px 14px",
                         borderRadius: "9999px",
-                        fontSize: "1.1rem",
+                        fontSize: "0.80rem",
                         fontWeight: 900,
-                        fontFamily: "monospace",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
                         flexShrink: 0
                       }}
                     >
-                      {currentProgram.code || rightIndex + 1}
+                      General
                     </div>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: "1.9rem",
-                        fontWeight: 900,
-                        color: "#ffffff",
-                        letterSpacing: "-0.3px",
-                        lineHeight: 1.15,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
-                      }}
-                    >
-                      {currentProgram.name}
-                    </h3>
                   </div>
 
-                  {/* Category Pill */}
-                  <div
-                    style={{
-                      backgroundColor:
-                        currentProgram.categoryType === "FADHILA"
-                          ? "#facc15"
-                          : currentProgram.categoryType === "FADHEELA"
-                          ? "#ef4444"
-                          : "#ffffff",
-                      color:
-                        currentProgram.categoryType === "FADHILA"
-                          ? "#0f172a"
-                          : currentProgram.categoryType === "FADHEELA"
-                          ? "#ffffff"
-                          : "#0f172a",
-                      padding: "4px 16px",
-                      borderRadius: "9999px",
-                      fontSize: "0.84rem",
-                      fontWeight: 900,
-                      textTransform: "lowercase",
-                      flexShrink: 0
-                    }}
-                  >
-                    {currentProgram.categoryType.toLowerCase()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Winners 1, 2, 3 List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, justifyContent: "center" }}>
-                {currentProgram.winners.map((w, idx) => {
-                  const is1st = w.rank === 1;
-
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        backgroundColor: is1st ? "#facc15" : "rgba(255, 255, 255, 0.08)",
-                        border: is1st ? "none" : "1px solid rgba(255, 255, 255, 0.16)",
-                        color: is1st ? "#0f172a" : "#ffffff",
-                        borderRadius: "18px",
-                        padding: "14px 22px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        boxShadow: is1st ? "0 8px 24px rgba(250, 204, 21, 0.35)" : "none"
-                      }}
-                    >
-                      {/* Left: Laurel Medal & Candidate/College Info */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "18px", minWidth: 0, flex: 1 }}>
-                        <LaurelMedal rank={w.rank} isGold={is1st} />
-                        <div style={{ minWidth: 0, overflow: "hidden" }}>
-                          <div
-                            style={{
-                              fontSize: "1.35rem",
-                              fontWeight: 900,
-                              lineHeight: 1.15,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap"
-                            }}
-                          >
-                            {w.name}
-                            {w.chestNumber && (
-                              <span style={{ fontSize: "0.85rem", fontWeight: 800, opacity: 0.8, marginLeft: "8px" }}>
-                                (#{w.chestNumber})
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "0.88rem",
-                              fontWeight: 700,
-                              color: is1st ? "#451a03" : "rgba(255, 255, 255, 0.72)",
-                              marginTop: "3px",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap"
-                            }}
-                          >
-                            {w.college}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Grade Pill & Points */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginLeft: "14px", flexShrink: 0 }}>
-                        {w.grade && (
-                          <div
-                            style={{
-                              backgroundColor: is1st ? "rgba(0, 0, 0, 0.09)" : "rgba(255, 255, 255, 0.14)",
-                              padding: "4px 14px",
-                              borderRadius: "9999px",
-                              fontSize: "0.82rem",
-                              fontWeight: 800
-                            }}
-                          >
-                            {w.grade}
-                          </div>
-                        )}
+                  {/* Full-width Winners 1, 2, 3 */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, justifyContent: "center" }}>
+                    {currentSlide.program.winners.map((w, idx) => {
+                      const is1st = w.rank === 1;
+                      return (
                         <div
+                          key={idx}
                           style={{
-                            fontSize: "2.1rem",
-                            fontWeight: 900,
-                            fontFamily: "monospace",
-                            lineHeight: 1,
-                            minWidth: "40px",
-                            textAlign: "right"
+                            backgroundColor: is1st ? "#facc15" : "rgba(255, 255, 255, 0.08)",
+                            border: is1st ? "none" : "1px solid rgba(255, 255, 255, 0.16)",
+                            color: is1st ? "#0f172a" : "#ffffff",
+                            borderRadius: "16px",
+                            padding: "12px 18px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: is1st ? "0 6px 20px rgba(250, 204, 21, 0.35)" : "none"
                           }}
                         >
-                          {w.points}
+                          {/* Left: Medal & Name */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
+                            <CleanRankMedal rank={w.rank} isGoldBg={is1st} />
+                            <div style={{ minWidth: 0, overflow: "hidden" }}>
+                              <div
+                                style={{
+                                  fontSize: "1.25rem",
+                                  fontWeight: 900,
+                                  lineHeight: 1.15,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap"
+                                }}
+                              >
+                                {w.name}
+                                {w.chestNumber && (
+                                  <span style={{ fontSize: "0.85rem", fontWeight: 800, opacity: 0.82, marginLeft: "8px" }}>
+                                    (#{w.chestNumber})
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "0.84rem",
+                                  fontWeight: 700,
+                                  color: is1st ? "#451a03" : "rgba(255, 255, 255, 0.72)",
+                                  marginTop: "3px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap"
+                                }}
+                              >
+                                {w.college}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Grade & Points */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "14px", marginLeft: "14px", flexShrink: 0 }}>
+                            {w.grade && (
+                              <div
+                                style={{
+                                  backgroundColor: is1st ? "rgba(0, 0, 0, 0.09)" : "rgba(255, 255, 255, 0.14)",
+                                  padding: "4px 12px",
+                                  borderRadius: "9999px",
+                                  fontSize: "0.80rem",
+                                  fontWeight: 800
+                                }}
+                              >
+                                {w.grade}
+                              </div>
+                            )}
+                            <div
+                              style={{
+                                fontSize: "1.9rem",
+                                fontWeight: 900,
+                                fontFamily: "monospace",
+                                lineHeight: 1,
+                                minWidth: "36px",
+                                textAlign: "right"
+                              }}
+                            >
+                              {w.points}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Progress dots at bottom of Right Card */}
-              {publishedPrograms.length > 1 && (
-                <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
-                  {publishedPrograms.slice(0, 15).map((_, i) => (
+              {slides.length > 1 && (
+                <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "10px" }}>
+                  {slides.slice(0, 15).map((_, i) => (
                     <div
                       key={i}
                       style={{
@@ -945,9 +1323,9 @@ export default function TVDisplayClient({
                       }}
                     />
                   ))}
-                  {publishedPrograms.length > 15 && (
+                  {slides.length > 15 && (
                     <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.5)", alignSelf: "center" }}>
-                      +{publishedPrograms.length - 15}
+                      +{slides.length - 15}
                     </span>
                   )}
                 </div>
@@ -975,7 +1353,7 @@ export default function TVDisplayClient({
           alignItems: "center",
           position: "relative",
           zIndex: 10,
-          marginTop: "16px",
+          marginTop: "14px",
           paddingTop: "6px",
           fontSize: "0.82rem",
           color: "rgba(255, 255, 255, 0.75)"
