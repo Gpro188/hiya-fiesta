@@ -196,7 +196,9 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
         generalSecondRunnerUpInstitution: champions.generalSecondRunnerUpInstitution || null,
         fadhilaStar,
         fadheelaStar,
-        overallStar
+        overallStar,
+        fadhilaStars: fadhilaStars || [],
+        fadheelaStars: fadheelaStars || []
       }}
       publishedPrograms={publishedPrograms}
       allEvents={allEvents}
