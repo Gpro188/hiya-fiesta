@@ -280,13 +280,13 @@ export default function TVDisplayClient({
     return () => clearInterval(id);
   }, [router]);
 
-  // Left card 4s rotation
+  // Left card 5s rotation
   useEffect(() => {
     if (isPaused) return;
     const id = setInterval(() => {
       setLeftFade(false);
       setTimeout(() => { setLeftIndex(p => (p + 1) % 3); setLeftFade(true); }, 380);
-    }, 4000);
+    }, 5000);
     return () => clearInterval(id);
   }, [isPaused]);
 
