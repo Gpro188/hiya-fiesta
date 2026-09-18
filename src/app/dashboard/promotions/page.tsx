@@ -29,8 +29,13 @@ export default async function PromotionsPage() {
     include: {
       programs: {
         include: {
+          category: true,
           assignments: {
-            include: { candidate: true }
+            include: {
+              candidate: {
+                include: { team: true }
+              }
+            }
           },
           results: {
             where: { isPublished: true, rank: { in: [1, 2, 3] } },
@@ -41,7 +46,7 @@ export default async function PromotionsPage() {
             orderBy: { rank: 'asc' }
           }
         },
-        orderBy: { name: 'asc' }
+        orderBy: [{ programCode: 'asc' }, { name: 'asc' }]
       }
     }
   });
