@@ -1,0 +1,8 @@
+.next
+.next_backup
+node_modules
+.git
+scratch
+*.tar.gz
+*.xlsx
+*.bak

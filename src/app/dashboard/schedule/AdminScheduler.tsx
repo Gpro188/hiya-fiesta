@@ -8,7 +8,8 @@ import {
   getFestivalBaseDate,
   detectCandidateScheduleClashes,
   formatTimeAmPm,
-  CandidateClash
+  CandidateClash,
+  detectVenueSavedBuffer
 } from "@/lib/scheduleCalculator";
 import { 
   updateProgramSchedule, 
@@ -57,6 +58,21 @@ export default function AdminScheduler({
 
   // Venue buffer configuration: { [venue]: bufferMinutes }
   const [venueBuffers, setVenueBuffers] = useState<Record<string, number>>({});
+
+  // Load saved venue buffer gaps from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`venue_buffers_${eventId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setVenueBuffers(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load venue buffers from localStorage:", e);
+    }
+  }, [eventId]);
 
   // Sync state when props change
   useEffect(() => {
@@ -157,12 +173,49 @@ export default function AdminScheduler({
     };
   };
 
+  // Helper to get active buffer for a venue (from state, localStorage, or detected from saved programs)
+  const getVenueBuffer = (venue: string, venuePrograms?: any[]): number => {
+    if (venueBuffers[venue] !== undefined) {
+      return venueBuffers[venue];
+    }
+    const progs = venuePrograms || groupedPrograms[venue] || [];
+    const detected = detectVenueSavedBuffer(progs);
+    if (detected !== null) {
+      return detected;
+    }
+    return 5;
+  };
+
+  // Change buffer gap for a venue, persist to localStorage, and recalculate
+  const handleVenueBufferChange = (venue: string, newBuffer: number) => {
+    setVenueBuffers(prev => {
+      const updated = { ...prev, [venue]: newBuffer };
+      try {
+        localStorage.setItem(`venue_buffers_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // Also update start times in state with the new buffer so live preview updates immediately
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length > 0) {
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, newBuffer);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+      setPrograms(prev => prev.map(p => {
+        if (updateMap.has(p.id)) {
+          return { ...p, startTime: updateMap.get(p.id) };
+        }
+        return p;
+      }));
+    }
+  };
+
   // Compute calculated timelines for all venues
   const allVenueTimelines = useMemo(() => {
     const timelines: Record<string, any[]> = {};
     for (const v of allVenues) {
       const vProgs = groupedPrograms[v] || [];
-      const buf = venueBuffers[v] !== undefined ? venueBuffers[v] : 5;
+      const buf = getVenueBuffer(v, vProgs);
       const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf);
       timelines[v] = predictedList;
     }
@@ -219,7 +272,7 @@ export default function AdminScheduler({
     venueProgs[currentIndex] = itemB;
     venueProgs[targetIndex] = itemA;
 
-    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const buf = getVenueBuffer(venue, venueProgs);
     const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
 
@@ -254,7 +307,7 @@ export default function AdminScheduler({
     const [removed] = venueProgs.splice(currentIndex, 1);
     venueProgs.splice(targetIndex, 0, removed);
 
-    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const buf = getVenueBuffer(venue, venueProgs);
     const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
 
@@ -285,7 +338,7 @@ export default function AdminScheduler({
 
   // Duration changes
   const handleDurationChange = (venue: string, programId: string, newTotalDuration: number, newMode?: string) => {
-    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const buf = getVenueBuffer(venue);
     const venueProgs = (groupedPrograms[venue] || []).map(p => 
       p.id === programId ? { ...p, duration: newTotalDuration, durationMode: newMode || p.durationMode } : p
     );
@@ -313,7 +366,7 @@ export default function AdminScheduler({
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length === 0) return;
 
-    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const buf = getVenueBuffer(venue, venueProgs);
     const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
 
     setLoadingId(`apply-${venue}`);
@@ -353,7 +406,7 @@ export default function AdminScheduler({
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length === 0) return;
 
-    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const buf = getVenueBuffer(venue, venueProgs);
     setLoadingId(`auto-calc-${venue}`);
     try {
       const updatedVenueProgs = venueProgs.map(p => {
@@ -880,7 +933,7 @@ export default function AdminScheduler({
       {displayVenues.map(venue => {
         const venueProgs = groupedPrograms[venue] || [];
         const isUnassigned = venue === "Unassigned";
-        const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+        const buf = getVenueBuffer(venue, venueProgs);
         const timeline = allVenueTimelines[venue] ? {
           predictedList: allVenueTimelines[venue],
           totalDurationMinutes: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.duration, 0) + Math.max(0, allVenueTimelines[venue].length - 1) * buf,
@@ -1003,13 +1056,18 @@ export default function AdminScheduler({
                       <select 
                         className="form-input" 
                         value={buf}
-                        onChange={(e) => setVenueBuffers(prev => ({ ...prev, [venue]: parseInt(e.target.value) || 0 }))}
-                        style={{ fontSize: "0.80rem", padding: "3px 6px", width: "120px" }}
+                        onChange={(e) => handleVenueBufferChange(venue, parseInt(e.target.value) || 0)}
+                        style={{ fontSize: "0.80rem", padding: "3px 6px", width: "125px" }}
                       >
                         <option value={0}>0 min (Direct)</option>
                         <option value={5}>5 mins gap</option>
                         <option value={10}>10 mins gap</option>
                         <option value={15}>15 mins gap</option>
+                        <option value={20}>20 mins gap</option>
+                        <option value={30}>30 mins gap</option>
+                        {![0, 5, 10, 15, 20, 30].includes(buf) && (
+                          <option value={buf}>{buf} mins gap</option>
+                        )}
                       </select>
                     </div>
                   </div>

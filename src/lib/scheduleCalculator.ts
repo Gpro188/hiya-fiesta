@@ -465,3 +465,29 @@ export function formatTimeAmPm(d: Date | string | null | undefined): string {
   });
 }
 
+/**
+ * Deduce the saved buffer gap (in minutes) between consecutive scheduled programs in a venue.
+ * Returns the detected buffer gap (e.g. 0, 5, 10, 15, 20) or null if not enough data.
+ */
+export function detectVenueSavedBuffer(venuePrograms: any[]): number | null {
+  if (!venuePrograms || venuePrograms.length < 2) return null;
+  const progsWithTime = venuePrograms
+    .filter(p => p.startTime && p.duration && p.type !== "BREAK")
+    .slice()
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  if (progsWithTime.length >= 2) {
+    for (let i = 0; i < progsWithTime.length - 1; i++) {
+      const p1 = progsWithTime[i];
+      const p2 = progsWithTime[i + 1];
+      const endP1 = new Date(p1.startTime).getTime() + (p1.duration || 10) * 60000;
+      const startP2 = new Date(p2.startTime).getTime();
+      const diffMinutes = Math.round((startP2 - endP1) / 60000);
+      if (diffMinutes >= 0 && diffMinutes <= 60) {
+        return diffMinutes;
+      }
+    }
+  }
+  return null;
+}
+
