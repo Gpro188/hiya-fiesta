@@ -205,9 +205,13 @@ export function calculateDynamicProgramDuration(
 }
 
 /**
- * Helper to get festival base start time strictly at 09:00 AM Indian Standard Time (Asia/Kolkata)
+ * Helper to get festival base start time at 09:30 AM Indian Standard Time (Asia/Kolkata)
  */
-export function getFestivalBaseDate(dateInput?: string | Date | null): Date {
+export function getFestivalBaseDate(
+  dateInput?: string | Date | null,
+  startHour: number = 9,
+  startMinute: number = 30
+): Date {
   let year = 2026, month = 9, day = 19;
   if (dateInput) {
     const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
@@ -222,7 +226,7 @@ export function getFestivalBaseDate(dateInput?: string | Date | null): Date {
     }
   }
   const pad = (n: number) => String(n).padStart(2, "0");
-  return new Date(`${year}-${pad(month)}-${pad(day)}T09:00:00+05:30`);
+  return new Date(`${year}-${pad(month)}-${pad(day)}T${pad(startHour)}:${pad(startMinute)}:00+05:30`);
 }
 
 /**

@@ -59,7 +59,10 @@ export default function AdminScheduler({
   // Venue buffer configuration: { [venue]: bufferMinutes }
   const [venueBuffers, setVenueBuffers] = useState<Record<string, number>>({});
 
-  // Load saved venue buffer gaps from localStorage on mount
+  // Venue start time configuration: { [venue]: "09:30" }
+  const [venueStartTimes, setVenueStartTimes] = useState<Record<string, string>>({});
+
+  // Load saved venue buffer gaps and start times from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`venue_buffers_${eventId}`);
@@ -69,8 +72,15 @@ export default function AdminScheduler({
           setVenueBuffers(parsed);
         }
       }
+      const savedTimes = localStorage.getItem(`venue_start_times_${eventId}`);
+      if (savedTimes) {
+        const parsedTimes = JSON.parse(savedTimes);
+        if (parsedTimes && typeof parsedTimes === "object") {
+          setVenueStartTimes(parsedTimes);
+        }
+      }
     } catch (e) {
-      console.error("Failed to load venue buffers from localStorage:", e);
+      console.error("Failed to load venue configs from localStorage:", e);
     }
   }, [eventId]);
 
@@ -128,9 +138,46 @@ export default function AdminScheduler({
     return map;
   }, [programs, allVenues, selectedCategory]);
 
-  // Helper to get predicted sequential timeline starting strictly from 09:00 AM IST
-  const getPredictedVenueTimeline = (venue: string, venuePrograms: any[], bufferMinutes: number = 5) => {
-    const baseDate = getFestivalBaseDate(eventStartDate);
+  // Helper to detect saved venue start time from the first scheduled program
+  const detectVenueSavedStartTime = (venuePrograms: any[]): string | null => {
+    if (!venuePrograms || venuePrograms.length === 0) return null;
+    const progsWithTime = venuePrograms
+      .filter(p => p.startTime)
+      .slice()
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    if (progsWithTime.length > 0) {
+      const firstTime = new Date(progsWithTime[0].startTime);
+      if (!isNaN(firstTime.getTime())) {
+        const istTimeStr = firstTime.toLocaleTimeString("en-US", {
+          timeZone: "Asia/Kolkata",
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+        return istTimeStr;
+      }
+    }
+    return null;
+  };
+
+  const getVenueStartTime = (venue: string, venuePrograms?: any[]): string => {
+    if (venueStartTimes[venue]) {
+      return venueStartTimes[venue];
+    }
+    const progs = venuePrograms || groupedPrograms[venue] || [];
+    const detected = detectVenueSavedStartTime(progs);
+    if (detected) {
+      return detected;
+    }
+    return "09:30"; // Default 09:30 AM
+  };
+
+  // Helper to get predicted sequential timeline starting from 09:30 AM IST (or venue start time)
+  const getPredictedVenueTimeline = (venue: string, venuePrograms: any[], bufferMinutes: number = 5, customStartTime?: string) => {
+    const startTimeStr = customStartTime || getVenueStartTime(venue, venuePrograms);
+    const [sh, sm] = startTimeStr.split(":").map(Number);
+    const baseDate = getFestivalBaseDate(eventStartDate, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
     let currentCursor = new Date(baseDate.getTime());
     let totalCandidates = 0;
 
@@ -210,17 +257,42 @@ export default function AdminScheduler({
     }
   };
 
+  // Change start time for a venue, persist to localStorage, and recalculate
+  const handleVenueStartTimeChange = (venue: string, newTime: string) => {
+    setVenueStartTimes(prev => {
+      const updated = { ...prev, [venue]: newTime };
+      try {
+        localStorage.setItem(`venue_start_times_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length > 0) {
+      const buf = getVenueBuffer(venue, venueProgs);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, newTime);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+      setPrograms(prev => prev.map(p => {
+        if (updateMap.has(p.id)) {
+          return { ...p, startTime: updateMap.get(p.id) };
+        }
+        return p;
+      }));
+    }
+  };
+
   // Compute calculated timelines for all venues
   const allVenueTimelines = useMemo(() => {
     const timelines: Record<string, any[]> = {};
     for (const v of allVenues) {
       const vProgs = groupedPrograms[v] || [];
       const buf = getVenueBuffer(v, vProgs);
-      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf);
+      const startTimeStr = getVenueStartTime(v, vProgs);
+      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf, startTimeStr);
       timelines[v] = predictedList;
     }
     return timelines;
-  }, [groupedPrograms, allVenues, venueBuffers, eventStartDate, targetZoneId]);
+  }, [groupedPrograms, allVenues, venueBuffers, venueStartTimes, eventStartDate, targetZoneId]);
 
   // Live Real-Time Candidate Clash Detection
   const { clashes, clashesByProgramId, clashCandidateCount } = useMemo(() => {
@@ -367,10 +439,16 @@ export default function AdminScheduler({
     if (venueProgs.length === 0) return;
 
     const buf = getVenueBuffer(venue, venueProgs);
-    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
+    const startTimeStr = getVenueStartTime(venue, venueProgs);
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr);
 
     setLoadingId(`apply-${venue}`);
     try {
+      try {
+        localStorage.setItem(`venue_buffers_${eventId}`, JSON.stringify({ ...venueBuffers, [venue]: buf }));
+        localStorage.setItem(`venue_start_times_${eventId}`, JSON.stringify({ ...venueStartTimes, [venue]: startTimeStr }));
+      } catch (e) {}
+
       const updates = predictedList.map(item => ({
         id: item.program.id,
         startTime: item.predictedStart.toISOString(),
@@ -390,7 +468,7 @@ export default function AdminScheduler({
             return p;
           });
         });
-        alert(`✅ Successfully saved schedule for ${venueProgs.length} programs in ${venue}!`);
+        alert(`✅ Successfully saved schedule starting at ${formatTimeAmPm(predictedList[0]?.predictedStart)} for ${venueProgs.length} programs in ${venue}!`);
       } else {
         alert("Failed to save schedule: " + (res.error || "Unknown error"));
       }
@@ -934,13 +1012,17 @@ export default function AdminScheduler({
         const venueProgs = groupedPrograms[venue] || [];
         const isUnassigned = venue === "Unassigned";
         const buf = getVenueBuffer(venue, venueProgs);
+        const startTimeStr = getVenueStartTime(venue, venueProgs);
+        const [sh, sm] = startTimeStr.split(":").map(Number);
+        const baseDate = getFestivalBaseDate(eventStartDate, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
+
         const timeline = allVenueTimelines[venue] ? {
           predictedList: allVenueTimelines[venue],
           totalDurationMinutes: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.duration, 0) + Math.max(0, allVenueTimelines[venue].length - 1) * buf,
           totalCandidates: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.candidateCount, 0),
-          predictedStart: getFestivalBaseDate(eventStartDate),
-          predictedEnd: allVenueTimelines[venue].length > 0 ? allVenueTimelines[venue][allVenueTimelines[venue].length - 1].predictedEnd : getFestivalBaseDate(eventStartDate)
-        } : getPredictedVenueTimeline(venue, venueProgs, buf);
+          predictedStart: baseDate,
+          predictedEnd: allVenueTimelines[venue].length > 0 ? allVenueTimelines[venue][allVenueTimelines[venue].length - 1].predictedEnd : baseDate
+        } : getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr);
 
         const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = timeline;
 
@@ -1033,20 +1115,34 @@ export default function AdminScheduler({
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                    <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      backgroundColor: "#f0fdf4",
-                      color: "#15803d",
-                      border: "1.5px solid #bbf7d0",
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                      fontSize: "0.8rem",
-                      fontWeight: 800
-                    }}>
-                      <span>🕒</span>
-                      <span>Starts: <strong>09:00 AM (Fixed IST)</strong></span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#15803d", margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <span>🕒</span>
+                        <span>Starts:</span>
+                      </label>
+                      <select 
+                        className="form-input" 
+                        value={startTimeStr}
+                        onChange={(e) => handleVenueStartTimeChange(venue, e.target.value)}
+                        style={{ 
+                          fontSize: "0.80rem", 
+                          padding: "3px 8px", 
+                          width: "125px", 
+                          fontWeight: 800,
+                          backgroundColor: "#f0fdf4",
+                          borderColor: "#bbf7d0",
+                          color: "#15803d"
+                        }}
+                      >
+                        <option value="09:30">09:30 AM</option>
+                        <option value="09:00">09:00 AM</option>
+                        <option value="08:30">08:30 AM</option>
+                        <option value="10:00">10:00 AM</option>
+                        <option value="10:30">10:30 AM</option>
+                        {![ "09:30", "09:00", "08:30", "10:00", "10:30" ].includes(startTimeStr) && (
+                          <option value={startTimeStr}>{startTimeStr} (IST)</option>
+                        )}
+                      </select>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
