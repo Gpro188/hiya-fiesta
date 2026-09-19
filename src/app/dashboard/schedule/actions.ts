@@ -191,9 +191,9 @@ export async function autoGenerateSchedule(eventId: string, venues: string[]) {
       orderBy: { name: 'asc' }
     });
     
+    const { getFestivalBaseDate } = await import("@/lib/scheduleCalculator");
     let venueTimers: Record<string, Date> = {};
-    const baseDate = new Date();
-    baseDate.setHours(9, 0, 0, 0);
+    const baseDate = getFestivalBaseDate(event.startDate);
     
     if (venues.length === 0) venues.push("Main Stage");
     venues.forEach(v => { venueTimers[v] = new Date(baseDate.getTime()); });

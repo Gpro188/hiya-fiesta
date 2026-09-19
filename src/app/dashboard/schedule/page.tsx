@@ -136,11 +136,14 @@ export default async function SchedulePage(props: {
           existing.venue = p.venue || existing.venue;
           existing.startTime = p.startTime || existing.startTime;
           existing.duration = p.duration || existing.duration;
+          existing.durationMode = p.durationMode || existing.durationMode;
           existing.stageType = p.stageType || existing.stageType;
           if (p.judges && p.judges.length > 0) existing.judges = p.judges;
         } else if (existing.eventId !== activeEventId) {
           if (!existing.venue && p.venue) existing.venue = p.venue;
           if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+          if (!existing.duration && p.duration) existing.duration = p.duration;
+          if (!existing.durationMode && p.durationMode) existing.durationMode = p.durationMode;
         }
       }
     }
@@ -161,7 +164,21 @@ export default async function SchedulePage(props: {
       }
     }
 
-    const programs = Array.from(mergedMap.values());
+    const programs = Array.from(mergedMap.values()).sort((a, b) => {
+      // First sort by venue
+      const venueA = a.venue || "zzz";
+      const venueB = b.venue || "zzz";
+      if (venueA !== venueB) return venueA.localeCompare(venueB);
+      // Within same venue, sort chronologically by startTime
+      const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+      const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+      if (timeA !== timeB) {
+        if (timeA === 0) return 1;
+        if (timeB === 0) return -1;
+        return timeA - timeB;
+      }
+      return (a.programCode || a.name || "").localeCompare(b.programCode || b.name || "");
+    });
 
     return (
       <div className="animate-fade-in">

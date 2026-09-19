@@ -205,26 +205,43 @@ export function calculateDynamicProgramDuration(
 }
 
 /**
- * Calculate sequential timeline for an entire venue starting at 09:00 AM
+ * Helper to get festival base start time strictly at 09:00 AM Indian Standard Time (Asia/Kolkata)
+ */
+export function getFestivalBaseDate(dateInput?: string | Date | null): Date {
+  let year = 2026, month = 9, day = 19;
+  if (dateInput) {
+    const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+    if (!isNaN(d.getTime())) {
+      const istStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      const parts = istStr.split("-");
+      if (parts.length === 3) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+      }
+    }
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return new Date(`${year}-${pad(month)}-${pad(day)}T09:00:00+05:30`);
+}
+
+/**
+ * Calculate sequential timeline for an entire venue starting at 09:00 AM IST
  */
 export function calculateVenueTimeline(
   venue: string,
   programs: ProgramLike[],
   options: CalculationOptions = {}
 ): VenueTimelineResult {
-  const bufferMinutes = options.bufferMinutes ?? 10;
-
-  // Initialize start date strictly at 09:00 AM (IST)
-  let baseDate = options.baseStartTime ? new Date(options.baseStartTime) : new Date();
-  if (isNaN(baseDate.getTime())) baseDate = new Date();
-  baseDate.setHours(9, 0, 0, 0);
+  const bufferMinutes = options.bufferMinutes ?? 5;
+  const baseDate = getFestivalBaseDate(options.baseStartTime);
 
   let currentCursor = new Date(baseDate.getTime());
   let totalCandidates = 0;
 
   const calculatedSlots: CalculatedProgramSlot[] = programs.map((p, idx) => {
     const filteredAssignments = getZoneCandidatesForProgram(p.assignments, options.targetZoneId);
-    const { duration, candidateCount, teamCount, durationPerItem } = calculateDynamicProgramDuration(
+    const { duration, candidateCount, teamCount, durationPerItem, durationMode } = calculateDynamicProgramDuration(
       p,
       filteredAssignments,
       options
@@ -243,6 +260,7 @@ export function calculateVenueTimeline(
       teamCount,
       duration,
       durationPerItem,
+      durationMode,
       predictedStart: start,
       predictedEnd: end,
       filteredAssignments,
@@ -256,8 +274,7 @@ export function calculateVenueTimeline(
     ? calculatedSlots[calculatedSlots.length - 1].predictedEnd 
     : baseDate;
 
-  // 1-Day Feasibility check (Standard: 9:00 AM to 6:00 PM is 9 hours = 540 mins)
-  // Extended evening: up to 8:00 PM (11 hours = 660 mins)
+  // 1-Day Feasibility check
   const endHours = endTime.getHours() + endTime.getMinutes() / 60;
   const cutoffHour = options.oneDayCutoffHour || 18; // 6:00 PM
   const extendedCutoff = options.extendedCutoffHour || 20; // 8:00 PM
@@ -292,6 +309,137 @@ export function calculateVenueTimeline(
 }
 
 /**
+ * Interface for a real-time candidate clash
+ */
+export interface CandidateClash {
+  candidateId: string;
+  candidateName: string;
+  program1Id: string;
+  program1Name: string;
+  program1Venue: string;
+  program1Start: Date;
+  program1End: Date;
+  program2Id: string;
+  program2Name: string;
+  program2Venue: string;
+  program2Start: Date;
+  program2End: Date;
+  overlapMinutes: number;
+}
+
+/**
+ * Real-time Candidate Clash Detection across all venues/stages.
+ * Checks for candidates scheduled on multiple stages during overlapping time windows.
+ */
+export function detectCandidateScheduleClashes(
+  venueTimelines: Record<string, CalculatedProgramSlot[]>,
+  targetZoneId?: string | null
+): {
+  clashes: CandidateClash[];
+  clashesByProgramId: Record<string, CandidateClash[]>;
+  clashCandidateCount: number;
+} {
+  // Map of candidateId -> list of scheduled appearances
+  const candidateAppearances = new Map<string, Array<{
+    candidateId: string;
+    candidateName: string;
+    programId: string;
+    programName: string;
+    venue: string;
+    start: Date;
+    end: Date;
+  }>>();
+
+  // Populate candidate appearances from all venue calculated slots
+  for (const [venue, slots] of Object.entries(venueTimelines)) {
+    if (!venue || venue === "Unassigned") continue;
+
+    for (const slot of slots) {
+      if (slot.program.type === "BREAK") continue;
+
+      const zoneCandidates = getZoneCandidatesForProgram(slot.program.assignments, targetZoneId);
+      for (const assignment of zoneCandidates) {
+        const cand = assignment.candidate;
+        if (!cand || !cand.id) continue;
+
+        const list = candidateAppearances.get(cand.id) || [];
+        list.push({
+          candidateId: cand.id,
+          candidateName: cand.name || "Candidate",
+          programId: slot.program.id,
+          programName: slot.program.name,
+          venue: venue,
+          start: slot.predictedStart,
+          end: slot.predictedEnd,
+        });
+        candidateAppearances.set(cand.id, list);
+      }
+    }
+  }
+
+  const clashes: CandidateClash[] = [];
+  const clashesByProgramId: Record<string, CandidateClash[]> = {};
+  const clashingCandidateIds = new Set<string>();
+
+  for (const [candId, appearances] of candidateAppearances.entries()) {
+    if (appearances.length < 2) continue;
+
+    for (let i = 0; i < appearances.length; i++) {
+      for (let j = i + 1; j < appearances.length; j++) {
+        const a = appearances[i];
+        const b = appearances[j];
+
+        // Only count as clash if they are in different venues/stages
+        if (a.venue === b.venue && a.programId === b.programId) continue;
+
+        const startA = a.start.getTime();
+        const endA = a.end.getTime();
+        const startB = b.start.getTime();
+        const endB = b.end.getTime();
+
+        // Check time interval overlap: [startA, endA) and [startB, endB)
+        if (startA < endB && startB < endA) {
+          const overlapStart = Math.max(startA, startB);
+          const overlapEnd = Math.min(endA, endB);
+          const overlapMinutes = Math.round((overlapEnd - overlapStart) / 60000);
+
+          const clash: CandidateClash = {
+            candidateId: candId,
+            candidateName: a.candidateName,
+            program1Id: a.programId,
+            program1Name: a.programName,
+            program1Venue: a.venue,
+            program1Start: a.start,
+            program1End: a.end,
+            program2Id: b.programId,
+            program2Name: b.programName,
+            program2Venue: b.venue,
+            program2Start: b.start,
+            program2End: b.end,
+            overlapMinutes,
+          };
+
+          clashes.push(clash);
+          clashingCandidateIds.add(candId);
+
+          if (!clashesByProgramId[a.programId]) clashesByProgramId[a.programId] = [];
+          clashesByProgramId[a.programId].push(clash);
+
+          if (!clashesByProgramId[b.programId]) clashesByProgramId[b.programId] = [];
+          clashesByProgramId[b.programId].push(clash);
+        }
+      }
+    }
+  }
+
+  return {
+    clashes,
+    clashesByProgramId,
+    clashCandidateCount: clashingCandidateIds.size,
+  };
+}
+
+/**
  * Helper to format minutes as "Xh Ym"
  */
 export function formatMinutes(minutes: number): string {
@@ -316,3 +464,4 @@ export function formatTimeAmPm(d: Date | string | null | undefined): string {
     hour12: true,
   });
 }
+

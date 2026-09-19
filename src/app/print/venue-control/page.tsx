@@ -555,9 +555,11 @@ export default async function PrintVenueControlPage(props: {
               <tbody>
                 {progs.map((prog, pIdx) => {
                   const startTimeStr = prog.startTime
-                    ? new Date(prog.startTime).toLocaleTimeString([], {
+                    ? new Date(prog.startTime).toLocaleTimeString("en-US", {
+                        timeZone: "Asia/Kolkata",
                         hour: "2-digit",
                         minute: "2-digit",
+                        hour12: true,
                       })
                     : "--:--";
 

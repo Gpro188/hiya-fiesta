@@ -80,16 +80,11 @@ export default async function PrintInstitutionReportPage(props: {
     const rawTime = p.scheduledTime || p.program?.startTime;
     if (!rawTime) return "Scheduled";
 
-    let dateObj = new Date(rawTime);
-    if (eventStartDate) {
-      const evDate = new Date(eventStartDate);
-      if (!isNaN(evDate.getTime())) {
-        dateObj = new Date(evDate.getFullYear(), evDate.getMonth(), evDate.getDate(), dateObj.getHours(), dateObj.getMinutes(), 0);
-      }
-    }
+    const dateObj = new Date(rawTime);
+    if (isNaN(dateObj.getTime())) return "Scheduled";
 
-    const dateStr = dateObj.toLocaleDateString("en-IN", { month: "short", day: "2-digit" });
-    const timeStr = dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const dateStr = dateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "2-digit" });
+    const timeStr = dateObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
     return `${dateStr}, ${timeStr}`;
   };
 

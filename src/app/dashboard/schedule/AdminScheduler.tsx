@@ -1,27 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import ZoneScheduleAnalyzer from "./ZoneScheduleAnalyzer";
-import { getZoneCandidatesForProgram, calculateDynamicProgramDuration } from "@/lib/scheduleCalculator";
+import { 
+  getZoneCandidatesForProgram, 
+  calculateDynamicProgramDuration,
+  getFestivalBaseDate,
+  detectCandidateScheduleClashes,
+  formatTimeAmPm,
+  CandidateClash
+} from "@/lib/scheduleCalculator";
 import { 
   updateProgramSchedule, 
-  autoCalculateCandidateSlots, 
   addBreak, 
   autoGenerateSchedule, 
-  shiftSchedule, 
-  publishMasterScheduleToAllZones,
   renameVenue,
   deleteVenue,
   applySequentialVenueSchedule,
-  autoResolveCandidateClashes
+  publishMasterScheduleToAllZones,
+  publishZoneSchedule,
+  unpublishSchedule
 } from "./actions";
-import { importScheduleFromExcel, checkSchedulingConflicts } from "./importActions";
 
 export default function AdminScheduler({ 
   initialPrograms, 
   eventId, 
   targetZoneId = null,
-  allJudges = [],
   isSuperAdmin = false,
   eventStatusOverride = "AUTO",
   eventStartDate = null
@@ -37,70 +41,80 @@ export default function AdminScheduler({
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
   const [statusOverride, setStatusOverride] = useState(eventStatusOverride);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [conflicts, setConflicts] = useState<any[]>([]);
   const [newVenueName, setNewVenueName] = useState("");
   const [localVenues, setLocalVenues] = useState<string[]>([]);
   
-  // Venue time configuration state: { [venue]: { startTime, endTime, buffer } }
-  const [venueSettings, setVenueSettings] = useState<Record<string, { startTime: string; endTime: string; buffer: number }>>({});
+  // Active stage tab: "ALL", a specific venue like "Stage 1", or "Unassigned"
+  const [activeStageTab, setActiveStageTab] = useState<string>("ALL");
+  
+  // Multi-selected program IDs for batch actions (e.g. moving to Stage 1)
+  const [selectedProgramIds, setSelectedProgramIds] = useState<Set<string>>(new Set());
+  const [batchTargetStage, setBatchTargetStage] = useState<string>("");
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categoryOrder = ["All", "FADHILA", "FADHEELA", "GENERAL PROGRAMS"];
 
-  // Sync state with props
+  // Venue buffer configuration: { [venue]: bufferMinutes }
+  const [venueBuffers, setVenueBuffers] = useState<Record<string, number>>({});
+
+  // Sync state when props change
   useEffect(() => {
     setPrograms(initialPrograms);
   }, [initialPrograms]);
 
-  useEffect(() => {
-    fetchConflicts();
-  }, [programs, eventId, targetZoneId]);
+  // Extract all distinct venue names
+  const allVenues = useMemo(() => {
+    const venues = new Set<string>();
+    localVenues.forEach(v => venues.add(v));
+    programs.forEach(p => {
+      if (p.venue && p.venue.trim()) venues.add(p.venue.trim());
+    });
+    return Array.from(venues).sort();
+  }, [programs, localVenues]);
 
-  const fetchConflicts = async () => {
-    const result = await checkSchedulingConflicts(eventId, targetZoneId);
-    if (result.success) {
-      setConflicts(result.conflicts || []);
+  // Set default batch target stage if not set
+  useEffect(() => {
+    if (!batchTargetStage && allVenues.length > 0) {
+      setBatchTargetStage(allVenues[0]);
+    }
+  }, [allVenues, batchTargetStage]);
+
+  const handleAddVenue = () => {
+    const clean = newVenueName.trim();
+    if (clean && !allVenues.includes(clean)) {
+      setLocalVenues(prev => [...prev, clean]);
+      setNewVenueName("");
+      setActiveStageTab(clean);
     }
   };
 
-  // Helper to format a Date as YYYY-MM-DDTHH:mm
-  const formatDateTimeLocal = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+  // Group programs by venue
+  const groupedPrograms = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    allVenues.forEach(v => map[v] = []);
+    map["Unassigned"] = [];
 
-  // Helper to get venue configuration (Always strictly starts at 9:00 AM with 10 min default buffer)
-  const getVenueConfig = (venue: string) => {
-    let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
-    if (isNaN(baseDate.getTime())) baseDate = new Date();
-    baseDate.setHours(9, 0, 0, 0); // Strictly 09:00 AM!
-
-    const initialStart = formatDateTimeLocal(baseDate);
-    const buffer = venueSettings[venue]?.buffer !== undefined ? venueSettings[venue].buffer : 5;
-
-    return { startTime: initialStart, buffer };
-  };
-
-  const updateVenueConfig = (venue: string, field: "buffer", value: any) => {
-    setVenueSettings(prev => {
-      const current = prev[venue] || getVenueConfig(venue);
-      return {
-        ...prev,
-        [venue]: {
-          ...current,
-          [field]: value
-        }
-      };
+    const filtered = programs.filter(p => {
+      if (p.stageType && p.stageType !== "ON_STAGE" && p.type !== "BREAK") return false;
+      let cat = "GENERAL PROGRAMS";
+      if (p.type === "GENERAL") cat = "GENERAL PROGRAMS";
+      else if (p.category?.name) cat = p.category.name.toUpperCase();
+      return selectedCategory === "All" || cat === selectedCategory;
     });
-  };
 
-  // Auto-predict cascading sequential timeline starting strictly from 9:00 AM
-  const getPredictedVenueTimeline = (venuePrograms: any[], venueStartTimeStr?: string, bufferMinutes: number = 5) => {
-    let baseDate = eventStartDate ? new Date(eventStartDate) : new Date();
-    if (isNaN(baseDate.getTime())) baseDate = new Date();
-    baseDate.setHours(9, 0, 0, 0); // Strictly 9:00 AM sharp!
+    filtered.forEach(p => {
+      const v = p.venue && allVenues.includes(p.venue) ? p.venue : "Unassigned";
+      if (!map[v]) map[v] = [];
+      map[v].push(p);
+    });
 
+    return map;
+  }, [programs, allVenues, selectedCategory]);
+
+  // Helper to get predicted sequential timeline starting strictly from 09:00 AM IST
+  const getPredictedVenueTimeline = (venue: string, venuePrograms: any[], bufferMinutes: number = 5) => {
+    const baseDate = getFestivalBaseDate(eventStartDate);
     let currentCursor = new Date(baseDate.getTime());
     let totalCandidates = 0;
 
@@ -109,8 +123,7 @@ export default function AdminScheduler({
       const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
 
       totalCandidates += calcInfo.candidateCount;
-      // calcInfo.duration dynamically computes: candidateCount * minPerCandidate (for INDIVIDUAL) or teamCount * minPerTeam (for GROUP)
-      const effectiveDuration = calcInfo.duration > 0 ? calcInfo.duration : (p.duration && p.duration > 0 ? p.duration : 10);
+      const effectiveDuration = p.duration && p.duration > 0 ? p.duration : (calcInfo.duration > 0 ? calcInfo.duration : 10);
 
       const start = new Date(currentCursor.getTime());
       const end = new Date(start.getTime() + effectiveDuration * 60000);
@@ -125,6 +138,7 @@ export default function AdminScheduler({
         candidateCount: calcInfo.candidateCount,
         teamCount: calcInfo.teamCount,
         durationPerItem: calcInfo.durationPerItem,
+        durationMode: p.durationMode || calcInfo.durationMode,
         filteredAssignments: zoneCandidates
       };
     });
@@ -143,52 +157,58 @@ export default function AdminScheduler({
     };
   };
 
-  // Auto-calculate venue program durations based on registered candidates attending in this zone/event
-  const handleAutoCalculateVenueByCandidates = async (venue: string) => {
-    const venueProgs = groupedPrograms[venue] || [];
-    if (venueProgs.length === 0) return;
+  // Compute calculated timelines for all venues
+  const allVenueTimelines = useMemo(() => {
+    const timelines: Record<string, any[]> = {};
+    for (const v of allVenues) {
+      const vProgs = groupedPrograms[v] || [];
+      const buf = venueBuffers[v] !== undefined ? venueBuffers[v] : 5;
+      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf);
+      timelines[v] = predictedList;
+    }
+    return timelines;
+  }, [groupedPrograms, allVenues, venueBuffers, eventStartDate, targetZoneId]);
 
-    const config = getVenueConfig(venue);
-    setLoadingId(`auto-calc-${venue}`);
+  // Live Real-Time Candidate Clash Detection
+  const { clashes, clashesByProgramId, clashCandidateCount } = useMemo(() => {
+    return detectCandidateScheduleClashes(allVenueTimelines, targetZoneId);
+  }, [allVenueTimelines, targetZoneId]);
+
+  // Assign program to a venue
+  const handleAssignVenue = async (programId: string, targetVenue: string) => {
+    const v = targetVenue === "Unassigned" ? null : targetVenue;
+    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, venue: v } : p));
     try {
-      // Calculate dynamic duration for each program as candidateCount * minPerCandidate
-      const updatedVenueProgs = venueProgs.map(p => {
-        const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
-        const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
-        return { ...p, duration: calcInfo.duration };
-      });
+      await updateProgramSchedule(programId, {
+        venue: v,
+        startTime: null
+      }, eventId);
+    } catch (e) {
+      console.error("Failed to assign venue:", e);
+    }
+  };
 
-      const { predictedList } = getPredictedVenueTimeline(updatedVenueProgs, config.startTime, config.buffer);
-      const updateMap = new Map(predictedList.map(item => [item.program.id, { start: item.predictedStart.toISOString(), duration: item.duration }]));
-
-      setPrograms(prev => {
-        return prev.map(p => {
-          if (updateMap.has(p.id)) {
-            const info = updateMap.get(p.id)!;
-            return { ...p, duration: info.duration, startTime: info.start, venue };
-          }
-          return p;
-        });
-      });
-
-      const updates = predictedList.map(item => ({
-        id: item.program.id,
-        startTime: item.predictedStart.toISOString(),
-        duration: item.duration,
-        stageType: item.program.stageType,
-        judgeIds: item.program.judges?.map((j: any) => j.id) || []
-      }));
-
-      await applySequentialVenueSchedule(eventId, venue, updates);
-      alert(`✅ Auto-calculated ${predictedList.length} programs in ${venue} based on registered candidates! Timings start at 09:00 AM.`);
-    } catch (e: any) {
-      alert("Failed to auto-calculate: " + (e.message || "Unknown error"));
+  // Batch assign selected programs to a venue
+  const handleBatchAssignVenue = async (targetVenue: string) => {
+    if (selectedProgramIds.size === 0) return;
+    const v = targetVenue === "Unassigned" ? null : targetVenue;
+    const ids = Array.from(selectedProgramIds);
+    setLoadingId("batch-assign");
+    try {
+      setPrograms(prev => prev.map(p => ids.includes(p.id) ? { ...p, venue: v } : p));
+      for (const id of ids) {
+        await updateProgramSchedule(id, { venue: v, startTime: null }, eventId);
+      }
+      setSelectedProgramIds(new Set());
+      if (v) setActiveStageTab(v);
+    } catch (e) {
+      console.error("Batch assign failed:", e);
     } finally {
       setLoadingId(null);
     }
   };
 
-  // Reordering inside venue: instantly updates sequence and auto-saves the 9:00 AM sequential timings
+  // Reordering inside venue: instantly swaps and auto-saves the 9:00 AM sequential timings
   const handleMoveProgram = async (venue: string, currentIndex: number, direction: "up" | "down") => {
     const venueProgs = [...(groupedPrograms[venue] || [])];
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
@@ -199,12 +219,10 @@ export default function AdminScheduler({
     venueProgs[currentIndex] = itemB;
     venueProgs[targetIndex] = itemA;
 
-    // Recalculate sequential times starting from 9:00 AM
-    const config = getVenueConfig(venue);
-    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
-
-    // Update local state immediately with the new order and predicted start times
+    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+
     setPrograms(prev => {
       const venueIds = new Set(venueProgs.map(p => p.id));
       const otherProgs = prev.filter(p => !venueIds.has(p.id));
@@ -216,14 +234,13 @@ export default function AdminScheduler({
       return [...otherProgs, ...updatedVenueProgs];
     });
 
-    // Auto-save sequential schedule directly to DB
     try {
       const updates = predictedList.map(item => ({
         id: item.program.id,
         startTime: item.predictedStart.toISOString(),
         duration: item.duration,
-        stageType: item.program.stageType,
-        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+        durationMode: item.durationMode,
+        stageType: item.program.stageType
       }));
       await applySequentialVenueSchedule(eventId, venue, updates);
     } catch (e) {
@@ -237,8 +254,8 @@ export default function AdminScheduler({
     const [removed] = venueProgs.splice(currentIndex, 1);
     venueProgs.splice(targetIndex, 0, removed);
 
-    const config = getVenueConfig(venue);
-    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
 
     setPrograms(prev => {
@@ -257,8 +274,8 @@ export default function AdminScheduler({
         id: item.program.id,
         startTime: item.predictedStart.toISOString(),
         duration: item.duration,
-        stageType: item.program.stageType,
-        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+        durationMode: item.durationMode,
+        stageType: item.program.stageType
       }));
       await applySequentialVenueSchedule(eventId, venue, updates);
     } catch (e) {
@@ -266,71 +283,38 @@ export default function AdminScheduler({
     }
   };
 
-  const handleDurationChange = (venue: string, programId: string, newMinPerItem: number) => {
-    const currentProg = (groupedPrograms[venue] || []).find(p => p.id === programId);
-    let newTotalDuration = newMinPerItem;
-    if (currentProg) {
-      const modeSelect = document.getElementById(`mode-${programId}`) as HTMLSelectElement | null;
-      const selectedMode = modeSelect?.value || currentProg.durationMode || 'AUTO';
-      const zoneCandidates = getZoneCandidatesForProgram(currentProg.assignments, targetZoneId);
-      const uniqueTeams = new Set(zoneCandidates.map((a: any) => a.candidate?.teamId).filter(Boolean));
-      const teamCount = uniqueTeams.size > 0 ? uniqueTeams.size : (zoneCandidates.length > 0 ? Math.ceil(zoneCandidates.length / (currentProg.candidateLimitPerTeam || 1)) : 0);
-
-      let effectiveMode = selectedMode;
-      if (effectiveMode === 'AUTO') {
-        if (currentProg.type === 'GROUP' || currentProg.type === 'GENERAL' || (currentProg.candidateLimitPerTeam && currentProg.candidateLimitPerTeam > 1)) {
-          effectiveMode = 'PER_TEAM';
-        } else if (currentProg.type === 'INDIVIDUAL') {
-          effectiveMode = 'PER_CANDIDATE';
-        } else {
-          effectiveMode = 'TOTAL_FIXED';
-        }
-      }
-
-      if (effectiveMode === 'TOTAL_FIXED') {
-        newTotalDuration = newMinPerItem; // Fixed total duration: no multiplication!
-      } else if (effectiveMode === 'PER_TEAM') {
-        newTotalDuration = teamCount > 0 ? teamCount * newMinPerItem : newMinPerItem;
-      } else {
-        newTotalDuration = zoneCandidates.length > 0 ? zoneCandidates.length * newMinPerItem : newMinPerItem;
-      }
-    }
-
-    const venueProgs = (groupedPrograms[venue] || []).map(p => p.id === programId ? { ...p, duration: newTotalDuration } : p);
-    const config = getVenueConfig(venue);
-    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+  // Duration changes
+  const handleDurationChange = (venue: string, programId: string, newTotalDuration: number, newMode?: string) => {
+    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const venueProgs = (groupedPrograms[venue] || []).map(p => 
+      p.id === programId ? { ...p, duration: newTotalDuration, durationMode: newMode || p.durationMode } : p
+    );
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
     const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
 
-    setPrograms(prev => {
-      return prev.map(p => {
-        if (p.id === programId) {
-          return { ...p, duration: newTotalDuration, startTime: updateMap.get(p.id) || p.startTime };
-        }
-        if (updateMap.has(p.id)) {
-          return { ...p, startTime: updateMap.get(p.id) };
-        }
-        return p;
-      });
-    });
+    setPrograms(prev => prev.map(p => {
+      if (p.id === programId) {
+        return { 
+          ...p, 
+          duration: newTotalDuration, 
+          durationMode: newMode || p.durationMode, 
+          startTime: updateMap.get(p.id) || p.startTime 
+        };
+      }
+      if (updateMap.has(p.id)) {
+        return { ...p, startTime: updateMap.get(p.id) };
+      }
+      return p;
+    }));
   };
 
-  const handleModeChange = (venue: string, programId: string, newMode: string) => {
-    const durInput = document.getElementById(`dur-${programId}`) as HTMLInputElement | null;
-    const currentVal = parseInt(durInput?.value || "5") || 5;
-
-    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, durationMode: newMode } : p));
-    setTimeout(() => {
-      handleDurationChange(venue, programId, currentVal);
-    }, 50);
-  };
-
-  // Apply & Save all sequential timings from 9:00 AM to all programs in the venue
+  // 1-Click Save Order & Timings for a venue
   const handleApplyVenueTimings = async (venue: string) => {
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length === 0) return;
 
-    const config = getVenueConfig(venue);
-    const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf);
 
     setLoadingId(`apply-${venue}`);
     try {
@@ -338,8 +322,8 @@ export default function AdminScheduler({
         id: item.program.id,
         startTime: item.predictedStart.toISOString(),
         duration: item.duration,
-        stageType: item.program.stageType,
-        judgeIds: item.program.judges?.map((j: any) => j.id) || []
+        durationMode: item.durationMode,
+        stageType: item.program.stageType
       }));
 
       const res = await applySequentialVenueSchedule(eventId, venue, updates);
@@ -353,7 +337,7 @@ export default function AdminScheduler({
             return p;
           });
         });
-        alert(`✅ Successfully set and saved schedule for ${venueProgs.length} programs starting at 9:00 AM!`);
+        alert(`✅ Successfully saved schedule for ${venueProgs.length} programs in ${venue}!`);
       } else {
         alert("Failed to save schedule: " + (res.error || "Unknown error"));
       }
@@ -364,7 +348,48 @@ export default function AdminScheduler({
     }
   };
 
-  // Rename Venue
+  // Auto-calculate venue program durations by candidates attending
+  const handleAutoCalculateVenueByCandidates = async (venue: string) => {
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length === 0) return;
+
+    const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+    setLoadingId(`auto-calc-${venue}`);
+    try {
+      const updatedVenueProgs = venueProgs.map(p => {
+        const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
+        const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
+        return { ...p, duration: calcInfo.duration, durationMode: calcInfo.durationMode };
+      });
+
+      const { predictedList } = getPredictedVenueTimeline(venue, updatedVenueProgs, buf);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, { start: item.predictedStart.toISOString(), duration: item.duration, mode: item.durationMode }]));
+
+      setPrograms(prev => prev.map(p => {
+        if (updateMap.has(p.id)) {
+          const info = updateMap.get(p.id)!;
+          return { ...p, duration: info.duration, durationMode: info.mode, startTime: info.start, venue };
+        }
+        return p;
+      }));
+
+      const updates = predictedList.map(item => ({
+        id: item.program.id,
+        startTime: item.predictedStart.toISOString(),
+        duration: item.duration,
+        durationMode: item.durationMode,
+        stageType: item.program.stageType
+      }));
+
+      await applySequentialVenueSchedule(eventId, venue, updates);
+      alert(`✅ Auto-calculated ${predictedList.length} programs in ${venue} based on registered candidates!`);
+    } catch (e: any) {
+      alert("Failed to auto-calculate: " + (e.message || "Unknown error"));
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const handleRenameVenue = async (oldName: string) => {
     const newName = prompt(`Enter new name for venue "${oldName}":`, oldName);
     if (!newName || !newName.trim() || newName.trim() === oldName) return;
@@ -375,14 +400,7 @@ export default function AdminScheduler({
       if (res.success) {
         setPrograms(prev => prev.map(p => p.venue === oldName ? { ...p, venue: clean } : p));
         setLocalVenues(prev => prev.map(v => v === oldName ? clean : v));
-        setVenueSettings(prev => {
-          const next = { ...prev };
-          if (next[oldName]) {
-            next[clean] = next[oldName];
-            delete next[oldName];
-          }
-          return next;
-        });
+        if (activeStageTab === oldName) setActiveStageTab(clean);
       } else {
         alert("Failed to rename venue: " + (res.error || "Unknown error"));
       }
@@ -391,11 +409,10 @@ export default function AdminScheduler({
     }
   };
 
-  // Delete Venue
   const handleDeleteVenue = async (venueName: string) => {
     const count = programs.filter(p => p.venue === venueName).length;
     const msg = count > 0 
-      ? `Are you sure you want to delete venue "${venueName}"?\nAll ${count} assigned program(s) will be set to Unassigned.` 
+      ? `Are you sure you want to delete venue "${venueName}"?\nAll ${count} assigned program(s) will be moved to Unassigned.` 
       : `Are you sure you want to delete venue "${venueName}"?`;
     if (!confirm(msg)) return;
 
@@ -405,11 +422,7 @@ export default function AdminScheduler({
       if (res.success) {
         setPrograms(prev => prev.map(p => p.venue === venueName ? { ...p, venue: null } : p));
         setLocalVenues(prev => prev.filter(v => v !== venueName));
-        setVenueSettings(prev => {
-          const next = { ...prev };
-          delete next[venueName];
-          return next;
-        });
+        if (activeStageTab === venueName) setActiveStageTab("ALL");
       } else {
         alert("Failed to delete venue: " + (res.error || "Unknown error"));
       }
@@ -418,82 +431,11 @@ export default function AdminScheduler({
     }
   };
 
-  const handleUpdate = async (id: string, venue: string, startTime: string, duration: number, stageType: string, judgeIds: string[], durationMode?: string) => {
-    setLoadingId(id);
-    try {
-      // Find the venue programs and update this program's duration and durationMode
-      const venueProgs = (groupedPrograms[venue] || []).map(p => {
-        if (p.id === id) {
-          const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
-          return { ...p, venue, duration, stageType, durationMode: durationMode || p.durationMode, judges: assignedJudges };
-        }
-        return p;
-      });
-
-      // Recalculate sequential times starting from 9:00 AM with configured buffer
-      const config = getVenueConfig(venue);
-      const { predictedList } = getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
-      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
-
-      // Update state locally
-      setPrograms(prev => {
-        return prev.map(p => {
-          if (p.id === id) {
-            const assignedJudges = allJudges.filter(j => judgeIds.includes(j.id));
-            return { 
-              ...p, 
-              venue, 
-              duration, 
-              stageType, 
-              durationMode: durationMode || p.durationMode,
-              judges: assignedJudges,
-              startTime: updateMap.get(p.id) || startTime 
-            };
-          }
-          if (updateMap.has(p.id)) {
-            return { ...p, startTime: updateMap.get(p.id) };
-          }
-          return p;
-        });
-      });
-
-      // Save the entire sequential timeline for this venue to database so times cascade cleanly
-      const updates = predictedList.map(item => ({
-        id: item.program.id,
-        startTime: item.predictedStart.toISOString(),
-        duration: item.duration,
-        stageType: item.program.stageType,
-        durationMode: item.program.id === id ? durationMode : item.program.durationMode,
-        judgeIds: item.program.judges?.map((j: any) => j.id) || []
-      }));
-
-      const res = await applySequentialVenueSchedule(eventId, venue, updates);
-      if (res.success) {
-        // also explicitly update any stageType or judges
-        await updateProgramSchedule(id, {
-          venue: venue || null,
-          startTime: updateMap.get(id) || startTime,
-          duration,
-          stageType,
-          durationMode,
-          judgeIds
-        }, eventId);
-      } else {
-        alert("Failed to save schedule: " + (res.error || "Unknown error"));
-      }
-    } catch (e: any) {
-      console.error("Failed to update program schedule:", e);
-      alert("Error saving: " + (e.message || "Unknown error"));
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
   const handleAddBreak = async (venue: string) => {
-    const breakName = prompt("Enter Break Name (e.g., Lunch Break):", "Lunch Break");
-    const durationStr = prompt("Enter duration in minutes:", "60");
+    const breakName = prompt("Enter Break Name (e.g., Lunch Break / Prayer Break):", "Lunch Break");
+    const durationStr = prompt("Enter duration in minutes:", "45");
     if (!breakName || !durationStr) return;
-    const duration = parseInt(durationStr);
+    const duration = parseInt(durationStr) || 30;
     
     setLoadingId("new-break");
     try {
@@ -508,40 +450,8 @@ export default function AdminScheduler({
     }
   };
 
-  const handleAutoGenerate = async () => {
-    if (!confirm("This will automatically assign unscheduled programs to available venues starting at 9:00 AM. Are you sure?")) return;
-    
-    setLoadingId("auto-gen");
-    try {
-      const res = await autoGenerateSchedule(eventId, Array.from(allVenues));
-      if (res.success) {
-        window.location.reload();
-      } else {
-        alert("Failed to auto-schedule.");
-      }
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
-  const handleShiftSchedule = async (venue: string, minutes: number) => {
-    if (!confirm(`Shift all programs in ${venue} by ${minutes} minutes?`)) return;
-    setLoadingId("shift");
-    try {
-      const res = await shiftSchedule(eventId, venue, minutes);
-      if (res.success) {
-        window.location.reload();
-      } else {
-        alert("Failed to shift schedule.");
-      }
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
   const handlePublishMasterSchedule = async () => {
-    if (!confirm("This will publish this Master Schedule (Venues, Timings, Stage Types & Durations) to all Zone Festivals as their default schedule. Existing programs in zones will be updated with these timings. Proceed?")) return;
-    
+    if (!confirm("This will publish this Master Schedule to all Zone Festivals as their default schedule. Proceed?")) return;
     setLoadingId("publish-master");
     try {
       const res = await publishMasterScheduleToAllZones(eventId);
@@ -558,39 +468,10 @@ export default function AdminScheduler({
     }
   };
 
-  // Extract unique venues
-  const allVenues = new Set([...localVenues, ...programs.map(p => p.venue).filter(Boolean)]);
-  
-  const handleAddVenue = () => {
-    if (newVenueName && !allVenues.has(newVenueName)) {
-      setLocalVenues([...localVenues, newVenueName.trim()]);
-      setNewVenueName("");
-    }
-  };
-
-  // Group filtered programs by venue
-  const groupedPrograms: Record<string, any[]> = {};
-  allVenues.forEach(v => groupedPrograms[v] = []);
-  groupedPrograms["Unassigned"] = [];
-
-  const filteredPrograms = programs.filter(p => {
-    // Strictly on-stage programs only for schedule
-    if (p.stageType && p.stageType !== "ON_STAGE") return false;
-
-    let cat = "GENERAL PROGRAMS";
-    if (p.type === "GENERAL") cat = "GENERAL PROGRAMS";
-    else if (p.category?.name) cat = p.category.name.toUpperCase();
-    
-    return selectedCategory === "All" || cat === selectedCategory;
-  });
-
-  filteredPrograms.forEach(p => {
-    if (p.venue && allVenues.has(p.venue)) {
-      groupedPrograms[p.venue].push(p);
-    } else {
-      groupedPrograms["Unassigned"].push(p);
-    }
-  });
+  // Determine which venues to show based on active tab
+  const displayVenues = activeStageTab === "ALL" 
+    ? [...allVenues, "Unassigned"]
+    : [activeStageTab];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-lg)" }}>
@@ -598,28 +479,28 @@ export default function AdminScheduler({
       {/* Top Venue Management & Master Controls */}
       <div className="glass-panel" style={{ padding: "var(--spacing-md)", display: "flex", gap: "var(--spacing-md)", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div style={{ flex: "1 1 360px" }}>
-          <h3 style={{ margin: "0 0 8px 0", fontSize: "1rem", fontWeight: 800 }}>🏛️ Venue Management</h3>
+          <h3 style={{ margin: "0 0 8px 0", fontSize: "1.05rem", fontWeight: 800 }}>🏛️ Stage & Venue Management</h3>
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
             <input 
               type="text" 
               className="form-input" 
-              placeholder="New Venue Name (e.g. Main Stage)"
+              placeholder="Add Stage (e.g. Stage 1, Stage 2)"
               value={newVenueName}
               onChange={e => setNewVenueName(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") handleAddVenue(); }}
-              style={{ maxWidth: "280px" }}
+              style={{ maxWidth: "260px" }}
             />
-            <button className="btn btn-secondary" onClick={handleAddVenue} style={{ fontWeight: 700 }}>
-              + Add Venue
+            <button className="btn btn-primary" onClick={handleAddVenue} style={{ fontWeight: 700 }}>
+              + Add Stage
             </button>
           </div>
 
-          {/* Quick Venue Badges with Rename and Delete buttons */}
-          {Array.from(allVenues).length > 0 && (
+          {/* Venue Badges */}
+          {allVenues.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>Active Venues:</span>
-              {Array.from(allVenues).map(v => {
-                const count = programs.filter(p => p.venue === v).length;
+              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>Active Stages:</span>
+              {allVenues.map(v => {
+                const count = (groupedPrograms[v] || []).length;
                 return (
                   <div
                     key={v}
@@ -628,28 +509,30 @@ export default function AdminScheduler({
                       alignItems: "center",
                       gap: "6px",
                       padding: "4px 10px",
-                      backgroundColor: "rgba(142, 0, 51, 0.08)",
-                      border: "1px solid rgba(142, 0, 51, 0.2)",
+                      backgroundColor: activeStageTab === v ? "rgba(142, 0, 51, 0.15)" : "rgba(142, 0, 51, 0.06)",
+                      border: activeStageTab === v ? "1.5px solid #8E0033" : "1px solid rgba(142, 0, 51, 0.2)",
                       borderRadius: "6px",
-                      fontSize: "0.8rem",
+                      fontSize: "0.82rem",
                       fontWeight: 700,
-                      color: "var(--primary)"
+                      color: "#8E0033",
+                      cursor: "pointer"
                     }}
+                    onClick={() => setActiveStageTab(v)}
                   >
                     <span>📍 {v}</span>
                     <span style={{ fontSize: "0.7rem", backgroundColor: "white", padding: "1px 6px", borderRadius: "10px", color: "#475569" }}>
                       {count}
                     </span>
                     <button
-                      onClick={() => handleRenameVenue(v)}
-                      title={`Rename venue "${v}"`}
+                      onClick={(e) => { e.stopPropagation(); handleRenameVenue(v); }}
+                      title={`Rename stage "${v}"`}
                       style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px", fontSize: "0.85rem" }}
                     >
                       ✏️
                     </button>
                     <button
-                      onClick={() => handleDeleteVenue(v)}
-                      title={`Delete venue "${v}"`}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteVenue(v); }}
+                      title={`Delete stage "${v}"`}
                       style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px", fontSize: "0.85rem", color: "#ef4444" }}
                     >
                       🗑️
@@ -661,7 +544,7 @@ export default function AdminScheduler({
           )}
         </div>
 
-        {/* Master Status & Global Schedule Actions */}
+        {/* Global Schedule Actions */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
           {statusOverride === "SCHEDULE_PUBLISHED" ? (
             <span style={{ 
@@ -692,7 +575,7 @@ export default function AdminScheduler({
           {isSuperAdmin ? (
             <button 
               className="btn btn-primary" 
-              style={{ backgroundColor: "#10B981", borderColor: "#10B981", color: "#ffffff", fontWeight: 600 }}
+              style={{ backgroundColor: "#10B981", borderColor: "#10B981", color: "#ffffff", fontWeight: 700 }}
               onClick={handlePublishMasterSchedule} 
               disabled={loadingId !== null}
             >
@@ -702,16 +585,15 @@ export default function AdminScheduler({
             statusOverride !== "SCHEDULE_PUBLISHED" ? (
               <button 
                 className="btn btn-primary" 
-                style={{ backgroundColor: "#10B981", borderColor: "#10B981", color: "#ffffff", fontWeight: 600 }}
+                style={{ backgroundColor: "#10B981", borderColor: "#10B981", color: "#ffffff", fontWeight: 700 }}
                 onClick={async () => {
-                  if (!confirm("Confirm and publish the final Zone Program Schedule? Once published, candidate timeslots and venues are finalized and visible to public results and colleges.")) return;
+                  if (!confirm("Publish the finalized Zone Program Schedule? Timings and venues will be visible to colleges and public results.")) return;
                   setLoadingId("publish-zone");
                   try {
-                    const { publishZoneSchedule } = await import("./actions");
                     const res = await publishZoneSchedule(eventId);
                     if (res.success) {
                       setStatusOverride("SCHEDULE_PUBLISHED");
-                      alert(`✅ Final Zone Schedule successfully published!`);
+                      alert(`✅ Final Zone Schedule published!`);
                       window.location.reload();
                     } else {
                       alert("Failed: " + (res.error || "Unknown error"));
@@ -727,16 +609,15 @@ export default function AdminScheduler({
             ) : (
               <button 
                 className="btn btn-secondary" 
-                style={{ borderColor: "#ef4444", color: "#ef4444", fontWeight: 600 }}
+                style={{ borderColor: "#ef4444", color: "#ef4444", fontWeight: 700 }}
                 onClick={async () => {
-                  if (!confirm("Hide this schedule from public results and colleges? It will return to Draft mode (only visible to Admins).")) return;
+                  if (!confirm("Return schedule to Draft mode (hidden from colleges)?")) return;
                   setLoadingId("unpublish-zone");
                   try {
-                    const { unpublishSchedule } = await import("./actions");
                     const res = await unpublishSchedule(eventId);
                     if (res.success) {
                       setStatusOverride("AUTO");
-                      alert(`🔒 Schedule is now hidden (Draft Mode). Only Zone Admins can view it.`);
+                      alert(`🔒 Schedule unpublished (Draft Mode).`);
                       window.location.reload();
                     } else {
                       alert("Failed: " + (res.error || "Unknown error"));
@@ -747,7 +628,7 @@ export default function AdminScheduler({
                 }} 
                 disabled={loadingId !== null}
               >
-                {loadingId === "unpublish-zone" ? "Hiding..." : "🔒 Hide / Unpublish Schedule (Draft)"}
+                {loadingId === "unpublish-zone" ? "Hiding..." : "🔒 Hide Schedule (Draft)"}
               </button>
             )
           )}
@@ -758,140 +639,258 @@ export default function AdminScheduler({
             onScheduleUpdated={() => window.location.reload()} 
           />
 
-          <button className="btn btn-primary" onClick={handleAutoGenerate} disabled={loadingId !== null}>
-            {loadingId === "auto-gen" ? "..." : "🤖 Auto-Generate Schedule"}
+          <button 
+            className="btn btn-secondary" 
+            onClick={async () => {
+              if (!confirm("Automatically assign unscheduled programs to stages starting at 09:00 AM?")) return;
+              setLoadingId("auto-gen");
+              try {
+                const res = await autoGenerateSchedule(eventId, allVenues);
+                if (res.success) window.location.reload();
+                else alert("Failed to auto-schedule.");
+              } finally {
+                setLoadingId(null);
+              }
+            }} 
+            disabled={loadingId !== null}
+          >
+            {loadingId === "auto-gen" ? "..." : "🤖 Auto-Assign Venues"}
           </button>
         </div>
       </div>
 
-      {/* Stage Scheduler Focus Notice */}
-      <div style={{
-        padding: "12px 18px",
-        borderRadius: "10px",
-        backgroundColor: "rgba(142, 0, 51, 0.05)",
-        border: "1.5px solid rgba(142, 0, 51, 0.2)",
-        color: "#8E0033",
-        fontSize: "0.875rem",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px"
-      }}>
-        <span style={{ fontSize: "1.5rem" }}>⚡</span>
-        <div>
-          <strong>Auto-Calculated 9:00 AM Schedule:</strong> You only need to order the programs in each venue! Program #1 automatically starts at <strong>9:00 AM</strong>, and every subsequent program automatically starts when the previous one finishes. No manual datetime picking needed!
+      {/* REAL-TIME CANDIDATE CLASH BANNER */}
+      {clashes.length > 0 ? (
+        <div style={{
+          padding: "16px 20px",
+          borderRadius: "12px",
+          backgroundColor: "#fef2f2",
+          border: "2px solid #ef4444",
+          color: "#991b1b",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          boxShadow: "0 4px 12px rgba(239, 68, 68, 0.12)"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#991b1b" }}>
+                  Real-Time Program Clashes Detected ({clashes.length} Clash{clashes.length > 1 ? "es" : ""})
+                </h3>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "#b91c1c" }}>
+                  <strong>{clashCandidateCount} student(s)</strong> are scheduled in different programs on separate stages at the same time. 
+                  Adjust the program order below (using <strong>▲</strong> or <strong>▼</strong>) to eliminate the clashes!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "8px", maxHeight: "180px", overflowY: "auto", padding: "4px" }}>
+            {clashes.map((c, idx) => (
+              <div 
+                key={idx} 
+                style={{ 
+                  backgroundColor: "#ffffff", 
+                  border: "1px solid #fca5a5", 
+                  borderRadius: "8px", 
+                  padding: "8px 12px",
+                  fontSize: "0.78rem"
+                }}
+              >
+                <div style={{ fontWeight: 800, color: "#dc2626", marginBottom: "3px" }}>
+                  👤 {c.candidateName}
+                </div>
+                <div style={{ color: "#334155" }}>
+                  📍 <strong>{c.program1Venue}</strong>: {c.program1Name} ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
+                </div>
+                <div style={{ color: "#334155" }}>
+                  📍 <strong>{c.program2Venue}</strong>: {c.program2Name} ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
+                </div>
+                <div style={{ color: "#b91c1c", fontWeight: 700, marginTop: "2px", fontSize: "0.72rem" }}>
+                  Overlap: {c.overlapMinutes} mins
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-      
-      {/* Category & Stage Filters */}
-      <div className="glass-panel" style={{ padding: "16px", display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginRight: "4px" }}>Category:</span>
+      ) : (
+        <div style={{
+          padding: "10px 16px",
+          borderRadius: "10px",
+          backgroundColor: "rgba(16, 185, 129, 0.08)",
+          border: "1.5px solid rgba(16, 185, 129, 0.3)",
+          color: "#065f46",
+          fontSize: "0.85rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          fontWeight: 700
+        }}>
+          <span>✅</span>
+          <span>No Candidate Clashes: All scheduled programs across all stages are conflict-free!</span>
+        </div>
+      )}
+
+      {/* EASY STAGE NAVIGATION TABS */}
+      <div className="glass-panel" style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "#475569", marginRight: "4px" }}>Stage View:</span>
+          
+          <button
+            onClick={() => setActiveStageTab("ALL")}
+            className={`btn ${activeStageTab === "ALL" ? "btn-primary" : "btn-secondary"}`}
+            style={{ padding: "5px 14px", fontSize: "0.82rem", borderRadius: "8px", fontWeight: 700 }}
+          >
+            🌐 All Stages ({programs.filter(p => p.stageType === "ON_STAGE").length})
+          </button>
+
+          {allVenues.map(v => {
+            const count = (groupedPrograms[v] || []).length;
+            const hasClash = (groupedPrograms[v] || []).some(p => clashesByProgramId[p.id]);
+            return (
+              <button
+                key={v}
+                onClick={() => setActiveStageTab(v)}
+                className={`btn ${activeStageTab === v ? "btn-primary" : "btn-secondary"}`}
+                style={{ 
+                  padding: "5px 14px", 
+                  fontSize: "0.82rem", 
+                  borderRadius: "8px", 
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                <span>📍 {v}</span>
+                <span style={{ 
+                  backgroundColor: activeStageTab === v ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.06)", 
+                  padding: "1px 6px", 
+                  borderRadius: "10px", 
+                  fontSize: "0.72rem" 
+                }}>
+                  {count}
+                </span>
+                {hasClash && <span title="Has candidate clash" style={{ color: "#ef4444" }}>⚠️</span>}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setActiveStageTab("Unassigned")}
+            className={`btn ${activeStageTab === "Unassigned" ? "btn-primary" : "btn-secondary"}`}
+            style={{ 
+              padding: "5px 14px", 
+              fontSize: "0.82rem", 
+              borderRadius: "8px", 
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            <span>⏳ Unassigned</span>
+            <span style={{ 
+              backgroundColor: (groupedPrograms["Unassigned"] || []).length > 0 ? "#fef3c7" : "rgba(0,0,0,0.06)", 
+              color: (groupedPrograms["Unassigned"] || []).length > 0 ? "#b45309" : "inherit",
+              padding: "1px 6px", 
+              borderRadius: "10px", 
+              fontSize: "0.72rem",
+              fontWeight: 800
+            }}>
+              {(groupedPrograms["Unassigned"] || []).length}
+            </span>
+          </button>
+        </div>
+
+        {/* Category filters */}
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700 }}>Category:</span>
           {categoryOrder.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`btn ${selectedCategory === cat ? "btn-primary" : "btn-secondary"}`}
-              style={{ padding: "4px 12px", fontSize: "0.85rem", borderRadius: "20px" }}
+              style={{
+                padding: "3px 10px",
+                fontSize: "0.75rem",
+                borderRadius: "14px",
+                border: "1px solid",
+                borderColor: selectedCategory === cat ? "#8E0033" : "#cbd5e1",
+                backgroundColor: selectedCategory === cat ? "#8E0033" : "#ffffff",
+                color: selectedCategory === cat ? "#ffffff" : "#475569",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
             >
               {cat}
             </button>
           ))}
         </div>
-        
-        <div style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
-          <span style={{ 
-            fontSize: "0.8rem", 
-            fontWeight: 700, 
-            padding: "4px 10px", 
-            borderRadius: "20px", 
-            backgroundColor: "rgba(16, 185, 129, 0.12)", 
-            color: "#059669",
-            border: "1px solid rgba(16, 185, 129, 0.3)"
-          }}>
-            🎭 Strictly On-Stage Schedule
-          </span>
-        </div>
       </div>
 
-      {loadingId && (
-        <div style={{ padding: "var(--spacing-sm)", backgroundColor: "var(--primary)", color: "white", textAlign: "center", borderRadius: "var(--radius-md)" }}>
-          Processing... Please wait.
-        </div>
-      )}
-
-      {conflicts.length > 0 && (
-        <div style={{ 
-          padding: "var(--spacing-md)", 
-          backgroundColor: "rgba(239, 68, 68, 0.08)", 
-          border: "1.5px solid var(--error)", 
-          borderRadius: "var(--radius-md)",
+      {/* BATCH STAGE ASSIGNMENT BAR */}
+      {selectedProgramIds.size > 0 && (
+        <div style={{
+          padding: "12px 18px",
+          borderRadius: "10px",
+          backgroundColor: "#f0fdf4",
+          border: "1.5px solid #86efac",
           display: "flex",
-          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
           gap: "10px"
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-            <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--error)", fontWeight: 800 }}>
-              ⚠️ Scheduling Conflicts Detected ({conflicts.length})
-            </h3>
-
-            <button
-              onClick={async () => {
-                if (!confirm("Automatically adjust programs across venues to eliminate candidate clashes with a 10-minute buffer?")) return;
-                setLoadingId("auto-resolve-clashes");
-                try {
-                  const res = await autoResolveCandidateClashes(eventId, targetZoneId);
-                  if (res.success) {
-                    alert(`✅ ${res.message}\nResolved program slots and updated schedule with 10-minute gap!`);
-                    window.location.reload();
-                  } else {
-                    alert("Failed to auto-resolve clashes: " + (res.error || "Unknown error"));
-                  }
-                } catch (e: any) {
-                  alert("Error: " + (e.message || "Failed to auto-resolve"));
-                } finally {
-                  setLoadingId(null);
-                }
-              }}
-              disabled={loadingId !== null}
-              style={{
-                backgroundColor: "#dc2626",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "8px",
-                padding: "6px 14px",
-                fontWeight: 800,
-                fontSize: "0.85rem",
-                cursor: loadingId !== null ? "not-allowed" : "pointer",
-                boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px"
-              }}
+          <div style={{ fontWeight: 800, color: "#166534", fontSize: "0.9rem" }}>
+            ☑️ {selectedProgramIds.size} Program(s) Selected
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#166534" }}>Move to:</span>
+            <select
+              className="form-input"
+              value={batchTargetStage}
+              onChange={(e) => setBatchTargetStage(e.target.value)}
+              style={{ padding: "4px 8px", fontSize: "0.82rem", maxWidth: "160px" }}
             >
-              <span>⚡</span>
-              <span>{loadingId === "auto-resolve-clashes" ? "Resolving Clashes..." : "Auto-Resolve Candidate Clashes (10m Gap)"}</span>
+              {allVenues.map(v => <option key={v} value={v}>{v}</option>)}
+              <option value="Unassigned">Unassigned</option>
+            </select>
+            <button
+              className="btn btn-primary"
+              style={{ padding: "6px 14px", fontSize: "0.82rem", fontWeight: 800 }}
+              onClick={() => handleBatchAssignVenue(batchTargetStage)}
+              disabled={loadingId !== null}
+            >
+              {loadingId === "batch-assign" ? "Assigning..." : "Assign to Stage"}
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: "6px 10px", fontSize: "0.82rem" }}
+              onClick={() => setSelectedProgramIds(new Set())}
+            >
+              Clear
             </button>
           </div>
-
-          <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.875rem" }}>
-            {conflicts.map((c, i) => (
-              <li key={i} style={{ marginBottom: "4px" }}>
-                <strong>{c.candidateName}</strong> is scheduled for <strong>{c.programs.join(" & ")}</strong> at the same time ({c.time}).
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
-      {/* Venues View */}
-      {Object.keys(groupedPrograms).map(venue => {
+      {/* VENUES LIST */}
+      {displayVenues.map(venue => {
         const venueProgs = groupedPrograms[venue] || [];
         const isUnassigned = venue === "Unassigned";
-        const config = getVenueConfig(venue);
-        const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = 
-          getPredictedVenueTimeline(venueProgs, config.startTime, config.buffer);
+        const buf = venueBuffers[venue] !== undefined ? venueBuffers[venue] : 5;
+        const timeline = allVenueTimelines[venue] ? {
+          predictedList: allVenueTimelines[venue],
+          totalDurationMinutes: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.duration, 0) + Math.max(0, allVenueTimelines[venue].length - 1) * buf,
+          totalCandidates: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.candidateCount, 0),
+          predictedStart: getFestivalBaseDate(eventStartDate),
+          predictedEnd: allVenueTimelines[venue].length > 0 ? allVenueTimelines[venue][allVenueTimelines[venue].length - 1].predictedEnd : getFestivalBaseDate(eventStartDate)
+        } : getPredictedVenueTimeline(venue, venueProgs, buf);
 
-        // Check if finished by 6:00 PM (18:00)
+        const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = timeline;
+
         const eveningCutoff = new Date(predictedStart.getTime());
         eveningCutoff.setHours(18, 0, 0, 0);
         const isExceedingEvening = predictedEnd.getTime() > eveningCutoff.getTime();
@@ -900,7 +899,7 @@ export default function AdminScheduler({
         return (
           <div key={venue} className="glass-panel" style={{ padding: "var(--spacing-md)", borderRadius: "14px" }}>
             
-            {/* Venue Header: Name, Rename/Delete Controls & Shift/Break Actions */}
+            {/* Stage Header */}
             <div style={{ 
               display: "flex", 
               justifyContent: "space-between", 
@@ -912,7 +911,7 @@ export default function AdminScheduler({
               gap: "10px"
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <h2 style={{ margin: 0, color: "var(--primary)", display: "flex", alignItems: "center", gap: "8px", fontSize: "1.25rem" }}>
+                <h2 style={{ margin: 0, color: "#8E0033", display: "flex", alignItems: "center", gap: "8px", fontSize: "1.25rem" }}>
                   📍 {venue}
                   <span className="badge badge-secondary">{venueProgs.length} Programs</span>
                 </h2>
@@ -922,18 +921,18 @@ export default function AdminScheduler({
                     <button 
                       className="btn btn-secondary" 
                       onClick={() => handleRenameVenue(venue)}
-                      title="Rename this venue"
-                      style={{ padding: "3px 8px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      title="Rename stage"
+                      style={{ padding: "3px 8px", fontSize: "0.75rem" }}
                     >
-                      <span>✏️</span> Rename
+                      ✏️ Rename
                     </button>
                     <button 
                       className="btn btn-secondary" 
                       onClick={() => handleDeleteVenue(venue)}
-                      title="Delete this venue and unassign programs"
-                      style={{ padding: "3px 8px", fontSize: "0.75rem", borderColor: "#fca5a5", color: "#dc2626", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      title="Delete stage"
+                      style={{ padding: "3px 8px", fontSize: "0.75rem", borderColor: "#fca5a5", color: "#dc2626" }}
                     >
-                      <span>🗑️</span> Delete
+                      🗑️ Delete
                     </button>
                   </div>
                 )}
@@ -941,32 +940,46 @@ export default function AdminScheduler({
 
               {!isUnassigned && (
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                  <button className="btn btn-secondary" style={{ padding: "5px 10px", fontSize: "0.75rem" }} onClick={() => handleAddBreak(venue)}>
+                  <button className="btn btn-secondary" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 700 }} onClick={() => handleAddBreak(venue)}>
                     + Add Break
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 700 }}
+                    onClick={() => handleAutoCalculateVenueByCandidates(venue)}
+                    disabled={loadingId !== null}
+                    title="Recalculate durations from registered candidate counts"
+                  >
+                    ⚡ Auto-Calculate Durations
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: "6px 18px", fontSize: "0.85rem", fontWeight: 800, backgroundColor: "#8E0033", borderColor: "#8E0033" }}
+                    onClick={() => handleApplyVenueTimings(venue)}
+                    disabled={loadingId !== null}
+                  >
+                    💾 Save Order & Timings
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Venue Timeline & Auto-Prediction Controller Bar */}
+            {/* Stage Timeline Controller Bar */}
             {!isUnassigned && venueProgs.length > 0 && (
               <div 
                 style={{
                   backgroundColor: "rgba(248, 250, 252, 0.95)",
                   border: "1px solid #e2e8f0",
                   borderRadius: "10px",
-                  padding: "12px 16px",
+                  padding: "10px 16px",
                   marginBottom: "16px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "10px"
+                  gap: "8px"
                 }}
               >
-                {/* Fixed Start 9:00 AM badge, Buffer, and 1-Click Save */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-                    
-                    {/* Fixed Start Time: Always 9:00 AM */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                     <div style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -974,173 +987,112 @@ export default function AdminScheduler({
                       backgroundColor: "#f0fdf4",
                       color: "#15803d",
                       border: "1.5px solid #bbf7d0",
-                      padding: "5px 12px",
-                      borderRadius: "8px",
-                      fontSize: "0.82rem",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.8rem",
                       fontWeight: 800
                     }}>
                       <span>🕒</span>
-                      <span>Starts: <strong>09:00 AM (Auto Fixed)</strong></span>
+                      <span>Starts: <strong>09:00 AM (Fixed IST)</strong></span>
                     </div>
 
-                    {/* Buffer Between Programs */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0, whiteSpace: "nowrap" }}>
-                        Buffer:
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                        Buffer Gap:
                       </label>
                       <select 
                         className="form-input" 
-                        value={config.buffer}
-                        onChange={(e) => updateVenueConfig(venue, "buffer", parseInt(e.target.value) || 0)}
-                        style={{ fontSize: "0.82rem", padding: "4px 8px", width: "130px" }}
+                        value={buf}
+                        onChange={(e) => setVenueBuffers(prev => ({ ...prev, [venue]: parseInt(e.target.value) || 0 }))}
+                        style={{ fontSize: "0.80rem", padding: "3px 6px", width: "120px" }}
                       >
                         <option value={0}>0 min (Direct)</option>
-                        <option value={5}>5 mins</option>
-                        <option value={10}>10 mins</option>
-                        <option value={15}>15 mins</option>
+                        <option value={5}>5 mins gap</option>
+                        <option value={10}>10 mins gap</option>
+                        <option value={15}>15 mins gap</option>
                       </select>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                    {/* 1-Click Auto-Calculate by Candidates Button */}
-                    <button
-                      onClick={() => handleAutoCalculateVenueByCandidates(venue)}
-                      disabled={loadingId !== null}
-                      style={{
-                        padding: "8px 14px",
-                        backgroundColor: "#4f46e5",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontWeight: 800,
-                        fontSize: "0.82rem",
-                        cursor: loadingId !== null ? "not-allowed" : "pointer",
-                        boxShadow: "0 2px 6px rgba(79, 70, 229, 0.25)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}
-                      title="Calculate program durations from registered candidates in this zone and set 9:00 AM timeline"
-                    >
-                      <span>⚡</span>
-                      <span>{loadingId === `auto-calc-${venue}` ? "Calculating..." : "Auto-Calculate by Candidates"}</span>
-                    </button>
-
-                    {/* 1-Click Save Order & Apply Timings (from 9:00 AM) Button */}
-                    <button
-                      onClick={() => handleApplyVenueTimings(venue)}
-                      disabled={loadingId !== null}
-                      style={{
-                        padding: "8px 18px",
-                        backgroundColor: "#8E0033",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontWeight: 800,
-                        fontSize: "0.85rem",
-                        cursor: loadingId !== null ? "not-allowed" : "pointer",
-                        boxShadow: "0 2px 6px rgba(142, 0, 51, 0.25)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}
-                    >
-                      <span>💾</span>
-                      <span>{loadingId === `apply-${venue}` ? "Saving..." : "Save Order & Timings"}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Timeline Live Summary */}
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px",
-                  paddingTop: "8px",
-                  borderTop: "1px dashed #cbd5e1",
-                  fontSize: "0.82rem"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ color: "#475569" }}>
-                      Total Programs: <strong>{venueProgs.length}</strong>
-                    </span>
-                    <span>•</span>
-                    <span style={{ color: "#475569" }}>
-                      Candidates: <strong>{totalCandidates}</strong>
-                    </span>
-                    <span>•</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.82rem" }}>
                     <span style={{ color: "#475569" }}>
                       Total Runtime: <strong>{Math.floor(totalDurationMinutes / 60)}h {totalDurationMinutes % 60}m</strong>
                     </span>
                     <span>•</span>
                     <span style={{ color: "#059669", fontWeight: 800 }}>
-                      Timeline: {predictedStart.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} &rarr; {predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
+                      {formatTimeAmPm(predictedStart)} &rarr; {formatTimeAmPm(predictedEnd)}
                     </span>
-                  </div>
-
-                  <div style={{
-                    fontWeight: 700,
-                    color: isExceedingEvening ? "#dc2626" : "#059669",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "4px"
-                  }}>
-                    <span>{isExceedingEvening ? "⚠️" : "✅"}</span>
-                    <span>
+                    <span>•</span>
+                    <span style={{
+                      fontWeight: 700,
+                      color: isExceedingEvening ? "#dc2626" : "#059669"
+                    }}>
                       {isExceedingEvening 
-                        ? `Exceeds 6:00 PM by ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`
-                        : `Finishes by ${predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}`
-                      }
+                        ? `⚠️ Overruns 6 PM (+${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m)`
+                        : `✅ Finishes by ${formatTimeAmPm(predictedEnd)}`}
                     </span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Program Items List in this Venue */}
+            {/* Programs List */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {venueProgs.length === 0 ? (
                 <div style={{ color: "var(--text-muted)", fontSize: "0.875rem", padding: "var(--spacing-md)", textAlign: "center", border: "1px dashed var(--border-color)", borderRadius: "var(--radius-md)" }}>
-                  No programs assigned to this venue yet.
+                  No programs assigned to this stage yet.
                 </div>
               ) : (
-                predictedList.map((item, idx) => {
+                predictedList.map((item: any, idx: number) => {
                   const program = item.program;
                   const isBreak = program.type === "BREAK";
                   const isFirst = idx === 0;
                   const isLast = idx === predictedList.length - 1;
+                  const itemClashes = clashesByProgramId[program.id] || [];
+
+                  const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
+                  const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
+                    ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
 
                   return (
                     <div 
                       key={program.id} 
                       style={{ 
                         padding: "12px 16px", 
-                        border: "1px solid var(--border-color)", 
+                        border: itemClashes.length > 0 ? "2px solid #ef4444" : "1px solid var(--border-color)", 
                         borderRadius: "10px",
-                        backgroundColor: isBreak ? "rgba(245, 158, 11, 0.08)" : "#ffffff",
-                        borderColor: isBreak ? "var(--warning)" : "#e2e8f0",
+                        backgroundColor: itemClashes.length > 0 ? "#fff5f5" : isBreak ? "rgba(245, 158, 11, 0.08)" : "#ffffff",
                         display: "flex",
                         flexDirection: "column",
                         gap: "8px",
-                        transition: "all 0.15s ease",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+                        boxShadow: itemClashes.length > 0 ? "0 2px 8px rgba(239, 68, 68, 0.15)" : "0 1px 3px rgba(0,0,0,0.03)"
                       }}
                     >
                       {/* Top Program Card Row */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                         
-                        {/* Left: Sequence badge + Order Controls + Title */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                        {/* Sequence + Up/Down + Title */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                           
+                          {/* Checkbox for batch actions */}
+                          <input
+                            type="checkbox"
+                            checked={selectedProgramIds.has(program.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedProgramIds);
+                              if (e.target.checked) next.add(program.id);
+                              else next.delete(program.id);
+                              setSelectedProgramIds(next);
+                            }}
+                            style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                          />
+
                           {/* Order / Sequence Controller */}
                           {!isUnassigned && (
                             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                               <span 
                                 style={{ 
-                                  backgroundColor: "#0f172a", 
+                                  backgroundColor: itemClashes.length > 0 ? "#dc2626" : "#0f172a", 
                                   color: "#ffffff", 
                                   fontWeight: 800, 
                                   fontSize: "0.78rem", 
@@ -1154,13 +1106,13 @@ export default function AdminScheduler({
                                 #{idx + 1}
                               </span>
 
-                              {/* Up / Down Buttons: Reordering auto-calculates time from 9:00 AM */}
+                              {/* Up / Down Buttons */}
                               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                 <button
                                   type="button"
                                   onClick={() => handleMoveProgram(venue, idx, "up")}
                                   disabled={isFirst}
-                                  title="Move Up (Auto-recalculates time)"
+                                  title="Move Up"
                                   style={{
                                     border: "1px solid #cbd5e1",
                                     backgroundColor: isFirst ? "#f1f5f9" : "#ffffff",
@@ -1178,7 +1130,7 @@ export default function AdminScheduler({
                                   type="button"
                                   onClick={() => handleMoveProgram(venue, idx, "down")}
                                   disabled={isLast}
-                                  title="Move Down (Auto-recalculates time)"
+                                  title="Move Down"
                                   style={{
                                     border: "1px solid #cbd5e1",
                                     backgroundColor: isLast ? "#f1f5f9" : "#ffffff",
@@ -1208,7 +1160,7 @@ export default function AdminScheduler({
                                   }}
                                   title="Jump to position"
                                 >
-                                  {venueProgs.map((_, pIdx) => (
+                                  {venueProgs.map((_: any, pIdx: number) => (
                                     <option key={pIdx} value={pIdx}>Pos #{pIdx + 1}</option>
                                   ))}
                                 </select>
@@ -1216,7 +1168,7 @@ export default function AdminScheduler({
                             </div>
                           )}
 
-                          {/* Program Name and Details */}
+                          {/* Program Name & Badge Details */}
                           <div>
                             <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: isBreak ? "var(--warning)" : "#0f172a" }}>
                               {isBreak ? `☕ ${program.name}` : program.name}
@@ -1234,7 +1186,6 @@ export default function AdminScheduler({
                                   fontWeight: 800,
                                   padding: "1px 6px",
                                   borderRadius: "4px",
-                                  letterSpacing: "0.03em",
                                   backgroundColor: program.stageType === "OFF_STAGE" ? "rgba(14, 165, 233, 0.16)" : "rgba(236, 72, 153, 0.16)",
                                   color: program.stageType === "OFF_STAGE" ? "#0284c7" : "#db2777",
                                   border: `1px solid ${program.stageType === "OFF_STAGE" ? "#0284c7" : "#db2777"}`
@@ -1244,62 +1195,84 @@ export default function AdminScheduler({
                                 <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
                                   {program.category?.name || "General"}
                                 </span>
-                                {(() => {
-                                  const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
-                                  const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
-                                    ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
-
-                                  return (
-                                    <span style={{
-                                      fontSize: "0.70rem",
-                                      fontWeight: 700,
-                                      padding: "2px 8px",
-                                      borderRadius: "4px",
-                                      backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
-                                      color: item.candidateCount > 0 ? "#059669" : "#64748b",
-                                      border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
-                                    }}>
-                                      {isFixedTime ? (
-                                        <>⏱️ Fixed Total: {item.duration} mins ({item.teamCount} Teams / {item.candidateCount} Candidates)</>
-                                      ) : isTeamBased ? (
-                                        <>👥 {item.teamCount} Teams {item.candidateCount > item.teamCount ? `(${item.candidateCount} Candidates)` : ""} {item.teamCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
-                                      ) : (
-                                        <>👥 {item.candidateCount} Candidates {item.candidateCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
-                                      )}
-                                    </span>
-                                  );
-                                })()}
+                                <span style={{
+                                  fontSize: "0.70rem",
+                                  fontWeight: 700,
+                                  padding: "2px 8px",
+                                  borderRadius: "4px",
+                                  backgroundColor: item.candidateCount > 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(100, 116, 139, 0.1)",
+                                  color: item.candidateCount > 0 ? "#059669" : "#64748b",
+                                  border: `1px solid ${item.candidateCount > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(100, 116, 139, 0.2)"}`
+                                }}>
+                                  {isFixedTime ? (
+                                    <>⏱️ Fixed Total: {item.duration} mins ({item.teamCount} Teams / {item.candidateCount} Candidates)</>
+                                  ) : isTeamBased ? (
+                                    <>👥 {item.teamCount} Teams {item.teamCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                  ) : (
+                                    <>👤 {item.candidateCount} Candidates {item.candidateCount > 0 ? `× ${item.durationPerItem}m = ${item.duration} mins total` : `(${item.duration}m)`}</>
+                                  )}
+                                </span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Right: Clean Auto-Calculated Timing Badge (From 9:00 AM) */}
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "4px 10px",
-                            borderRadius: "8px",
-                            backgroundColor: "#ecfdf5",
-                            border: "1.5px solid #a7f3d0",
-                            color: "#047857",
-                            fontWeight: 800,
-                            fontSize: "0.85rem",
-                            boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
-                          }}>
-                            <span>🕒</span>
-                            <span>
-                              {item.predictedStart.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
-                              {" – "}
-                              {item.predictedEnd.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}
-                            </span>
+                        {/* Timing Badge */}
+                        {!isUnassigned && (
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "4px 10px",
+                              borderRadius: "8px",
+                              backgroundColor: itemClashes.length > 0 ? "#fef2f2" : "#ecfdf5",
+                              border: itemClashes.length > 0 ? "1.5px solid #f87171" : "1.5px solid #a7f3d0",
+                              color: itemClashes.length > 0 ? "#dc2626" : "#047857",
+                              fontWeight: 800,
+                              fontSize: "0.85rem",
+                            }}>
+                              <span>🕒</span>
+                              <span>
+                                {formatTimeAmPm(item.predictedStart)} – {formatTimeAmPm(item.predictedEnd)}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Bottom Program Settings Row: Venue, Duration, StageType, Judges & Save (NO manual Start Time picker!) */}
+                      {/* CLASH WARNING BOX */}
+                      {itemClashes.length > 0 && (
+                        <div style={{
+                          backgroundColor: "#fef2f2",
+                          border: "1.5px solid #ef4444",
+                          borderRadius: "8px",
+                          padding: "8px 12px",
+                          color: "#991b1b",
+                          fontSize: "0.78rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px"
+                        }}>
+                          {itemClashes.map((c: any, cIdx: number) => {
+                            const otherVenue = c.program1Id === program.id ? c.program2Venue : c.program1Venue;
+                            const otherProg = c.program1Id === program.id ? c.program2Name : c.program1Name;
+                            const otherStart = c.program1Id === program.id ? c.program2Start : c.program1Start;
+                            const otherEnd = c.program1Id === program.id ? c.program2End : c.program1End;
+
+                            return (
+                              <div key={cIdx}>
+                                ⚠️ <strong>Candidate Clash:</strong> <u>{c.candidateName}</u> is also scheduled in <strong>"{otherProg}"</strong> on <strong>{otherVenue}</strong> ({formatTimeAmPm(otherStart)} - {formatTimeAmPm(otherEnd)}).
+                              </div>
+                            );
+                          })}
+                          <span style={{ fontSize: "0.72rem", color: "#b91c1c", fontWeight: 600 }}>
+                            👉 Click <strong>▲</strong> or <strong>▼</strong> above to move this program up/down and resolve this clash!
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Bottom Controls Row: Stage Assignment, Timing Mode, Duration & Save */}
                       <div style={{ 
                         display: "flex", 
                         flexWrap: "wrap", 
@@ -1308,152 +1281,130 @@ export default function AdminScheduler({
                         paddingTop: "8px",
                         borderTop: "1px dashed #f1f5f9"
                       }}>
-                        {/* Venue selector */}
+                        {/* Stage Selector */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Venue / Stage</label>
-                            <select className="form-input" defaultValue={program.venue || ""} id={`venue-${program.id}`} style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                              <option value="">Unassigned</option>
-                              {Array.from(allVenues).map(v => <option key={v} value={v}>{v}</option>)}
+                          <div className="form-group" style={{ marginBottom: 0, minWidth: "140px" }}>
+                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Stage</label>
+                            <select 
+                              className="form-input" 
+                              value={program.venue || "Unassigned"} 
+                              id={`venue-${program.id}`} 
+                              onChange={(e) => handleAssignVenue(program.id, e.target.value)}
+                              style={{ padding: "4px 8px", fontSize: "0.8rem", height: "32px", fontWeight: 700 }}
+                            >
+                              <option value="Unassigned">Unassigned</option>
+                              {allVenues.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
                           </div>
                         )}
-                        {isBreak && (
-                          <input type="hidden" id={`venue-${program.id}`} value={program.venue || ""} />
-                        )}
 
-                        {(() => {
-                          const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
-                          const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
-                            ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
-
-                          return (
-                            <>
-                              {/* Timing Mode selector: Per Group / Fixed Total / Per Candidate */}
-                              {!isBreak && (
-                                <div className="form-group" style={{ marginBottom: 0, minWidth: "160px" }}>
-                                  <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Timing Mode</label>
-                                  <select
-                                    id={`mode-${program.id}`}
-                                    className="form-input"
-                                    defaultValue={isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE"}
-                                    onChange={(e) => handleModeChange(venue, program.id, e.target.value)}
-                                    style={{ padding: "4px 6px", fontSize: "0.75rem", height: "30px", fontWeight: 600 }}
-                                  >
-                                    <option value="PER_TEAM">👥 Per Group/Team (Teams × Mins)</option>
-                                    <option value="TOTAL_FIXED">⏱️ Fixed Total Time (No multiplier)</option>
-                                    <option value="PER_CANDIDATE">👤 Per Candidate (Candidates × Mins)</option>
-                                  </select>
-                                </div>
-                              )}
-                              
-                              {/* Duration input: shows per-candidate/team minutes or total minutes */}
-                              <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }} title={isFixedTime ? "Direct total duration for the program" : "Minutes per team or candidate"}>
-                                  {isFixedTime ? "Total Time (mins)" : isTeamBased ? "Min / Group (Team)" : "Min / Candidate"}
-                                </label>
-                                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                                  <input 
-                                    type="number" 
-                                    className="form-input" 
-                                    key={`dur-${program.id}-${isFixedTime ? item.duration : item.durationPerItem}-${isFixedTime ? 'fixed' : isTeamBased ? 'team' : 'cand'}`}
-                                    defaultValue={isFixedTime ? (item.duration || 10) : (item.durationPerItem || 5)} 
-                                    id={`dur-${program.id}`}
-                                    min={1}
-                                    onChange={(e) => handleDurationChange(venue, program.id, parseInt(e.target.value) || 1)}
-                                    style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px" }}
-                                  />
-                                  {!isFixedTime && isTeamBased && item.teamCount > 0 && (
-                                    <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                                      = <strong>{item.duration}m</strong> total
-                                    </span>
-                                  )}
-                                  {!isFixedTime && !isTeamBased && item.candidateCount > 0 && (
-                                    <span style={{ fontSize: "0.7rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                                      = <strong>{item.duration}m</strong> total
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </>
-                          );
-                        })()}
-                        
-                        {/* Stage Type */}
+                        {/* Timing Mode */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, width: "130px" }}>
-                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Stage Type</label>
-                            <select className="form-input" defaultValue={program.stageType} id={`stage-${program.id}`} style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                              <option value="ON_STAGE">ON STAGE</option>
-                              <option value="OFF_STAGE">OFF STAGE</option>
+                          <div className="form-group" style={{ marginBottom: 0, minWidth: "170px" }}>
+                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Timing Calculation Mode</label>
+                            <select
+                              id={`mode-${program.id}`}
+                              className="form-input"
+                              value={isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE"}
+                              onChange={(e) => {
+                                const newMode = e.target.value;
+                                const durInput = document.getElementById(`dur-${program.id}`) as HTMLInputElement | null;
+                                const val = parseInt(durInput?.value || "5") || 5;
+                                let newTotal = val;
+                                if (newMode === "PER_TEAM") {
+                                  newTotal = item.teamCount > 0 ? item.teamCount * val : val;
+                                } else if (newMode === "PER_CANDIDATE") {
+                                  newTotal = item.candidateCount > 0 ? item.candidateCount * val : val;
+                                }
+                                handleDurationChange(venue, program.id, newTotal, newMode);
+                              }}
+                              style={{ padding: "4px 8px", fontSize: "0.78rem", height: "32px", fontWeight: 700 }}
+                            >
+                              <option value="PER_TEAM">👥 Per Group/Team (Teams × Mins)</option>
+                              <option value="PER_CANDIDATE">👤 Per Candidate (Candidates × Mins)</option>
+                              <option value="TOTAL_FIXED">⏱️ Fixed Total Time (No multiplier)</option>
                             </select>
                           </div>
                         )}
-                        {isBreak && (
-                          <input type="hidden" id={`stage-${program.id}`} value="BREAK" />
-                        )}
+
+                        {/* Duration Input with Equation */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>
+                            {isFixedTime ? "Total Time (mins)" : isTeamBased ? "Mins / Team" : "Mins / Candidate"}
+                          </label>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              defaultValue={isFixedTime ? (item.duration || 10) : (item.durationPerItem || 5)} 
+                              id={`dur-${program.id}`}
+                              min={1}
+                              onChange={(e) => {
+                                const entered = parseInt(e.target.value) || 1;
+                                let newTotal = entered;
+                                const modeVal = (document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null)?.value || (isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE");
+                                if (modeVal === "PER_TEAM") {
+                                  newTotal = item.teamCount > 0 ? item.teamCount * entered : entered;
+                                } else if (modeVal === "PER_CANDIDATE") {
+                                  newTotal = item.candidateCount > 0 ? item.candidateCount * entered : entered;
+                                }
+                                handleDurationChange(venue, program.id, newTotal, modeVal);
+                              }}
+                              style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px", height: "32px" }}
+                            />
+                            {!isFixedTime && isTeamBased && item.teamCount > 0 && (
+                              <span style={{ fontSize: "0.72rem", color: "#475569", whiteSpace: "nowrap" }}>
+                                × {item.teamCount} = <strong>{item.duration}m</strong>
+                              </span>
+                            )}
+                            {!isFixedTime && !isTeamBased && item.candidateCount > 0 && (
+                              <span style={{ fontSize: "0.72rem", color: "#475569", whiteSpace: "nowrap" }}>
+                                × {item.candidateCount} = <strong>{item.duration}m</strong>
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
                         {/* Save Item Button */}
                         <button 
                           className="btn btn-primary"
-                          style={{ padding: "5px 14px", fontSize: "0.8rem", flex: "0 0 auto", height: "32px", fontWeight: 700 }}
+                          style={{ padding: "5px 14px", fontSize: "0.8rem", flex: "0 0 auto", height: "32px", fontWeight: 800 }}
                           disabled={loadingId === program.id}
-                          onClick={() => {
-                            const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
-                            const modeSelect = document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null;
-                            const isFixedTime = (program.durationMode || '').toUpperCase() === 'TOTAL_FIXED';
-                            const isTeamBased = (program.durationMode || '').toUpperCase() === 'PER_TEAM' || 
-                              ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
-                            const modeVal = modeSelect?.value || (isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE");
-                            const enteredMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
-                            
-                            let d = enteredMins;
-                            if (modeVal === "PER_TEAM") {
-                              const count = item.teamCount > 0 ? item.teamCount : (item.candidateCount > 0 ? Math.ceil(item.candidateCount / (program.candidateLimitPerTeam || 1)) : 1);
-                              d = count * enteredMins;
-                            } else if (modeVal === "PER_CANDIDATE") {
-                              const count = item.candidateCount > 0 ? item.candidateCount : 1;
-                              d = count * enteredMins;
-                            } else {
-                              // TOTAL_FIXED: direct total minutes!
-                              d = enteredMins;
-                            }
-
-                            const s = (document.getElementById(`stage-${program.id}`) as HTMLSelectElement | HTMLInputElement).value;
-                            
-                            let judgeIds: string[] = [];
-                            if (!isBreak) {
-                              const jSelect = document.getElementById(`judges-${program.id}`) as HTMLSelectElement;
-                              if (jSelect) {
-                                judgeIds = Array.from(jSelect.selectedOptions).map(opt => opt.value);
+                          onClick={async () => {
+                            setLoadingId(program.id);
+                            try {
+                              const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | null)?.value || venue;
+                              const targetVenue = v === "Unassigned" ? null : v;
+                              const modeSelect = document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null;
+                              const modeVal = modeSelect?.value || (isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE");
+                              const enteredMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
+                              
+                              let d = enteredMins;
+                              if (modeVal === "PER_TEAM") {
+                                d = item.teamCount > 0 ? item.teamCount * enteredMins : enteredMins;
+                              } else if (modeVal === "PER_CANDIDATE") {
+                                d = item.candidateCount > 0 ? item.candidateCount * enteredMins : enteredMins;
                               }
+
+                              const s = program.stageType || "ON_STAGE";
+                              await updateProgramSchedule(program.id, {
+                                venue: targetVenue,
+                                startTime: targetVenue ? item.predictedStart.toISOString() : null,
+                                duration: d,
+                                durationMode: modeVal,
+                                stageType: s
+                              }, eventId);
+                              alert("✅ Program saved!");
+                            } catch (e: any) {
+                              alert("Error saving: " + (e.message || "Unknown error"));
+                            } finally {
+                              setLoadingId(null);
                             }
-                            
-                            // Automatically uses the auto-calculated 9:00 AM sequential start time!
-                            handleUpdate(program.id, v, item.predictedStart.toISOString(), d, s, judgeIds, modeVal);
                           }}
                         >
                           {loadingId === program.id ? "..." : "Save"}
                         </button>
                       </div>
-
-                      {/* Judges Multi-select */}
-                      {!isBreak && allJudges.length > 0 && (
-                        <div style={{ marginTop: "4px" }}>
-                          <label className="form-label" style={{ fontSize: "0.68rem", marginBottom: "2px", fontWeight: 700 }}>Judges (Hold Ctrl to select multiple)</label>
-                          <select 
-                            multiple 
-                            className="form-input" 
-                            id={`judges-${program.id}`}
-                            defaultValue={program.judges?.map((j: any) => j.id) || []}
-                            style={{ height: "42px", padding: "2px", fontSize: "0.75rem" }}
-                          >
-                            {allJudges.map(judge => (
-                              <option key={judge.id} value={judge.id}>{judge.username}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
                     </div>
                   );
                 })
