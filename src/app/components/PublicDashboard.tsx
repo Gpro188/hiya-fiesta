@@ -23,6 +23,7 @@ export default function PublicDashboard({
     champions?: any,
     stats?: {
         totalPrograms: number,
+        publishedPrograms?: number,
         publisheCSWCgrams: number,
         pendingPrograms: number,
         totalCandidates: number,
@@ -198,7 +199,7 @@ export default function PublicDashboard({
         >
           {[
             { label: 'Total Programs', value: data.stats.totalPrograms, color: '#e6007e' },
-            { label: 'Results Published', value: data.stats.publisheCSWCgrams, color: '#1f6d5a' },
+            { label: 'Results Published', value: data.stats.publishedPrograms ?? data.stats.publisheCSWCgrams ?? 0, color: '#1f6d5a' },
             { label: 'Results Pending', value: data.stats.pendingPrograms, color: '#d97706' },
             { label: 'Total Candidates', value: data.stats.totalCandidates, color: '#e6007e' },
             { label: 'Live Participants', value: data.stats.totalParticipants, color: '#1a1420' }

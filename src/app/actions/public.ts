@@ -13,8 +13,7 @@ const getCachedPublicEventData = unstable_cache(
       teams,
       allPublishedResults,
       categories,
-      totalPrograms,
-      publisheCSWCgramsCount,
+      rawTotalPrograms,
       totalCandidates,
       candidatesWithAssignments
     ] = await Promise.all([
@@ -124,10 +123,24 @@ const getCachedPublicEventData = unstable_cache(
       }),
 
       // 5. Stats
-      prisma.program.count({ where: { eventId } }),
-      prisma.program.count({ where: { eventId, results: { some: { isPublished: true } } } }),
-      prisma.candidate.count({ where: { category: { eventId } } }),
-      prisma.programAssignment.groupBy({ by: ['candidateId'], where: { program: { eventId } } })
+      prisma.program.count({ where: { eventId, type: { not: 'BREAK' } } }),
+      prisma.candidate.count({ 
+        where: { 
+          OR: [
+            { category: { eventId } },
+            { team: { eventId } }
+          ]
+        } 
+      }),
+      prisma.programAssignment.groupBy({ 
+        by: ['candidateId'], 
+        where: { 
+          OR: [
+            { program: { eventId } },
+            { candidate: { team: { eventId } } }
+          ]
+        } 
+      })
     ]);
 
     // Helper to detect category
@@ -533,10 +546,20 @@ const getCachedPublicEventData = unstable_cache(
       }
     });
 
+    // Calculate published programs based on distinct published program codes/IDs in this zone/event
+    const publishedProgramsCount = new Set(
+      allPublishedResults
+        .map((r: any) => r.program?.programCode || r.program?.id)
+        .filter(Boolean)
+    ).size;
+
+    const totalPrograms = Math.max(rawTotalPrograms, publishedProgramsCount);
+
     const stats = {
       totalPrograms,
-      publisheCSWCgrams: publisheCSWCgramsCount,
-      pendingPrograms: totalPrograms - publisheCSWCgramsCount,
+      publishedPrograms: publishedProgramsCount,
+      publisheCSWCgrams: publishedProgramsCount,
+      pendingPrograms: Math.max(0, totalPrograms - publishedProgramsCount),
       totalCandidates,
       totalParticipants: candidatesWithAssignments.length
     };

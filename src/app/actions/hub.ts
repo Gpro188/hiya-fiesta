@@ -71,6 +71,7 @@ export async function getHubData(eventId?: string) {
 
           const stats = {
             totalPrograms: totalProgramsInZone,
+            publishedPrograms: publisheCSWCgramsCount,
             publisheCSWCgrams: publisheCSWCgramsCount,
             pendingPrograms: pendingProgramsCount,
             totalTeams: event._count.teams,
