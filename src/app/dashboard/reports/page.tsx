@@ -160,7 +160,74 @@ export default async function ReportsPage(props: {
           </div>
         </div>
 
-        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs & Guidelines (PDF Prints)</h3>
+        {/* Institution-wise Points Breakdown Excel */}
+        <div className="glass-panel" style={{
+          padding: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+          borderRadius: '16px',
+          border: '2px solid #059669',
+          background: 'linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, rgba(4, 120, 87, 0.04) 100%)',
+          boxShadow: '0 10px 25px -5px rgba(5, 150, 105, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 450px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🏫</span>
+                <h3 style={{ margin: 0, color: '#047857', fontWeight: 800 }}>
+                  Institution-wise Points Breakdown (Excel)
+                </h3>
+                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#ecfdf5', color: '#065f46', fontWeight: 800, border: '1px solid #6ee7b7' }}>
+                  POINTS EXCEL (.XLSX)
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Institution-by-institution Excel with <strong>one sheet per institution</strong> showing every program result &mdash; Program Code, Name, Category, Type (Individual/General), Place, Grade, Marks, and Points earned. Includes a <strong>Zone Leaderboard</strong> and <strong>All Institutions Combined</strong> master sheet with subtotals.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(5,150,105,0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 700 }}>
+                  📊 Zone Leaderboard
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(5,150,105,0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🏫 1 Sheet Per Institution
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(5,150,105,0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🎯 Individual vs General Points
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(5,150,105,0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 700 }}>
+                  📋 Grade &amp; Place Details
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
+              <a
+                href={`/api/reports/institution-points-excel?eventId=${activeEventId || ''}`}
+                download="Institution_Points_Breakdown.xlsx"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>📥</span> Download Institution Points Excel
+              </a>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                Format: Microsoft Excel (.XLSX) &bull; Leaderboard + Per Institution Sheets
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Competition Programs &amp; Guidelines (PDF Prints)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
           {["ADMIN", "SUPER_ADMIN"].includes(role) && (
             <a href="/print/programs-registration" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>

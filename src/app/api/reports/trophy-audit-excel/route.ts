@@ -12,10 +12,14 @@ export async function GET(req: NextRequest) {
 
     const targetEvent = await prisma.event.findUnique({
       where: { id: eventId },
-      select: { id: true, name: true, zoneId: true, parentId: true }
+      select: { id: true, name: true, zoneId: true, parentId: true, zone: { select: { id: true, name: true } } }
     });
 
-    const zoneId = searchParams.get("zoneId") || targetEvent?.zoneId || "274203a7-aa36-4ea1-881e-0d0623f40eba";
+    // Use the event's own zoneId — never fall back to a hardcoded zone
+    const zoneId = searchParams.get("zoneId") || targetEvent?.zoneId || null;
+    if (!zoneId) {
+      return NextResponse.json({ error: "Could not determine zone for this event." }, { status: 400 });
+    }
 
     // 1. Fetch published rank 1-3 results
     const results = await prisma.result.findMany({
@@ -278,7 +282,7 @@ export async function GET(req: NextRequest) {
 
     // Build Summary
     const summaryRows: any[] = [
-      { A: "CSWC HIYA FIESTA 2026 - THRISSUR ZONE FINAL" },
+      { A: `CSWC HIYA FIESTA 2026 - ${(targetEvent?.zone?.name || targetEvent?.name || "ZONE").toUpperCase()} FINAL` },
       { A: "OFFICIAL TROPHY & MERIT CERTIFICATE AUDIT REPORT" },
       { A: `Generated: ${new Date().toLocaleString("en-IN")}` },
       {},
