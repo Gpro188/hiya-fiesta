@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
 import { isProgramGeneral } from "@/lib/programUtils";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,47 +16,76 @@ export default async function PrintStageManagerPage(props: {
   }>;
 }) {
   const searchParams = await props.searchParams;
-  const eventId = searchParams.eventId;
+  let eventId = searchParams.eventId;
   const programId = searchParams.programId;
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
+
+  // Resolve target event if not provided in searchParams
+  if (!eventId) {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { eventId: true, zoneId: true }
+      });
+      if (fullUser?.eventId) {
+        eventId = fullUser.eventId;
+      } else if (fullUser?.zoneId) {
+        const zoneEv = await prisma.event.findFirst({
+          where: { zoneId: fullUser.zoneId }
+        });
+        if (zoneEv) eventId = zoneEv.id;
+      }
+    }
+    // If still not resolved, find the event with the latest scheduled program
+    if (!eventId) {
+      const latestScheduledProg = await prisma.program.findFirst({
+        where: { stageType: 'ON_STAGE', venue: { not: null }, startTime: { not: null } },
+        orderBy: { updatedAt: 'desc' },
+        select: { eventId: true }
+      });
+      if (latestScheduledProg) {
+        eventId = latestScheduledProg.eventId;
+      } else {
+        const defaultEv = await prisma.event.findFirst({
+          where: { parentId: { not: null } },
+          orderBy: { createdAt: 'desc' }
+        });
+        eventId = defaultEv?.id;
+      }
+    }
+  }
+
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  // Strictly ON_STAGE programs only for Stage Manager
-  let whereClause: any = {
-    stageType: 'ON_STAGE'
-  };
-
   if (eventId) {
     activeEv = await prisma.event.findUnique({
       where: { id: eventId },
       include: { zone: true },
     });
-    if (activeEv?.parentId) {
-      whereClause.OR = [
-        { eventId: eventId },
-        { eventId: activeEv.parentId }
-      ];
-    } else {
-      whereClause.eventId = eventId;
-    }
   }
 
+  // Fetch only ON_STAGE programs that are SCHEDULED for this target event
+  const programWhere: any = {
+    stageType: 'ON_STAGE',
+    venue: { not: null },
+    startTime: { not: null }
+  };
+
+  if (eventId) {
+    programWhere.eventId = eventId;
+  }
   if (programId) {
-    whereClause.id = programId;
+    programWhere.id = programId;
   }
   if (activeCategory !== "ALL") {
-    whereClause.categoryId = activeCategory;
+    programWhere.categoryId = activeCategory;
   }
 
-  // Fetch categories for filtering
-  const categories = await prisma.category.findMany({
-    orderBy: { name: 'asc' }
-  });
-
-  const rawPrograms = await prisma.program.findMany({
-    where: whereClause,
+  const zonePrograms = await prisma.program.findMany({
+    where: programWhere,
     orderBy: [
       { venue: 'asc' },
       { startTime: 'asc' },
@@ -76,41 +107,71 @@ export default async function PrintStageManagerPage(props: {
     }
   });
 
-  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
-
-  // Deduplicate programs across parent & child events by programCode (or name_category)
-  const mergedMap = new Map<string, any>();
-  for (const p of rawPrograms) {
-    const key = p.programCode ? `code_${p.programCode}` : `name_${p.name}_${p.categoryId || ''}`;
-    if (!mergedMap.has(key)) {
-      mergedMap.set(key, { ...p, assignments: [...p.assignments] });
-    } else {
-      const existing = mergedMap.get(key);
-      // Merge unique candidate assignments
-      const existingIds = new Set(existing.assignments.map((a: any) => a.id));
-      for (const a of p.assignments) {
-        if (!existingIds.has(a.id)) {
-          existing.assignments.push(a);
+  // If assignments are stored under parent event programs (e.g. statewide registrations),
+  // merge candidate assignments into the zone's programs by programCode or name
+  if (activeEv?.parentId) {
+    const parentPrograms = await prisma.program.findMany({
+      where: {
+        eventId: activeEv.parentId,
+        stageType: 'ON_STAGE'
+      },
+      include: {
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: true } },
+                institution: { include: { zone: true } }
+              }
+            }
+          },
+          orderBy: { slotNumber: 'asc' }
         }
       }
-      // Inherit venue and timing (prefer zonal if set, otherwise parent)
-      if (!existing.venue && p.venue) existing.venue = p.venue;
-      if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
-      if (p.eventId === eventId && p.venue) existing.venue = p.venue;
-      if (p.eventId === eventId && p.startTime) existing.startTime = p.startTime;
+    });
+
+    const parentMap = new Map<string, any[]>();
+    for (const pp of parentPrograms) {
+      const codeKey = pp.programCode ? `code_${pp.programCode.trim()}` : null;
+      const nameKey = `name_${pp.name.trim().toLowerCase()}_${pp.categoryId || ''}`;
+      if (codeKey) parentMap.set(codeKey, pp.assignments);
+      parentMap.set(nameKey, pp.assignments);
+    }
+
+    for (const zp of zonePrograms) {
+      if (zp.assignments.length === 0) {
+        const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
+        const nameKey = `name_${zp.name.trim().toLowerCase()}_${zp.categoryId || ''}`;
+        if (codeKey && parentMap.has(codeKey)) {
+          zp.assignments = parentMap.get(codeKey) || [];
+        } else if (parentMap.has(nameKey)) {
+          zp.assignments = parentMap.get(nameKey) || [];
+        }
+      }
     }
   }
 
-  let deduplicatedPrograms = Array.from(mergedMap.values());
+  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+  // Filter ONLY programs that are legitimately scheduled on a stage with a start time
+  let deduplicatedPrograms = zonePrograms.filter(p => {
+    return Boolean(p.venue && p.venue.trim() && p.venue !== "Unassigned" && p.startTime);
+  });
+
+  // Fetch categories for filtering
+  const categories = await prisma.category.findMany({
+    where: eventId ? { eventId: { in: [eventId, activeEv?.parentId].filter(Boolean) as string[] } } : {},
+    orderBy: { name: 'asc' }
+  });
 
   // Distinct venues for filter bar
   const allVenues = Array.from(
-    new Set(deduplicatedPrograms.map(p => p.venue || "Main Stage").filter(Boolean))
+    new Set(deduplicatedPrograms.map(p => p.venue!).filter(Boolean))
   ).sort();
 
   // Filter by venue if selected
   if (activeVenue !== "ALL") {
-    deduplicatedPrograms = deduplicatedPrograms.filter(p => (p.venue || "Main Stage") === activeVenue);
+    deduplicatedPrograms = deduplicatedPrograms.filter(p => p.venue === activeVenue);
   }
 
   // Filter candidates per zone and eliminate empty duplicate pages

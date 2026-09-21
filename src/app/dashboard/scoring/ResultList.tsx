@@ -39,7 +39,7 @@ export default function ResultList({ results, role }: { results: any[], role: st
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setFilter('all')}
           className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
@@ -61,6 +61,30 @@ export default function ResultList({ results, role }: { results: any[], role: st
         >
           Published ({results.filter(r => r.isPublished).length})
         </button>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <a
+            href="/print/offstage-results?status=unpublished"
+            target="_blank"
+            className="btn"
+            style={{
+              padding: '0.3rem 0.8rem',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              backgroundColor: '#fffbeb',
+              border: '1.5px solid #f59e0b',
+              color: '#b45309',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title="Print all unpublished off-stage results to announce on Stage 1"
+          >
+            <span>📢</span> Stage 1 Off-Stage Print
+          </a>
+        </div>
       </div>
 
       {programIds.length === 0 ? (
@@ -106,10 +130,11 @@ export default function ResultList({ results, role }: { results: any[], role: st
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
                    <a 
-                    href={`/print/results/${pid}`}
+                    href={`/print/results/${pid}?status=${isFullyPublished ? 'published' : 'unpublished'}`}
                     target="_blank"
                     className="btn btn-secondary"
                     style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                    title={isFullyPublished ? "Print official notice board result" : "Print announcement sheet for Stage 1"}
                   >
                     🖨️ {isFullyPublished ? "Notice Board" : "Announce Print"}
                   </a>

@@ -41,26 +41,25 @@ export default async function PrintVenueControlPage(props: {
   const settings = await getSettings(targetEventId);
 
   let activeEv: any = null;
-  let whereClause: any = {};
-
   if (targetEventId) {
     activeEv = await prisma.event.findUnique({
       where: { id: targetEventId },
       include: { zone: true },
     });
-    if (activeEv?.parentId) {
-      whereClause = {
-        OR: [{ eventId: targetEventId }, { eventId: activeEv.parentId }],
-      };
-    } else {
-      whereClause = {
-        eventId: targetEventId,
-      };
-    }
+  }
+
+  const programWhere: any = {
+    stageType: "ON_STAGE",
+    venue: { not: null },
+    startTime: { not: null }
+  };
+
+  if (targetEventId) {
+    programWhere.eventId = targetEventId;
   }
 
   const rawPrograms = await prisma.program.findMany({
-    where: whereClause,
+    where: programWhere,
     orderBy: [
       { venue: "asc" },
       { startTime: "asc" },
@@ -96,53 +95,65 @@ export default async function PrintVenueControlPage(props: {
     },
   });
 
-  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
-
-  // Deduplicate programs across parent & child events by programCode (or name_category)
-  const mergedMap = new Map<string, any>();
-  for (const p of rawPrograms) {
-    const key = p.programCode
-      ? `code_${p.programCode.trim()}`
-      : `name_${p.name.trim()}_${p.categoryId || ""}`;
-
-    if (!mergedMap.has(key)) {
-      mergedMap.set(key, { 
-        ...p, 
-        assignments: [...p.assignments],
-        results: [...p.results],
-      });
-    } else {
-      const existing = mergedMap.get(key);
-      // Merge candidate assignments
-      const existingIds = new Set(existing.assignments.map((a: any) => a.id));
-      for (const a of p.assignments) {
-        if (!existingIds.has(a.id)) {
-          existing.assignments.push(a);
-          existingIds.add(a.id);
+  // If candidate assignments/results are stored in parent event, merge them into zone programs
+  if (activeEv?.parentId) {
+    const parentPrograms = await prisma.program.findMany({
+      where: {
+        eventId: activeEv.parentId,
+        stageType: "ON_STAGE"
+      },
+      include: {
+        results: {
+          select: {
+            id: true,
+            marks: true,
+            rank: true,
+            grade: true,
+            points: true,
+            isPublished: true,
+            candidateId: true,
+            teamId: true,
+          },
+        },
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: true, event: true } },
+                institution: { include: { zone: true } }
+              }
+            }
+          }
         }
       }
-      // Merge results
-      const existingResIds = new Set(existing.results.map((r: any) => r.id));
-      for (const r of p.results) {
-        if (!existingResIds.has(r.id)) {
-          existing.results.push(r);
-          existingResIds.add(r.id);
-        }
-      }
-      // Inherit venue and timing (prefer zonal if set, otherwise parent)
-      if (p.eventId === targetEventId) {
-        if (p.venue) existing.venue = p.venue;
-        if (p.startTime) existing.startTime = p.startTime;
-        if (p.duration) existing.duration = p.duration;
-        if (p.judges && p.judges.length > 0) existing.judges = p.judges;
-      } else {
-        if (!existing.venue && p.venue) existing.venue = p.venue;
-        if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+    });
+
+    const parentMap = new Map<string, { assignments: any[]; results: any[] }>();
+    for (const pp of parentPrograms) {
+      const codeKey = pp.programCode ? `code_${pp.programCode.trim()}` : null;
+      const nameKey = `name_${pp.name.trim().toLowerCase()}_${pp.categoryId || ''}`;
+      const payload = { assignments: pp.assignments, results: pp.results };
+      if (codeKey) parentMap.set(codeKey, payload);
+      parentMap.set(nameKey, payload);
+    }
+
+    for (const zp of rawPrograms) {
+      const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
+      const nameKey = `name_${zp.name.trim().toLowerCase()}_${zp.categoryId || ''}`;
+      const match = (codeKey && parentMap.get(codeKey)) || parentMap.get(nameKey);
+      if (match) {
+        if (zp.assignments.length === 0) zp.assignments = match.assignments;
+        if (zp.results.length === 0) zp.results = match.results;
       }
     }
   }
 
-  const deduplicatedPrograms = Array.from(mergedMap.values());
+  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+  // Filter ONLY scheduled programs
+  const deduplicatedPrograms = rawPrograms.filter(p => {
+    return Boolean(p.venue && p.venue.trim() && p.venue !== "Unassigned" && p.startTime);
+  });
 
   // Filter candidates per zone and calculate zone candidates/teams count
   const programsWithZoneCounts = deduplicatedPrograms.map((prog) => {
@@ -191,7 +202,7 @@ export default async function PrintVenueControlPage(props: {
   // Extract all distinct venues
   const allVenues = Array.from(
     new Set(
-      programsWithZoneCounts.map((p) => p.venue || "Main Stage").filter(Boolean)
+      programsWithZoneCounts.map((p) => p.venue!).filter(Boolean)
     )
   ).sort();
 
@@ -199,14 +210,14 @@ export default async function PrintVenueControlPage(props: {
   let filteredPrograms = programsWithZoneCounts;
   if (activeVenue !== "ALL") {
     filteredPrograms = programsWithZoneCounts.filter(
-      (p) => (p.venue || "Main Stage") === activeVenue
+      (p) => p.venue === activeVenue
     );
   }
 
   // Group by venue
   const venuesMap: Record<string, any[]> = {};
   filteredPrograms.forEach((p) => {
-    const v = p.venue || "Main Stage";
+    const v = p.venue!;
     if (!venuesMap[v]) venuesMap[v] = [];
     venuesMap[v].push(p);
   });

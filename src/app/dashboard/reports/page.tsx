@@ -51,9 +51,26 @@ export default async function ReportsPage(props: {
       return true;
     });
 
+    let defaultEventId = events[0]?.id;
+    if (!searchParams.eventId) {
+      const latestScheduledProg = await prisma.program.findFirst({
+        where: {
+          eventId: { in: events.map(e => e.id) },
+          stageType: 'ON_STAGE',
+          venue: { not: null },
+          startTime: { not: null }
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: { eventId: true }
+      });
+      if (latestScheduledProg) {
+        defaultEventId = latestScheduledProg.eventId;
+      }
+    }
+
     const activeEventId = (searchParams.eventId && events.some(e => e.id === searchParams.eventId)) 
       ? searchParams.eventId 
-      : events[0]?.id;
+      : defaultEventId;
 
     return (
       <div className="animate-fade-in">
@@ -294,6 +311,16 @@ export default async function ReportsPage(props: {
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(126,34,206,0.12)', color: '#7e22ce', fontWeight: 800 }}>MAGAZINE CODES</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official Magazine evaluation sheets for Zonal centers. Evaluates physical magazine copies by Magazine Code (MAG-01, MAG-02) with blind judging option.</p>
+          </a>
+
+          {/* Off-Stage Results & Stage 1 Announcement Sheet */}
+          <a href={`/print/offstage-results?eventId=${activeEventId || ''}&status=unpublished`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📢</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>Off-Stage Results (Stage 1 Announce)</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontWeight: 800 }}>STAGE 1 PODIUM</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Master print sheets for Stage 1 announcers to declare off-stage results. Filter by unpublished/pending to announce, published, or total master audit with official MC endorsements.</p>
           </a>
 
           {/* Total Mark & Points Summary Sheet */}

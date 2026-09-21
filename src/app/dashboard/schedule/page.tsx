@@ -48,9 +48,26 @@ export default async function SchedulePage(props: {
       return true;
     });
 
+    let defaultEventId = events[0]?.id;
+    if (!searchParams.eventId) {
+      const latestScheduledProg = await prisma.program.findFirst({
+        where: {
+          eventId: { in: events.map(e => e.id) },
+          stageType: 'ON_STAGE',
+          venue: { not: null },
+          startTime: { not: null }
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: { eventId: true }
+      });
+      if (latestScheduledProg) {
+        defaultEventId = latestScheduledProg.eventId;
+      }
+    }
+
     const activeEventId = (searchParams.eventId && events.some(e => e.id === searchParams.eventId)) 
       ? searchParams.eventId 
-      : events[0]?.id;
+      : defaultEventId;
 
     let programWhere: any = {
       stageType: "ON_STAGE"
@@ -116,6 +133,7 @@ export default async function SchedulePage(props: {
     const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
 
     // Deduplicate programs across parent and child events
+    // Zone event programs (activeEventId) ALWAYS override schedule & metadata
     const mergedMap = new Map<string, any>();
     for (const p of rawPrograms) {
       const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
@@ -133,17 +151,23 @@ export default async function SchedulePage(props: {
         if (p.eventId === activeEventId) {
           existing.id = p.id;
           existing.eventId = p.eventId;
-          existing.venue = p.venue || existing.venue;
-          existing.startTime = p.startTime || existing.startTime;
-          existing.duration = p.duration || existing.duration;
-          existing.durationMode = p.durationMode || existing.durationMode;
-          existing.stageType = p.stageType || existing.stageType;
+          existing.name = p.name;
+          existing.venue = p.venue;
+          existing.startTime = p.startTime;
+          existing.duration = p.duration;
+          existing.durationMode = p.durationMode;
+          existing.stageType = p.stageType;
           if (p.judges && p.judges.length > 0) existing.judges = p.judges;
-        } else if (existing.eventId !== activeEventId) {
-          if (!existing.venue && p.venue) existing.venue = p.venue;
-          if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
-          if (!existing.duration && p.duration) existing.duration = p.duration;
-          if (!existing.durationMode && p.durationMode) existing.durationMode = p.durationMode;
+        }
+      }
+    }
+
+    // If active event is a zone event, ensure programs that only belong to parent do not keep parent's old venue/timing
+    if (activeEv?.parentId) {
+      for (const prog of mergedMap.values()) {
+        if (prog.eventId !== activeEventId) {
+          prog.venue = null;
+          prog.startTime = null;
         }
       }
     }

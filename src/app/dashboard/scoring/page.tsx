@@ -508,7 +508,52 @@ export default async function ScoringPage(props: {
             Enter marks, assign ranks and grades, calculate points, and publish results for live standings.
           </p>
         </div>
-        <ExcelExport results={results} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a
+            href={`/print/offstage-results?eventId=${activeEventId}&status=unpublished`}
+            target="_blank"
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.45rem 0.9rem',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              backgroundColor: '#fffbeb',
+              border: '1.5px solid #f59e0b',
+              color: '#b45309',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+            }}
+            title="Print unpublished off-stage results for Stage 1 announcers to declare"
+          >
+            <span>📢</span> Print Off-Stage Results (Stage 1 Announce)
+          </a>
+          <a
+            href={`/print/offstage-results?eventId=${activeEventId}&status=all`}
+            target="_blank"
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.45rem 0.85rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              backgroundColor: '#f8fafc',
+              border: '1.5px solid #0284c7',
+              color: '#0369a1',
+              borderRadius: '8px',
+              textDecoration: 'none'
+            }}
+            title="Print all off-stage results master sheet"
+          >
+            <span>📑</span> All Off-Stage
+          </a>
+          <ExcelExport results={results} />
+        </div>
       </div>
 
       <div data-tour="scoring-switcher">

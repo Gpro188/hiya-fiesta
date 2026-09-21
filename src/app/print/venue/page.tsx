@@ -8,35 +8,49 @@ export default async function PrintVenuePage(props: {
   searchParams: Promise<{ eventId?: string; venue?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  const eventId = searchParams.eventId;
+  let eventId = searchParams.eventId;
   const activeVenue = searchParams.venue || "ALL";
+
+  // If eventId is not provided, resolve it
+  if (!eventId) {
+    const latestScheduledProg = await prisma.program.findFirst({
+      where: { stageType: 'ON_STAGE', venue: { not: null }, startTime: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+      select: { eventId: true }
+    });
+    if (latestScheduledProg) {
+      eventId = latestScheduledProg.eventId;
+    } else {
+      const defaultEv = await prisma.event.findFirst({
+        where: { parentId: { not: null } },
+        orderBy: { createdAt: 'desc' }
+      });
+      eventId = defaultEv?.id;
+    }
+  }
+
   const settings = await getSettings(eventId);
 
   let activeEv: any = null;
-  let whereClause: any = {};
-
   if (eventId) {
     activeEv = await prisma.event.findUnique({
       where: { id: eventId },
       include: { zone: true },
     });
-    if (activeEv?.parentId) {
-      whereClause = {
-        stageType: "ON_STAGE",
-        OR: [{ eventId: eventId }, { eventId: activeEv.parentId }],
-      };
-    } else {
-      whereClause = {
-        stageType: "ON_STAGE",
-        eventId
-      };
-    }
-  } else {
-    whereClause = { stageType: "ON_STAGE" };
+  }
+
+  const programWhere: any = {
+    stageType: "ON_STAGE",
+    venue: { not: null },
+    startTime: { not: null }
+  };
+
+  if (eventId) {
+    programWhere.eventId = eventId;
   }
 
   const rawPrograms = await prisma.program.findMany({
-    where: whereClause,
+    where: programWhere,
     orderBy: [
       { venue: "asc" },
       { startTime: "asc" },
@@ -60,41 +74,54 @@ export default async function PrintVenuePage(props: {
     },
   });
 
-  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
-
-  // Deduplicate programs across parent & child events by programCode (or name_category)
-  const mergedMap = new Map<string, any>();
-  for (const p of rawPrograms) {
-    const key = p.programCode
-      ? `code_${p.programCode.trim()}`
-      : `name_${p.name.trim()}_${p.categoryId || ""}`;
-
-    if (!mergedMap.has(key)) {
-      mergedMap.set(key, { ...p, assignments: [...p.assignments] });
-    } else {
-      const existing = mergedMap.get(key);
-      // Merge candidate assignments
-      const existingIds = new Set(existing.assignments.map((a: any) => a.id));
-      for (const a of p.assignments) {
-        if (!existingIds.has(a.id)) {
-          existing.assignments.push(a);
-          existingIds.add(a.id);
+  // If candidate assignments are stored in parent event, merge assignments into zone programs
+  if (activeEv?.parentId) {
+    const parentPrograms = await prisma.program.findMany({
+      where: {
+        eventId: activeEv.parentId,
+        stageType: "ON_STAGE"
+      },
+      include: {
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: true } },
+                institution: { include: { zone: true } }
+              }
+            }
+          }
         }
       }
-      // Inherit venue and timing (prefer zonal if set, otherwise parent)
-      if (p.eventId === eventId) {
-        if (p.venue) existing.venue = p.venue;
-        if (p.startTime) existing.startTime = p.startTime;
-        if (p.duration) existing.duration = p.duration;
-        if (p.judges && p.judges.length > 0) existing.judges = p.judges;
-      } else {
-        if (!existing.venue && p.venue) existing.venue = p.venue;
-        if (!existing.startTime && p.startTime) existing.startTime = p.startTime;
+    });
+
+    const parentMap = new Map<string, any[]>();
+    for (const pp of parentPrograms) {
+      const codeKey = pp.programCode ? `code_${pp.programCode.trim()}` : null;
+      const nameKey = `name_${pp.name.trim().toLowerCase()}_${pp.categoryId || ''}`;
+      if (codeKey) parentMap.set(codeKey, pp.assignments);
+      parentMap.set(nameKey, pp.assignments);
+    }
+
+    for (const zp of rawPrograms) {
+      if (zp.assignments.length === 0) {
+        const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
+        const nameKey = `name_${zp.name.trim().toLowerCase()}_${zp.categoryId || ''}`;
+        if (codeKey && parentMap.has(codeKey)) {
+          zp.assignments = parentMap.get(codeKey) || [];
+        } else if (parentMap.has(nameKey)) {
+          zp.assignments = parentMap.get(nameKey) || [];
+        }
       }
     }
   }
 
-  let deduplicatedPrograms = Array.from(mergedMap.values());
+  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+
+  // Filter ONLY scheduled programs
+  const deduplicatedPrograms = rawPrograms.filter(p => {
+    return Boolean(p.venue && p.venue.trim() && p.venue !== "Unassigned" && p.startTime);
+  });
 
   // Filter candidates per zone and calculate zone candidates/teams count
   const programsWithZoneCounts = deduplicatedPrograms.map((prog) => {
@@ -131,7 +158,7 @@ export default async function PrintVenuePage(props: {
   // Extract all distinct venues
   const allVenues = Array.from(
     new Set(
-      programsWithZoneCounts.map((p) => p.venue || "Main Stage").filter(Boolean)
+      programsWithZoneCounts.map((p) => p.venue!).filter(Boolean)
     )
   ).sort();
 
@@ -139,14 +166,14 @@ export default async function PrintVenuePage(props: {
   let filteredPrograms = programsWithZoneCounts;
   if (activeVenue !== "ALL") {
     filteredPrograms = programsWithZoneCounts.filter(
-      (p) => (p.venue || "Main Stage") === activeVenue
+      (p) => p.venue === activeVenue
     );
   }
 
   // Group by venue
   const venuesMap: Record<string, any[]> = {};
   filteredPrograms.forEach((p) => {
-    const v = p.venue || "Main Stage";
+    const v = p.venue!;
     if (!venuesMap[v]) venuesMap[v] = [];
     venuesMap[v].push(p);
   });
@@ -162,14 +189,20 @@ export default async function PrintVenuePage(props: {
   });
 
   const zoneName = activeEv?.zone?.name || activeEv?.name || "Zonal Festival";
-  const eventDateStr = activeEv?.startDate
-    ? new Date(activeEv.startDate).toLocaleDateString("en-IN", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : null;
+  
+  // Compute event date from activeEv.startDate or the scheduled programs' first startTime
+  let eventDateStr = null;
+  const firstScheduledDate = deduplicatedPrograms.find(p => p.startTime)?.startTime;
+  const dateToUse = activeEv?.startDate || firstScheduledDate;
+  if (dateToUse) {
+    eventDateStr = new Date(dateToUse).toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
 
   return (
     <div
