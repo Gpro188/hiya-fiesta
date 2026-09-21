@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import SettingsForm from "./SettingsForm";
 import RegistrationLimitsCard from "./RegistrationLimitsCard";
+import PointMatrixSettingsCard from "./PointMatrixSettingsCard";
 import PendingList from "./PendingList";
 import MaintenanceActions from "./MaintenanceActions";
 import { prisma } from "@/lib/prisma";
@@ -114,6 +115,15 @@ export default async function SettingsPage() {
           )}
           {["ADMIN", "SUPER_ADMIN"].includes(role) && (
             <a 
+              href="#point-matrix" 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+            >
+              <span>🏆</span> Points Matrix
+            </a>
+          )}
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a 
               href="/dashboard/settings/homepage" 
               className="btn btn-primary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
@@ -128,6 +138,12 @@ export default async function SettingsPage() {
         {["ADMIN", "SUPER_ADMIN"].includes(role) && (
           <div data-tour="settings-limits">
             <RegistrationLimitsCard initialSettings={settings} role={role} />
+          </div>
+        )}
+
+        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+          <div data-tour="settings-point-matrix" id="point-matrix">
+            <PointMatrixSettingsCard events={events as any} />
           </div>
         )}
 

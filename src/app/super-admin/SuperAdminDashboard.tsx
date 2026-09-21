@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createFest, createFestUser, deleteFest, deleteUser, resetUserPassword, updateFestDomain } from "../actions/superAdmin";
+import PointMatrixSettingsCard from "../dashboard/settings/PointMatrixSettingsCard";
 
 interface SuperAdminDashboarCSWCps {
   initialData: {
@@ -9,6 +10,7 @@ interface SuperAdminDashboarCSWCps {
     totalEvents: number;
     events: any[];
     users: any[];
+    allEvents?: any[];
   };
 }
 
@@ -179,6 +181,13 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
         </div>
 
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <a
+            href="#point-matrix"
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', textDecoration: 'none' }}
+          >
+            🏆 Points Matrix
+          </a>
           <button 
             type="button"
             className="btn btn-secondary" 
@@ -345,6 +354,11 @@ export default function SuperAdminDashboard({ initialData }: SuperAdminDashboarC
           </form>
         </div>
 
+      </div>
+
+      {/* Program Points Matrix Configuration */}
+      <div id="point-matrix">
+        <PointMatrixSettingsCard events={data.allEvents || data.events} />
       </div>
 
       {/* Instructional Callout Box */}

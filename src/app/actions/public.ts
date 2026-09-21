@@ -15,7 +15,8 @@ const getCachedPublicEventData = unstable_cache(
       categories,
       rawTotalPrograms,
       totalCandidates,
-      candidatesWithAssignments
+      candidatesWithAssignments,
+      pointMatrixRecord
     ] = await Promise.all([
       // 1. Get Latest Published Results (Top 30 to aggregate by programs)
       prisma.result.findMany({
@@ -140,6 +141,17 @@ const getCachedPublicEventData = unstable_cache(
             { candidate: { team: { eventId } } }
           ]
         } 
+      }),
+
+      // 6. Point Matrix Configuration
+      prisma.pointMatrix.findFirst({
+        where: {
+          OR: [
+            { eventId },
+            { event: { parentId: null } }
+          ]
+        },
+        orderBy: { eventId: 'asc' }
       })
     ]);
 
@@ -337,16 +349,29 @@ const getCachedPublicEventData = unstable_cache(
         const isIndiv = res.candidateId && res.program?.type === "INDIVIDUAL";
         const isGeneral = !isIndiv;
 
-        // Differential scoring: General / Group vs Individual
+        // Differential scoring: General / Group vs Individual (dynamically loaded from PointMatrix)
+        const defaultInd = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+        const defaultGen = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+        let indConfig = defaultInd;
+        let genConfig = defaultGen;
+        if (pointMatrixRecord) {
+          try {
+            if (pointMatrixRecord.individualPoints) indConfig = { ...defaultInd, ...JSON.parse(pointMatrixRecord.individualPoints) };
+            const rawGen = pointMatrixRecord.generalPoints || pointMatrixRecord.groupPoints;
+            if (rawGen) genConfig = { ...defaultGen, ...JSON.parse(rawGen) };
+          } catch (e) {}
+        }
+        const activeConfig = isGeneral ? genConfig : indConfig;
+
         let rankPts = 0;
-        if (res.rank === 1) rankPts = isGeneral ? 10 : 5;
-        else if (res.rank === 2) rankPts = isGeneral ? 6 : 3;
-        else if (res.rank === 3) rankPts = isGeneral ? 3 : 1;
+        if (res.rank === 1) rankPts = activeConfig.rank1 ?? (isGeneral ? 10 : 5);
+        else if (res.rank === 2) rankPts = activeConfig.rank2 ?? (isGeneral ? 6 : 3);
+        else if (res.rank === 3) rankPts = activeConfig.rank3 ?? (isGeneral ? 3 : 1);
 
         let grPts = 0;
-        if (res.grade === "A") grPts = 5;
-        else if (res.grade === "B") grPts = 3;
-        else if (res.grade === "C") grPts = 1;
+        if (res.grade === "A") grPts = activeConfig.gradeA ?? 5;
+        else if (res.grade === "B") grPts = activeConfig.gradeB ?? 3;
+        else if (res.grade === "C") grPts = activeConfig.gradeC ?? 1;
 
         if (res.rank === 1) {
           teamScores[teamId].gold += 1;

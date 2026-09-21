@@ -790,3 +790,201 @@ export async function toggleGuidelinesVisibility(hide: boolean) {
     return { success: false, error: error.message || "Failed to update guidelines visibility" };
   }
 }
+
+export async function getPointMatrixSettings(eventId?: string) {
+  try {
+    let targetEventId = eventId;
+    if (!targetEventId || targetEventId === "default") {
+      const mainEvent = await prisma.event.findFirst({ where: { parentId: null } });
+      targetEventId = mainEvent?.id;
+    }
+
+    const defaultIndividual = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+    const defaultGeneral = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+
+    if (!targetEventId) {
+      return {
+        success: true,
+        data: {
+          individual: defaultIndividual,
+          general: defaultGeneral,
+          isCustom: false
+        }
+      };
+    }
+
+    const matrix = await prisma.pointMatrix.findFirst({
+      where: { eventId: targetEventId }
+    });
+
+    if (!matrix) {
+      return {
+        success: true,
+        data: {
+          individual: defaultIndividual,
+          general: defaultGeneral,
+          isCustom: false
+        }
+      };
+    }
+
+    let individual = defaultIndividual;
+    let general = defaultGeneral;
+
+    try {
+      if (matrix.individualPoints) individual = { ...defaultIndividual, ...JSON.parse(matrix.individualPoints) };
+    } catch (e) {}
+
+    try {
+      const rawGen = matrix.generalPoints || matrix.groupPoints;
+      if (rawGen) general = { ...defaultGeneral, ...JSON.parse(rawGen) };
+    } catch (e) {}
+
+    return {
+      success: true,
+      data: {
+        individual,
+        general,
+        isCustom: true
+      }
+    };
+  } catch (error: any) {
+    console.error("Failed to get point matrix:", error);
+    return { success: false, error: error.message || "Failed to get point matrix" };
+  }
+}
+
+export async function savePointMatrixSettings(data: {
+  eventId?: string;
+  individual: { rank1: number; rank2: number; rank3: number; gradeA: number; gradeB: number; gradeC: number };
+  general: { rank1: number; rank2: number; rank3: number; gradeA: number; gradeB: number; gradeC: number };
+  recalculateExisting?: boolean;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Super Admin or Admin access required" };
+    }
+
+    let targetEventId = data.eventId;
+    if (!targetEventId || targetEventId === "default") {
+      const mainEvent = await prisma.event.findFirst({ where: { parentId: null } });
+      if (!mainEvent) {
+        return { success: false, error: "Main festival event not found" };
+      }
+      targetEventId = mainEvent.id;
+    }
+
+    const indStr = JSON.stringify(data.individual);
+    const genStr = JSON.stringify(data.general);
+
+    await prisma.pointMatrix.upsert({
+      where: { eventId: targetEventId },
+      update: {
+        individualPoints: indStr,
+        generalPoints: genStr,
+        groupPoints: genStr
+      },
+      create: {
+        eventId: targetEventId,
+        individualPoints: indStr,
+        generalPoints: genStr,
+        groupPoints: genStr
+      }
+    });
+
+    let recalculatedCount = 0;
+    if (data.recalculateExisting) {
+      const recalcRes = await recalculateAllResults(targetEventId);
+      if (recalcRes.success) {
+        recalculatedCount = recalcRes.count || 0;
+      }
+    }
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/super-admin");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath(`/dashboard/events/${targetEventId}`);
+    revalidatePath("/fest");
+    revalidatePath("/");
+
+    return { 
+      success: true, 
+      message: `Points matrix saved successfully.${recalculatedCount > 0 ? ` Recalculated ${recalculatedCount} existing results.` : ''}`,
+      recalculatedCount
+    };
+  } catch (error: any) {
+    console.error("Failed to save point matrix settings:", error);
+    return { success: false, error: error.message || "Failed to save points matrix" };
+  }
+}
+
+export async function recalculateAllResults(eventId?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    let targetEventId = eventId;
+    if (!targetEventId || targetEventId === "default") {
+      const mainEvent = await prisma.event.findFirst({ where: { parentId: null } });
+      targetEventId = mainEvent?.id;
+    }
+
+    const matrixRes = await getPointMatrixSettings(targetEventId);
+    const indConfig = matrixRes.data?.individual || { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+    const genConfig = matrixRes.data?.general || { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+
+    const mainEvent = await prisma.event.findFirst({ where: { parentId: null } });
+    const isGlobal = !eventId || eventId === "default" || eventId === mainEvent?.id;
+
+    const results = await prisma.result.findMany({
+      where: isGlobal
+        ? undefined
+        : {
+            OR: [
+              { program: { eventId: targetEventId } },
+              { candidate: { team: { eventId: targetEventId } } },
+              { team: { eventId: targetEventId } }
+            ]
+          },
+      include: {
+        program: { select: { id: true, type: true } }
+      }
+    });
+
+    let updatedCount = 0;
+    for (const res of results) {
+      const isIndiv = res.program?.type === "INDIVIDUAL";
+      const config = isIndiv ? indConfig : genConfig;
+
+      let points = 0;
+      if (res.rank === 1) points += config.rank1 || 0;
+      else if (res.rank === 2) points += config.rank2 || 0;
+      else if (res.rank === 3) points += config.rank3 || 0;
+
+      if (res.grade === "A") points += config.gradeA || 0;
+      else if (res.grade === "B") points += config.gradeB || 0;
+      else if (res.grade === "C") points += config.gradeC || 0;
+
+      if (res.points !== points) {
+        await prisma.result.update({
+          where: { id: res.id },
+          data: { points }
+        });
+        updatedCount++;
+      }
+    }
+
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/fest");
+    revalidatePath("/");
+
+    return { success: true, count: updatedCount };
+  } catch (error: any) {
+    console.error("Failed to recalculate results:", error);
+    return { success: false, error: error.message || "Failed to recalculate results" };
+  }
+}
+

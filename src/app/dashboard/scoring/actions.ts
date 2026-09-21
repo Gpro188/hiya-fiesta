@@ -19,6 +19,39 @@ function calculateGrade(marks: number) {
   return null; // Below 40 is NO GRADE
 }
 
+// Helper to get active points matrix (from event point matrix or global default)
+export async function getPointsConfigForProgram(programType: string, eventId?: string) {
+  const defaultInd = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
+  const defaultGen = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+
+  try {
+    const matrix = await prisma.pointMatrix.findFirst({
+      where: eventId
+        ? {
+            OR: [
+              { eventId },
+              { event: { parentId: null } }
+            ]
+          }
+        : { event: { parentId: null } },
+      orderBy: { eventId: eventId ? 'asc' : 'desc' }
+    });
+
+    if (matrix) {
+      if (programType === "INDIVIDUAL" && matrix.individualPoints) {
+        return { ...defaultInd, ...JSON.parse(matrix.individualPoints) };
+      } else {
+        const rawGen = matrix.generalPoints || matrix.groupPoints;
+        if (rawGen) return { ...defaultGen, ...JSON.parse(rawGen) };
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load point matrix:", e);
+  }
+
+  return programType === "INDIVIDUAL" ? defaultInd : defaultGen;
+}
+
 // Helper to recalculate ranks and points for a specific program
 async function recalculateProgramResults(programId: string, manualUpdateId?: string, eventId?: string) {
   const whereClause: any = { programId };
@@ -35,7 +68,7 @@ async function recalculateProgramResults(programId: string, manualUpdateId?: str
     include: { 
       program: { 
         include: { 
-          category: true,
+          category: { include: { pointMatrix: true } },
           event: true
         } 
       } 
@@ -47,15 +80,13 @@ async function recalculateProgramResults(programId: string, manualUpdateId?: str
   const program = results[0].program;
   const programType = program.type;
   
-  let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
-  if (programType !== "INDIVIDUAL") {
-    pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
-  }
-
-  if (programType === "GENERAL") {
-    // General points no longer parsed from matrix, using default
-  } else {
-    // Category points no longer parsed from matrix, using default
+  let pointsConfig: any = await getPointsConfigForProgram(programType, eventId || program.eventId);
+  if (program.category?.pointMatrix) {
+    const matrix = program.category.pointMatrix;
+    const str = programType === "INDIVIDUAL" ? matrix.individualPoints : (matrix.generalPoints || matrix.groupPoints);
+    if (str) {
+      try { pointsConfig = { ...pointsConfig, ...JSON.parse(str) }; } catch (e) {}
+    }
   }
 
   // Assign ranks, handle ties
@@ -116,7 +147,7 @@ export async function submitMarks(data: {
     const program = await prisma.program.findUnique({
       where: { id: data.programId },
       include: { 
-        category: true, 
+        category: { include: { pointMatrix: true } }, 
         event: true 
       }
     });
@@ -144,9 +175,13 @@ export async function submitMarks(data: {
     let grade = data.manualGrade || null;
 
     if (data.manualRank || data.manualGrade) {
-       let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
-       if (program.type !== "INDIVIDUAL") {
-         pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
+       let pointsConfig: any = await getPointsConfigForProgram(program.type, program.eventId);
+       if (program.category?.pointMatrix) {
+         const matrix = program.category.pointMatrix;
+         const str = program.type === "INDIVIDUAL" ? matrix.individualPoints : (matrix.generalPoints || matrix.groupPoints);
+         if (str) {
+           try { pointsConfig = { ...pointsConfig, ...JSON.parse(str) }; } catch (e) {}
+         }
        }
 
        if (rank === 1) points += pointsConfig.rank1 || 0;
@@ -245,15 +280,12 @@ export async function batchSubmitProgramMarks(data: {
     // Judges can only submit to Pending state; only Zonal Admin / Super Admin can publish live
     const shouldPublish = session.user.role === "JUDGE" ? false : (data.publishImmediately ?? false);
 
-    let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
-    if (program.type !== "INDIVIDUAL") {
-      pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
-    }
+    let pointsConfig: any = await getPointsConfigForProgram(program.type, program.eventId);
     if (program.category?.pointMatrix) {
       const matrix = program.category.pointMatrix;
-      const str = program.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
+      const str = program.type === "INDIVIDUAL" ? matrix.individualPoints : (matrix.generalPoints || matrix.groupPoints);
       if (str) {
-        try { pointsConfig = JSON.parse(str); } catch (e) {}
+        try { pointsConfig = { ...pointsConfig, ...JSON.parse(str) }; } catch (e) {}
       }
     }
 
@@ -569,15 +601,12 @@ export async function updateResultMark(
         data: { marks: marks || 0, rank: manualRank || null, grade: manualGrade || null, points: customPoints }
       });
     } else if (manualRank !== undefined && manualRank !== null || manualGrade !== undefined && manualGrade !== null) {
-      let pointsConfig: any = { rank1: 5, rank2: 3, rank3: 1, gradeA: 5, gradeB: 3, gradeC: 1 };
-      if (result.program.type !== "INDIVIDUAL") {
-        pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
-      }
+      let pointsConfig: any = await getPointsConfigForProgram(result.program.type, result.program.eventId);
       if (result.program.category?.pointMatrix) {
         const matrix = result.program.category.pointMatrix;
-        const str = result.program.type === "INDIVIDUAL" ? matrix.individualPoints : matrix.groupPoints;
+        const str = result.program.type === "INDIVIDUAL" ? matrix.individualPoints : (matrix.generalPoints || matrix.groupPoints);
         if (str) {
-          try { pointsConfig = JSON.parse(str); } catch (e) {}
+          try { pointsConfig = { ...pointsConfig, ...JSON.parse(str) }; } catch (e) {}
         }
       }
 

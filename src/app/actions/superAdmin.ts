@@ -19,7 +19,7 @@ export async function getSuperAdminData() {
   try {
     await ensureSuperAdmin();
 
-    const [totalVisits, totalEvents, events, users] = await Promise.all([
+    const [totalVisits, totalEvents, events, users, allEvents] = await Promise.all([
       prisma.pageVisit.count(),
       prisma.event.count(),
       prisma.event.findMany({
@@ -56,6 +56,15 @@ export async function getSuperAdminData() {
           }
         },
         orderBy: { createdAt: 'desc' }
+      }),
+      prisma.event.findMany({
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          parentId: true,
+        },
+        orderBy: [{ parentId: 'asc' }, { name: 'asc' }]
       })
     ]);
 
@@ -67,7 +76,8 @@ export async function getSuperAdminData() {
         totalVisits,
         totalEvents,
         events,
-        users
+        users,
+        allEvents
       }
     };
   } catch (error: any) {
