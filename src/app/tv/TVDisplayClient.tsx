@@ -47,6 +47,8 @@ interface TVDisplayClientProps {
   };
   publishedPrograms: PublishedProgram[];
   allEvents: any[];
+  zoneInstitutions?: { id: string; name: string; place?: string | null }[];
+  initialLocation?: string | null;
 }
 
 // ── Institution Logo / Avatar ──────────────────────────────────────────────
@@ -482,7 +484,7 @@ function CategoryProgramBox({
 
 // ── Main TV Display Component ──────────────────────────────────────────────
 export default function TVDisplayClient({
-  event, settings, leaderboard, champions, publishedPrograms, allEvents
+  event, settings, leaderboard, champions, publishedPrograms, allEvents, zoneInstitutions = [], initialLocation
 }: TVDisplayClientProps) {
   const router = useRouter();
 
@@ -494,6 +496,132 @@ export default function TVDisplayClient({
   const [peelKey, setPeelKey] = useState(0);        // Increments on 5s rotation for 3D page peeling effect
   const [isPaused, setIsPaused] = useState(false);
   const [leftFade, setLeftFade] = useState(true);
+
+  // ── Dynamic Location State & Persistence ──
+  const defaultLocation = useMemo(() => {
+    if (initialLocation) return initialLocation;
+    if (settings?.venueName) return settings.venueName;
+    if (event?.venue) return event.venue;
+    const zoneName = (event?.zone?.name || event?.name || "").toUpperCase();
+    if (zoneName.includes("PALAKKAD")) return "Palakkad Zone Center";
+    if (zoneName.includes("THRISSUR")) return "Thaqwa Arabic College, Andathode";
+    if (zoneName.includes("MALAPPURAM EAST")) return "Malappuram East Campus";
+    if (zoneName.includes("MALAPPURAM WEST")) return "Malappuram West Campus";
+    if (zoneName.includes("KOZHIKODE")) return "Kozhikode Zone Campus";
+    if (zoneName.includes("KANNUR")) return "Kannur Zone Campus";
+    if (zoneName.includes("KASARAGOD")) return "Kasaragod Zone Campus";
+    if (zoneName.includes("KARNATAKA")) return "Karnataka Zone Campus";
+    return event?.zone?.name ? `${event.zone.name} Campus` : "CSWC Hiya Fiesta Campus";
+  }, [event, settings, initialLocation]);
+
+  const [currentLocation, setCurrentLocation] = useState(defaultLocation);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [inputLocation, setInputLocation] = useState(defaultLocation);
+
+  // ── TV Screen Fit & Zoom State ──
+  const [zoomMode, setZoomMode] = useState<"auto" | number>("auto");
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const [showZoomMenu, setShowZoomMenu] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(m => (m === msg ? null : m));
+    }, 2200);
+  };
+
+  useEffect(() => {
+    const savedLoc = localStorage.getItem(`cswc_tv_location_${event?.id}`);
+    if (savedLoc) {
+      setCurrentLocation(savedLoc);
+      setInputLocation(savedLoc);
+    } else {
+      setCurrentLocation(defaultLocation);
+      setInputLocation(defaultLocation);
+    }
+  }, [event?.id, defaultLocation]);
+
+  const handleSaveLocation = (newLoc: string) => {
+    const trimmed = newLoc.trim() || defaultLocation;
+    setCurrentLocation(trimmed);
+    setInputLocation(trimmed);
+    localStorage.setItem(`cswc_tv_location_${event?.id}`, trimmed);
+    setShowLocationModal(false);
+    showToast(`Location set to: ${trimmed}`);
+  };
+
+  const handleResetLocation = () => {
+    localStorage.removeItem(`cswc_tv_location_${event?.id}`);
+    setCurrentLocation(defaultLocation);
+    setInputLocation(defaultLocation);
+    setShowLocationModal(false);
+    showToast("Location reset to default");
+  };
+
+  // Load saved zoom mode
+  useEffect(() => {
+    const savedZoom = localStorage.getItem("cswc_tv_zoom_mode");
+    if (savedZoom) {
+      if (savedZoom === "auto") {
+        setZoomMode("auto");
+      } else {
+        const val = parseFloat(savedZoom);
+        if (!isNaN(val) && val >= 0.5 && val <= 1.4) {
+          setZoomMode(val);
+        }
+      }
+    }
+  }, []);
+
+  // Responsive dynamic fit calculation for Smart TVs and high/low DPI screens
+  useEffect(() => {
+    const calcScale = () => {
+      if (zoomMode === "auto") {
+        const targetW = 1880;
+        const targetH = 940;
+        const wRatio = window.innerWidth / targetW;
+        const hRatio = window.innerHeight / targetH;
+        // Scale down if window is smaller; keep capped between 0.60 and 1.05
+        const calculated = Math.min(1.0, Math.min(wRatio, hRatio));
+        setScaleFactor(Math.max(0.60, Math.min(calculated, 1.05)));
+      } else {
+        setScaleFactor(zoomMode);
+      }
+    };
+
+    calcScale();
+    window.addEventListener("resize", calcScale);
+    return () => window.removeEventListener("resize", calcScale);
+  }, [zoomMode]);
+
+  const setZoom = (mode: "auto" | number) => {
+    setZoomMode(mode);
+    if (mode === "auto") {
+      localStorage.setItem("cswc_tv_zoom_mode", "auto");
+      showToast("TV Fit: Auto-Fit Mode");
+    } else {
+      localStorage.setItem("cswc_tv_zoom_mode", mode.toString());
+      showToast(`TV Zoom: ${Math.round(mode * 100)}%`);
+    }
+    setShowZoomMenu(false);
+  };
+
+  const adjustZoom = (delta: number) => {
+    const current = scaleFactor;
+    const next = Math.max(0.60, Math.min(1.30, Math.round((current + delta) * 20) / 20));
+    setZoom(next);
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      showToast("Entered Fullscreen");
+    } else {
+      document.exitFullscreen().catch(() => {});
+      showToast("Exited Fullscreen");
+    }
+  };
 
   // Clock
   useEffect(() => {
@@ -572,12 +700,21 @@ export default function TVDisplayClient({
     return () => clearInterval(id);
   }, [isPaused, indivSlides.length, generalPrograms.length]);
 
-  // Keyboard nav
+  // Keyboard nav & shortcuts
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+        if (e.code === "Escape") {
+          setShowLocationModal(false);
+          setShowZoomMenu(false);
+        }
+        return;
+      }
+
       if (e.code === "Space") {
         e.preventDefault();
         setIsPaused(p => !p);
+        showToast(isPaused ? "Broadcast Resumed" : "Broadcast Paused");
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         setPeelKey(k => k + 1);
@@ -588,11 +725,29 @@ export default function TVDisplayClient({
         setPeelKey(k => k + 1);
         if (indivSlides.length > 0) setIndivIndex(p => (p - 1 + indivSlides.length) % indivSlides.length);
         if (generalPrograms.length > 0) setGenIndex(p => (p - 1 + generalPrograms.length) % generalPrograms.length);
+      } else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        adjustZoom(0.05);
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        adjustZoom(-0.05);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        setZoom(1.0);
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        setZoom("auto");
+      } else if (e.key === "l" || e.key === "L") {
+        e.preventDefault();
+        setShowLocationModal(p => !p);
+      } else if (e.code === "Escape") {
+        setShowLocationModal(false);
+        setShowZoomMenu(false);
       }
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
-  }, [indivSlides.length, generalPrograms.length]);
+  }, [indivSlides.length, generalPrograms.length, isPaused, scaleFactor]);
 
   const currentIndiv = indivSlides[indivIndex] || null;
   const currentGen = generalPrograms[genIndex] || null;
@@ -619,33 +774,88 @@ export default function TVDisplayClient({
     : (fadheelaStar ? [fadheelaStar] : []);
 
   return (
-    <div style={{ position: "fixed", inset: 0, backgroundColor: "#0f172a", backgroundImage: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%)", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", padding: "16px 24px", overflow: "hidden", boxSizing: "border-box" }}>
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "#0f172a", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Scaled TV broadcast viewport canvas */}
+      <div
+        style={{
+          width: `${(100 / scaleFactor).toFixed(3)}%`,
+          height: `${(100 / scaleFactor).toFixed(3)}%`,
+          transform: `scale(${scaleFactor})`,
+          transformOrigin: "top left",
+          backgroundImage: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%)",
+          color: "#fff",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          display: "flex",
+          flexDirection: "column",
+          padding: "16px 24px",
+          overflow: "hidden",
+          boxSizing: "border-box",
+          position: "relative"
+        }}
+      >
+        {/* ── Decorative background ambient glows ── */}
+        <div style={{ position: "absolute", bottom: -200, left: -120, width: 560, height: 560, borderRadius: "50%", background: "radial-gradient(circle, #facc15 0%, #facc15 46%, #f43f5e 46%, #f43f5e 70%, #e11d48 70%)", filter: "blur(6px)", opacity: 0.75, pointerEvents: "none", zIndex: 0 }} />
+        <div style={{ position: "absolute", top: -60, right: -60, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
-      {/* ── Decorative background ambient glows ── */}
-      <div style={{ position: "absolute", bottom: -200, left: -120, width: 560, height: 560, borderRadius: "50%", background: "radial-gradient(circle, #facc15 0%, #facc15 46%, #f43f5e 46%, #f43f5e 70%, #e11d48 70%)", filter: "blur(6px)", opacity: 0.75, pointerEvents: "none", zIndex: 0 }} />
-      <div style={{ position: "absolute", top: -60, right: -60, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
-
-      {/* ════ HEADER ════ */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", zIndex: 10, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ lineHeight: 0.95 }}>
-            <div style={{ fontSize: "1.9rem", fontWeight: 900, color: "#ffffff", letterSpacing: "-0.5px" }}>Hiya</div>
-            <div style={{ fontSize: "1.9rem", fontWeight: 900, color: "#facc15", letterSpacing: "-0.5px" }}>Fiesta</div>
+        {/* ════ HEADER ════ */}
+        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", zIndex: 10, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ lineHeight: 0.95 }}>
+              <div style={{ fontSize: "1.9rem", fontWeight: 900, color: "#ffffff", letterSpacing: "-0.5px" }}>Hiya</div>
+              <div style={{ fontSize: "1.9rem", fontWeight: 900, color: "#facc15", letterSpacing: "-0.5px" }}>Fiesta</div>
+            </div>
+            <div style={{ backgroundColor: "#ef4444", color: "#fff", padding: "5px 14px", borderRadius: 9999, fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, boxShadow: "0 2px 8px rgba(239,68,68,0.4)" }}>
+              {event?.zone?.name || event?.name || "A Zone"}
+            </div>
+            <div style={{ width: 2, height: 36, backgroundColor: "rgba(255,255,255,0.25)" }} />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  onClick={() => setShowLocationModal(true)}
+                  title="Click to change TV location / venue"
+                  style={{
+                    fontSize: "0.98rem",
+                    fontWeight: 800,
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <span style={{ color: "#facc15" }}>📍</span>
+                  <span style={{ borderBottom: "1px dashed rgba(255,255,255,0.5)" }}>{currentLocation}</span>
+                </div>
+                <button
+                  onClick={() => setShowLocationModal(true)}
+                  title="Change TV Location"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    color: "#facc15",
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                    padding: "2px 8px",
+                    borderRadius: 9999,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    transition: "all 0.15s"
+                  }}
+                >
+                  <span>✏️</span> Edit
+                </button>
+              </div>
+              <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.7)", fontWeight: 600, marginTop: 2 }}>{settings?.festName || "CSWC Hiya Fiesta '26"} · {settings?.festMoto || "Third Edition"}</div>
+            </div>
           </div>
-          <div style={{ backgroundColor: "#ef4444", color: "#fff", padding: "5px 14px", borderRadius: 9999, fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, boxShadow: "0 2px 8px rgba(239,68,68,0.4)" }}>
-            {event?.zone?.name || event?.name || "A Zone"}
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: "1.75rem", fontWeight: 900, lineHeight: 1 }}>{currentTime || "12:00 pm"}</div>
+            <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 3 }}>{currentDate || "Friday, 18 Sept 2026"}</div>
           </div>
-          <div style={{ width: 2, height: 36, backgroundColor: "rgba(255,255,255,0.25)" }} />
-          <div>
-            <div style={{ fontSize: "0.98rem", fontWeight: 800, color: "#ffffff" }}>{settings?.venueName || event?.venue || "Thaqwa Arabic College, Andathode"}</div>
-            <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{settings?.festName || "CSWC Hiya Fiesta '26"} · {settings?.festMoto || "Third Edition"}</div>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "1.75rem", fontWeight: 900, lineHeight: 1 }}>{currentTime || "12:00 pm"}</div>
-          <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 3 }}>{currentDate || "Friday, 18 Sept 2026"}</div>
-        </div>
-      </header>
+        </header>
 
       {/* ════ MAIN CONTENT ════ */}
       <main style={{ display: "grid", gridTemplateColumns: "37% 61%", gap: 20, flex: 1, position: "relative", zIndex: 10, minHeight: 0 }}>
@@ -1073,19 +1283,410 @@ export default function TVDisplayClient({
           )}
         </div>
         <div style={{ textAlign: "center", fontWeight: 600, color: "rgba(255,255,255,0.6)", fontSize: "0.74rem" }}>
-          Results are provisional until announced from stage · Use arrow keys or spacebar to control slides
+          Shortcuts: Space (Pause), +/- (Zoom TV), 0 (Reset 100%), F (Auto-Fit TV), L (Location)
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Location button */}
+          <button
+            onClick={() => setShowLocationModal(true)}
+            title="Set TV Broadcast Venue / Location (L)"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.14)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              color: "#facc15",
+              padding: "4px 12px",
+              borderRadius: 9999,
+              fontSize: "0.74rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "all 0.15s"
+            }}
+          >
+            <span>📍</span> Location
+          </button>
+
+          {/* TV Fit / Zoom button with Popover */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowZoomMenu(p => !p)}
+              title="Adjust TV Screen Fit / Zoom (+ / - keys)"
+              style={{
+                backgroundColor: zoomMode === "auto" ? "rgba(59,130,246,0.35)" : "rgba(255,255,255,0.14)",
+                border: "1px solid " + (zoomMode === "auto" ? "rgba(96,165,250,0.6)" : "rgba(255,255,255,0.25)"),
+                color: "#fff",
+                padding: "4px 12px",
+                borderRadius: 9999,
+                fontSize: "0.74rem",
+                fontWeight: 800,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5
+              }}
+            >
+              <span>🖥️ Fit: {zoomMode === "auto" ? `Auto (${Math.round(scaleFactor * 100)}%)` : `${Math.round(scaleFactor * 100)}%`}</span>
+              <span style={{ fontSize: "0.6rem" }}>▼</span>
+            </button>
+
+            {showZoomMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "115%",
+                  right: 0,
+                  backgroundColor: "rgba(15,23,42,0.96)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  borderRadius: 14,
+                  padding: "10px 12px",
+                  width: 215,
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.7)",
+                  backdropFilter: "blur(14px)",
+                  zIndex: 9999,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 5
+                }}
+              >
+                <div style={{ fontSize: "0.68rem", fontWeight: 900, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  TV Screen Fit
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setZoom("auto")}
+                  style={{
+                    backgroundColor: zoomMode === "auto" ? "#2563eb" : "rgba(255,255,255,0.08)",
+                    border: "none",
+                    color: "#fff",
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}
+                >
+                  <span>Auto-Fit (Recommended)</span>
+                  {zoomMode === "auto" && <span>✓</span>}
+                </button>
+
+                <div style={{ fontSize: "0.66rem", fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>
+                  Preset Scales
+                </div>
+                {[1.0, 0.90, 0.85, 0.80, 0.75].map(lvl => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => setZoom(lvl)}
+                    style={{
+                      backgroundColor: zoomMode === lvl ? "#2563eb" : "rgba(255,255,255,0.06)",
+                      border: "none",
+                      color: "#fff",
+                      padding: "5px 10px",
+                      borderRadius: 8,
+                      fontSize: "0.73rem",
+                      fontWeight: 700,
+                      textAlign: "left",
+                      cursor: "pointer",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}
+                  >
+                    <span>{Math.round(lvl * 100)}% {lvl === 0.85 ? "(Best for Smart TV)" : lvl === 1.0 ? "(1080p)" : ""}</span>
+                    {zoomMode === lvl && <span>✓</span>}
+                  </button>
+                ))}
+
+                <div style={{ display: "flex", gap: 6, marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => adjustZoom(-0.05)}
+                    style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "5px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 800, cursor: "pointer" }}
+                  >
+                    - Zoom Out
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => adjustZoom(0.05)}
+                    style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "5px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 800, cursor: "pointer" }}
+                  >
+                    + Zoom In
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Fullscreen button */}
+          <button
+            onClick={toggleFullscreen}
+            title="Toggle Fullscreen"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.14)",
+              border: "1px solid rgba(255,255,255,0.22)",
+              color: "#fff",
+              padding: "4px 10px",
+              borderRadius: 9999,
+              fontSize: "0.74rem",
+              fontWeight: 800,
+              cursor: "pointer"
+            }}
+          >
+            ⛶
+          </button>
+
+          {/* Event selector with LIVE indicator */}
           {allEvents.length > 1 && (
-            <select value={event?.id} onChange={e => (window.location.href = `/tv?eventId=${e.target.value}`)} style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "4px 10px", borderRadius: 9999, fontSize: "0.74rem", fontWeight: 700, cursor: "pointer", outline: "none" }}>
-              {allEvents.map(ev => <option key={ev.id} value={ev.id} style={{ color: "#000" }}>{ev.name}</option>)}
+            <select
+              value={event?.id}
+              onChange={e => (window.location.href = `/tv?eventId=${e.target.value}`)}
+              style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "4px 10px", borderRadius: 9999, fontSize: "0.74rem", fontWeight: 700, cursor: "pointer", outline: "none" }}
+            >
+              {allEvents.map(ev => (
+                <option key={ev.id} value={ev.id} style={{ color: "#000" }}>
+                  {ev.name} {ev.statusOverride === "LIVE" ? "🔴 (LIVE)" : ""}
+                </option>
+              ))}
             </select>
           )}
-          <button onClick={() => setIsPaused(p => !p)} style={{ backgroundColor: isPaused ? "#facc15" : "rgba(255,255,255,0.14)", color: isPaused ? "#0f172a" : "#fff", border: "1px solid rgba(255,255,255,0.22)", padding: "4px 16px", borderRadius: 9999, fontSize: "0.76rem", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}>
-            {isPaused ? "Resume (Space)" : "Pause (Space)"}
+
+          {/* Pause / Resume */}
+          <button onClick={() => setIsPaused(p => !p)} style={{ backgroundColor: isPaused ? "#facc15" : "rgba(255,255,255,0.14)", color: isPaused ? "#0f172a" : "#fff", border: "1px solid rgba(255,255,255,0.22)", padding: "4px 14px", borderRadius: 9999, fontSize: "0.76rem", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}>
+            {isPaused ? "Resume" : "Pause"}
           </button>
         </div>
       </footer>
+
+      {/* ── Close Scaled TV Display Canvas ── */}
+      </div>
+
+      {/* ════ LOCATION SETTING MODAL ════ */}
+      {showLocationModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.78)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20
+          }}
+          onClick={() => setShowLocationModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#1e293b",
+              border: "1.5px solid rgba(250,204,21,0.45)",
+              borderRadius: 20,
+              padding: "24px 28px",
+              width: "100%",
+              maxWidth: 540,
+              boxShadow: "0 20px 50px rgba(0,0,0,0.7)",
+              color: "#fff"
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 900, color: "#facc15", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>📍</span> Set TV Broadcast Location
+                </h3>
+                <p style={{ margin: "4px 0 0 0", fontSize: "0.78rem", color: "rgba(255,255,255,0.7)" }}>
+                  Active Zone: <strong>{event?.zone?.name || event?.name}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "none", color: "#fff", width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontWeight: 900 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 800, marginBottom: 6, color: "#93c5fd", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Custom Venue / College Name
+              </label>
+              <input
+                type="text"
+                value={inputLocation}
+                onChange={e => setInputLocation(e.target.value)}
+                placeholder="e.g. Maryam Girls Campus, Koppam or Palakkad Zone"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  backgroundColor: "rgba(15,23,42,0.8)",
+                  border: "1.5px solid rgba(255,255,255,0.25)",
+                  color: "#fff",
+                  fontSize: "0.95rem",
+                  fontWeight: 700,
+                  outline: "none",
+                  boxSizing: "border-box"
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleSaveLocation(inputLocation);
+                }}
+                autoFocus
+              />
+            </div>
+
+            {/* Quick Suggestions / Colleges in this zone */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                Suggested Venues / Institutions for this Zone:
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+                {zoneInstitutions && zoneInstitutions.length > 0 ? (
+                  zoneInstitutions.map(inst => {
+                    const label = inst.place ? `${inst.name}, ${inst.place}` : inst.name;
+                    return (
+                      <button
+                        key={inst.id}
+                        type="button"
+                        onClick={() => setInputLocation(label)}
+                        style={{
+                          backgroundColor: inputLocation === label ? "#ca8a04" : "rgba(255,255,255,0.08)",
+                          border: "1px solid " + (inputLocation === label ? "#facc15" : "rgba(255,255,255,0.15)"),
+                          color: "#fff",
+                          padding: "5px 10px",
+                          borderRadius: 8,
+                          fontSize: "0.74rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          textAlign: "left"
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setInputLocation(`${event?.zone?.name || event?.name} Campus`)}
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "#fff",
+                    padding: "5px 10px",
+                    borderRadius: 8,
+                    fontSize: "0.74rem",
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  {event?.zone?.name || event?.name} Campus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputLocation("Thaqwa Arabic College, Andathode")}
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "#fff",
+                    padding: "5px 10px",
+                    borderRadius: 8,
+                    fontSize: "0.74rem",
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  Thaqwa Arabic College, Andathode (Thrissur)
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 14 }}>
+              <button
+                type="button"
+                onClick={handleResetLocation}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "none",
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: "0.76rem",
+                  cursor: "pointer",
+                  textDecoration: "underline"
+                }}
+              >
+                Reset to default
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationModal(false)}
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    padding: "8px 16px",
+                    borderRadius: 8,
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveLocation(inputLocation)}
+                  style={{
+                    backgroundColor: "#facc15",
+                    border: "none",
+                    color: "#0f172a",
+                    padding: "8px 20px",
+                    borderRadius: 8,
+                    fontSize: "0.82rem",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 10px rgba(250,204,21,0.4)"
+                  }}
+                >
+                  Save & Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ FLOATING TOAST NOTIFICATION ════ */}
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            top: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 999999,
+            backgroundColor: "rgba(15,23,42,0.94)",
+            color: "#ffffff",
+            border: "1.5px solid rgba(250,204,21,0.6)",
+            borderRadius: 9999,
+            padding: "8px 22px",
+            fontSize: "0.84rem",
+            fontWeight: 800,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+            backdropFilter: "blur(12px)",
+            letterSpacing: "0.3px"
+          }}
+        >
+          {toastMessage}
+        </div>
+      )}
 
       {/* ── CSS KEYFRAMES: 3D Page Peeling, Glow & Pulse ── */}
       <style dangerouslySetInnerHTML={{ __html: `

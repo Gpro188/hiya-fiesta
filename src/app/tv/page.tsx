@@ -6,9 +6,12 @@ import { getPublicEventData } from "@/app/actions/public";
 
 export const dynamic = "force-dynamic";
 
-export default async function TVDisplayPage(props: { searchParams: Promise<{ eventId?: string }> }) {
+export default async function TVDisplayPage(props: {
+  searchParams: Promise<{ eventId?: string; location?: string; venue?: string }>;
+}) {
   const searchParams = await props.searchParams;
   let activeEventId = searchParams.eventId;
+  const initialLocation = searchParams.location || searchParams.venue || null;
 
   let eventObj: any = null;
   if (activeEventId) {
@@ -17,11 +20,21 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       include: { zone: true }
     });
   } else {
-    // Default to State Event or First Zone Event
+    // 1. Prioritize whichever event is currently LIVE (e.g. PALAKKAD Zone)
     eventObj = await prisma.event.findFirst({
-      where: { type: "STATE" },
+      where: { statusOverride: "LIVE" },
       include: { zone: true }
     });
+
+    // 2. If no event is explicitly LIVE, check STATE event
+    if (!eventObj) {
+      eventObj = await prisma.event.findFirst({
+        where: { type: "STATE" },
+        include: { zone: true }
+      });
+    }
+
+    // 3. Fallback to any event
     if (!eventObj) {
       eventObj = await prisma.event.findFirst({
         include: { zone: true }
@@ -39,7 +52,7 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
 
   const programsEventId = eventObj.parentId || eventObj.id;
 
-  const [settings, publicRes, publishedProgramsRaw, allEvents] = await Promise.all([
+  const [settings, publicRes, publishedProgramsRaw, allEvents, zoneInstitutions] = await Promise.all([
     getSettings(eventObj.id),
     getPublicEventData(eventObj.id),
     prisma.program.findMany({
@@ -92,7 +105,16 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       orderBy: { updatedAt: "asc" }
     }),
     prisma.event.findMany({
-      select: { id: true, name: true, type: true }
+      select: { id: true, name: true, type: true, statusOverride: true },
+      orderBy: [
+        { type: "desc" },
+        { name: "asc" }
+      ]
+    }),
+    prisma.masterInstitution.findMany({
+      where: eventObj.zoneId ? { zoneId: eventObj.zoneId } : undefined,
+      select: { id: true, name: true, place: true },
+      orderBy: { name: "asc" }
     })
   ]);
 
@@ -202,6 +224,8 @@ export default async function TVDisplayPage(props: { searchParams: Promise<{ eve
       }}
       publishedPrograms={publishedPrograms}
       allEvents={allEvents}
+      zoneInstitutions={zoneInstitutions}
+      initialLocation={initialLocation}
     />
   );
 }
