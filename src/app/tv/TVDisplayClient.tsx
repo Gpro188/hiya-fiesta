@@ -233,7 +233,10 @@ function CategoryProgramBox({
           boxSizing: "border-box",
           boxShadow: glowShadow,
           backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)"
+          WebkitBackdropFilter: "blur(20px)",
+          minHeight: 0,
+          minWidth: 0,
+          overflow: "hidden"
         }}
       >
         <span
@@ -246,7 +249,8 @@ function CategoryProgramBox({
             fontWeight: 900,
             textTransform: "uppercase",
             marginBottom: 10,
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            flexShrink: 0
           }}
         >
           {categoryName}
@@ -269,7 +273,7 @@ function CategoryProgramBox({
         background: bgGradient,
         border: `1.5px solid ${borderColor}`,
         borderRadius: 20,
-        padding: "12px 14px",
+        padding: "10px 12px",
         display: "flex",
         flexDirection: "column",
         height: "100%",
@@ -277,7 +281,9 @@ function CategoryProgramBox({
         boxShadow: glowShadow,
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        minHeight: 0
+        minHeight: 0,
+        minWidth: 0,
+        overflow: "hidden"
       }}
     >
       {/* Box Header Banner */}
@@ -285,23 +291,26 @@ function CategoryProgramBox({
         style={{
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.14)",
-          borderRadius: 14,
-          padding: isGeneral ? "8px 14px" : "7px 12px",
-          marginBottom: 8,
-          flexShrink: 0
+          borderRadius: 12,
+          padding: isGeneral ? "7px 12px" : "6px 10px",
+          marginBottom: 6,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden"
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
           <span
             style={{
               backgroundColor: badgeBg,
               color: badgeColor,
-              padding: "2px 10px",
+              padding: "2px 8px",
               borderRadius: 9999,
-              fontSize: "0.70rem",
+              fontSize: "0.68rem",
               fontWeight: 900,
               textTransform: "uppercase",
-              letterSpacing: 0.5
+              letterSpacing: 0.5,
+              flexShrink: 0
             }}
           >
             {categoryName}
@@ -310,11 +319,12 @@ function CategoryProgramBox({
             style={{
               backgroundColor: "rgba(255,255,255,0.18)",
               color: "#ffffff",
-              padding: "2px 8px",
+              padding: "1px 7px",
               borderRadius: 9999,
-              fontSize: "0.72rem",
+              fontSize: "0.70rem",
               fontWeight: 900,
-              fontFamily: "monospace"
+              fontFamily: "monospace",
+              flexShrink: 0
             }}
           >
             #{prog.code}
@@ -322,7 +332,7 @@ function CategoryProgramBox({
         </div>
         <div
           style={{
-            fontSize: isGeneral ? "1.22rem" : "1.08rem",
+            fontSize: isGeneral ? "1.18rem" : "1.00rem",
             fontWeight: 900,
             color: "#ffffff",
             lineHeight: 1.2,
@@ -330,23 +340,26 @@ function CategoryProgramBox({
             textOverflow: "ellipsis",
             whiteSpace: "nowrap"
           }}
+          title={prog.name}
         >
           {prog.name}
         </div>
       </div>
 
-      {/* Fillable Winners List (maximum vertical fill without boring void) */}
+      {/* Fillable Winners List (maximum vertical fill strictly within card) */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 6,
+          gap: 5,
           flex: 1,
           minHeight: 0,
-          justifyContent: "stretch"
+          minWidth: 0,
+          overflow: "hidden",
+          justifyContent: "space-between"
         }}
       >
-        {winners.map((w, i) => {
+        {winners.slice(0, 3).map((w, i) => {
           const is1 = w.rank === 1;
           const is2 = w.rank === 2;
 
@@ -372,42 +385,55 @@ function CategoryProgramBox({
               style={{
                 background: rowBg,
                 border: rowBorder,
-                borderRadius: 12,
-                padding: "8px 12px",
+                borderRadius: 10,
+                padding: "6px 10px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                boxShadow: is1 ? "0 6px 20px rgba(250,204,21,0.38)" : "none",
+                boxShadow: is1 ? "0 4px 16px rgba(250,204,21,0.35)" : "none",
                 flex: 1,
-                minHeight: 46,
-                boxSizing: "border-box"
+                minHeight: 0,
+                minWidth: 0,
+                boxSizing: "border-box",
+                overflow: "hidden"
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 <MedalBadge rank={w.rank} small />
-                <div style={{ minWidth: 0, overflow: "hidden" }}>
+                <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
                   <div
                     style={{
-                      fontSize: isGeneral ? "1.02rem" : "0.96rem",
+                      fontSize: isGeneral ? "0.98rem" : "0.90rem",
                       fontWeight: 900,
                       lineHeight: 1.15,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      color: textColor
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      minWidth: 0,
+                      overflow: "hidden"
                     }}
                   >
-                    {w.name}
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: textColor,
+                        minWidth: 0
+                      }}
+                    >
+                      {w.name}
+                    </span>
                     {w.chestNumber && (
                       <span
                         style={{
                           backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.18)",
                           color: "#ffffff",
-                          padding: "1px 6px",
+                          padding: "1px 5px",
                           borderRadius: 9999,
-                          fontSize: "0.68rem",
+                          fontSize: "0.64rem",
                           fontWeight: 800,
-                          marginLeft: 6
+                          flexShrink: 0
                         }}
                       >
                         #{w.chestNumber}
@@ -416,30 +442,31 @@ function CategoryProgramBox({
                   </div>
                   <div
                     style={{
-                      fontSize: "0.70rem",
+                      fontSize: "0.66rem",
                       fontWeight: 700,
                       color: subTextColor,
-                      marginTop: 2,
+                      marginTop: 1,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap"
                     }}
+                    title={w.college}
                   >
                     {w.college}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: 6, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 6, flexShrink: 0 }}>
                 {w.grade && (
                   <span
                     style={{
                       backgroundColor: is1 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)",
                       border: is1 ? "1px solid rgba(0,0,0,0.1)" : "1px solid rgba(255,255,255,0.18)",
                       color: textColor,
-                      padding: "2px 7px",
+                      padding: "2px 6px",
                       borderRadius: 9999,
-                      fontSize: "0.68rem",
+                      fontSize: "0.66rem",
                       fontWeight: 800
                     }}
                   >
@@ -448,7 +475,7 @@ function CategoryProgramBox({
                 )}
                 <div
                   style={{
-                    fontSize: isGeneral ? "1.6rem" : "1.45rem",
+                    fontSize: isGeneral ? "1.5rem" : "1.32rem",
                     fontWeight: 900,
                     fontFamily: "monospace",
                     lineHeight: 1,
@@ -470,7 +497,7 @@ function CategoryProgramBox({
               justifyContent: "center",
               flex: 1,
               color: "rgba(255,255,255,0.5)",
-              fontSize: "0.88rem",
+              fontSize: "0.85rem",
               fontWeight: 700
             }}
           >
@@ -858,10 +885,10 @@ export default function TVDisplayClient({
         </header>
 
       {/* ════ MAIN CONTENT ════ */}
-      <main style={{ display: "grid", gridTemplateColumns: "37% 61%", gap: 20, flex: 1, position: "relative", zIndex: 10, minHeight: 0 }}>
+      <main style={{ display: "grid", gridTemplateColumns: "minmax(0, 37%) minmax(0, 1fr)", gap: 16, flex: 1, position: "relative", zIndex: 10, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
 
         {/* ── LEFT CARD (Champions & Kalathilakam, 5s fade) ── */}
-        <div style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.15)", borderRadius: 24, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", padding: "16px 18px", display: "flex", flexDirection: "column", boxShadow: "0 16px 40px rgba(0,0,0,0.3)", transition: "opacity 0.38s ease", opacity: leftFade ? 1 : 0, minHeight: 0 }}>
+        <div style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.15)", borderRadius: 24, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", padding: "16px 18px", display: "flex", flexDirection: "column", boxShadow: "0 16px 40px rgba(0,0,0,0.3)", transition: "opacity 0.38s ease", opacity: leftFade ? 1 : 0, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
 
           {/* ── SLIDE 0: OVERALL CHAMPIONS (Big beautiful champion points) ── */}
           {leftIndex === 0 && (
@@ -1006,23 +1033,23 @@ export default function TVDisplayClient({
                 </div>
 
                 {/* ── Fadheela Top 3 ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(239,68,68,0.04) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 18, padding: "12px 16px" }}>
+                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(239,68,68,0.04) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 18, padding: "12px 16px", minWidth: 0, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "3px 12px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase" }}>Fadheela</span>
+                    <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "3px 12px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", flexShrink: 0 }}>Fadheela</span>
                     <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Individual category</span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, overflow: "hidden" }}>
                     {[
                       { data: fadheelaTop, pts: fadheelaTop?.fadheelaPoints || fadheelaTop?.points },
                       { data: fadheelaTop2, pts: fadheelaTop2?.fadheelaPoints || fadheelaTop2?.points },
                       { data: fadheelaTop3, pts: fadheelaTop3?.fadheelaPoints || fadheelaTop3?.points }
                     ].filter(r => r.data).map((row, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(239,68,68,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(239,68,68,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px", minWidth: 0, overflow: "hidden" }}>
                         <MedalBadge rank={i + 1} small />
                         <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={32} bg="#7f1d1d" />
                         <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                           <div style={{ fontSize: "0.94rem", fontWeight: 900, color: "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.data.name}</div>
-                          <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>{row.data.place || ""}</div>
+                          <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.data.place || ""}</div>
                         </div>
                         <span style={{ fontSize: "1.55rem", fontWeight: 900, fontFamily: "monospace", color: i === 0 ? "#fca5a5" : "rgba(255,255,255,0.9)", flexShrink: 0 }}>{row.pts || 0}</span>
                       </div>
@@ -1119,10 +1146,10 @@ export default function TVDisplayClient({
                 </div>
 
                 {/* ── Fadheela Star Section (Fillable Card) ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 16, padding: "9px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 16, padding: "9px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ backgroundColor: "#ef4444", color: "#ffffff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      <span style={{ backgroundColor: "#ef4444", color: "#ffffff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>
                         ★ Fadheela Star
                       </span>
                       <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Individual race</span>
@@ -1130,7 +1157,7 @@ export default function TVDisplayClient({
                     <span style={{ fontSize: "0.64rem", color: "#f87171", fontWeight: 800 }}>Top 3 Standings</span>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, justifyContent: "space-around" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, justifyContent: "space-around", minWidth: 0, overflow: "hidden" }}>
                     {fadheelaStars.slice(0, 3).map((cand, i) => {
                       const is1 = i === 0;
                       const pts = cand.totalPoints || cand.points || 0;
@@ -1145,13 +1172,15 @@ export default function TVDisplayClient({
                             border: is1 ? "1.5px solid rgba(239,68,68,0.55)" : "1px solid rgba(255,255,255,0.08)",
                             borderRadius: 10,
                             padding: "6px 10px",
-                            boxShadow: is1 ? "0 4px 14px rgba(239,68,68,0.25)" : "none"
+                            boxShadow: is1 ? "0 4px 14px rgba(239,68,68,0.25)" : "none",
+                            minWidth: 0,
+                            overflow: "hidden"
                           }}
                         >
                           <MedalBadge rank={i + 1} small />
                           <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                              <span style={{ fontSize: is1 ? "0.98rem" : "0.90rem", fontWeight: 900, color: is1 ? "#fca5a5" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden" }}>
+                              <span style={{ fontSize: is1 ? "0.98rem" : "0.90rem", fontWeight: 900, color: is1 ? "#fca5a5" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                                 {cand.name}
                               </span>
                               {cand.chestNumber && (
@@ -1196,10 +1225,10 @@ export default function TVDisplayClient({
         </div>
 
         {/* ── RIGHT COLUMN (Individual & General Program Results in distinct boxes, 5s 3D page peeling) ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
 
           {/* ── 1. TOP SECTION: INDIVIDUAL PROGRAM RESULTS (Two Distinct Boxes: Fadhila & Fadheela) ── */}
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Top Subheader Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1219,8 +1248,8 @@ export default function TVDisplayClient({
               </div>
             </div>
 
-            {/* TWO DISTINCT SIDE-BY-SIDE BOXES (Fadhila on left, Fadheela on right) */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, flex: 1, minHeight: 0 }}>
+            {/* TWO DISTINCT SIDE-BY-SIDE BOXES (Fadhila on left, Fadheela on right - Strictly bounded) */}
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
               <CategoryProgramBox
                 prog={currentIndiv?.fadhila}
                 categoryName="FADHILA"
@@ -1237,7 +1266,7 @@ export default function TVDisplayClient({
           </div>
 
           {/* ── 2. BOTTOM SECTION: GENERAL PROGRAM RESULTS (Distinct Emerald Box) ── */}
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Bottom Subheader Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1259,7 +1288,7 @@ export default function TVDisplayClient({
             </div>
 
             {/* DISTINCT GENERAL PROGRAM BOX */}
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
               <CategoryProgramBox
                 prog={currentGen}
                 categoryName="GENERAL"
@@ -1692,25 +1721,27 @@ export default function TVDisplayClient({
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes pagePeel3D {
           0% {
-            opacity: 0.15;
-            transform: perspective(1400px) rotateY(-22deg) scale(0.97);
-            transform-origin: left center;
-            box-shadow: -24px 12px 40px rgba(0,0,0,0.65);
-            filter: brightness(1.25);
+            opacity: 0.2;
+            transform: perspective(1000px) rotateY(-8deg) scale(0.98);
+            transform-origin: center center;
+            box-shadow: -10px 8px 24px rgba(0,0,0,0.45);
+            filter: brightness(1.15);
           }
           50% {
-            filter: brightness(1.12);
+            filter: brightness(1.08);
           }
           100% {
             opacity: 1;
-            transform: perspective(1400px) rotateY(0deg) scale(1);
-            transform-origin: left center;
+            transform: perspective(1000px) rotateY(0deg) scale(1);
+            transform-origin: center center;
             box-shadow: 0 12px 32px rgba(0,0,0,0.38);
             filter: brightness(1);
           }
         }
         .page-peel-card {
-          animation: pagePeel3D 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: pagePeel3D 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
         }
 
         @keyframes pulse {
