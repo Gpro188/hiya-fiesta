@@ -34,22 +34,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Event has no zone assigned" }, { status: 400 });
     }
 
-    // All eventIds to search (this event + child events)
-    const childEventId = "c1bb351f-c165-4270-9b51-b4a2069ff4c2";
-
-    // Fetch all published results (rank 1-3) for this event
-    const results = await prisma.result.findMany({
+    // ---- Fetch ALL published results (same query as the site leaderboard) ----
+    // NO rank filter — the site counts every published result's stored points value
+    const allPublishedResults = await prisma.result.findMany({
       where: {
-        isPublished: true,
-        rank: { in: [1, 2, 3] },
-        program: {
-          OR: [
-            { eventId },
-            { eventId: childEventId },
-            { event: { parentId: eventId } },
-            ...(targetEvent?.parentId ? [{ eventId: targetEvent.parentId }] : [])
-          ]
-        }
+        OR: [
+          { program: { eventId } },
+          { candidate: { team: { eventId } } },
+          { team: { eventId } }
+        ],
+        isPublished: true
       },
       include: {
         program: {
@@ -79,15 +73,16 @@ export async function GET(req: NextRequest) {
     });
 
     // ---- Build institution result map ----
+    // Matches exactly how the site builds teamScores: sum r.points for all published results
     interface ResultRow {
       programCode: string;
       programName: string;
       category: string;
       programType: string;
-      rank: number;
+      rank: number | null;
       grade: string;
       marks: number | null;
-      points: number | null;
+      points: number;
     }
 
     const instResultMap: Record<string, ResultRow[]> = {};
@@ -97,61 +92,53 @@ export async function GET(req: NextRequest) {
 
     const instTotals: Record<string, { individual: number; general: number; grand: number }> = {};
 
-    for (const r of results) {
+    for (const r of allPublishedResults) {
       const prog = r.program;
-      // Skip magazine programs (institution award only)
-      const isMag = (prog.name || "").toLowerCase().includes("magazine") || prog.programCode === "43";
-      if (isMag) continue;
-
-      const rank = r.rank;
-      if (!rank) continue;
-
-      const catName = prog.category?.name?.toUpperCase() || "GENERAL";
       const points = r.points ?? 0;
+      const catName = prog?.category?.name?.toUpperCase() || "GENERAL";
+      const isIndividual = r.candidateId && prog?.type === "INDIVIDUAL";
 
       const row: ResultRow = {
-        programCode: prog.programCode || "",
-        programName: prog.name,
+        programCode: prog?.programCode || "",
+        programName: prog?.name || "Unknown",
         category: catName,
-        programType: "",
-        rank,
+        programType: isIndividual ? "Individual" : "General / Group",
+        rank: r.rank,
         grade: r.grade || "-",
         marks: r.marks ?? null,
         points
       };
 
       if (r.candidateId && r.candidate) {
+        // Individual result — attribute to candidate's institution
         const c = r.candidate;
         const instId = c.institution?.id || c.team?.institution?.id || null;
-        row.programType = "Individual";
 
         if (instId && instResultMap[instId] !== undefined) {
           instResultMap[instId].push({ ...row });
           if (!instTotals[instId]) instTotals[instId] = { individual: 0, general: 0, grand: 0 };
-          instTotals[instId].individual += points;
+          if (isIndividual) {
+            instTotals[instId].individual += points;
+          } else {
+            instTotals[instId].general += points;
+          }
           instTotals[instId].grand += points;
         }
       } else if (r.teamId && r.team) {
+        // Team / Group result — attribute to team's institution (once per team result)
         const team = r.team;
         const instId = team.institution?.id || null;
-        row.programType = "General / Group";
 
         if (instId && instResultMap[instId] !== undefined) {
-          // Add only once per program+rank per institution for group events
-          const already = instResultMap[instId].find(
-            ex => ex.programCode === row.programCode && ex.rank === rank && ex.programType === "General / Group"
-          );
-          if (!already) {
-            instResultMap[instId].push({ ...row });
-            if (!instTotals[instId]) instTotals[instId] = { individual: 0, general: 0, grand: 0 };
-            instTotals[instId].general += points;
-            instTotals[instId].grand += points;
-          }
+          instResultMap[instId].push({ ...row });
+          if (!instTotals[instId]) instTotals[instId] = { individual: 0, general: 0, grand: 0 };
+          instTotals[instId].general += points;
+          instTotals[instId].grand += points;
         }
       }
     }
 
-    // ---- Zone Leaderboard data ----
+    // ---- Zone Leaderboard data (sorted by total points, matching site order) ----
     const leaderboard = allInstitutions
       .map(inst => ({
         Institution: inst.name,
@@ -173,11 +160,12 @@ export async function GET(req: NextRequest) {
     ];
     xlsx.utils.book_append_sheet(wb, wsLeaderboard, "Zone Leaderboard");
 
-    // Sheet 2: All Institutions Combined
-    const sortedByPoints = [...allInstitutions].sort((a, b) => {
-      return (instTotals[b.id]?.grand ?? 0) - (instTotals[a.id]?.grand ?? 0);
-    });
+    // Sort institutions by total points descending for sheets
+    const sortedByPoints = [...allInstitutions].sort((a, b) =>
+      (instTotals[b.id]?.grand ?? 0) - (instTotals[a.id]?.grand ?? 0)
+    );
 
+    // Sheet 2: All Institutions Combined
     const allRows: any[] = [];
     let slNo = 1;
     for (const inst of sortedByPoints) {
@@ -185,7 +173,7 @@ export async function GET(req: NextRequest) {
       if (rows.length === 0) continue;
 
       const sorted = [...rows].sort((a, b) =>
-        a.programCode < b.programCode ? -1 : a.programCode > b.programCode ? 1 : a.rank - b.rank
+        a.programCode < b.programCode ? -1 : a.programCode > b.programCode ? 1 : (a.rank ?? 99) - (b.rank ?? 99)
       );
 
       for (const row of sorted) {
@@ -197,10 +185,10 @@ export async function GET(req: NextRequest) {
           "Program Name": row.programName,
           "Category": row.category,
           "Type": row.programType,
-          "Rank": row.rank,
+          "Rank": row.rank ?? "-",
           "Grade": row.grade,
           "Marks": row.marks ?? "",
-          "Points": row.points ?? 0
+          "Points": row.points
         });
       }
 
@@ -234,7 +222,7 @@ export async function GET(req: NextRequest) {
       if (rows.length === 0) continue;
 
       const sorted = [...rows].sort((a, b) =>
-        a.programCode < b.programCode ? -1 : a.programCode > b.programCode ? 1 : a.rank - b.rank
+        a.programCode < b.programCode ? -1 : a.programCode > b.programCode ? 1 : (a.rank ?? 99) - (b.rank ?? 99)
       );
 
       const totals = instTotals[inst.id] || { individual: 0, general: 0, grand: 0 };
@@ -245,10 +233,10 @@ export async function GET(req: NextRequest) {
         "Program Name": row.programName,
         "Category": row.category,
         "Type": row.programType,
-        "Place": row.rank === 1 ? "1st" : row.rank === 2 ? "2nd" : "3rd",
+        "Place": row.rank === 1 ? "1st" : row.rank === 2 ? "2nd" : row.rank === 3 ? "3rd" : row.rank ?? "-",
         "Grade": row.grade,
         "Marks": row.marks ?? "",
-        "Points": row.points ?? 0
+        "Points": row.points
       }));
 
       sheetRows.push({});
