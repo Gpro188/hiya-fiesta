@@ -163,8 +163,8 @@ export default async function TVDisplayPage(props: {
       : "Fadheela category winners";
 
     const winners = (prog.results || [])
-      .filter((r: any) => r.rank && r.rank <= 3)
-      .sort((a: any, b: any) => a.rank - b.rank)
+      .filter((r: any) => r.isPublished !== false)
+      .sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99))
       .map((r: any) => {
         const isIndiv = Boolean(r.candidate);
         const name = isIndiv
@@ -183,7 +183,7 @@ export default async function TVDisplayPage(props: {
           college: college ? (place && !college.includes(place) ? `${college}, ${place}` : college) : (place || "—"),
           place,
           chestNumber: r.candidate?.chestNumber || null,
-          grade: r.grade ? `Grade ${r.grade}` : null,
+          grade: r.grade || null,
           points: r.points || 0
         };
       });

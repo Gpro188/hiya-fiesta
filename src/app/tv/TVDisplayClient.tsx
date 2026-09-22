@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 interface Winner {
-  rank: number;
+  rank: number | null;
   name: string;
   college?: string;
   place?: string;
@@ -346,37 +346,58 @@ function CategoryProgramBox({
         </div>
       </div>
 
-      {/* Fillable Winners List (maximum vertical fill strictly within card) */}
+      {/* Winners List — ALL results, grade + place only, no points, scrollable */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 5,
+          gap: 4,
           flex: 1,
           minHeight: 0,
           minWidth: 0,
-          overflow: "hidden",
-          justifyContent: "space-between"
+          overflowY: "auto",
+          overflowX: "hidden",
+          scrollbarWidth: "none",
         }}
       >
-        {winners.slice(0, 3).map((w, i) => {
+        {winners.map((w, i) => {
           const is1 = w.rank === 1;
           const is2 = w.rank === 2;
+          const is3 = w.rank === 3;
+          const isTop3 = is1 || is2 || is3;
+
+          const placeLabel = w.rank === 1 ? "1st" : w.rank === 2 ? "2nd" : w.rank === 3 ? "3rd"
+            : w.rank === 4 ? "4th" : w.rank === 5 ? "5th" : w.rank ? `${w.rank}th` : null;
+
+          const gradeBg = w.grade === "A"
+            ? (is1 ? "rgba(0,0,0,0.18)" : "rgba(250,204,21,0.22)")
+            : w.grade === "B" ? "rgba(148,163,184,0.22)"
+            : w.grade === "C" ? "rgba(251,146,60,0.22)"
+            : "rgba(255,255,255,0.1)";
+          const gradeColor = w.grade === "A"
+            ? (is1 ? "#0f172a" : "#facc15")
+            : w.grade === "B" ? "#cbd5e1"
+            : w.grade === "C" ? "#fb923c"
+            : "#fff";
 
           const rowBg = is1
             ? "linear-gradient(135deg, #facc15 0%, #eab308 50%, #ca8a04 100%)"
             : is2
-            ? "linear-gradient(135deg, rgba(241,245,249,0.18) 0%, rgba(148,163,184,0.08) 100%)"
-            : "linear-gradient(135deg, rgba(251,146,60,0.18) 0%, rgba(194,65,12,0.08) 100%)";
+            ? "linear-gradient(135deg, rgba(241,245,249,0.14) 0%, rgba(148,163,184,0.06) 100%)"
+            : is3
+            ? "linear-gradient(135deg, rgba(251,146,60,0.14) 0%, rgba(194,65,12,0.06) 100%)"
+            : "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)";
 
           const rowBorder = is1
-            ? "1px solid rgba(255,255,255,0.6)"
+            ? "1px solid rgba(255,255,255,0.5)"
             : is2
-            ? "1px solid rgba(226,232,240,0.3)"
-            : "1px solid rgba(251,146,60,0.3)";
+            ? "1px solid rgba(226,232,240,0.22)"
+            : is3
+            ? "1px solid rgba(251,146,60,0.22)"
+            : "1px solid rgba(255,255,255,0.08)";
 
           const textColor = is1 ? "#0f172a" : "#ffffff";
-          const subTextColor = is1 ? "#451a03" : "rgba(255,255,255,0.72)";
+          const subTextColor = is1 ? "#451a03" : "rgba(255,255,255,0.62)";
 
           return (
             <div
@@ -385,122 +406,117 @@ function CategoryProgramBox({
               style={{
                 background: rowBg,
                 border: rowBorder,
-                borderRadius: 10,
-                padding: "6px 10px",
+                borderRadius: 8,
+                padding: "4px 8px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                boxShadow: is1 ? "0 4px 16px rgba(250,204,21,0.35)" : "none",
-                flex: 1,
-                minHeight: 0,
+                boxShadow: is1 ? "0 3px 12px rgba(250,204,21,0.28)" : "none",
+                flexShrink: 0,
                 minWidth: 0,
                 boxSizing: "border-box",
-                overflow: "hidden"
+                overflow: "hidden",
+                gap: 6
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
-                <MedalBadge rank={w.rank} small />
+              {/* Left: badge + name + college */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, overflow: "hidden" }}>
+                {isTop3 ? (
+                  <MedalBadge rank={w.rank} small />
+                ) : (
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%",
+                    border: "1.5px solid rgba(255,255,255,0.22)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 900, fontSize: "0.68rem", color: "rgba(255,255,255,0.65)",
+                    flexShrink: 0
+                  }}>
+                    {placeLabel || "—"}
+                  </div>
+                )}
                 <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: isGeneral ? "0.98rem" : "0.90rem",
-                      fontWeight: 900,
-                      lineHeight: 1.15,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      minWidth: 0,
-                      overflow: "hidden"
-                    }}
-                  >
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        color: textColor,
-                        minWidth: 0
-                      }}
-                    >
-                      {w.name}
-                    </span>
+                  <div style={{
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                    lineHeight: 1.15,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    color: textColor
+                  }}>
+                    {w.name}
                     {w.chestNumber && (
-                      <span
-                        style={{
-                          backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.18)",
-                          color: "#ffffff",
-                          padding: "1px 5px",
-                          borderRadius: 9999,
-                          fontSize: "0.64rem",
-                          fontWeight: 800,
-                          flexShrink: 0
-                        }}
-                      >
+                      <span style={{
+                        marginLeft: 4,
+                        backgroundColor: is1 ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.15)",
+                        color: "#fff",
+                        padding: "1px 4px",
+                        borderRadius: 9999,
+                        fontSize: "0.58rem",
+                        fontWeight: 800,
+                      }}>
                         #{w.chestNumber}
                       </span>
                     )}
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.66rem",
-                      fontWeight: 700,
-                      color: subTextColor,
-                      marginTop: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap"
-                    }}
-                    title={w.college}
-                  >
+                  <div style={{
+                    fontSize: "0.60rem",
+                    fontWeight: 700,
+                    color: subTextColor,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
+                  }} title={w.college}>
                     {w.college}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 6, flexShrink: 0 }}>
+              {/* Right: Place pill + Grade badge — NO points */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                {placeLabel && (
+                  <span style={{
+                    backgroundColor: is1 ? "rgba(0,0,0,0.18)" : is2 ? "rgba(226,232,240,0.15)" : is3 ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.08)",
+                    color: textColor,
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    padding: "2px 7px",
+                    borderRadius: 9999,
+                    fontSize: "0.68rem",
+                    fontWeight: 900,
+                  }}>
+                    {placeLabel}
+                  </span>
+                )}
                 {w.grade && (
-                  <span
-                    style={{
-                      backgroundColor: is1 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)",
-                      border: is1 ? "1px solid rgba(0,0,0,0.1)" : "1px solid rgba(255,255,255,0.18)",
-                      color: textColor,
-                      padding: "2px 6px",
-                      borderRadius: 9999,
-                      fontSize: "0.66rem",
-                      fontWeight: 800
-                    }}
-                  >
+                  <span style={{
+                    backgroundColor: gradeBg,
+                    border: `1px solid ${gradeColor}55`,
+                    color: gradeColor,
+                    padding: "2px 8px",
+                    borderRadius: 9999,
+                    fontSize: "0.72rem",
+                    fontWeight: 900,
+                    minWidth: 26,
+                    textAlign: "center"
+                  }}>
                     {w.grade}
                   </span>
                 )}
-                <div
-                  style={{
-                    fontSize: isGeneral ? "1.5rem" : "1.32rem",
-                    fontWeight: 900,
-                    fontFamily: "monospace",
-                    lineHeight: 1,
-                    color: textColor
-                  }}
-                >
-                  {w.points}
-                </div>
               </div>
             </div>
           );
         })}
 
         {winners.length === 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "0.85rem",
-              fontWeight: 700
-            }}
-          >
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: 1,
+            color: "rgba(255,255,255,0.5)",
+            fontSize: "0.85rem",
+            fontWeight: 700
+          }}>
             Awaiting official results
           </div>
         )}
