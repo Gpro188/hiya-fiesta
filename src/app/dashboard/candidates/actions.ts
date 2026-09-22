@@ -828,6 +828,9 @@ export async function directProgramWiseCandidateReplacement(data: {
     revalidatePath("/print/assignments");
     revalidatePath("/print/chest-numbers");
     revalidatePath("/print/programs");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
+    revalidatePath("/dashboard/super/replacement");
 
     return {
       success: true,
@@ -928,6 +931,9 @@ export async function directReplaceCandidate(data: {
     revalidatePath("/print/id-cards");
     revalidatePath("/print/assignments");
     revalidatePath("/print/chest-numbers");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
+    revalidatePath("/dashboard/super/replacement");
 
     return {
       success: true,
