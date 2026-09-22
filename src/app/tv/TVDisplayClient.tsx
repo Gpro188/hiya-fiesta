@@ -422,7 +422,7 @@ function CategoryProgramBox({
               {/* Left: badge + name + college */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 {isTop3 ? (
-                  <MedalBadge rank={w.rank} small />
+                  <MedalBadge rank={w.rank as number} small />
                 ) : (
                   <div style={{
                     width: 26, height: 26, borderRadius: "50%",
