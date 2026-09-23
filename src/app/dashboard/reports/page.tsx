@@ -409,6 +409,26 @@ export default async function ReportsPage(props: {
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official merit certificates with Place &amp; Grade. Upload certificate template to calibrate coordinates, and overprint without background directly onto pre-printed physical certificates.</p>
           </a>
+
+          {/* State Selected Students List */}
+          <a href={`/print/institution-state-selected?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #10b981', backgroundColor: 'rgba(16,185,129,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌟</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#059669', fontWeight: 800 }}>State Selected Students List</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 800 }}>STATE QUALIFIED</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official selection list of candidates and programs qualifying to represent at the State Festival final.</p>
+          </a>
+
+          {/* Institution Results Breakdown */}
+          <a href={`/print/institution-results-breakdown?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📊</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>Total Results &amp; Points Breakdown</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>COMPLETE TALLY</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Itemized breakdown of institution results with all programs, grades (A/B/C), ranks (1st/2nd/3rd), and point calculations.</p>
+          </a>
         </div>
 
         <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Candidates & Teams</h3>
@@ -568,7 +588,62 @@ export default async function ReportsPage(props: {
           )}
 
           <div style={{ gridColumn: '1 / -1', marginTop: 'var(--spacing-md)', marginBottom: 'var(--spacing-xs)' }}>
-            <h3 style={{ margin: 0, color: 'var(--primary)' }}>Institution Participation & ID Documents</h3>
+            <h3 style={{ margin: 0, color: '#8E0033', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🏆</span> Festival Results &amp; State Selection (Official)
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Print your official State qualification certificate list and the complete breakdown of points, grades, and places.
+            </p>
+          </div>
+
+          <a 
+            href={`/print/institution-state-selected?teamId=${team.id}`} 
+            target="_blank" 
+            className="glass-panel" 
+            style={{ 
+              padding: 'var(--spacing-lg)', 
+              display: 'block', 
+              textDecoration: 'none', 
+              transition: 'all 0.2s', 
+              border: '2px solid #10b981',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%)'
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌟</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#059669', fontWeight: 800 }}>State Selected Students List</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 800 }}>STATE QUALIFIED</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Official selection list of candidates and programs qualified to represent your institution at the State Festival final.
+            </p>
+          </a>
+
+          <a 
+            href={`/print/institution-results-breakdown?teamId=${team.id}`} 
+            target="_blank" 
+            className="glass-panel" 
+            style={{ 
+              padding: 'var(--spacing-lg)', 
+              display: 'block', 
+              textDecoration: 'none', 
+              transition: 'all 0.2s', 
+              border: '2px solid #8E0033',
+              background: 'linear-gradient(135deg, rgba(142, 0, 51, 0.08) 0%, rgba(190, 18, 60, 0.03) 100%)'
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📊</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>Total Results &amp; Points Breakdown</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>COMPLETE TALLY</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Complete itemized breakdown of your institution's results, showing all programs, grades (A/B/C), ranks (1st/2nd/3rd), and points calculation.
+            </p>
+          </a>
+
+          <div style={{ gridColumn: '1 / -1', marginTop: 'var(--spacing-md)', marginBottom: 'var(--spacing-xs)' }}>
+            <h3 style={{ margin: 0, color: 'var(--primary)' }}>Institution Participation &amp; ID Documents</h3>
           </div>
 
           <a 

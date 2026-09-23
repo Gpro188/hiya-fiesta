@@ -72,6 +72,7 @@ export default async function MasterZonesPage() {
         select: {
           id: true,
           name: true,
+          statusOverride: true,
           offStageRegistrationEnd: true,
           onStageRegistrationEnd: true,
           registrationStart: true,
@@ -100,6 +101,9 @@ export default async function MasterZonesPage() {
     let isOnStageSessionActive = false;
     let offStageSessionEnd: Date | null = null;
     let onStageSessionEnd: Date | null = null;
+
+    // Check if zone is marked COMPLETED
+    const isCompleted = zone.events.some(ev => ev.statusOverride === 'COMPLETED');
 
     // Check sessions from zone events
     zone.events.forEach(ev => {
@@ -155,6 +159,7 @@ export default async function MasterZonesPage() {
 
     return {
       ...zone,
+      isCompleted,
       totalInstitutions: totalInsts,
       registeredInstitutions: registeredInsts,
       confirmedInstitutions: confirmedInsts,

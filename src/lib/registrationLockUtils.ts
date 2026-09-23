@@ -15,6 +15,7 @@
  */
 
 export interface TeamRegistrationEvent {
+  statusOverride?: string | null;
   registrationStart?: Date | string | null;
   registrationEnd?: Date | string | null;
   institutionRegistrationEndDate?: Date | string | null;
@@ -80,6 +81,7 @@ export function getRegistrationLockStatus(
       offDeadline: null,
       onDeadline: null,
       generalDeadline: null,
+      isFestCompleted: false,
       statusMessage: "",
     };
   }
@@ -87,6 +89,37 @@ export function getRegistrationLockStatus(
   const now = new Date();
   const event = eventOverride || team?.event;
   const candidates = candidatesOverride || team?.candidates || [];
+
+  // Check if fest is marked as COMPLETED & locked by Super Admin
+  if (event?.statusOverride === "COMPLETED") {
+    return {
+      isOffStageOpen: false,
+      isOnStageOpen: false,
+      isCandidateRegistrationOpen: false,
+      isOffStageDeadlinePassed: true,
+      isOnStageDeadlinePassed: true,
+      isGeneralDeadlinePassed: true,
+      isZoneConfirmedOffStage: true,
+      isZoneConfirmedOnStage: true,
+      isCollegeSubmittedOffStage: true,
+      isCollegeSubmittedOnStage: true,
+      isOffStageScheduleActive: false,
+      isOffStageUnlockPending: false,
+      isOffStageUnlockExpired: true,
+      isOnStageScheduleActive: false,
+      isOnStageUnlockPending: false,
+      isOnStageUnlockExpired: true,
+      offStageUnlockStart: null,
+      offStageUnlockEnd: null,
+      onStageUnlockStart: null,
+      onStageUnlockEnd: null,
+      offDeadline: null,
+      onDeadline: null,
+      generalDeadline: null,
+      isFestCompleted: true,
+      statusMessage: "Festival completed & finalized by Super Admin. Registrations and modifications are locked.",
+    };
+  }
 
   // 1. Resolve Deadlines (Zone Event takes precedence, falls back to parent State Event)
   const offDeadlineRaw =

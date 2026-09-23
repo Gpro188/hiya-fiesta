@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { isProgramGeneral, isInstitutionProgram } from "@/lib/programUtils";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
+import { isZoneOrEventCompleted } from "@/lib/zoneLockUtils";
 
 export async function assignProgram(candidateId: string, programId: string) {
   try {
@@ -35,6 +36,13 @@ export async function assignProgram(candidateId: string, programId: string) {
     });
 
     if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
+
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId: candidate.teamId, programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Registration and assignments are locked because this festival is completed." };
+      }
+    }
 
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
       const team = candidate.team;
@@ -190,23 +198,30 @@ export async function unassignProgram(candidateId: string, programId: string) {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
-    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
-      const candidate = await prisma.candidate.findUnique({ 
-        where: { id: candidateId }, 
-        include: { 
-          team: { 
-            include: { 
-              event: { 
-                include: { parent: true } 
-              } 
+    const candidate = await prisma.candidate.findUnique({ 
+      where: { id: candidateId }, 
+      include: { 
+        team: { 
+          include: { 
+            event: { 
+              include: { parent: true } 
             } 
           } 
         } 
-      });
+      } 
+    });
 
-      const program = await prisma.program.findUnique({ where: { id: programId } });
-      if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
+    const program = await prisma.program.findUnique({ where: { id: programId } });
+    if (!candidate || !program) return { success: false, error: "Candidate or Program not found" };
 
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId: candidate.teamId, programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Registration and assignments are locked because this festival is completed." };
+      }
+    }
+
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
       const team = candidate.team;
       if (team) {
         const isOffStage = program.stageType === "OFF_STAGE";
@@ -283,6 +298,13 @@ export async function confirmTeamAssignments(teamId: string, stageType?: 'OFF_ST
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
 
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Assignments are locked because this festival is completed." };
+      }
+    }
+
     const updateData: any = {};
     if (stageType === 'OFF_STAGE') {
       updateData.isAssignmentsConfirmed = true;
@@ -311,6 +333,13 @@ export async function toggleMagazineParticipation(teamId: string, participating:
   try {
     const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: "Unauthorized" };
+
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Magazine participation is locked because this festival is completed." };
+      }
+    }
 
     const team = await prisma.team.findUnique({
       where: { id: teamId },

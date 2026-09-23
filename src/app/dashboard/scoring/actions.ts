@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { isZoneOrEventCompleted } from "@/lib/zoneLockUtils";
 
 // Helper to determine Grade based on marks (supports 100-mark single scale and 200-mark consensus scale)
 function calculateGrade(marks: number) {
@@ -154,6 +155,13 @@ export async function submitMarks(data: {
 
     if (!program) return { success: false, error: "Program not found" };
 
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId: data.programId, eventId: data.eventId, teamId: data.teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
+      }
+    }
+
     let candidateId: string | null = null;
     let teamId: string | null = data.teamId || null;
 
@@ -276,6 +284,13 @@ export async function batchSubmitProgramMarks(data: {
     });
 
     if (!program) return { success: false, error: "Program not found" };
+
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId: data.programId, eventId: data.eventId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
+      }
+    }
 
     // Judges can only submit to Pending state; only Zonal Admin / Super Admin can publish live
     const shouldPublish = session.user.role === "JUDGE" ? false : (data.publishImmediately ?? false);
@@ -483,6 +498,13 @@ export async function togglePublishResult(id: string, isPublished: boolean) {
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
+    const currentRes = await prisma.result.findUnique({ where: { id }, select: { programId: true } });
+    if (session.user.role !== "SUPER_ADMIN" && currentRes?.programId) {
+      const lock = await isZoneOrEventCompleted({ programId: currentRes.programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Results are locked because this fest is completed." };
+      }
+    }
     await prisma.result.update({ where: { id }, data: { isPublished } });
     revalidatePath("/dashboard/scoring");
     revalidatePath("/tv");
@@ -498,6 +520,12 @@ export async function publishProgramResults(programId: string) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
+    }
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Results are locked because this fest is completed." };
+      }
     }
     await prisma.result.updateMany({
       where: { programId },
@@ -517,6 +545,12 @@ export async function unpublishProgramResults(programId: string) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
+    }
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Results are locked because this fest is completed." };
+      }
     }
     await prisma.result.updateMany({
       where: { programId },
@@ -539,6 +573,12 @@ export async function deleteResult(id: string) {
     }
     const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
     if (!result) return { success: false, error: "Result not found" };
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId: result.programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Results are locked because this fest is completed." };
+      }
+    }
     await prisma.result.delete({ where: { id } });
     await recalculateProgramResults(result.programId);
     revalidatePath("/dashboard/scoring");
@@ -556,6 +596,12 @@ export async function deleteProgramResults(programId: string) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
+    }
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Results are locked because this fest is completed." };
+      }
     }
 
     await prisma.result.deleteMany({
@@ -594,6 +640,12 @@ export async function updateResultMark(
       } 
     });
     if (!result) return { success: false, error: "Result not found" };
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ programId: result.programId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
+      }
+    }
 
     if (customPoints !== undefined && customPoints !== null) {
       await prisma.result.update({

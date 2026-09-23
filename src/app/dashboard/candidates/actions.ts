@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
 import { getSettings } from "@/lib/settings";
 import { isProgramGeneral } from "@/lib/programUtils";
+import { isZoneOrEventCompleted } from "@/lib/zoneLockUtils";
 
 export async function addCandidate(data: { name: string, categoryId: string, teamId: string, photo?: string, uid?: string }) {
   try {
@@ -15,6 +16,13 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
 
     if (session.user.role === "ZONE_ADMIN") {
       return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    }
+
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId: data.teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Registration is locked because this festival is completed." };
+      }
     }
 
     let finalUid = data.uid;
@@ -154,6 +162,13 @@ export async function updateCandidate(id: string, data: { name: string, category
       return { success: false, error: "Zone Admins cannot manage candidates directly." };
     }
 
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId: candidate.teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Registration is locked because this festival is completed." };
+      }
+    }
+
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
       const fullUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { institutionId: true, eventId: true } });
       const team = fullUser?.institutionId ? await prisma.team.findFirst({
@@ -218,6 +233,13 @@ export async function deleteCandidate(id: string) {
 
     if (session.user.role === "ZONE_ADMIN") {
       return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    }
+
+    if (session.user.role !== "SUPER_ADMIN") {
+      const lock = await isZoneOrEventCompleted({ teamId: candidate.teamId });
+      if (lock.isCompleted) {
+        return { success: false, error: lock.message || "Registration is locked because this festival is completed." };
+      }
     }
 
     if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {

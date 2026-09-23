@@ -449,3 +449,86 @@ export async function updateZonalReplacementSession(options: {
   }
 }
 
+export async function toggleZoneCompleted(zoneId: string, markCompleted: boolean) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
+      return { success: false, error: "Unauthorized: Super Admin permissions required" };
+    }
+
+    const zone = await prisma.zone.findUnique({
+      where: { id: zoneId },
+      include: {
+        events: {
+          select: { id: true, name: true, type: true, statusOverride: true }
+        }
+      }
+    });
+
+    if (!zone) {
+      return { success: false, error: "Zone not found" };
+    }
+
+    const targetStatus = markCompleted ? "COMPLETED" : "AUTO";
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update zone events statusOverride to COMPLETED or AUTO
+      await tx.event.updateMany({
+        where: { zoneId },
+        data: { statusOverride: targetStatus }
+      });
+
+      if (markCompleted) {
+        // 2. Lock all team registrations in this zone
+        await tx.team.updateMany({
+          where: { institution: { zoneId } },
+          data: {
+            registrationUnlocked: false,
+            offStageUnlocked: false,
+            onStageUnlocked: false,
+            isAssignmentsConfirmed: true,
+          }
+        });
+
+        // 3. Publish all results for programs in this zone
+        const zoneEventIds = zone.events.map(e => e.id);
+        if (zoneEventIds.length > 0) {
+          await tx.result.updateMany({
+            where: {
+              program: { eventId: { in: zoneEventIds } },
+              isPublished: false
+            },
+            data: { isPublished: true }
+          });
+        }
+      }
+    });
+
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: markCompleted ? "ZONE_FEST_MARKED_COMPLETED" : "ZONE_FEST_REOPENED",
+        entityType: "ZONE",
+        entityId: zoneId,
+        reason: markCompleted
+          ? `Super Admin marked ${zone.name} (${zone.code}) as COMPLETED & LOCKED. Scoring, registrations, and results are locked.`
+          : `Super Admin reopened ${zone.name} (${zone.code}). Status reset to AUTO.`
+      }
+    }).catch(e => console.warn("Audit log non-fatal error:", e));
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/super/zones");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/reports");
+    revalidatePath("/dashboard/assignments");
+
+    return { success: true, isCompleted: markCompleted, zoneName: zone.name };
+  } catch (error: any) {
+    console.error("Failed to toggle zone completion:", error);
+    return { success: false, error: error.message || "Failed to update zone status" };
+  }
+}
+
+

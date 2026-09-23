@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam } from "./actions";
+import { addZone, updateZone, deleteZone, resetFestData, unlockInstitutionTeam, lockInstitutionTeam, toggleZoneCompleted } from "./actions";
 import { formatInstitutionDisplay } from "@/lib/formatUtils";
 import RegistrationAccessModal from "@/app/dashboard/teams/RegistrationAccessModal";
 import ZonalReplacementSessionModal from "./ZonalReplacementSessionModal";
@@ -110,6 +110,24 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
         alert("Failed to delete: " + res.error);
       }
     }
+  };
+
+  const handleToggleCompleted = async (zoneId: string, markCompleted: boolean, zoneName: string) => {
+    const actionText = markCompleted 
+      ? `🔒 MARK ${zoneName} AS COMPLETED & LOCKED?\n\nThis will:\n1. Lock all scoring & mark entry for this zone.\n2. Lock institution registrations & candidate edits.\n3. Publish all remaining results for this zone.\n\nAre you sure you want to continue?`
+      : `🟢 REOPEN ${zoneName}?\n\nThis will reset the zone status back to ACTIVE and re-enable admin controls.`;
+
+    if (!confirm(actionText)) return;
+
+    setActionLoading(true);
+    const res = await toggleZoneCompleted(zoneId, markCompleted);
+    if (res.success) {
+      setZones(prev => prev.map(z => z.id === zoneId ? { ...z, isCompleted: markCompleted } : z));
+      alert(`✅ ${zoneName} is now ${markCompleted ? 'COMPLETED & LOCKED' : 'REOPENED & ACTIVE'}.`);
+    } else {
+      alert("Failed to update: " + res.error);
+    }
+    setActionLoading(false);
   };
 
   return (
@@ -265,7 +283,25 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                 {zones.map((zone) => (
                   <tr key={zone.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '12px 8px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      <div>{zone.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{zone.name}</span>
+                        {zone.isCompleted && (
+                          <span style={{ 
+                            fontSize: '0.68rem', 
+                            fontWeight: 800, 
+                            padding: '2px 8px', 
+                            borderRadius: '999px', 
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+                            color: '#ef4444', 
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            🔒 FEST COMPLETED
+                          </span>
+                        )}
+                      </div>
                       {(zone.isOffStageSessionActive || zone.isOnStageSessionActive) && (
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
                           {zone.isOffStageSessionActive && (
@@ -342,6 +378,22 @@ export default function ZonesClient({ initialZones }: { initialZones: any[] }) {
                     </td>
                     <td style={{ textAlign: 'right', paddingRight: '8px' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button 
+                          onClick={() => handleToggleCompleted(zone.id, !zone.isCompleted, zone.name)}
+                          disabled={actionLoading}
+                          className="btn btn-secondary" 
+                          style={{ 
+                            padding: '3px 8px', 
+                            fontSize: '0.75rem', 
+                            backgroundColor: zone.isCompleted ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', 
+                            color: zone.isCompleted ? '#ef4444' : '#10b981', 
+                            borderColor: zone.isCompleted ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+                            fontWeight: 800
+                          }}
+                          title={zone.isCompleted ? "Reopen this zone (unlock scoring and registrations)" : "Save zone as Completed (lock scoring, registrations, and publish results)"}
+                        >
+                          {zone.isCompleted ? "🔒 Fest Completed (Reopen)" : "🏁 Mark Fest Completed"}
+                        </button>
                         <button 
                           onClick={() => setSessionModalZoneId(zone.id)}
                           className="btn btn-secondary" 
