@@ -314,3 +314,195 @@ export async function pushMasterProgramsToAllZones() {
     return { success: false, error: error.message || "Failed to push programs." };
   }
 }
+
+export async function getProgramParticipants(programId: string, requestedZoneId?: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized — access restricted to Admin and Zone Admin" };
+    }
+
+    const fullUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { eventId: true, zoneId: true, role: true }
+    });
+
+    const activeZoneId = session.user.role === "ZONE_ADMIN" 
+      ? (fullUser?.zoneId || (session.user as any).zoneId || null) 
+      : (requestedZoneId || null);
+
+    const program = await prisma.program.findUnique({
+      where: { id: programId },
+      include: {
+        category: { select: { id: true, name: true } },
+        event: { select: { id: true, name: true, type: true, zoneId: true } },
+      }
+    });
+
+    if (!program) {
+      return { success: false, error: "Program not found" };
+    }
+
+    // Find all matching programs across events (State and Zonal) with the same name and category
+    const matchingPrograms = await prisma.program.findMany({
+      where: {
+        OR: [
+          { id: programId },
+          { 
+            name: { equals: program.name, mode: "insensitive" },
+            ...(program.categoryId ? { categoryId: program.categoryId } : {})
+          },
+          ...(program.programCode ? [{ programCode: program.programCode }] : [])
+        ]
+      },
+      select: { id: true }
+    });
+
+    const targetProgramIds = Array.from(new Set(matchingPrograms.map(p => p.id)));
+
+    // Build assignment query
+    const assignmentWhere: any = {
+      programId: { in: targetProgramIds }
+    };
+
+    if (activeZoneId) {
+      assignmentWhere.candidate = {
+        OR: [
+          { institution: { zoneId: activeZoneId } },
+          { team: { institution: { zoneId: activeZoneId } } },
+          { team: { event: { zoneId: activeZoneId } } }
+        ]
+      };
+    }
+
+    const assignments = await prisma.programAssignment.findMany({
+      where: assignmentWhere,
+      include: {
+        candidate: {
+          select: {
+            id: true,
+            name: true,
+            chestNumber: true,
+            uid: true,
+            photoUrl: true,
+            photo: true,
+            isApproved: true,
+            replacedFromChest: true,
+            replacementNote: true,
+            category: { select: { name: true } },
+            institution: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                place: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                prefixCode: true,
+                institution: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    place: true,
+                    zone: { select: { id: true, name: true, code: true } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { candidate: { chestNumber: "asc" } },
+        { candidate: { name: "asc" } }
+      ]
+    });
+
+    // Deduplicate candidates in case an assignment exists on both state and zone level
+    const seenCandidateIds = new Set<string>();
+    const uniqueParticipants: any[] = [];
+
+    for (const a of assignments) {
+      if (!seenCandidateIds.has(a.candidate.id)) {
+        seenCandidateIds.add(a.candidate.id);
+        const inst = a.candidate.institution || a.candidate.team.institution;
+        const zone = inst?.zone;
+        uniqueParticipants.push({
+          assignmentId: a.id,
+          candidateId: a.candidate.id,
+          name: a.candidate.name,
+          chestNumber: a.candidate.chestNumber,
+          uid: a.candidate.uid,
+          photo: a.candidate.photoUrl || a.candidate.photo || null,
+          categoryName: a.candidate.category?.name || program.category?.name || "General",
+          teamName: a.candidate.team?.name || "N/A",
+          institutionCode: inst?.code || "N/A",
+          institutionName: inst?.name || "N/A",
+          institutionPlace: inst?.place || "",
+          zoneName: zone?.name || "",
+          zoneCode: zone?.code || "",
+          isApproved: a.candidate.isApproved,
+          replacedFromChest: a.candidate.replacedFromChest,
+          replacementNote: a.candidate.replacementNote,
+          hasIssue: !a.candidate.chestNumber || (!a.candidate.photoUrl && !a.candidate.photo)
+        });
+      }
+    }
+
+    // Sort: candidates missing chest numbers or with issues can be inspected easily
+    uniqueParticipants.sort((a, b) => {
+      if (a.chestNumber && b.chestNumber) {
+        const numA = parseInt(a.chestNumber);
+        const numB = parseInt(b.chestNumber);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.chestNumber.localeCompare(b.chestNumber);
+      }
+      if (a.chestNumber && !b.chestNumber) return 1;
+      if (!a.chestNumber && b.chestNumber) return -1;
+      return a.name.localeCompare(b.name);
+    });
+
+    // Zone info if filtered
+    let zoneTitle = "";
+    if (activeZoneId) {
+      const z = await prisma.zone.findUnique({
+        where: { id: activeZoneId },
+        select: { name: true, code: true }
+      });
+      if (z) zoneTitle = `${z.name} (${z.code})`;
+    }
+
+    return {
+      success: true,
+      program: {
+        id: program.id,
+        name: program.name,
+        programCode: program.programCode,
+        type: program.type,
+        stageType: program.stageType,
+        category: program.category?.name || "General",
+        eventName: program.event.name,
+        zoneTitle
+      },
+      stats: {
+        total: uniqueParticipants.length,
+        withChestNumber: uniqueParticipants.filter(p => p.chestNumber).length,
+        missingChestNumber: uniqueParticipants.filter(p => !p.chestNumber).length,
+        missingPhoto: uniqueParticipants.filter(p => !p.photo).length,
+        missingUid: uniqueParticipants.filter(p => !p.uid).length,
+        institutionsCount: new Set(uniqueParticipants.map(p => p.institutionCode)).size
+      },
+      participants: uniqueParticipants
+    };
+  } catch (error: any) {
+    console.error("Failed to get program participants:", error);
+    return { success: false, error: error.message || "Failed to load participants." };
+  }
+}
+

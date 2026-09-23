@@ -5,6 +5,7 @@ import { deleteProgram } from "./actions";
 import EditProgramModal from "./EditProgramModal";
 
 import AssignJudgesModal from "./AssignJudgesModal";
+import ProgramParticipantsModal from "./ProgramParticipantsModal";
 import { isInstitutionProgram } from "@/lib/programUtils";
 
 type ProgramType = {
@@ -18,11 +19,25 @@ type ProgramType = {
   event: { name: string };
   judges?: { id: string; username: string }[];
   _count: { assignments: number };
+  candidateCount?: number;
 };
 
-export default function ProgramList({ programs, categories, role = "ADMIN", judges = [] }: { programs: ProgramType[], categories: any[], role?: string, judges?: any[] }) {
+export default function ProgramList({ 
+  programs, 
+  categories, 
+  role = "ADMIN", 
+  judges = [],
+  userZoneId
+}: { 
+  programs: ProgramType[]; 
+  categories: any[]; 
+  role?: string; 
+  judges?: any[];
+  userZoneId?: string;
+}) {
   const [editingProgram, setEditingProgram] = useState<ProgramType | null>(null);
   const [assigningProgram, setAssigningProgram] = useState<ProgramType | null>(null);
+  const [selectedParticipantsProgram, setSelectedParticipantsProgram] = useState<ProgramType | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterStage, setFilterStage] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
@@ -296,20 +311,29 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                 <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
                   <span>Event: <strong>{program.event.name}</strong></span>
                   <span>•</span>
-                  <span style={{ 
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '2px 8px', 
-                    borderRadius: '4px', 
-                    fontSize: '0.78rem', 
-                    fontWeight: 800, 
-                    backgroundColor: program._count.assignments > 0 ? 'rgba(142,0,51,0.1)' : '#f1f5f9',
-                    color: program._count.assignments > 0 ? '#8E0033' : '#64748b',
-                    border: `1px solid ${program._count.assignments > 0 ? 'rgba(142,0,51,0.25)' : '#cbd5e1'}`
-                  }}>
-                    👥 {program._count.assignments} Candidates Registered
-                  </span>
+                  <button 
+                    type="button"
+                    onClick={() => setSelectedParticipantsProgram(program)}
+                    title="Click to view all registered candidates & registration issues"
+                    style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 10px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.78rem', 
+                      fontWeight: 800, 
+                      backgroundColor: (program.candidateCount ?? program._count.assignments) > 0 ? 'rgba(142,0,51,0.1)' : '#f1f5f9',
+                      color: (program.candidateCount ?? program._count.assignments) > 0 ? '#8E0033' : '#64748b',
+                      border: `1px solid ${(program.candidateCount ?? program._count.assignments) > 0 ? 'rgba(142,0,51,0.3)' : '#cbd5e1'}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>👥</span>
+                    <span>{program.candidateCount ?? program._count.assignments} Candidates Registered</span>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.85, textDecoration: 'underline' }}>View List</span>
+                  </button>
                   {program.judges && program.judges.length > 0 && (
                      <span style={{ color: 'var(--brand)' }}>
                        • Judges: {program.judges.map(j => j.username).join(", ")}
@@ -323,7 +347,30 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
                 )}
               </div>
               
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* View Participants Button (Available for all roles) */}
+                <button 
+                  type="button"
+                  onClick={() => setSelectedParticipantsProgram(program)}
+                  className="btn"
+                  style={{ 
+                    padding: '0.35rem 0.85rem', 
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    backgroundColor: '#8E0033',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(142,0,51,0.18)'
+                  }}
+                >
+                  <span>👥</span> Participants ({program.candidateCount ?? program._count.assignments})
+                </button>
+
                 {isZoneAdmin ? (
                   <>
                     <button 
@@ -393,6 +440,14 @@ export default function ProgramList({ programs, categories, role = "ADMIN", judg
           program={assigningProgram} 
           judges={judges}
           onClose={() => setAssigningProgram(null)} 
+        />
+      )}
+
+      {selectedParticipantsProgram && (
+        <ProgramParticipantsModal
+          program={selectedParticipantsProgram}
+          zoneId={userZoneId}
+          onClose={() => setSelectedParticipantsProgram(null)}
         />
       )}
     </div>

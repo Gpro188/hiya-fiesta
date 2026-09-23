@@ -359,6 +359,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
+          name: "Programs & Participants",
+          subtitle: "Check registered candidates",
+          icon: "📜",
+          href: "/dashboard/programs",
+          highlight: true,
+        },
+        {
           name: "Scheduling & Stages",
           subtitle: "Assign venues & time slots",
           icon: "📅",
