@@ -937,7 +937,7 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
 
 export async function applyRegistrationBasedScheduleToZone(
   zoneEventId: string,
-  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number }
+  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number; groupFixedMin?: number }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1021,7 +1021,8 @@ export async function applyRegistrationBasedScheduleToZone(
       const timeline = calculateVenueTimeline(venueName, vProgs, {
         targetZoneId,
         bufferMinutes: options?.bufferMinutes ?? 2,
-        minutesPerCandidate: options?.defaultMinPerCandidate
+        minutesPerCandidate: options?.defaultMinPerCandidate,
+        groupFixedMin: options?.groupFixedMin
       });
 
       for (const slot of timeline.programs) {
@@ -1091,7 +1092,7 @@ export async function applyRegistrationBasedScheduleToZone(
 }
 
 export async function applyRegistrationBasedScheduleToAllZones(
-  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number }
+  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number; groupFixedMin?: number }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1323,3 +1324,294 @@ export async function autoResolveCandidateClashes(eventId: string, targetZoneId?
   }
 }
 
+
+// -----------------------------------------------------------------------------
+// GLOBAL SCHEDULE TIMING SETTINGS
+// -----------------------------------------------------------------------------
+
+/**
+ * Load global schedule timing settings from the master GlobalSetting row.
+ */
+export async function getGlobalScheduleSettings() {
+  try {
+    const row = await prisma.globalSetting.findFirst({
+      where: { OR: [{ id: "default" }, { eventId: null }] },
+      select: {
+        scheduleMinPerCandidate: true,
+        scheduleBufferMinutes: true,
+        scheduleGroupFixedMin: true,
+      }
+    });
+
+    // Also try the master event row if no default found
+    let settings = row;
+    if (!settings || (settings.scheduleMinPerCandidate === null && settings.scheduleBufferMinutes === null)) {
+      const masterRow = await prisma.globalSetting.findFirst({
+        where: { event: { OR: [{ parentId: null }, { type: "STATE" }] } },
+        select: {
+          scheduleMinPerCandidate: true,
+          scheduleBufferMinutes: true,
+          scheduleGroupFixedMin: true,
+        }
+      });
+      if (masterRow) settings = masterRow;
+    }
+
+    return {
+      success: true,
+      minPerCandidate: settings?.scheduleMinPerCandidate ?? 10,
+      bufferMinutes: settings?.scheduleBufferMinutes ?? 2,
+      groupFixedMin: settings?.scheduleGroupFixedMin ?? 30,
+    };
+  } catch (e: any) {
+    return { success: false, error: e.message, minPerCandidate: 10, bufferMinutes: 2, groupFixedMin: 30 };
+  }
+}
+
+/**
+ * Save global schedule timing settings and optionally re-apply to all zones.
+ */
+export async function saveGlobalScheduleSettings(data: {
+  minPerCandidate: number;
+  bufferMinutes: number;
+  groupFixedMin: number;
+  applyToAllZones: boolean;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Update ALL GlobalSetting rows (master + all zone events) so every zone sees the same values
+    await prisma.globalSetting.updateMany({
+      data: {
+        scheduleMinPerCandidate: data.minPerCandidate,
+        scheduleBufferMinutes: data.bufferMinutes,
+        scheduleGroupFixedMin: data.groupFixedMin,
+      }
+    });
+
+    let applyResult: { updatedZones?: number; totalPrograms?: number } = {};
+
+    if (data.applyToAllZones) {
+      const res = await applyRegistrationBasedScheduleToAllZones({
+        bufferMinutes: data.bufferMinutes,
+        defaultMinPerCandidate: data.minPerCandidate,
+        groupFixedMin: data.groupFixedMin,
+      });
+      if (res.success) {
+        applyResult = { updatedZones: (res as any).updatedZones, totalPrograms: (res as any).totalPrograms };
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/settings");
+    return { success: true, ...applyResult };
+  } catch (e: any) {
+    console.error("saveGlobalScheduleSettings error:", e);
+    return { success: false, error: e.message || "Failed to save schedule settings" };
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CLASH FIX ASSISTANT � resolve clashes by slot reordering only
+// -----------------------------------------------------------------------------
+
+/**
+ * For each MANAGEABLE clash (individual vs individual), swap candidate slots
+ * so that clashing candidates appear at opposite ends of each conflicting venue.
+ * Never changes program type, category, content, or FIXED-time programs.
+ */
+export async function resolveManageableClashes(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline, detectClashesBySeverity } = await import("@/lib/scheduleCalculator");
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true, parent: true }
+    });
+    if (!event) return { success: false, error: "Event not found" };
+
+    const targetZoneId = event.zoneId || event.zone?.id;
+    const parentId = event.parentId;
+
+    const rawPrograms = await prisma.program.findMany({
+      where: parentId
+        ? { OR: [{ eventId }, { eventId: parentId }] }
+        : { eventId },
+      include: {
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          },
+          orderBy: { slotNumber: "asc" }
+        }
+      }
+    });
+
+    // Build venue timelines
+    const venueGroups: Record<string, any[]> = {};
+    for (const p of rawPrograms) {
+      if (!p.venue || p.type === "BREAK") continue;
+      if (!venueGroups[p.venue]) venueGroups[p.venue] = [];
+      venueGroups[p.venue].push(p);
+    }
+
+    const venueTimelines: Record<string, any[]> = {};
+    for (const [vName, vProgs] of Object.entries(venueGroups)) {
+      const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: 2 });
+      venueTimelines[vName] = tl.programs;
+    }
+
+    const { scoredClashes } = detectClashesBySeverity(venueTimelines, targetZoneId);
+    const fixable = scoredClashes.filter(c => c.isAutoFixable && c.severity === "MANAGEABLE");
+
+    if (fixable.length === 0) {
+      return { success: true, fixed: 0, message: "No manageable clashes found to fix." };
+    }
+
+    // For each manageable clash: find the two programs, find the clashing candidate's slot,
+    // move them to first slot in one venue and last slot in the other
+    let fixedCount = 0;
+    const processedPairs = new Set<string>();
+
+    for (const clash of fixable) {
+      const pairKey = [clash.candidateId, clash.program1Id, clash.program2Id].sort().join("_");
+      if (processedPairs.has(pairKey)) continue;
+      processedPairs.add(pairKey);
+
+      // Find the two program assignment records for this candidate
+      const asnP1 = await prisma.programAssignment.findFirst({
+        where: { candidateId: clash.candidateId, programId: clash.program1Id }
+      });
+      const asnP2 = await prisma.programAssignment.findFirst({
+        where: { candidateId: clash.candidateId, programId: clash.program2Id }
+      });
+
+      if (!asnP1 || !asnP2) continue;
+
+      // Count slots in each program
+      const [slotsP1, slotsP2] = await Promise.all([
+        prisma.programAssignment.count({ where: { programId: clash.program1Id } }),
+        prisma.programAssignment.count({ where: { programId: clash.program2Id } })
+      ]);
+
+      // Strategy: put candidate as slot 1 in the program with fewer candidates (go first)
+      // and as last slot in the other program (go last)
+      const [firstProg, lastProg, firstAsn, lastAsn] = slotsP1 <= slotsP2
+        ? [clash.program1Id, clash.program2Id, asnP1, asnP2]
+        : [clash.program2Id, clash.program1Id, asnP2, asnP1];
+
+      // Get the smallest available slot number in firstProg (assign to slot 1)
+      const firstSlots = await prisma.programAssignment.findMany({
+        where: { programId: firstProg },
+        orderBy: { slotNumber: "asc" },
+        select: { id: true, slotNumber: true }
+      });
+      // Shift everyone else to make room at slot 1
+      await prisma.$transaction([
+        // Give clashing candidate slot 1 in first program
+        prisma.programAssignment.update({
+          where: { id: firstAsn.id },
+          data: { slotNumber: 0 } // temp 0
+        }),
+        // Give clashing candidate last slot in second program
+        prisma.programAssignment.update({
+          where: { id: lastAsn.id },
+          data: { slotNumber: (slotsP1 <= slotsP2 ? slotsP2 : slotsP1) + 1 }
+        }),
+      ]);
+
+      // Fix slot 0 ? slot 1
+      await prisma.programAssignment.update({
+        where: { id: firstAsn.id },
+        data: { slotNumber: 1 }
+      });
+
+      fixedCount++;
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
+
+    return {
+      success: true,
+      fixed: fixedCount,
+      message: `Reordered slots for ${fixedCount} manageable clash(es). Clashing candidates placed first in one venue and last in the other.`
+    };
+  } catch (e: any) {
+    console.error("resolveManageableClashes error:", e);
+    return { success: false, error: e.message || "Failed to fix clashes" };
+  }
+}
+
+/**
+ * Get global schedule clash analysis for an event � returns scored clashes.
+ */
+export async function getScheduleClashAnalysis(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized", clashes: [] };
+    }
+
+    const { calculateVenueTimeline, detectClashesBySeverity } = await import("@/lib/scheduleCalculator");
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true, parent: true }
+    });
+    if (!event) return { success: false, error: "Event not found", clashes: [] };
+
+    const targetZoneId = event.zoneId || event.zone?.id;
+    const parentId = event.parentId;
+
+    const rawPrograms = await prisma.program.findMany({
+      where: parentId ? { OR: [{ eventId }, { eventId: parentId }] } : { eventId },
+      include: {
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          },
+          orderBy: { slotNumber: "asc" }
+        }
+      }
+    });
+
+    const venueGroups: Record<string, any[]> = {};
+    for (const p of rawPrograms) {
+      if (!p.venue || p.type === "BREAK") continue;
+      if (!venueGroups[p.venue]) venueGroups[p.venue] = [];
+      venueGroups[p.venue].push(p);
+    }
+
+    const venueTimelines: Record<string, any[]> = {};
+    for (const [vName, vProgs] of Object.entries(venueGroups)) {
+      const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: 2 });
+      venueTimelines[vName] = tl.programs;
+    }
+
+    const result = detectClashesBySeverity(venueTimelines, targetZoneId);
+    return { success: true, ...result };
+  } catch (e: any) {
+    console.error("getScheduleClashAnalysis error:", e);
+    return { success: false, error: e.message, clashes: [] };
+  }
+}

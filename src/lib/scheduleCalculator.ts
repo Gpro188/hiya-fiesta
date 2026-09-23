@@ -51,6 +51,7 @@ export interface ProgramLike {
 export interface CalculationOptions {
   minutesPerCandidate?: number; // override if needed, otherwise uses program.duration or 5
   minutesPerTeam?: number; // for group programs
+  groupFixedMin?: number; // duration for group / fixed programs
   bufferMinutes?: number; // transition buffer between programs (default 0 or 5)
   targetZoneId?: string | null; // filter candidates to this specific zone
   baseStartTime?: Date; // default is 09:00 AM
@@ -152,7 +153,7 @@ export function calculateDynamicProgramDuration(
 
   // 1. TOTAL_FIXED: Program has a fixed duration for the whole session (e.g. written exams, quizzes, or fixed group slot)
   if (effectiveMode === "TOTAL_FIXED") {
-    const duration = baseProgDuration;
+    const duration = options.groupFixedMin && options.groupFixedMin > 0 ? options.groupFixedMin : baseProgDuration;
     return {
       duration,
       candidateCount,
@@ -495,3 +496,234 @@ export function detectVenueSavedBuffer(venuePrograms: any[]): number | null {
   return null;
 }
 
+
+// --- Clash Severity System ----------------------------------------------------
+
+export type ClashSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "MANAGEABLE";
+
+export interface ScoredClash extends CandidateClash {
+  severity: ClashSeverity;
+  severityLabel: string;
+  severityColor: string;
+  severityIcon: string;
+  explanation: string;
+  /** true if the auto-fix tool can resolve this by reordering slots */
+  isAutoFixable: boolean;
+  program1Type?: string;
+  program2Type?: string;
+  program1DurationMode?: string;
+  program2DurationMode?: string;
+  simultaneousCount?: number; // for CRITICAL  how many individual programs clash at once
+}
+
+/**
+ * Extends existing clash detection with severity scoring.
+ *
+ * Severity rules (as specified):
+ *  CRITICAL    3+ INDIVIDUAL programs at the same time in different venues
+ *  HIGH        FIXED/durationMode="FIXED" program + any INDIVIDUAL at same time
+ *  MEDIUM      2 INDIVIDUAL programs overlap a GROUP program time window
+ *  MANAGEABLE  1 INDIVIDUAL vs 1 INDIVIDUAL (different venues, adjustable by slot position)
+ */
+export function detectClashesBySeverity(
+  venueTimelines: Record<string, CalculatedProgramSlot[]>,
+  targetZoneId?: string | null
+): {
+  scoredClashes: ScoredClash[];
+  clashCandidateCount: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  manageableCount: number;
+  clashesByProgramId: Record<string, ScoredClash[]>;
+} {
+  // -- 1. Build per-candidate timeline of appearances --------------------------
+  type Appearance = {
+    candidateId: string;
+    candidateName: string;
+    chestNumber?: string | null;
+    programId: string;
+    programName: string;
+    programType: string;
+    durationMode: string;
+    venue: string;
+    start: Date;
+    end: Date;
+    assignmentId?: string;
+    slotNumber?: number | null;
+  };
+
+  const candidateAppearances = new Map<string, Appearance[]>();
+
+  for (const [venue, slots] of Object.entries(venueTimelines)) {
+    if (!venue || venue === "Unassigned") continue;
+    for (const slot of slots) {
+      if (slot.program.type === "BREAK") continue;
+      const progType = (slot.program.type || "INDIVIDUAL").toUpperCase();
+      const durMode = (slot.program.durationMode || "AUTO").toUpperCase();
+      const zoneCands = getZoneCandidatesForProgram(slot.program.assignments || [], targetZoneId);
+
+      for (const asn of zoneCands) {
+        const cand = asn.candidate;
+        if (!cand?.id) continue;
+
+        const list = candidateAppearances.get(cand.id) || [];
+        // For individual programs, use the slot's scheduledTime if available
+        const slotStart = asn.scheduledTime
+          ? new Date(asn.scheduledTime)
+          : slot.predictedStart;
+        const slotEnd = new Date(slotStart.getTime() + (slot.durationPerItem || 10) * 60000);
+
+        list.push({
+          candidateId: cand.id,
+          candidateName: (cand as any).name || "Candidate",
+          chestNumber: (cand as any).chestNumber || null,
+          programId: slot.program.id,
+          programName: slot.program.name,
+          programType: progType,
+          durationMode: durMode,
+          venue,
+          start: slotStart,
+          end: slotEnd,
+          assignmentId: asn.id,
+          slotNumber: asn.slotNumber,
+        });
+        candidateAppearances.set(cand.id, list);
+      }
+    }
+  }
+
+  // -- 2. Find overlapping pairs ------------------------------------------------
+  const scored: ScoredClash[] = [];
+  const clashesByProgramId: Record<string, ScoredClash[]> = {};
+  const clashingCandidateIds = new Set<string>();
+
+  for (const [, appearances] of candidateAppearances.entries()) {
+    if (appearances.length < 2) continue;
+
+    for (let i = 0; i < appearances.length; i++) {
+      for (let j = i + 1; j < appearances.length; j++) {
+        const a = appearances[i];
+        const b = appearances[j];
+
+        if (a.venue === b.venue && a.programId === b.programId) continue;
+        const startA = a.start.getTime(), endA = a.end.getTime();
+        const startB = b.start.getTime(), endB = b.end.getTime();
+        if (!(startA < endB && startB < endA)) continue;
+
+        const overlapMs = Math.min(endA, endB) - Math.max(startA, startB);
+        const overlapMinutes = Math.round(overlapMs / 60000);
+
+        // -- Determine severity -----------------------------------------------
+        const aFixed = a.durationMode === "FIXED" || a.durationMode === "TOTAL_FIXED";
+        const bFixed = b.durationMode === "FIXED" || b.durationMode === "TOTAL_FIXED";
+        const aInd = a.programType === "INDIVIDUAL";
+        const bInd = b.programType === "INDIVIDUAL";
+        const aGroup = a.programType === "GROUP" || a.programType === "GENERAL" || a.programType === "INSTITUTION";
+        const bGroup = b.programType === "GROUP" || b.programType === "GENERAL" || b.programType === "INSTITUTION";
+
+        // Count how many INDIVIDUAL programs this candidate has at this time window
+        const overlapWindow = appearances.filter(x =>
+          x.programType === "INDIVIDUAL" &&
+          x.start.getTime() < endB && x.end.getTime() > startA
+        );
+
+        let severity: ClashSeverity;
+        let severityLabel: string;
+        let severityColor: string;
+        let severityIcon: string;
+        let explanation: string;
+        let isAutoFixable = false;
+
+        if (overlapWindow.length >= 3) {
+          severity = "CRITICAL";
+          severityLabel = "Critical  Multiple Simultaneous Individual Slots";
+          severityColor = "#ef4444";
+          severityIcon = "??";
+          explanation = `${overlapWindow.length} individual programs overlap at the same time. Candidate cannot be in multiple venues simultaneously.`;
+          isAutoFixable = false;
+        } else if (aFixed || bFixed) {
+          severity = "HIGH";
+          severityLabel = "High  Fixed-Time Conflict";
+          severityColor = "#f97316";
+          severityIcon = "??";
+          const fixedName = aFixed ? a.programName : b.programName;
+          explanation = `"${fixedName}" has a fixed start time. Candidate must be present  cannot adjust slot position.`;
+          isAutoFixable = false;
+        } else if ((aInd && bGroup) || (bInd && aGroup)) {
+          severity = "MEDIUM";
+          severityLabel = "Medium  Individual vs Group";
+          severityColor = "#eab308";
+          severityIcon = "??";
+          const indName = aInd ? a.programName : b.programName;
+          const grpName = aGroup ? a.programName : b.programName;
+          explanation = `"${indName}" (individual) overlaps with "${grpName}" (group). Group programs have flexibility  try adjusting buffer or ordering.`;
+          isAutoFixable = true;
+        } else if (aInd && bInd) {
+          severity = "MANAGEABLE";
+          severityLabel = "Manageable  Two Individual Programs";
+          severityColor = "#22c55e";
+          severityIcon = "??";
+          explanation = `Candidate can perform first in ${a.venue}, then last in ${b.venue} (or vice versa). Adjustable via slot reordering.`;
+          isAutoFixable = true;
+        } else {
+          severity = "MEDIUM";
+          severityLabel = "Medium  Scheduling Overlap";
+          severityColor = "#eab308";
+          severityIcon = "??";
+          explanation = `Time overlap of ${overlapMinutes} min between "${a.programName}" and "${b.programName}".`;
+          isAutoFixable = true;
+        }
+
+        const sc: ScoredClash = {
+          candidateId: a.candidateId,
+          candidateName: a.candidateName,
+          program1Id: a.programId,
+          program1Name: a.programName,
+          program1Venue: a.venue,
+          program1Start: a.start,
+          program1End: a.end,
+          program2Id: b.programId,
+          program2Name: b.programName,
+          program2Venue: b.venue,
+          program2Start: b.start,
+          program2End: b.end,
+          overlapMinutes,
+          severity,
+          severityLabel,
+          severityColor,
+          severityIcon,
+          explanation,
+          isAutoFixable,
+          program1Type: a.programType,
+          program2Type: b.programType,
+          program1DurationMode: a.durationMode,
+          program2DurationMode: b.durationMode,
+          simultaneousCount: overlapWindow.length,
+        };
+
+        scored.push(sc);
+        clashingCandidateIds.add(a.candidateId);
+
+        if (!clashesByProgramId[a.programId]) clashesByProgramId[a.programId] = [];
+        clashesByProgramId[a.programId].push(sc);
+        if (!clashesByProgramId[b.programId]) clashesByProgramId[b.programId] = [];
+        clashesByProgramId[b.programId].push(sc);
+      }
+    }
+  }
+
+  // Sort: CRITICAL first, then HIGH, MEDIUM, MANAGEABLE
+  const order: Record<ClashSeverity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, MANAGEABLE: 3 };
+  scored.sort((a, b) => order[a.severity] - order[b.severity]);
+
+  return {
+    scoredClashes: scored,
+    clashCandidateCount: clashingCandidateIds.size,
+    criticalCount: scored.filter(c => c.severity === "CRITICAL").length,
+    highCount: scored.filter(c => c.severity === "HIGH").length,
+    mediumCount: scored.filter(c => c.severity === "MEDIUM").length,
+    manageableCount: scored.filter(c => c.severity === "MANAGEABLE").length,
+    clashesByProgramId,
+  };
+}

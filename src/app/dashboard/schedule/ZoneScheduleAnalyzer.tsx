@@ -4,8 +4,11 @@ import { useState, useEffect } from "react";
 import { 
   getZoneScheduleAnalysis, 
   applyRegistrationBasedScheduleToZone, 
-  applyRegistrationBasedScheduleToAllZones 
+  applyRegistrationBasedScheduleToAllZones,
+  getScheduleClashAnalysis,
+  resolveManageableClashes
 } from "./actions";
+import { ScoredClash, formatTimeAmPm } from "@/lib/scheduleCalculator";
 
 interface ProgramSlotReport {
   id: string;
@@ -58,6 +61,7 @@ export default function ZoneScheduleAnalyzer({
   onScheduleUpdated?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"CAPACITY" | "CLASHES">("CAPACITY");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [zones, setZones] = useState<ZoneReport[]>([]);
@@ -65,9 +69,18 @@ export default function ZoneScheduleAnalyzer({
   const [expandedVenues, setExpandedVenues] = useState<Record<string, boolean>>({});
   const [bufferMinutes, setBufferMinutes] = useState<number>(2);
 
+  // Clash Analysis State
+  const [clashList, setClashList] = useState<ScoredClash[]>([]);
+  const [clashesLoading, setClashesLoading] = useState(false);
+  const [clashCounts, setClashCounts] = useState<{ critical: number; high: number; medium: number; manageable: number }>({ critical: 0, high: 0, medium: 0, manageable: 0 });
+  const [clashFilterSeverity, setClashFilterSeverity] = useState<string>("ALL");
+  const [fixMessage, setFixMessage] = useState<string | null>(null);
+  const [fixingClashes, setFixingClashes] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       loadAnalysis();
+      loadClashes();
     }
   }, [isOpen]);
 
@@ -84,6 +97,56 @@ export default function ZoneScheduleAnalyzer({
       alert("Error loading analysis: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClashes = async (eventIdOverride?: string) => {
+    setClashesLoading(true);
+    setFixMessage(null);
+    try {
+      const targetId = eventIdOverride || (selectedZoneId !== "ALL" ? selectedZoneId : activeEventId);
+      if (!targetId) {
+        setClashesLoading(false);
+        return;
+      }
+      const res: any = await getScheduleClashAnalysis(targetId);
+      if (res && res.success) {
+        setClashList(res.scoredClashes || []);
+        setClashCounts({
+          critical: res.criticalCount || 0,
+          high: res.highCount || 0,
+          medium: res.mediumCount || 0,
+          manageable: res.manageableCount || 0
+        });
+      } else {
+        setClashList([]);
+      }
+    } catch (err: any) {
+      console.error("Error loading clashes:", err);
+    } finally {
+      setClashesLoading(false);
+    }
+  };
+
+  const handleFixManageableInAnalyzer = async () => {
+    const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
+    if (!targetId) return;
+    if (!confirm("Automatically resolve manageable candidate clashes?\n\nCandidate slots will be swapped so they are 1st in one venue and last in the conflicting venue. Fixed times and program types are never changed.")) return;
+    setFixingClashes(true);
+    setFixMessage(null);
+    try {
+      const res = await resolveManageableClashes(targetId);
+      if (res.success) {
+        setFixMessage(res.message || "Clashes resolved!");
+        await loadClashes(targetId);
+        if (onScheduleUpdated) onScheduleUpdated();
+      } else {
+        setFixMessage(`❌ ${res.error || "Failed to fix clashes"}`);
+      }
+    } catch (err: any) {
+      setFixMessage(`❌ ${err.message || "Error"}`);
+    } finally {
+      setFixingClashes(false);
     }
   };
 
@@ -238,6 +301,60 @@ export default function ZoneScheduleAnalyzer({
               </div>
             </div>
 
+            {/* Modal Navigation Tabs */}
+            <div style={{ display: "flex", borderBottom: "1.5px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0 24px" }}>
+              <button
+                onClick={() => setActiveTab("CAPACITY")}
+                style={{
+                  padding: "12px 20px",
+                  fontWeight: 800,
+                  fontSize: "0.85rem",
+                  border: "none",
+                  background: "none",
+                  borderBottom: activeTab === "CAPACITY" ? "3px solid #4f46e5" : "3px solid transparent",
+                  color: activeTab === "CAPACITY" ? "#4f46e5" : "#64748b",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+              >
+                <span>⏱️</span>
+                <span>1-Day Venue Feasibility</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab("CLASHES");
+                  loadClashes();
+                }}
+                style={{
+                  padding: "12px 20px",
+                  fontWeight: 800,
+                  fontSize: "0.85rem",
+                  border: "none",
+                  background: "none",
+                  borderBottom: activeTab === "CLASHES" ? "3px solid #ef4444" : "3px solid transparent",
+                  color: activeTab === "CLASHES" ? "#dc2626" : "#64748b",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+              >
+                <span>⚡</span>
+                <span>Clash Analysis & Auto-Fix</span>
+                {clashCounts.critical > 0 ? (
+                  <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 800 }}>
+                    {clashCounts.critical} Critical
+                  </span>
+                ) : clashCounts.manageable > 0 ? (
+                  <span style={{ backgroundColor: "#22c55e", color: "#fff", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 800 }}>
+                    {clashCounts.manageable} Fixable
+                  </span>
+                ) : null}
+              </button>
+            </div>
+
             {/* Modal Controls Bar */}
             <div style={{
               padding: "12px 24px",
@@ -254,7 +371,13 @@ export default function ZoneScheduleAnalyzer({
                 <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155" }}>Filter Zone:</span>
                 <select
                   value={selectedZoneId}
-                  onChange={e => setSelectedZoneId(e.target.value)}
+                  onChange={e => {
+                    const zid = e.target.value;
+                    setSelectedZoneId(zid);
+                    if (activeTab === "CLASHES") {
+                      loadClashes(zid !== "ALL" ? zid : activeEventId);
+                    }
+                  }}
                   className="form-input"
                   style={{ fontSize: "0.82rem", padding: "4px 10px", width: "220px" }}
                 >
@@ -309,16 +432,237 @@ export default function ZoneScheduleAnalyzer({
               )}
             </div>
 
-            {/* Modal Body: Zones List */}
-            <div style={{
-              padding: "20px 24px",
-              overflowY: "auto",
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              gap: "20px"
-            }}>
-              {loading && (
+            {/* Modal Body: Active Tab Branching */}
+            {activeTab === "CLASHES" ? (
+              <div style={{
+                padding: "20px 24px",
+                overflowY: "auto",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px"
+              }}>
+                {/* Clash Overview & Actions */}
+                <div style={{
+                  padding: "16px 20px",
+                  borderRadius: "12px",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "12px"
+                }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#475569", marginRight: "4px" }}>Filter:</span>
+                    <button
+                      onClick={() => setClashFilterSeverity("ALL")}
+                      className={`btn ${clashFilterSeverity === "ALL" ? "btn-primary" : "btn-secondary"}`}
+                      style={{ padding: "4px 10px", fontSize: "0.78rem", fontWeight: 700, borderRadius: "6px" }}
+                    >
+                      All ({clashList.length})
+                    </button>
+                    <button
+                      onClick={() => setClashFilterSeverity("CRITICAL")}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid #fca5a5",
+                        backgroundColor: clashFilterSeverity === "CRITICAL" ? "#ef4444" : "#fef2f2",
+                        color: clashFilterSeverity === "CRITICAL" ? "#ffffff" : "#dc2626",
+                        cursor: "pointer"
+                      }}
+                    >
+                      🔴 Critical ({clashCounts.critical})
+                    </button>
+                    <button
+                      onClick={() => setClashFilterSeverity("HIGH")}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid #fdba74",
+                        backgroundColor: clashFilterSeverity === "HIGH" ? "#f97316" : "#fff7ed",
+                        color: clashFilterSeverity === "HIGH" ? "#ffffff" : "#ea580c",
+                        cursor: "pointer"
+                      }}
+                    >
+                      🟠 High ({clashCounts.high})
+                    </button>
+                    <button
+                      onClick={() => setClashFilterSeverity("MEDIUM")}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid #fde047",
+                        backgroundColor: clashFilterSeverity === "MEDIUM" ? "#ca8a04" : "#fefce8",
+                        color: clashFilterSeverity === "MEDIUM" ? "#ffffff" : "#854d0e",
+                        cursor: "pointer"
+                      }}
+                    >
+                      🟡 Medium ({clashCounts.medium})
+                    </button>
+                    <button
+                      onClick={() => setClashFilterSeverity("MANAGEABLE")}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid #86efac",
+                        backgroundColor: clashFilterSeverity === "MANAGEABLE" ? "#16a34a" : "#f0fdf4",
+                        color: clashFilterSeverity === "MANAGEABLE" ? "#ffffff" : "#166534",
+                        cursor: "pointer"
+                      }}
+                    >
+                      🟢 Manageable ({clashCounts.manageable})
+                    </button>
+                  </div>
+
+                  {clashCounts.manageable > 0 && (
+                    <button
+                      onClick={handleFixManageableInAnalyzer}
+                      disabled={fixingClashes}
+                      className="btn"
+                      style={{
+                        background: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        fontSize: "0.82rem",
+                        padding: "7px 16px",
+                        borderRadius: "8px",
+                        border: "none",
+                        cursor: fixingClashes ? "not-allowed" : "pointer",
+                        boxShadow: "0 2px 8px rgba(34, 197, 94, 0.35)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <span>🔧</span>
+                      <span>{fixingClashes ? "Resolving..." : `Auto-Fix Manageable Clashes (${clashCounts.manageable})`}</span>
+                    </button>
+                  )}
+                </div>
+
+                {fixMessage && (
+                  <div style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: fixMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4",
+                    border: `1px solid ${fixMessage.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
+                    color: fixMessage.startsWith("❌") ? "#991b1b" : "#166534",
+                    fontSize: "0.85rem",
+                    fontWeight: 700
+                  }}>
+                    {fixMessage}
+                  </div>
+                )}
+
+                {clashesLoading && (
+                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⏳</div>
+                    <strong>Analyzing candidate schedules and calculating conflicts...</strong>
+                  </div>
+                )}
+
+                {!clashesLoading && clashList.length === 0 && (
+                  <div style={{
+                    textAlign: "center",
+                    padding: "48px 20px",
+                    backgroundColor: "#f0fdf4",
+                    borderRadius: "12px",
+                    border: "1.5px solid #86efac"
+                  }}>
+                    <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>🎉</div>
+                    <h3 style={{ margin: "0 0 6px 0", color: "#166534", fontWeight: 800 }}>Zero Clashes Detected!</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#15803d" }}>
+                      All candidates have conflict-free schedules in this zone. No candidate is scheduled in 2 places simultaneously.
+                    </p>
+                  </div>
+                )}
+
+                {!clashesLoading && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "12px" }}>
+                    {clashList
+                      .filter(c => clashFilterSeverity === "ALL" || c.severity === clashFilterSeverity)
+                      .map((c, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: `1.5px solid ${c.severityColor}`,
+                            borderRadius: "12px",
+                            padding: "14px",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                            <span style={{
+                              backgroundColor: `${c.severityColor}15`,
+                              color: c.severityColor,
+                              padding: "3px 10px",
+                              borderRadius: "6px",
+                              fontWeight: 800,
+                              fontSize: "0.75rem",
+                              border: `1px solid ${c.severityColor}35`
+                            }}>
+                              {c.severityLabel}
+                            </span>
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>
+                              {c.overlapMinutes} min overlap
+                            </span>
+                          </div>
+
+                          <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", marginBottom: "6px" }}>
+                            👤 {c.candidateName}
+                          </div>
+
+                          <div style={{ fontSize: "0.8rem", color: "#334155", marginBottom: "3px" }}>
+                            📍 <strong>{c.program1Venue}</strong>: {c.program1Name}
+                            <span style={{ color: "#64748b", marginLeft: "6px" }}>
+                              ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#334155", marginBottom: "6px" }}>
+                            📍 <strong>{c.program2Venue}</strong>: {c.program2Name}
+                            <span style={{ color: "#64748b", marginLeft: "6px" }}>
+                              ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
+                            </span>
+                          </div>
+
+                          <div style={{
+                            fontSize: "0.75rem",
+                            color: "#475569",
+                            backgroundColor: "#f8fafc",
+                            padding: "8px 10px",
+                            borderRadius: "6px",
+                            borderLeft: `3px solid ${c.severityColor}`
+                          }}>
+                            {c.explanation}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Modal Body: Zones Capacity List */
+              <div style={{
+                padding: "20px 24px",
+                overflowY: "auto",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px"
+              }}>
+                {loading && (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
                   <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⏳</div>
                   <strong>Analyzing candidate registrations and building venue timelines...</strong>
@@ -561,8 +905,9 @@ export default function ZoneScheduleAnalyzer({
                 );
               })}
             </div>
+          )}
 
-            {/* Modal Footer */}
+          {/* Modal Footer */}
             <div style={{
               padding: "14px 24px",
               borderTop: "1.5px solid #e2e8f0",
