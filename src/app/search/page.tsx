@@ -12,7 +12,7 @@ export default async function SearchPage(props: {
     type?: string; 
     categoryId?: string; 
     stageType?: string; 
-    programType?: string;
+    sortBy?: string;
     eventId?: string;
   }>;
 }) {
@@ -20,19 +20,23 @@ export default async function SearchPage(props: {
   const eventId = searchParams.eventId || "";
   const settings = await getSettings(eventId);
   const festName = settings.festName;
-  const query = searchParams.q || "";
-  const type = searchParams.type || "chestNumber"; 
+  const query = (searchParams.q || "").trim();
+  // Default type to "programCode" if no query is given, so results board is shown by default!
+  const type = searchParams.type || (query ? "chestNumber" : "programCode");
   const categoryId = searchParams.categoryId || "";
   const stageType = searchParams.stageType || "";
-  const programType = searchParams.programType || "";
-  
+  const sortBy = searchParams.sortBy || "code";
+
+  // If eventId is provided, get target event info
+  const targetEvent = eventId ? await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, name: true, type: true, parentId: true }
+  }) : null;
+  const activeEventName = targetEvent?.name || "";
+
   // If eventId is provided, filter events dropdown to the main event & its sub-events
   let eventWhere: any = {};
   if (eventId) {
-    const targetEvent = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { id: true, parentId: true }
-    });
     const rootId = targetEvent?.parentId || eventId;
     eventWhere = {
       OR: [
@@ -48,7 +52,7 @@ export default async function SearchPage(props: {
     orderBy: { createdAt: 'desc' }
   });
 
-  // Deduplicate by name/id so event names don't repeat in dropdowns
+  // Deduplicate events by name
   const seenNames = new Set<string>();
   const events = rawEvents.filter(ev => {
     const key = ev.name.trim().toLowerCase();
@@ -57,8 +61,9 @@ export default async function SearchPage(props: {
     return true;
   });
 
+  const categoryEventIds = [eventId, targetEvent?.parentId].filter(Boolean) as string[];
   const rawCategories = await prisma.category.findMany({
-    where: eventId ? { eventId } : {},
+    where: categoryEventIds.length > 0 ? { eventId: { in: categoryEventIds } } : {},
     orderBy: { name: 'asc' },
     select: { name: true }
   });
@@ -69,94 +74,170 @@ export default async function SearchPage(props: {
   let candidateResults: any[] = [];
   let programResults: any[] = [];
 
-  if (query || categoryId || stageType || programType || eventId) {
-    if (type === "chestNumber") {
-      const candidateWhere: any = {};
-      
-      const filters: any[] = [];
-      if (query) {
-        filters.push({
+  // Results filter for active zone / event
+  const zoneResultFilter = {
+    isPublished: true,
+    ...(eventId ? {
+      OR: [
+        { team: { eventId } },
+        { candidate: { team: { eventId } } }
+      ]
+    } : {})
+  };
+
+  if (type === "chestNumber" && query) {
+    // Mode 1: Search by Chest Number (or Name / UID)
+    const candidateWhere: any = {};
+    const filters: any[] = [];
+
+    filters.push({
+      OR: [
+        { chestNumber: { equals: query } },
+        { chestNumber: { contains: query } },
+        { uid: { contains: query } },
+        { name: { contains: query, mode: "insensitive" } }
+      ]
+    });
+
+    if (categoryId && categoryId !== "ALL") {
+      filters.push({ category: { name: { equals: categoryId, mode: "insensitive" } } });
+    }
+    if (eventId) {
+      filters.push({ team: { eventId } });
+    }
+
+    candidateWhere.AND = filters;
+
+    candidateResults = await prisma.candidate.findMany({
+      where: candidateWhere,
+      include: {
+        team: {
+          include: {
+            institution: true,
+            event: true
+          }
+        },
+        category: true,
+        programs: { 
+          where: {
+            program: {
+              AND: [
+                stageType ? { stageType: stageType as any } : {}
+              ]
+            }
+          },
+          include: { program: true } 
+        },
+        results: {
+          where: zoneResultFilter,
+          include: { program: true }
+        }
+      }
+    });
+  } else {
+    // Mode 2: Program Code Search OR Default Results Board
+    const progFilters: any[] = [];
+
+    if (query) {
+      progFilters.push({
+        OR: [
+          { programCode: { equals: query } },
+          { programCode: { contains: query } },
+          { name: { contains: query, mode: "insensitive" } }
+        ]
+      });
+    }
+
+    if (categoryId && categoryId !== "ALL") {
+      if (categoryId === "GENERAL") {
+        progFilters.push({
           OR: [
-            { uid: { contains: query } },
-            { chestNumber: { contains: query } },
-            { name: { contains: query } },
-            { team: { name: { contains: query } } },
-            { team: { prefixCode: { contains: query } } }
+            { type: "GENERAL" },
+            { categoryId: null },
+            { category: { name: { equals: "GENERAL", mode: "insensitive" } } }
           ]
         });
+      } else {
+        progFilters.push({
+          category: { name: { equals: categoryId, mode: "insensitive" } }
+        });
       }
-      if (categoryId) filters.push({ category: { name: categoryId } });
-      if (eventId) filters.push({ team: { eventId } });
+    }
 
-      if (filters.length > 0) {
-        candidateWhere.AND = filters;
-      }
+    if (stageType) {
+      progFilters.push({ stageType: stageType as any });
+    }
 
-      candidateResults = await prisma.candidate.findMany({
-        where: candidateWhere,
-        include: {
-          team: true,
-          category: true,
-          programs: { 
-            where: {
-              program: {
-                AND: [
-                  stageType ? { stageType: stageType as any } : {},
-                  programType ? { type: programType as any } : {}
-                ]
-              }
-            },
-            include: { program: true } 
-          },
-          results: {
-            where: { isPublished: true },
-            include: { program: true }
-          }
+    // When browsing without a specific query, only show programs that have published results
+    if (!query) {
+      progFilters.push({
+        results: {
+          some: zoneResultFilter
         }
       });
-    } else if (type === "program") {
-      const programWhere: any = {};
-      const filters: any[] = [];
+    }
 
-      if (query) {
-        filters.push({
-          OR: [
-            { name: { contains: query } },
-            { programCode: { contains: query } }
-          ]
-        });
-      }
-      if (categoryId) filters.push({ category: { name: categoryId } });
-      if (eventId) {
-        const targetEvent = await prisma.event.findUnique({ where: { id: eventId } });
-        filters.push({
-          OR: [
-            { eventId: eventId },
-            ...(targetEvent?.parentId ? [{ eventId: targetEvent.parentId }] : [])
-          ]
-        });
-      }
-      if (stageType) filters.push({ stageType: stageType as any });
-      if (programType) filters.push({ type: programType as any });
-
-      if (filters.length > 0) {
-        programWhere.AND = filters;
-      }
-
-      programResults = await prisma.program.findMany({
-        where: programWhere,
-        include: {
-          event: true,
-          category: true,
-          results: {
-            where: eventId ? { candidate: { team: { eventId } } } : {},
-            orderBy: { marks: 'desc' },
-            include: { candidate: { include: { team: true } } }
-          },
-          assignments: {
-            include: { candidate: { include: { team: true } } }
+    const rawProgramResults = await prisma.program.findMany({
+      where: progFilters.length > 0 ? { AND: progFilters } : {},
+      include: {
+        event: true,
+        category: true,
+        results: {
+          where: zoneResultFilter,
+          orderBy: [
+            { rank: 'asc' },
+            { marks: 'desc' }
+          ],
+          include: {
+            candidate: {
+              include: {
+                team: {
+                  include: { institution: true }
+                },
+                category: true
+              }
+            },
+            team: {
+              include: { institution: true }
+            }
           }
         }
+      }
+    });
+
+    // Deduplicate programs by programCode
+    const programMap = new Map<string, typeof rawProgramResults[0]>();
+    for (const prog of rawProgramResults) {
+      const key = prog.programCode ? `code_${prog.programCode}` : prog.id;
+      const existing = programMap.get(key);
+      if (!existing) {
+        programMap.set(key, prog);
+      } else {
+        existing.results = Array.from(new Set([...existing.results, ...prog.results]));
+      }
+    }
+    programResults = Array.from(programMap.values());
+
+    // Sort according to sortBy
+    if (sortBy === "code") {
+      programResults.sort((a, b) => {
+        const codeA = Number(a.programCode) || 0;
+        const codeB = Number(b.programCode) || 0;
+        if (codeA !== codeB) return codeA - codeB;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === "recent") {
+      programResults.sort((a, b) => {
+        const maxA = Math.max(...a.results.map((r: any) => new Date(r.updatedAt || r.createdAt).getTime()), 0);
+        const maxB = Math.max(...b.results.map((r: any) => new Date(r.updatedAt || r.createdAt).getTime()), 0);
+        return maxB - maxA;
+      });
+    } else if (sortBy === "rank") {
+      programResults.sort((a, b) => {
+        const hasRank1A = a.results.some((r: any) => r.rank === 1) ? 1 : 0;
+        const hasRank1B = b.results.some((r: any) => r.rank === 1) ? 1 : 0;
+        if (hasRank1A !== hasRank1B) return hasRank1B - hasRank1A;
+        return (Number(a.programCode) || 0) - (Number(b.programCode) || 0);
       });
     }
   }
@@ -166,8 +247,15 @@ export default async function SearchPage(props: {
       <PublicNav eventName={festName} showSearch={false} />
 
       <main style={{ flex: 1, padding: '2.5rem 0' }}>
-        <div className="container" style={{ maxWidth: '960px' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Advanced Programme & Result Search</h2>
+        <div className="container" style={{ maxWidth: '960px', margin: '0 auto', padding: '0 16px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ margin: '0 0 6px 0', fontSize: '1.8rem', fontWeight: 800, color: '#1a1420', fontFamily: "'Fraunces', serif" }}>
+              Programme & Result Search
+            </h1>
+            <p style={{ margin: 0, color: '#7a7480', fontSize: '0.9rem' }}>
+              Search competition results by chest number or program code, or browse the official winner boards.
+            </p>
+          </div>
           
           <SearchClient 
             initialQuery={query} 
@@ -175,17 +263,20 @@ export default async function SearchPage(props: {
             events={events}
             categories={categories}
             initialEventId={eventId}
+            activeEventName={activeEventName}
             initialCategoryId={categoryId}
             initialStageType={stageType}
-            initialProgramType={programType}
+            initialSortBy={sortBy}
           />
           
-          <div style={{ marginTop: 'var(--spacing-xl)' }}>
-            {type === "chestNumber" && (
+          <div style={{ marginTop: '28px' }}>
+            {/* VIEW 1: CANDIDATE SEARCH RESULTS */}
+            {type === "chestNumber" && query && (
               <div>
-                {(query || categoryId || eventId) && candidateResults.length === 0 ? (
+                {candidateResults.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 20px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #f2d9e6' }}>
-                    <p style={{ color: '#7a7480', fontSize: '1rem', margin: 0 }}>No candidates found matching your criteria.</p>
+                    <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🔍</span>
+                    <p style={{ color: '#7a7480', fontSize: '1rem', margin: 0 }}>No candidates found for chest number "{query}".</p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -197,128 +288,138 @@ export default async function SearchPage(props: {
                           borderRadius: '18px', 
                           padding: '24px 22px',
                           border: '1px solid #f2d9e6',
-                          borderLeft: `5px solid ${candidate.team.flagColor || '#e6007e'}`,
+                          borderLeft: `5px solid ${candidate.team?.flagColor || '#e6007e'}`,
                           boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.06)'
                         }}
                       >
-                        <h3 style={{ color: '#1a1420', fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: '1.25rem', margin: '0 0 6px 0' }}>
-                          {candidate.name} <span style={{ color: '#7a7480', fontSize: '0.85rem', fontFamily: "'IBM Plex Mono', monospace" }}>({candidate.chestNumber})</span>
-                        </h3>
-                        {(() => {
-                          const { name: instName, place: instPlace } = formatInstitutionDisplay(candidate.team);
-                          return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                              <div style={{ width: '4px', height: '36px', backgroundColor: candidate.team.flagColor || '#e6007e', borderRadius: '9999px' }}></div>
-                              <div style={{ color: '#7a7480', fontSize: '0.875rem' }}>
-                                <div>
-                                  Team: <strong style={{ color: '#1a1420' }}>{instName}</strong>
-                                  {instPlace && (
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
-                                      📍 {instPlace}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                          <div>
+                            <h3 style={{ color: '#1a1420', fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: '1.3rem', margin: '0 0 4px 0' }}>
+                              {candidate.name} <span style={{ color: '#e6007e', fontSize: '1rem', fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>({candidate.chestNumber})</span>
+                            </h3>
+                            {(() => {
+                              const { name: instName, place: instPlace } = formatInstitutionDisplay(candidate.team);
+                              return (
+                                <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                                  Institution: <strong style={{ color: '#1a1420' }}>{instName}</strong>
+                                  {instPlace && <span style={{ marginLeft: '6px' }}>📍 {instPlace}</span>}
+                                  {candidate.category && (
+                                    <span style={{ marginLeft: '10px', padding: '2px 8px', borderRadius: '6px', backgroundColor: '#fcebf3', color: '#e6007e', fontWeight: 700, fontSize: '0.75rem' }}>
+                                      {candidate.category.name}
                                     </span>
                                   )}
                                 </div>
-                                <div style={{ fontSize: '0.78rem', marginTop: '2px' }}>
-                                  Category: <strong style={{ color: '#e6007e' }}>{candidate.category.name}</strong>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        <h4 style={{ margin: '0 0 10px 0', fontSize: '0.92rem', fontFamily: "'Fraunces', serif", color: '#1a1420', fontWeight: 800 }}>
-                          Schedule & Results
-                        </h4>
-                        {candidate.programs.length === 0 ? (
-                          <div style={{ color: '#7a7480', fontSize: '0.85rem' }}>No programs matching filters for this candidate.</div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {candidate.programs.map((p: any) => {
-                              const progStartTime = p.program.startTime ? new Date(p.program.startTime) : null;
-                              const isFinished = progStartTime && (progStartTime.getTime() + (p.program.duration * 60000)) < new Date().getTime();
-                              const resMatch = candidate.results.find((r: any) => r.programId === p.programId);
-                              const hasResult = !!resMatch;
-                              const isEntered = hasResult || isFinished;
-                              const winnerUrl = `/results/${p.programId}?eventId=${candidate.team?.eventId || ''}`;
-                              
-                              return (
-                                <div key={p.id} style={{ 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between', 
-                                  alignItems: 'center',
-                                  padding: '12px 14px', 
-                                  backgroundColor: '#FFF8FA', 
-                                  borderRadius: '12px', 
-                                  border: '1px solid #f9ebf2',
-                                  borderLeft: `4px solid ${isEntered ? '#10b981' : '#e6007e'}` 
-                                }}>
-                                  <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                      <Link href={winnerUrl} style={{ fontWeight: 800, color: '#1a1420', textDecoration: 'none' }}>
-                                        {p.program.name}
-                                      </Link>
-                                      {p.program.stageType === 'OFF_STAGE' ? (
-                                        <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(14, 165, 233, 0.12)', color: '#0284c7', border: '1px solid #7dd3fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                                          🎨 OFF
-                                        </span>
-                                      ) : (
-                                        <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(236, 72, 153, 0.12)', color: '#db2777', border: '1px solid #f472b6', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                                          🎭 ON
-                                        </span>
-                                      )}
-                                      <span style={{ 
-                                        fontSize: '0.68rem', 
-                                        padding: '2px 8px', 
-                                        borderRadius: '9999px', 
-                                        backgroundColor: isEntered ? '#dcfce7' : '#fcebf3',
-                                        color: isEntered ? '#15803d' : '#e6007e',
-                                        fontWeight: 800
-                                      }}>
-                                        {isEntered ? 'COMPLETED' : 'UPCOMING'}
-                                      </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#7a7480', marginTop: '2px' }}>
-                                      {p.program.startTime ? (
-                                        <>
-                                          {new Date(p.program.startTime).toLocaleDateString()} • {new Date(p.program.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </>
-                                      ) : 'Time TBD'} 
-                                      {p.program.venue ? ` @ ${p.program.venue}` : ''}
-                                      {p.slotNumber && ` • Slot #${p.slotNumber}`}
-                                    </div>
-                                  </div>
-                                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                    {resMatch && (
-                                      <div style={{ textAlign: 'right' }}>
-                                        <div style={{ color: '#d97706', fontWeight: 800, fontSize: '0.88rem' }}>
-                                          {resMatch.rank ? `Rank #${resMatch.rank}` : ''}
-                                        </div>
-                                        <div style={{ color: '#e6007e', fontSize: '0.78rem', fontWeight: 700, marginBottom: '4px' }}>
-                                          {resMatch.grade ? `Grade ${resMatch.grade}` : ''}
-                                        </div>
-                                        <Link 
-                                          href={winnerUrl} 
-                                          style={{ 
-                                            padding: '4px 10px', 
-                                            fontSize: '0.72rem', 
-                                            fontWeight: 800,
-                                            borderRadius: '6px',
-                                            background: 'linear-gradient(135deg, #e6007e, #a3005c)',
-                                            color: '#FFFFFF',
-                                            textDecoration: 'none',
-                                            display: 'inline-block'
-                                          }}
-                                        >
-                                          Winner Board →
-                                        </Link>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
                               );
-                            })}
+                            })()}
                           </div>
-                        )}
+                        </div>
+
+                        {/* Candidate Enrolled Programs & Results */}
+                        <div style={{ marginTop: '16px', borderTop: '1px solid #f9ebf2', paddingTop: '14px' }}>
+                          <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#7a7480', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Participating Programs & Results
+                          </h4>
+
+                          {candidate.programs.length === 0 ? (
+                            <p style={{ color: '#a1a1aa', fontSize: '0.85rem', margin: 0 }}>No programs assigned to this candidate.</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              {candidate.programs.map((p: any) => {
+                                const resMatch = candidate.results.find((r: any) => r.programId === p.programId);
+                                const isCompleted = Boolean(resMatch);
+                                const winnerUrl = `/results/${p.program.id}?eventId=${eventId || p.program.eventId}`;
+
+                                return (
+                                  <div 
+                                    key={p.programId} 
+                                    style={{ 
+                                      display: 'flex', 
+                                      justifyContent: 'space-between', 
+                                      alignItems: 'center', 
+                                      flexWrap: 'wrap', 
+                                      gap: '10px', 
+                                      padding: '12px 14px', 
+                                      backgroundColor: '#FFF8FA', 
+                                      borderRadius: '12px', 
+                                      border: '1px solid #f9ebf2',
+                                      borderLeft: `4px solid ${isCompleted ? '#10b981' : '#cbd5e1'}` 
+                                    }}
+                                  >
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        <Link href={winnerUrl} style={{ fontWeight: 800, color: '#1a1420', textDecoration: 'none' }}>
+                                          {p.program.programCode ? `[#${p.program.programCode}] ` : ''}{p.program.name}
+                                        </Link>
+                                        {p.program.stageType === 'OFF_STAGE' ? (
+                                          <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(14, 165, 233, 0.12)', color: '#0284c7', border: '1px solid #7dd3fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                            🎨 OFF
+                                          </span>
+                                        ) : (
+                                          <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(236, 72, 153, 0.12)', color: '#db2777', border: '1px solid #f472b6', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                            🎭 ON
+                                          </span>
+                                        )}
+                                        <span style={{ 
+                                          fontSize: '0.68rem', 
+                                          padding: '2px 8px', 
+                                          borderRadius: '9999px', 
+                                          backgroundColor: isCompleted ? '#dcfce7' : '#f1f5f9',
+                                          color: isCompleted ? '#15803d' : '#64748b',
+                                          fontWeight: 800
+                                        }}>
+                                          {isCompleted ? 'COMPLETED' : 'PENDING'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                      {resMatch && (
+                                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                          {resMatch.rank && (
+                                            <span style={{ 
+                                              backgroundColor: resMatch.rank === 1 ? '#f59e0b' : resMatch.rank === 2 ? '#94a3b8' : '#d97706',
+                                              color: '#fff',
+                                              fontWeight: 900,
+                                              fontSize: '0.8rem',
+                                              padding: '2px 8px',
+                                              borderRadius: '6px'
+                                            }}>
+                                              Rank #{resMatch.rank}
+                                            </span>
+                                          )}
+                                          {resMatch.grade && (
+                                            <span style={{ color: '#e6007e', fontWeight: 800, fontSize: '0.85rem' }}>
+                                              Grade {resMatch.grade}
+                                            </span>
+                                          )}
+                                          {resMatch.points > 0 && (
+                                            <span style={{ color: '#15803d', fontWeight: 800, fontSize: '0.8rem' }}>
+                                              {resMatch.points} Pts
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      <Link 
+                                        href={winnerUrl} 
+                                        style={{ 
+                                          padding: '4px 10px', 
+                                          fontSize: '0.75rem', 
+                                          fontWeight: 800, 
+                                          borderRadius: '6px', 
+                                          background: 'linear-gradient(135deg, #e6007e, #a3005c)', 
+                                          color: '#FFFFFF', 
+                                          textDecoration: 'none' 
+                                        }}
+                                      >
+                                        Winner Board →
+                                      </Link>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -326,11 +427,26 @@ export default async function SearchPage(props: {
               </div>
             )}
 
-            {type === "program" && (
+            {/* VIEW 2: PROGRAM RESULTS BOARD (DEFAULT VIEW OR PROGRAM CODE SEARCH) */}
+            {(type === "programCode" || !query) && (
               <div>
-                {(query || categoryId || eventId || stageType || programType) && programResults.length === 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#1a1420', fontFamily: "'Fraunces', serif" }}>
+                    {query ? `Search Results for Program Code "${query}"` : 'Official Published Results Board'}
+                  </h3>
+                  <span style={{ fontSize: '0.82rem', color: '#7a7480', fontWeight: 600 }}>
+                    Total Programs: <strong>{programResults.length}</strong>
+                  </span>
+                </div>
+
+                {programResults.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 20px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #f2d9e6' }}>
-                    <p style={{ color: '#7a7480', fontSize: '1rem', margin: 0 }}>No programs found matching your criteria.</p>
+                    <span style={{ fontSize: '2.2rem', display: 'block', marginBottom: '8px' }}>📋</span>
+                    <p style={{ color: '#7a7480', fontSize: '1rem', margin: 0 }}>
+                      {query 
+                        ? `No program found matching code "${query}".`
+                        : 'No published results found for the selected category/stage filters.'}
+                    </p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -339,13 +455,19 @@ export default async function SearchPage(props: {
                       const isPublished = publishedResults.length > 0;
                       const winnerUrl = `/results/${program.id}?eventId=${eventId || program.eventId}`;
 
+                      // Rank 1, 2, 3 winners
+                      const rank1List = publishedResults.filter((r: any) => r.rank === 1);
+                      const rank2List = publishedResults.filter((r: any) => r.rank === 2);
+                      const rank3List = publishedResults.filter((r: any) => r.rank === 3);
+                      const otherGrades = publishedResults.filter((r: any) => !r.rank && (r.grade === 'A' || r.grade === 'B'));
+
                       return (
                         <div 
                           key={program.id} 
                           style={{ 
                             background: '#FFFFFF', 
                             borderRadius: '18px', 
-                            padding: '24px 22px',
+                            padding: '22px',
                             border: '1px solid #f2d9e6',
                             borderLeft: `5px solid ${isPublished ? '#e6007e' : '#cbd5e1'}`,
                             boxShadow: '0 4px 18px -3px rgba(230, 0, 126, 0.06)'
@@ -363,12 +485,13 @@ export default async function SearchPage(props: {
                                   cursor: 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '8px'
+                                  gap: '8px',
+                                  flexWrap: 'wrap'
                                 }}>
-                                  {program.name} 
+                                  <span>{program.programCode ? `[#${program.programCode}] ` : ''}{program.name}</span>
                                   {program.category && (
                                     <span style={{ 
-                                      fontSize: '0.75rem', 
+                                      fontSize: '0.72rem', 
                                       padding: '2px 8px', 
                                       borderRadius: '6px', 
                                       background: '#fcebf3', 
@@ -381,9 +504,8 @@ export default async function SearchPage(props: {
                                   )}
                                 </h3>
                               </Link>
+                              
                               <div style={{ color: '#7a7480', fontSize: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                                <span>Event: <strong style={{ color: '#1a1420' }}>{program.event.name}</strong></span>
-                                <span>•</span>
                                 {program.stageType === 'OFF_STAGE' ? (
                                   <span style={{ backgroundColor: 'rgba(14, 165, 233, 0.14)', color: '#0284c7', border: '1px solid #7dd3fc', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800 }}>
                                     🎨 OFF STAGE
@@ -395,16 +517,10 @@ export default async function SearchPage(props: {
                                 )}
                                 <span>•</span>
                                 <span>Type: <strong>{program.type}</strong></span>
-                                {program.startTime && (
+                                {program.event && (
                                   <>
                                     <span>•</span>
-                                    <span>{new Date(program.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                  </>
-                                )}
-                                {program.venue && (
-                                  <>
-                                    <span>•</span>
-                                    <span>@{program.venue}</span>
+                                    <span>Zone: <strong>{activeEventName || program.event.name}</strong></span>
                                   </>
                                 )}
                               </div>
@@ -431,178 +547,120 @@ export default async function SearchPage(props: {
                             </Link>
                           </div>
                           
-                          <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #f9ebf2' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                              <h4 style={{ margin: 0, fontSize: '0.92rem', fontFamily: "'Fraunces', serif", color: '#1a1420', fontWeight: 800 }}>
-                                Winners List
-                              </h4>
-                              {isPublished ? (
-                                <span style={{ 
-                                  fontSize: '0.72rem', 
-                                  padding: '3px 10px', 
-                                  borderRadius: '9999px', 
-                                  background: '#dcfce7', 
-                                  color: '#15803d', 
-                                  fontWeight: 800 
-                                }}>
-                                  PUBLISHED
-                                </span>
-                              ) : (
-                                <span style={{ 
-                                  fontSize: '0.72rem', 
-                                  padding: '3px 10px', 
-                                  borderRadius: '9999px', 
-                                  background: '#fef2f2', 
-                                  color: '#b91c1c', 
-                                  fontWeight: 700 
-                                }}>
-                                  PENDING
-                                </span>
-                              )}
-                            </div>
-
+                          {/* Winners Breakdown */}
+                          <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f9ebf2' }}>
                             {isPublished ? (
                               <div>
-                                {/* Desktop View: Table */}
-                                <div className="winner-table-desktop" style={{ overflowX: 'auto', width: '100%' }}>
-                                  <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                    <thead>
-                                      <tr style={{ borderBottom: '1.5px solid #f2d9e6', color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                                        <th style={{ padding: '8px 6px', width: '35%' }}>Candidate</th>
-                                        <th style={{ padding: '8px 6px', width: '35%' }}>Team</th>
-                                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Rank</th>
-                                        <th style={{ padding: '8px 6px', textAlign: 'center' }}>Grade</th>
-                                        <th style={{ padding: '8px 6px', textAlign: 'right' }}>Board</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {publishedResults.map((res: any) => {
-                                        const rankGold = res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : res.rank === 3 ? '#D97706' : '#7a7480';
-                                        return (
-                                          <tr key={res.id} style={{ borderBottom: '1px solid #fbeff5' }}>
-                                            <td style={{ padding: '10px 6px', verticalAlign: 'middle' }}>
-                                              <div style={{ fontWeight: 800, color: '#1a1420' }}>{res.candidate.name}</div>
-                                              <div style={{ color: '#7a7480', fontSize: '0.72rem', fontFamily: "'IBM Plex Mono', monospace" }}>
-                                                {res.candidate.chestNumber}
-                                              </div>
-                                            </td>
-                                            <td style={{ padding: '10px 6px', verticalAlign: 'middle', color: '#332938', fontWeight: 600 }}>
-                                              {res.candidate.team.name}
-                                            </td>
-                                            <td style={{ padding: '10px 6px', textAlign: 'center', verticalAlign: 'middle' }}>
-                                              {res.rank ? (
-                                                <span style={{
-                                                  background: rankGold,
-                                                  color: '#FFFFFF',
-                                                  fontSize: '0.75rem',
-                                                  fontWeight: 900,
-                                                  padding: '2px 8px',
-                                                  borderRadius: '6px'
-                                                }}>
-                                                  #{res.rank}
-                                                </span>
-                                              ) : '-'}
-                                            </td>
-                                            <td style={{ padding: '10px 6px', color: '#e6007e', fontWeight: 800, textAlign: 'center', verticalAlign: 'middle' }}>
-                                              {res.grade || '-'}
-                                            </td>
-                                            <td style={{ padding: '10px 6px', textAlign: 'right', verticalAlign: 'middle' }}>
-                                              <Link 
-                                                href={winnerUrl} 
-                                                style={{ 
-                                                  color: '#e6007e', 
-                                                  fontWeight: 800,
-                                                  textDecoration: 'none',
-                                                  padding: '4px 10px',
-                                                  backgroundColor: '#fcebf3',
-                                                  borderRadius: '6px',
-                                                  fontSize: '0.75rem',
-                                                  display: 'inline-block'
-                                                }}
-                                              >
-                                                Winner Board →
-                                              </Link>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-
-                                {/* Mobile View: Compact Cards */}
-                                <div className="winner-cards-mobile" style={{ flexDirection: 'column', gap: '8px' }}>
-                                  {publishedResults.map((res: any) => {
-                                    const rankGold = res.rank === 1 ? '#F59E0B' : res.rank === 2 ? '#94A3B8' : res.rank === 3 ? '#D97706' : '#7a7480';
+                                {/* Podium Highlights: Rank 1, 2, 3 */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                                  {/* Rank 1 */}
+                                  {rank1List.map((res: any) => {
+                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                    const chestNo = res.candidate?.chestNumber;
+                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
                                     return (
-                                      <div 
-                                        key={res.id} 
-                                        style={{ 
-                                          padding: '12px 14px', 
-                                          background: '#FFF8FA', 
-                                          borderRadius: '12px', 
-                                          border: '1px solid #f9ebf2',
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          gap: '10px'
-                                        }}
-                                      >
-                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fffbeb', border: '1.5px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '1.5rem' }}>🥇</span>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            {res.rank && (
-                                              <span style={{
-                                                background: rankGold,
-                                                color: '#FFFFFF',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 900,
-                                                padding: '2px 6px',
-                                                borderRadius: '5px'
-                                              }}>
-                                                #{res.rank}
-                                              </span>
-                                            )}
-                                            <span style={{ fontWeight: 800, color: '#1a1420', fontSize: '0.9rem' }}>
-                                              {res.candidate.name}
-                                            </span>
-                                            {res.grade && (
-                                              <span style={{ color: '#e6007e', fontWeight: 800, fontSize: '0.75rem' }}>
-                                                • Grade {res.grade}
-                                              </span>
-                                            )}
+                                            <strong style={{ fontSize: '0.9rem', color: '#92400e' }}>1st Place</strong>
+                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
                                           </div>
-                                          <div style={{ fontSize: '0.75rem', color: '#7a7480', marginTop: '2px', wordBreak: 'break-word' }}>
-                                            {res.candidate.team.name}
+                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
                                           </div>
-                                          {res.candidate.chestNumber && (
-                                            <div style={{ fontSize: '0.7rem', color: '#a1a1aa', fontFamily: "'IBM Plex Mono', monospace" }}>
-                                              Chest #{res.candidate.chestNumber}
-                                            </div>
-                                          )}
+                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                          </div>
                                         </div>
+                                      </div>
+                                    );
+                                  })}
 
-                                        <Link 
-                                          href={winnerUrl} 
-                                          style={{ 
-                                            color: '#e6007e', 
-                                            fontWeight: 800,
-                                            textDecoration: 'none',
-                                            padding: '6px 10px',
-                                            backgroundColor: '#fcebf3',
-                                            borderRadius: '8px',
-                                            fontSize: '0.75rem',
-                                            flexShrink: 0,
-                                            textAlign: 'center'
-                                          }}
-                                        >
-                                          Board →
-                                        </Link>
+                                  {/* Rank 2 */}
+                                  {rank2List.map((res: any) => {
+                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                    const chestNo = res.candidate?.chestNumber;
+                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
+                                    return (
+                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#f8fafc', border: '1.5px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '1.5rem' }}>🥈</span>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <strong style={{ fontSize: '0.9rem', color: '#475569' }}>2nd Place</strong>
+                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
+                                          </div>
+                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
+                                          </div>
+                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Rank 3 */}
+                                  {rank3List.map((res: any) => {
+                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                    const chestNo = res.candidate?.chestNumber;
+                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
+                                    return (
+                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '1.5rem' }}>🥉</span>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <strong style={{ fontSize: '0.9rem', color: '#c2410c' }}>3rd Place</strong>
+                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
+                                          </div>
+                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
+                                          </div>
+                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                          </div>
+                                        </div>
                                       </div>
                                     );
                                   })}
                                 </div>
+
+                                {/* Other Grades (Grade A & B) */}
+                                {otherGrades.length > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Other Grade Winners:</span>
+                                    {otherGrades.map((res: any) => {
+                                      const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team');
+                                      const chestNo = res.candidate?.chestNumber;
+                                      return (
+                                        <span 
+                                          key={res.id} 
+                                          style={{ 
+                                            fontSize: '0.72rem', 
+                                            padding: '2px 8px', 
+                                            borderRadius: '6px', 
+                                            backgroundColor: '#f1f5f9', 
+                                            border: '1px solid #e2e8f0', 
+                                            color: '#334155',
+                                            fontWeight: 600
+                                          }}
+                                        >
+                                          {candName} {chestNo ? `(${chestNo})` : ''} - <strong style={{ color: '#e6007e' }}>Grade {res.grade}</strong>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            ) : null}
+                            ) : (
+                              <div style={{ padding: '8px 0', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                ⏳ Official results for this programme are being compiled.
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -614,6 +672,7 @@ export default async function SearchPage(props: {
           </div>
         </div>
       </main>
+
       <PublicFooter eventName={festName} />
     </div>
   );
