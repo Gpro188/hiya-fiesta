@@ -298,6 +298,11 @@ model GlobalSetting {
   maxGeneralTotal         Int?     @default(2)
   maxGeneralOnStage       Int?     @default(1)
   maxGeneralOffStage      Int?     @default(1)
+
+  // Global Schedule Timing Settings (synced across all zones)
+  scheduleMinPerCandidate Int?     @default(10)   // minutes per individual candidate slot
+  scheduleBufferMinutes   Int?     @default(2)    // buffer gap between consecutive programs
+  scheduleGroupFixedMin   Int?     @default(30)   // default duration for group/fixed programs
 }
 
 model PageVisit {
