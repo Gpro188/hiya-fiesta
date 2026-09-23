@@ -89,7 +89,7 @@ export default async function PrintProgramsReportPage(props: {
     }
   }
 
-  const programs = await prisma.program.findMany({
+  const rawPrograms = await prisma.program.findMany({
     where: whereClause,
     orderBy: [
       { type: 'asc' },
@@ -102,6 +102,18 @@ export default async function PrintProgramsReportPage(props: {
       _count: { select: { assignments: true } }
     }
   });
+
+  const progMap = new Map<string, typeof rawPrograms[0]>();
+  for (const p of rawPrograms) {
+    const key = p.programCode ? `code_${p.programCode}` : p.id;
+    const existing = progMap.get(key);
+    if (!existing) {
+      progMap.set(key, p);
+    } else if (event?.parentId && p.eventId === event.parentId) {
+      progMap.set(key, p);
+    }
+  }
+  const programs = Array.from(progMap.values());
 
   return (
     <div style={{ padding: '30px', backgroundColor: 'white', color: '#111827', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>

@@ -130,6 +130,7 @@ export default function AssignmentForm({
   }
 
   const assigneCSWCgramIds = selectedCandidate.programs.map((p: any) => p.programId);
+  const assignedProgramCodes = new Set(selectedCandidate.programs.map((p: any) => p.program?.programCode).filter(Boolean));
   
   // Program registration limits
   const maxIndividualLimit = limits?.maxIndividualPrograms ?? 4;
@@ -208,8 +209,17 @@ export default function AssignmentForm({
     }
   };
 
+  // Deduplicate programs by programCode to ensure only unique official programs are rendered
+  const uniquePrograms: any[] = Array.from(
+    programs.reduce((map, p) => {
+      const key = p.programCode ? `code_${p.programCode}` : p.id;
+      if (!map.has(key)) map.set(key, p);
+      return map;
+    }, new Map<string, any>()).values()
+  );
+
   const [mode, setMode] = useState<'BY_STUDENT' | 'BY_PROGRAM'>('BY_STUDENT');
-  const [selectedProgramId, setSelectedProgramId] = useState<string>(programs[0]?.id || "");
+  const [selectedProgramId, setSelectedProgramId] = useState<string>(uniquePrograms[0]?.id || "");
   const [programSearchTerm, setProgramSearchTerm] = useState("");
 
   // Determine the institution's relevant category from their registered candidates
@@ -220,7 +230,7 @@ export default function AssignmentForm({
   const defaultCategoryFilter = institutionCategories.length === 1 ? institutionCategories[0] : 'ALL';
   const [markSheetCategoryFilter, setMarkSheetCategoryFilter] = useState<string>(defaultCategoryFilter);
 
-  const selectedProgram = programs.find(p => p.id === selectedProgramId) || programs[0];
+  const selectedProgram = uniquePrograms.find(p => p.id === selectedProgramId) || uniquePrograms[0];
 
   // Calculate team assignments for all programs
   const teamProgramCounts: Record<string, number> = {};
@@ -228,12 +238,29 @@ export default function AssignmentForm({
   candidatesList.forEach(c => {
     c.programs.forEach((p: any) => {
       teamProgramCounts[p.programId] = (teamProgramCounts[p.programId] || 0) + 1;
+      if (p.program?.programCode) {
+        teamProgramCounts[`code_${p.program.programCode}`] = (teamProgramCounts[`code_${p.program.programCode}`] || 0) + 1;
+      }
       if (!teamProgramAssignments[p.programId]) {
         teamProgramAssignments[p.programId] = [];
       }
       teamProgramAssignments[p.programId].push(c);
+      if (p.program?.programCode) {
+        if (!teamProgramAssignments[`code_${p.program.programCode}`]) {
+          teamProgramAssignments[`code_${p.program.programCode}`] = [];
+        }
+        teamProgramAssignments[`code_${p.program.programCode}`].push(c);
+      }
     });
   });
+
+  const getProgramSlotCount = (prog: any) => {
+    if (!prog) return 0;
+    if (prog.programCode && teamProgramCounts[`code_${prog.programCode}`] !== undefined) {
+      return teamProgramCounts[`code_${prog.programCode}`];
+    }
+    return teamProgramCounts[prog.id] || 0;
+  };
 
   const handleAssignCandidate = async (candidateId: string, programId: string) => {
     const prog = programs.find(p => p.id === programId);
@@ -482,13 +509,13 @@ export default function AssignmentForm({
               <h4 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--primary)' }}>Available Programs</h4>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '0 0 var(--spacing-sm) 0' }}>Programs matching {selectedCandidate.name}'s category. Click "Assign" to register.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }}>
-                {programs
-                  .filter(p => !assigneCSWCgramIds.includes(p.id))
+                {uniquePrograms
+                  .filter(p => !assigneCSWCgramIds.includes(p.id) && (!p.programCode || !assignedProgramCodes.has(p.programCode)))
                   .filter(p => !isInstitutionProgram(p))
                   .filter(p => isProgramGeneral(p) || p.categoryId === selectedCandidate.categoryId || (p.category?.name === selectedCandidate.category?.name))
                   .filter(p => {
                     const teamLimit = p.candidateLimitPerTeam || 1;
-                    const currentTeamCount = teamProgramCounts[p.id] || 0;
+                    const currentTeamCount = getProgramSlotCount(p);
                     return currentTeamCount < teamLimit;
                   })
                   .map(program => {
@@ -747,7 +774,7 @@ export default function AssignmentForm({
                 }}
                 style={{ fontSize: '0.95rem', padding: '10px' }}
               >
-                {programs.filter(p => !isInstitutionProgram(p)).filter(p => {
+                {uniquePrograms.filter(p => !isInstitutionProgram(p)).filter(p => {
                   const pCatName = (p.category?.name || '').toUpperCase();
                   const isGeneral = p.type === 'GENERAL' || pCatName === 'GENERAL' || !p.category;
 
@@ -767,7 +794,7 @@ export default function AssignmentForm({
                     (p.stageType && p.stageType.toLowerCase().includes(programSearchTerm.toLowerCase()))
                   );
                 }).map(p => {
-                  const assignedCount = teamProgramCounts[p.id] || 0;
+                  const assignedCount = getProgramSlotCount(p);
                   const limit = p.candidateLimitPerTeam || 1;
                   return (
                     <option key={p.id} value={p.id}>
@@ -784,8 +811,8 @@ export default function AssignmentForm({
                 <span>Type: <strong>{selectedProgram.type}</strong></span>
                 <span>Category: <strong>{selectedProgram.category?.name || 'General'}</strong></span>
                 <span>
-                  Team Limit: <strong style={{ color: (teamProgramCounts[selectedProgram.id] || 0) >= (selectedProgram.candidateLimitPerTeam || 1) ? 'var(--error)' : 'var(--success)' }}>
-                    {teamProgramCounts[selectedProgram.id] || 0} / {selectedProgram.candidateLimitPerTeam || 1}
+                  Team Limit: <strong style={{ color: getProgramSlotCount(selectedProgram) >= (selectedProgram.candidateLimitPerTeam || 1) ? 'var(--error)' : 'var(--success)' }}>
+                    {getProgramSlotCount(selectedProgram)} / {selectedProgram.candidateLimitPerTeam || 1}
                   </strong>
                 </span>
               </div>
@@ -802,7 +829,7 @@ export default function AssignmentForm({
                   {candidates
                     .filter(c => {
                       // Must not already be assigned to THIS program
-                      const isAssigned = c.programs.some((p: any) => p.programId === selectedProgram.id);
+                      const isAssigned = c.programs.some((p: any) => p.programId === selectedProgram.id || (selectedProgram.programCode && p.program?.programCode === selectedProgram.programCode));
                       if (isAssigned) return false;
                       // Category match
                       if (isProgramGeneral(selectedProgram)) return true;
@@ -844,7 +871,7 @@ export default function AssignmentForm({
                         }
                       }
 
-                      const isTeamSlotFull = (teamProgramCounts[selectedProgram.id] || 0) >= (selectedProgram.candidateLimitPerTeam || 1);
+                      const isTeamSlotFull = getProgramSlotCount(selectedProgram) >= (selectedProgram.candidateLimitPerTeam || 1);
                       const isStageOpen = isStageAllowed(selectedProgram);
                       if (!isStageOpen && !isLimitReached) {
                         limitReason = selectedProgram.stageType === "OFF_STAGE" ? "🔒 Off-Stage Registration Closed" : "🔒 On-Stage Registration Closed";

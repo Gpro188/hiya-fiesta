@@ -216,13 +216,32 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
   }
 
   const eventIdsToSearch = Array.from(new Set([zoneEventId, parentEventId, session.user.eventId, currentTeam?.eventId, currentTeam?.event?.parentId].filter(Boolean))) as string[];
-  const programs = await prisma.program.findMany({
+  const rawPrograms = await prisma.program.findMany({
     where: eventIdsToSearch.length > 0 ? { eventId: { in: eventIdsToSearch } } : {},
     include: { 
       event: true,
       category: true
     },
     orderBy: { name: 'asc' }
+  });
+
+  // Deduplicate programs by programCode, ensuring only ONE program per code exists in the assignment list (prioritizing parent/master event)
+  const programMap = new Map<string, typeof rawPrograms[0]>();
+  for (const prog of rawPrograms) {
+    const key = prog.programCode ? `code_${prog.programCode}` : prog.id;
+    const existing = programMap.get(key);
+    if (!existing) {
+      programMap.set(key, prog);
+    } else if (parentEventId && prog.eventId === parentEventId) {
+      programMap.set(key, prog);
+    }
+  }
+
+  const programs = Array.from(programMap.values()).sort((a, b) => {
+    const codeA = Number(a.programCode) || 0;
+    const codeB = Number(b.programCode) || 0;
+    if (codeA !== codeB) return codeA - codeB;
+    return a.name.localeCompare(b.name);
   });
 
   const settings = await getSettings(zoneEventId || parentEventId || currentTeam?.eventId || session.user.eventId);

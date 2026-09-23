@@ -81,8 +81,20 @@ export default async function ProgramsRegistrationReportPage() {
     }))
     .sort((a, b) => (zoneOrder[a.code] || 99) - (zoneOrder[b.code] || 99));
 
-  // Fetch all programs with category and candidate assignments
+  const masterEvent = await prisma.event.findFirst({
+    where: {
+      OR: [
+        { parentId: null },
+        { type: "STATE" },
+        { name: { contains: "State Final" } }
+      ]
+    },
+    select: { id: true }
+  });
+
+  // Fetch all official master programs with category and candidate assignments
   const programs = await prisma.program.findMany({
+    where: masterEvent ? { eventId: masterEvent.id } : {},
     include: {
       category: { select: { name: true } },
       event: { select: { id: true, name: true, type: true } },

@@ -160,11 +160,49 @@ export async function assignProgram(candidateId: string, programId: string) {
       }
     }
 
+    // Resolve to master program if it has a programCode and a master counterpart
+    let actualProgramId = programId;
+    if (program.programCode) {
+      const masterProg = await prisma.program.findFirst({
+        where: {
+          programCode: program.programCode,
+          event: {
+            OR: [
+              { parentId: null },
+              { type: "STATE" },
+              { name: { contains: "State Final" } }
+            ]
+          }
+        },
+        select: { id: true }
+      });
+      if (masterProg) {
+        actualProgramId = masterProg.id;
+      }
+    }
+
+    // Check if candidate is already assigned to this program or another program with same programCode
+    const alreadyAssigned = candidate.programs.some(
+      p => p.programId === actualProgramId || (program.programCode && p.program?.programCode === program.programCode)
+    );
+    if (alreadyAssigned) {
+      return { success: false, error: `Candidate is already assigned to program #${program.programCode || ''} (${program.name}).` };
+    }
+
     // Validation 3: Per Team Limit
     const teamLimit = program.candidateLimitPerTeam || 1;
+    let matchingProgIds = [actualProgramId];
+    if (program.programCode) {
+      const matching = await prisma.program.findMany({
+        where: { programCode: program.programCode },
+        select: { id: true }
+      });
+      matchingProgIds = matching.map(p => p.id);
+    }
+
     const teamAssignmentsCount = await prisma.programAssignment.count({
       where: {
-        programId: programId,
+        programId: { in: matchingProgIds },
         candidate: {
           teamId: candidate.teamId
         }
@@ -178,7 +216,7 @@ export async function assignProgram(candidateId: string, programId: string) {
     await prisma.programAssignment.create({
       data: {
         candidateId,
-        programId
+        programId: actualProgramId
       }
     });
 
@@ -274,12 +312,19 @@ export async function unassignProgram(candidateId: string, programId: string) {
         }
       }
     }
-    await prisma.programAssignment.delete({
+    let matchingProgIds = [programId];
+    if (program.programCode) {
+      const matching = await prisma.program.findMany({
+        where: { programCode: program.programCode },
+        select: { id: true }
+      });
+      matchingProgIds = matching.map(p => p.id);
+    }
+
+    await prisma.programAssignment.deleteMany({
       where: {
-        candidateId_programId: {
-          candidateId,
-          programId
-        }
+        candidateId,
+        programId: { in: matchingProgIds }
       }
     });
 
