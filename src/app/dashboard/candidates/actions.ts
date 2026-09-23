@@ -567,6 +567,16 @@ export async function getReplacementCandidateDetails(candidateId: string) {
 
     if (!candidate) return { success: false, error: "Candidate not found" };
 
+    // Deduplicate candidate programs by program name so duplicates across events or twin syncs never repeat in UI
+    const seenProgNames = new Set<string>();
+    const dedupedPrograms = (candidate.programs || []).filter((p: any) => {
+      const progName = (p.program?.name || "").trim().toUpperCase();
+      if (!progName || seenProgNames.has(progName)) return false;
+      seenProgNames.add(progName);
+      return true;
+    });
+    candidate.programs = dedupedPrograms;
+
     const eventId = candidate.team.eventId || candidate.team.event?.id;
     const settings = await getSettings(eventId);
     const limits = {
@@ -981,10 +991,23 @@ export async function removeProgramFromCandidate(data: {
       return { success: false, error: "Program assignment not found for this candidate." };
     }
 
-    // Delete the program assignment
-    await prisma.programAssignment.delete({
-      where: { id: data.programAssignmentId }
-    });
+    // Delete the program assignment and any twins with same programCode for this candidate
+    if (assignment.program?.programCode) {
+      const twinProgs = await prisma.program.findMany({
+        where: { programCode: assignment.program.programCode },
+        select: { id: true }
+      });
+      await prisma.programAssignment.deleteMany({
+        where: {
+          candidateId: data.candidateId,
+          programId: { in: twinProgs.map(p => p.id) }
+        }
+      });
+    } else {
+      await prisma.programAssignment.delete({
+        where: { id: data.programAssignmentId }
+      });
+    }
 
     // Audit log
     await prisma.systemAuditLog.create({
@@ -1235,13 +1258,19 @@ export async function transferProgramToAnotherCandidate(data: {
           include: { event: true }
         });
         if (assignedProg?.programCode) {
+          const candInfo = await tx.candidate.findUnique({
+            where: { id: targetCandidateId },
+            include: { institution: true, team: { include: { institution: true } } }
+          });
+          const candZoneId = candInfo?.institution?.zoneId || candInfo?.team?.institution?.zoneId || null;
+
           const twinProgs = await tx.program.findMany({
             where: {
               programCode: assignedProg.programCode,
               id: { not: assignedProg.id },
               OR: [
                 ...(assignedProg.event.parentId ? [{ eventId: assignedProg.event.parentId }] : []),
-                { event: { parentId: assignedProg.eventId } }
+                ...(candZoneId ? [{ event: { parentId: assignedProg.eventId, zoneId: candZoneId } }] : [])
               ]
             }
           });

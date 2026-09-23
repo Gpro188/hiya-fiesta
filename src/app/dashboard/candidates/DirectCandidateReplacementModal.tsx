@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   searchCandidatesForReplacement,
   getReplacementCandidateDetails,
@@ -40,6 +40,17 @@ export default function DirectCandidateReplacementModal({
   const [availableStudents, setAvailableStudents] = useState<any[]>([]);
   const [teamCandidates, setTeamCandidates] = useState<any[]>([]);
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+
+  // Deduplicate programs by normalized program name so duplicates across events or twin syncs never repeat in UI
+  const candidateAssignedPrograms = useMemo(() => {
+    const seen = new Set<string>();
+    return (candidateDetails?.programs || []).filter((p: any) => {
+      const key = (p.program?.name || "").trim().toUpperCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [candidateDetails?.programs]);
 
   // Program Transfer State
   const [transferringProgramId, setTransferringProgramId] = useState<string | null>(null);
@@ -541,20 +552,20 @@ export default function DirectCandidateReplacementModal({
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <label style={{ fontSize: "0.84rem", fontWeight: 800, color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>📜</span> ASSIGNED PROGRAMS ({candidateDetails.programs?.length || 0}):
+                      <span>📜</span> ASSIGNED PROGRAMS ({candidateAssignedPrograms.length}):
                     </label>
                     <span style={{ fontSize: "0.72rem", color: "#9ca3af" }}>
                       Remove any program or reassign to another student with old chest number recorded
                     </span>
                   </div>
 
-                  {(!candidateDetails.programs || candidateDetails.programs.length === 0) ? (
+                  {candidateAssignedPrograms.length === 0 ? (
                     <div style={{ padding: "1.5rem", textAlign: "center", color: "#9ca3af", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "10px", border: "1px dashed rgba(255,255,255,0.1)" }}>
                       No programs currently assigned to this candidate.
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {candidateDetails.programs.map((p: any) => {
+                      {candidateAssignedPrograms.map((p: any) => {
                         const isOffStage = p.program?.stageType === "OFF_STAGE";
                         const isTransferring = transferringProgramId === p.id;
 

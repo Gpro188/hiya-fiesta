@@ -141,12 +141,12 @@ export default function CandidateIdCard({
   const categoryName = candidate.category?.name || "FADHILA";
   const chestNo = candidate.chestNumber ? candidate.chestNumber : "---";
   const allPrograms = candidate.programs || [];
-  // Deduplicate programs by program.id (handles duplicate ProgramAssignment DB records)
-  const seenProgIds = new Set<string>();
+  // Deduplicate programs by normalized program name (handles duplicate ProgramAssignment DB records & cross-event twin programs)
+  const seenProgNames = new Set<string>();
   const dedupedPrograms = allPrograms.filter((p: any) => {
-    const pid = p.program?.id || p.id;
-    if (!pid || seenProgIds.has(pid)) return false;
-    seenProgIds.add(pid);
+    const progName = (p.program?.name || p.name || "").trim().toUpperCase();
+    if (!progName || seenProgNames.has(progName)) return false;
+    seenProgNames.add(progName);
     return true;
   });
   const list = dedupedPrograms.slice(0, 5);
