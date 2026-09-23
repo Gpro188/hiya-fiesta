@@ -180,6 +180,15 @@ export default async function PrintTabulationPage(props: {
       });
     }
 
+    // Deduplicate by candidateId (handles duplicate ProgramAssignment DB records)
+    const seenCandidateIds = new Set<string>();
+    candidateAssignments = candidateAssignments.filter((a: any) => {
+      const cid = a.candidate?.id;
+      if (!cid || seenCandidateIds.has(cid)) return false;
+      seenCandidateIds.add(cid);
+      return true;
+    });
+
     candidateAssignments.sort((a: any, b: any) => {
       if (a.slotNumber && b.slotNumber) return a.slotNumber - b.slotNumber;
       const cA = a.candidate;

@@ -1205,6 +1205,10 @@ export async function transferProgramToAnotherCandidate(data: {
         where: { id: assignment.id }
       });
 
+      // First remove any pre-existing assignment for same candidate+program (prevents duplicates if DB constraint not enforced)
+      await tx.programAssignment.deleteMany({
+        where: { candidateId: targetCandidateId, programId: assignment.programId }
+      });
       // Create new assignment for target candidate with replacedFromChest note
       await tx.programAssignment.create({
         data: {

@@ -141,7 +141,15 @@ export default function CandidateIdCard({
   const categoryName = candidate.category?.name || "FADHILA";
   const chestNo = candidate.chestNumber ? candidate.chestNumber : "---";
   const allPrograms = candidate.programs || [];
-  const list = allPrograms.slice(0, 5);
+  // Deduplicate programs by program.id (handles duplicate ProgramAssignment DB records)
+  const seenProgIds = new Set<string>();
+  const dedupedPrograms = allPrograms.filter((p: any) => {
+    const pid = p.program?.id || p.id;
+    if (!pid || seenProgIds.has(pid)) return false;
+    seenProgIds.add(pid);
+    return true;
+  });
+  const list = dedupedPrograms.slice(0, 5);
   const count = list.length;
   const eventTitle = eventName || candidate.team?.event?.name || settings?.festName || "HIYA FIESTA 2026";
 

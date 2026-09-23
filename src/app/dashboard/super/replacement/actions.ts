@@ -190,6 +190,14 @@ export async function addAndAssignNewCandidate(data: {
           candidateId = existing.id;
           chestNumber = existing.chestNumber;
 
+          // Before assigning: delete any pre-existing duplicate for this candidate+program
+          await tx.programAssignment.deleteMany({
+            where: {
+              candidateId,
+              programId: data.programId,
+              id: { not: data.programAssignmentId || undefined }
+            }
+          });
           // Assign to program
           if (data.programAssignmentId) {
             await tx.programAssignment.update({
@@ -255,6 +263,14 @@ export async function addAndAssignNewCandidate(data: {
       });
       candidateId = created.id;
 
+      // Before assigning: delete any pre-existing duplicate for this candidate+program
+      await tx.programAssignment.deleteMany({
+        where: {
+          candidateId,
+          programId: data.programId,
+          id: { not: data.programAssignmentId || undefined }
+        }
+      });
       // Assign to program (replace or create)
       if (data.programAssignmentId) {
         await tx.programAssignment.update({
