@@ -38,6 +38,12 @@ export default function ZoneScheduleAnalyzer({
   const [fixMessage, setFixMessage] = useState<string | null>(null);
   const [fixingClashes, setFixingClashes] = useState(false);
 
+  // Timing & Constraints Configuration State
+  const [startTimeMode, setStartTimeMode] = useState<"SAVED" | "FIXED_930">("SAVED");
+  const [maxBuffer, setMaxBuffer] = useState<number>(60);
+  const [enableBreak, setEnableBreak] = useState<boolean>(true);
+  const [breakWindow, setBreakWindow] = useState<string>("13:00-13:45");
+
   // Type 2: Venue Transfer Simulation State
   const [testingTransfers, setTestingTransfers] = useState(false);
   const [transferReport, setTransferReport] = useState<any | null>(null);
@@ -90,22 +96,46 @@ export default function ZoneScheduleAnalyzer({
     }
   };
 
-  // TYPE 1: Safe Auto-Fix (Order Change & 5-15m Buffer Gap Only - Same Venue)
+  // Helper to extract break hours
+  const getBreakHours = () => {
+    const [bStartH, bStartM] = [13, 0];
+    const [bEndH, bEndM] = breakWindow === "13:00-14:00" ? [14, 0] : [13, 45];
+    return { bStartH, bStartM, bEndH, bEndM };
+  };
+
+  // TYPE 1: Safe Auto-Fix (Order Change & Buffer up to 60m - Same Venue)
   const handleSafeAutoFix = async () => {
     const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
     if (!targetId) return;
+
+    const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+
     if (!confirm(
-      "Run Safe Auto-Clash Resolver?\n\n" +
+      "Run Auto-Clash Resolver (Same Venue)?\n\n" +
+      `• Preserves Venue Start Time (${startTimeMode === "SAVED" ? "Saved Start / 9:30 AM" : "Fixed 9:30 AM"})\n` +
       "• Reorders candidate slots (1st vs Last) across venues\n" +
-      "• Adjusts buffer gaps strictly between 5 and 15 minutes\n" +
-      "• Preserves candidate and program sequence\n\n" +
-      "🛡️ GUARANTEE: Program durations, mins/candidate, and venues are 100% PRESERVED and NEVER changed."
+      `• Tunes buffer gaps up to ${maxBuffer} minutes\n` +
+      (enableBreak ? `• Honors Break (${breakWindow === "13:00-14:00" ? "01:00 PM – 02:00 PM" : "01:00 PM – 01:45 PM"})\n` : "") +
+      "• Closes by 5:00 PM (Hard Limit: 6:00 PM)\n\n" +
+      "🛡️ GUARANTEE: Program durations and assigned venues are 100% PRESERVED."
     )) return;
 
     setFixingClashes(true);
     setFixMessage(null);
     try {
-      const res = await resolveClashesSafe(targetId);
+      const res = await resolveClashesSafe(targetId, {
+        minBuffer: 5,
+        maxBuffer,
+        startTimeMode,
+        startHour: 9,
+        startMinute: 30,
+        enableBreak,
+        breakStartHour: bStartH,
+        breakStartMinute: bStartM,
+        breakEndHour: bEndH,
+        breakEndMinute: bEndM,
+        maxCloseHour: 18,
+      });
       if (res.success) {
         setFixMessage(res.message || "Clashes resolved successfully!");
         await loadClashes(targetId);
@@ -125,14 +155,28 @@ export default function ZoneScheduleAnalyzer({
     const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
     if (!targetId) return;
 
+    const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+
     setTestingTransfers(true);
     setFixMessage(null);
     try {
-      const res = await testCrossVenueTransfers(targetId);
+      const res = await testCrossVenueTransfers(targetId, {
+        minBuffer: 5,
+        maxBuffer,
+        startTimeMode,
+        startHour: 9,
+        startMinute: 30,
+        enableBreak,
+        breakStartHour: bStartH,
+        breakStartMinute: bStartM,
+        breakEndHour: bEndH,
+        breakEndMinute: bEndM,
+        maxCloseHour: 18,
+      });
       if (res.success) {
         setTransferReport(res);
         if (!res.proposals || res.proposals.length === 0) {
-          setFixMessage("ℹ️ Simulation complete: No beneficial cross-venue moves found. All manageable conflicts can be resolved using Mode 1 (Slot & Buffer).");
+          setFixMessage("ℹ️ Simulation complete: No beneficial cross-venue moves found that keep destinations within 6:00 PM. Use Mode 1 (Slot & Buffer) to resolve conflicts.");
         }
       } else {
         setFixMessage(`❌ ${res.error || "Failed to simulate venue transfers"}`);
@@ -149,6 +193,8 @@ export default function ZoneScheduleAnalyzer({
     const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
     if (!targetId || !transferReport?.proposals || transferReport.proposals.length === 0) return;
 
+    const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+
     if (!confirm(
       "⚠️ JURY SITTING & VALUATION VERIFICATION:\n\n" +
       "Are you sure judges, juries, and valuation sheets can be accommodated at the destination venue(s)?\n\n" +
@@ -163,7 +209,17 @@ export default function ZoneScheduleAnalyzer({
         programId: p.programId,
         toVenue: p.proposedVenue
       }));
-      const res = await applyCrossVenueTransfers(targetId, transfers);
+      const res = await applyCrossVenueTransfers(targetId, transfers, {
+        startTimeMode,
+        startHour: 9,
+        startMinute: 30,
+        enableBreak,
+        breakStartHour: bStartH,
+        breakStartMinute: bStartM,
+        breakEndHour: bEndH,
+        breakEndMinute: bEndM,
+        maxCloseHour: 18,
+      });
       if (res.success) {
         setFixMessage(`🎉 ${res.message}`);
         setTransferReport(null);
@@ -395,9 +451,103 @@ export default function ZoneScheduleAnalyzer({
                   </button>
                 </div>
 
+                {/* TIMING, BUFFER & BREAK CONSTRAINTS BAR */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                  gap: "12px",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  backgroundColor: "#f8fafc",
+                  border: "1.5px solid #cbd5e1"
+                }}>
+                  {/* Option 1: Start Time */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                      🚩 Venue Start Time
+                    </label>
+                    <select
+                      value={startTimeMode}
+                      onChange={e => setStartTimeMode(e.target.value as any)}
+                      className="form-input"
+                      style={{ fontSize: "0.8rem", padding: "4px 8px", width: "100%", fontWeight: 600 }}
+                    >
+                      <option value="SAVED">Preserve Saved Start Time (or 09:30 AM)</option>
+                      <option value="FIXED_930">Fixed 09:30 AM (Standard Start)</option>
+                    </select>
+                  </div>
+
+                  {/* Option 2: Max Buffer Gap */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                      ⏱️ Max Buffer Gap
+                    </label>
+                    <select
+                      value={maxBuffer}
+                      onChange={e => setMaxBuffer(Number(e.target.value))}
+                      className="form-input"
+                      style={{ fontSize: "0.8rem", padding: "4px 8px", width: "100%", fontWeight: 600 }}
+                    >
+                      <option value={60}>Up to 60 mins (Max clash separation)</option>
+                      <option value={45}>Up to 45 mins</option>
+                      <option value={30}>Up to 30 mins</option>
+                      <option value={15}>Up to 15 mins (Standard)</option>
+                    </select>
+                  </div>
+
+                  {/* Option 3: Lunch/Prayer Break */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={enableBreak}
+                          onChange={e => setEnableBreak(e.target.checked)}
+                          style={{ cursor: "pointer" }}
+                        />
+                        🍽️ Break Option
+                      </label>
+                    </div>
+                    <select
+                      value={breakWindow}
+                      disabled={!enableBreak}
+                      onChange={e => setBreakWindow(e.target.value)}
+                      className="form-input"
+                      style={{
+                        fontSize: "0.8rem",
+                        padding: "4px 8px",
+                        width: "100%",
+                        fontWeight: 600,
+                        opacity: enableBreak ? 1 : 0.5
+                      }}
+                    >
+                      <option value="13:00-13:45">01:00 PM – 01:45 PM (45m Break)</option>
+                      <option value="13:00-14:00">01:00 PM – 02:00 PM (60m Break)</option>
+                    </select>
+                  </div>
+
+                  {/* Option 4: Close Time Window */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                      🏁 Close Window
+                    </label>
+                    <div style={{
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      color: "#0f766e",
+                      backgroundColor: "#ccfbf1",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      border: "1px solid #99f6e4"
+                    }}>
+                      Recommended 5:00 PM <span style={{ color: "#b91c1c", marginLeft: "4px" }}>(Hard Limit: 6:00 PM)</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Clash Solver Buttons */}
                 <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                  {/* Mode 1: Safe Auto-Fix (Order & Buffer Only) */}
+                  {/* Mode 1: Safe Auto-Fix (Order & Buffer up to 60m - Same Venue) */}
                   <button
                     onClick={handleSafeAutoFix}
                     disabled={fixingClashes || clashList.length === 0}
@@ -416,10 +566,10 @@ export default function ZoneScheduleAnalyzer({
                       alignItems: "center",
                       gap: "6px"
                     }}
-                    title="Safely reorders slots & tunes buffer gap between 5 and 15 mins. NEVER touches program durations or venues."
+                    title={`Safely reorders slots & tunes buffer gap up to ${maxBuffer}m between 9:30 AM and 5:00–6:00 PM. NEVER touches program durations or venues.`}
                   >
                     <span>🔄</span>
-                    <span>{fixingClashes ? "Optimizing..." : "Auto-Fix Clashes (Slot Order & 5–15m Buffer Only)"}</span>
+                    <span>{fixingClashes ? "Optimizing..." : `Auto-Fix Clashes (Slot Order & 5–${maxBuffer}m Buffer | Same Venue)`}</span>
                   </button>
 
                   {/* Mode 2: Test Venue Transfer for Severe Clashes */}
@@ -441,10 +591,10 @@ export default function ZoneScheduleAnalyzer({
                       alignItems: "center",
                       gap: "6px"
                     }}
-                    title="Simulate moving stubborn programs to another venue to eliminate critical clashes"
+                    title="Simulate moving stubborn programs to another venue to eliminate critical clashes while respecting the 6:00 PM close window"
                   >
-                    <span>🧪</span>
-                    <span>{testingTransfers ? "Simulating..." : "Test Venue Transfer for Severe Clashes"}</span>
+                    <span>⚡</span>
+                    <span>{testingTransfers ? "Simulating..." : "Mode 2: Test Venue Transfer for Severe Clashes"}</span>
                   </button>
                 </div>
               </div>

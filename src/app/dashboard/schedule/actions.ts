@@ -1623,7 +1623,19 @@ export async function getScheduleClashAnalysis(eventId: string) {
  */
 export async function resolveClashesSafe(
   eventId: string,
-  options?: { minBuffer?: number; maxBuffer?: number }
+  options?: {
+    minBuffer?: number;
+    maxBuffer?: number;
+    startTimeMode?: "SAVED" | "FIXED_930";
+    startHour?: number;
+    startMinute?: number;
+    enableBreak?: boolean;
+    breakStartHour?: number;
+    breakStartMinute?: number;
+    breakEndHour?: number;
+    breakEndMinute?: number;
+    maxCloseHour?: number;
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1657,7 +1669,8 @@ export async function resolveClashesSafe(
           },
           orderBy: { slotNumber: "asc" }
         }
-      }
+      },
+      orderBy: [{ startTime: "asc" }, { programCode: "asc" }]
     });
 
     const venueGroups: Record<string, any[]> = {};
@@ -1667,11 +1680,29 @@ export async function resolveClashesSafe(
       venueGroups[p.venue].push(p);
     }
 
-    const buildTimelines = (bufferMap: Record<string, number> = {}) => {
+    const minBuf = Math.max(0, options?.minBuffer ?? 5);
+    const maxBuf = Math.min(60, Math.max(minBuf, options?.maxBuffer ?? 60)); // Up to 60 mins
+    const maxCloseHour = options?.maxCloseHour ?? 18; // 6:00 PM hard ceiling
+
+    const calcTimingOpts = {
+      targetZoneId,
+      startTimeMode: options?.startTimeMode ?? "SAVED",
+      startHour: options?.startHour ?? 9,
+      startMinute: options?.startMinute ?? 30,
+      enableBreak: options?.enableBreak ?? true,
+      breakStartHour: options?.breakStartHour ?? 13,
+      breakStartMinute: options?.breakStartMinute ?? 0,
+      breakEndHour: options?.breakEndHour ?? 13,
+      breakEndMinute: options?.breakEndMinute ?? 45,
+      oneDayCutoffHour: 17, // 5:00 PM recommended
+      extendedCutoffHour: maxCloseHour,
+    };
+
+    const buildTimelines = (bufferMap: Record<string, number> = {}, groups = venueGroups) => {
       const timelines: Record<string, any[]> = {};
-      for (const [vName, vProgs] of Object.entries(venueGroups)) {
-        const buf = bufferMap[vName] ?? 5;
-        const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: buf });
+      for (const [vName, vProgs] of Object.entries(groups)) {
+        const buf = bufferMap[vName] ?? minBuf;
+        const tl = calculateVenueTimeline(vName, vProgs, { ...calcTimingOpts, bufferMinutes: buf });
         timelines[vName] = tl.programs;
       }
       return timelines;
@@ -1680,7 +1711,7 @@ export async function resolveClashesSafe(
     const initialAnalysis = detectClashesBySeverity(buildTimelines(), targetZoneId);
     let fixedSlotsCount = 0;
 
-    // STEP 1: Reorder candidate slots for candidate clashes across venues
+    // STEP 1: Reorder candidate slots for candidate clashes across venues (1st vs Last slot)
     const processedPairs = new Set<string>();
     for (const clash of initialAnalysis.scoredClashes) {
       if (!clash.candidateId) continue;
@@ -1719,18 +1750,29 @@ export async function resolveClashesSafe(
       fixedSlotsCount++;
     }
 
-    // STEP 2: Buffer gap tuning between 5 and 15 mins (minimum 5m, maximum 15m)
+    // STEP 2: Buffer gap tuning from minBuf up to maxBuf (up to 60 mins), strictly rejecting finish > 6:00 PM
     const venueBufferMap: Record<string, number> = {};
     for (const venueName of Object.keys(venueGroups)) {
-      venueBufferMap[venueName] = 5; // default 5m
+      venueBufferMap[venueName] = minBuf;
     }
 
-    const testBuffers = [5, 8, 10, 12, 15]; // strictly 5 to 15 mins
+    const testBuffers = [5, 10, 15, 20, 25, 30, 40, 45, 50, 60].filter(b => b >= minBuf && b <= maxBuf);
+    if (!testBuffers.includes(minBuf)) testBuffers.unshift(minBuf);
+    if (!testBuffers.includes(maxBuf)) testBuffers.push(maxBuf);
+
     let bestClashCount = detectClashesBySeverity(buildTimelines(venueBufferMap), targetZoneId).scoredClashes.length;
 
     for (const venueName of Object.keys(venueGroups)) {
       let bestBufForVenue = venueBufferMap[venueName];
       for (const b of testBuffers) {
+        // Enforce hard ceiling: must not exceed maxCloseHour (6:00 PM)
+        const tl = calculateVenueTimeline(venueName, venueGroups[venueName], { ...calcTimingOpts, bufferMinutes: b });
+        const endHours = tl.endTime.getHours() + tl.endTime.getMinutes() / 60;
+        if (endHours > maxCloseHour) {
+          // Reject this buffer because it pushes venue past 6:00 PM!
+          continue;
+        }
+
         const testMap = { ...venueBufferMap, [venueName]: b };
         const testClashes = detectClashesBySeverity(buildTimelines(testMap), targetZoneId).scoredClashes.length;
         if (testClashes < bestClashCount) {
@@ -1743,15 +1785,15 @@ export async function resolveClashesSafe(
 
     // STEP 3: Apply sequential start times using the optimized buffer gap WITHOUT touching durations!
     for (const [vName, vProgs] of Object.entries(venueGroups)) {
-      const chosenBuffer = venueBufferMap[vName] || 5;
-      const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: chosenBuffer });
+      const chosenBuffer = venueBufferMap[vName] || minBuf;
+      const tl = calculateVenueTimeline(vName, vProgs, { ...calcTimingOpts, bufferMinutes: chosenBuffer });
 
       const timeUpdates = tl.programs.map(item =>
         prisma.program.update({
           where: { id: item.program.id },
           data: {
             startTime: item.predictedStart
-            // NOTE: duration and durationMode are NEVER touched!
+            // NOTE: duration, durationMode, and venue are NEVER touched!
           }
         })
       );
@@ -1773,7 +1815,7 @@ export async function resolveClashesSafe(
       initialClashes: initialAnalysis.scoredClashes.length,
       remainingClashes: finalAnalysis.scoredClashes.length,
       venueBuffers: venueBufferMap,
-      message: `Clashes auto-resolved! Reordered ${fixedSlotsCount} candidate slots and tuned buffer gaps (5–15 mins). Total clashes: ${initialAnalysis.scoredClashes.length} → ${finalAnalysis.scoredClashes.length}. Program durations & venues remained 100% untouched.`
+      message: `Clashes auto-resolved! Reordered ${fixedSlotsCount} candidate slots and adjusted buffer gaps (up to ${maxBuf}m). Total clashes: ${initialAnalysis.scoredClashes.length} → ${finalAnalysis.scoredClashes.length}. Start times preserved (9:30 AM / saved), break honored, close before 6:00 PM. Program durations & venues remained 100% untouched.`
     };
   } catch (e: any) {
     console.error("resolveClashesSafe error:", e);
@@ -1786,7 +1828,22 @@ export async function resolveClashesSafe(
  * Tests whether moving stubborn conflicting programs to an alternative venue eliminates critical clashes.
  * Displays proposals with a required Jury & Valuation confirmation notice.
  */
-export async function testCrossVenueTransfers(eventId: string) {
+export async function testCrossVenueTransfers(
+  eventId: string,
+  options?: {
+    minBuffer?: number;
+    maxBuffer?: number;
+    startTimeMode?: "SAVED" | "FIXED_930";
+    startHour?: number;
+    startMinute?: number;
+    enableBreak?: boolean;
+    breakStartHour?: number;
+    breakStartMinute?: number;
+    breakEndHour?: number;
+    breakEndMinute?: number;
+    maxCloseHour?: number;
+  }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
@@ -1818,7 +1875,8 @@ export async function testCrossVenueTransfers(eventId: string) {
             }
           }
         }
-      }
+      },
+      orderBy: [{ startTime: "asc" }, { programCode: "asc" }]
     });
 
     const venueGroups: Record<string, any[]> = {};
@@ -1833,10 +1891,25 @@ export async function testCrossVenueTransfers(eventId: string) {
       return { success: true, proposals: [], message: "At least 2 stages/venues are needed to test cross-venue transfers." };
     }
 
+    const maxCloseHour = options?.maxCloseHour ?? 18;
+    const calcTimingOpts = {
+      targetZoneId,
+      startTimeMode: options?.startTimeMode ?? "SAVED",
+      startHour: options?.startHour ?? 9,
+      startMinute: options?.startMinute ?? 30,
+      enableBreak: options?.enableBreak ?? true,
+      breakStartHour: options?.breakStartHour ?? 13,
+      breakStartMinute: options?.breakStartMinute ?? 0,
+      breakEndHour: options?.breakEndHour ?? 13,
+      breakEndMinute: options?.breakEndMinute ?? 45,
+      oneDayCutoffHour: 17,
+      extendedCutoffHour: maxCloseHour,
+    };
+
     const buildTimelines = (groups: Record<string, any[]>) => {
       const timelines: Record<string, any[]> = {};
       for (const [vName, vProgs] of Object.entries(groups)) {
-        const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: 5 });
+        const tl = calculateVenueTimeline(vName, vProgs, { ...calcTimingOpts, bufferMinutes: 5 });
         timelines[vName] = tl.programs;
       }
       return timelines;
@@ -1871,6 +1944,7 @@ export async function testCrossVenueTransfers(eventId: string) {
       proposedVenue: string;
       clashReduction: number;
       projectedTotalClashes: number;
+      targetVenueFinishText: string;
       candidateNames: string[];
       reason: string;
     };
@@ -1895,12 +1969,23 @@ export async function testCrossVenueTransfers(eventId: string) {
         }
         simGroups[targetVenue] = [...(simGroups[targetVenue] || []), prog];
 
+        // Ensure targetVenue with new program does NOT exceed 6:00 PM!
+        const simTlTarget = calculateVenueTimeline(targetVenue, simGroups[targetVenue], { ...calcTimingOpts, bufferMinutes: 5 });
+        const endHours = simTlTarget.endTime.getHours() + simTlTarget.endTime.getMinutes() / 60;
+        if (endHours > maxCloseHour) {
+          // Exceeds 6:00 PM hard ceiling: reject this venue move!
+          continue;
+        }
+
         const simAnalysis = detectClashesBySeverity(buildTimelines(simGroups), targetZoneId);
         const simTotal = simAnalysis.scoredClashes.length;
         const simCritical = simAnalysis.criticalCount + simAnalysis.highCount;
 
         if (simTotal < initialTotalClashes || (simTotal === initialTotalClashes && simCritical < initialCritical)) {
           const reduction = initialTotalClashes - simTotal;
+          const endMinsStr = String(simTlTarget.endTime.getMinutes()).padStart(2, '0');
+          const targetFinishText = `${Math.floor(endHours > 12 ? endHours - 12 : endHours)}:${endMinsStr} PM (${endHours <= 17 ? 'Fits before 5 PM' : 'Finishes 5–6 PM'})`;
+
           proposals.push({
             programId: prog.id,
             programCode: prog.programCode || "",
@@ -1910,8 +1995,9 @@ export async function testCrossVenueTransfers(eventId: string) {
             proposedVenue: targetVenue,
             clashReduction: reduction > 0 ? reduction : 1,
             projectedTotalClashes: simTotal,
+            targetVenueFinishText: targetFinishText,
             candidateNames,
-            reason: `Moving to "${targetVenue}" eliminates scheduling conflict for ${candidateNames.slice(0, 2).join(", ")}${candidateNames.length > 2 ? ` +${candidateNames.length - 2} more` : ""}.`
+            reason: `Moving to "${targetVenue}" eliminates conflict for ${candidateNames.slice(0, 2).join(", ")}${candidateNames.length > 2 ? ` +${candidateNames.length - 2} more` : ""}. Destination finishes at ${targetFinishText}.`
           });
         }
       }
@@ -1944,11 +2030,22 @@ export async function testCrossVenueTransfers(eventId: string) {
 /**
  * APPLY APPROVED CROSS-VENUE TRANSFERS
  * Moves approved programs to new venues and re-sequences start times with >=5m buffer.
- * Preserves all program durations and timing modes!
+ * Preserves all program durations, timing modes, and respects the 9:30 AM start / 6:00 PM close window!
  */
 export async function applyCrossVenueTransfers(
   eventId: string,
-  transfers: { programId: string; toVenue: string }[]
+  transfers: { programId: string; toVenue: string }[],
+  options?: {
+    startTimeMode?: "SAVED" | "FIXED_930";
+    startHour?: number;
+    startMinute?: number;
+    enableBreak?: boolean;
+    breakStartHour?: number;
+    breakStartMinute?: number;
+    breakEndHour?: number;
+    breakEndMinute?: number;
+    maxCloseHour?: number;
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1980,6 +2077,20 @@ export async function applyCrossVenueTransfers(
       });
     }
 
+    const calcTimingOpts = {
+      targetZoneId,
+      startTimeMode: options?.startTimeMode ?? "SAVED",
+      startHour: options?.startHour ?? 9,
+      startMinute: options?.startMinute ?? 30,
+      enableBreak: options?.enableBreak ?? true,
+      breakStartHour: options?.breakStartHour ?? 13,
+      breakStartMinute: options?.breakStartMinute ?? 0,
+      breakEndHour: options?.breakEndHour ?? 13,
+      breakEndMinute: options?.breakEndMinute ?? 45,
+      oneDayCutoffHour: 17,
+      extendedCutoffHour: options?.maxCloseHour ?? 18,
+    };
+
     // Re-align start times for all affected venues
     for (const venueName of affectedVenues) {
       const vProgs = await prisma.program.findMany({
@@ -2002,7 +2113,7 @@ export async function applyCrossVenueTransfers(
         orderBy: [{ startTime: "asc" }, { programCode: "asc" }]
       });
 
-      const tl = calculateVenueTimeline(venueName, vProgs, { targetZoneId, bufferMinutes: 5 });
+      const tl = calculateVenueTimeline(venueName, vProgs, { ...calcTimingOpts, bufferMinutes: 5 });
       const updates = tl.programs.map(item =>
         prisma.program.update({
           where: { id: item.program.id },

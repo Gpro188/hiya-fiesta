@@ -52,11 +52,19 @@ export interface CalculationOptions {
   minutesPerCandidate?: number; // override if needed, otherwise uses program.duration or 5
   minutesPerTeam?: number; // for group programs
   groupFixedMin?: number; // duration for group / fixed programs
-  bufferMinutes?: number; // transition buffer between programs (default 0 or 5)
+  bufferMinutes?: number; // transition buffer between programs (default 0 or 5, up to 60m)
   targetZoneId?: string | null; // filter candidates to this specific zone
-  baseStartTime?: Date; // default is 09:00 AM
-  oneDayCutoffHour?: number; // default 18 (6:00 PM)
-  extendedCutoffHour?: number; // default 20 (8:00 PM)
+  baseStartTime?: Date | string; // explicit base start time
+  startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM"; // default SAVED: preserves venue's saved start time
+  startHour?: number; // default 9
+  startMinute?: number; // default 30
+  oneDayCutoffHour?: number; // recommended finish hour (default 17 = 5:00 PM)
+  extendedCutoffHour?: number; // hard ceiling finish hour (default 18 = 6:00 PM)
+  enableBreak?: boolean; // lunch/prayer break option
+  breakStartHour?: number; // default 13 (1:00 PM)
+  breakStartMinute?: number; // default 0
+  breakEndHour?: number; // default 13 (1:45 PM) or 14 (2:00 PM)
+  breakEndMinute?: number; // default 45
 }
 
 export interface CalculatedProgramSlot {
@@ -247,7 +255,52 @@ export function calculateVenueTimeline(
   options: CalculationOptions = {}
 ): VenueTimelineResult {
   const bufferMinutes = options.bufferMinutes ?? 5;
-  const baseDate = getFestivalBaseDate(options.baseStartTime);
+
+  // Determine venue base start time:
+  // 1. Explicit baseStartTime provided in options
+  // 2. If startTimeMode is "SAVED" (or default if programs has saved times):
+  //    find the earliest valid saved startTime among the programs
+  // 3. Fallback: 09:30 AM IST on the festival date
+  let baseDate: Date;
+  if (options.baseStartTime) {
+    baseDate = getFestivalBaseDate(options.baseStartTime, options.startHour ?? 9, options.startMinute ?? 30);
+  } else if (options.startTimeMode !== "FIXED_930") {
+    // Check if any program in this venue has a saved startTime
+    const validSavedTimes = programs
+      .map(p => p.startTime ? new Date(p.startTime) : null)
+      .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    if (validSavedTimes.length > 0) {
+      baseDate = validSavedTimes[0];
+    } else {
+      baseDate = getFestivalBaseDate(undefined, options.startHour ?? 9, options.startMinute ?? 30);
+    }
+  } else {
+    // FIXED_930: Use date from first program (or today) at 09:30 AM IST
+    const sampleDate = programs.find(p => p.startTime)?.startTime;
+    baseDate = getFestivalBaseDate(sampleDate, options.startHour ?? 9, options.startMinute ?? 30);
+  }
+
+  // Setup Break Window (if enabled)
+  let breakStart: Date | null = null;
+  let breakEnd: Date | null = null;
+  if (options.enableBreak) {
+    const sH = options.breakStartHour ?? 13; // 1:00 PM
+    const sM = options.breakStartMinute ?? 0;
+    const eH = options.breakEndHour ?? 13;
+    const eM = options.breakEndMinute ?? 45; // 1:45 PM (or 14:00 if 2:00 PM)
+
+    breakStart = new Date(baseDate.getTime());
+    breakStart.setHours(sH, sM, 0, 0);
+
+    breakEnd = new Date(baseDate.getTime());
+    breakEnd.setHours(eH, eM, 0, 0);
+
+    if (breakEnd.getTime() <= breakStart.getTime()) {
+      breakEnd = new Date(breakStart.getTime() + 45 * 60000);
+    }
+  }
 
   let currentCursor = new Date(baseDate.getTime());
   let totalCandidates = 0;
@@ -261,6 +314,17 @@ export function calculateVenueTimeline(
     );
 
     totalCandidates += candidateCount;
+
+    // Apply Break adjustment:
+    // If the current cursor is within the break window, or if running this program now would overlap the break window,
+    // push the program start to the end of the break window!
+    if (options.enableBreak && breakStart && breakEnd) {
+      if (currentCursor >= breakStart && currentCursor < breakEnd) {
+        currentCursor = new Date(breakEnd.getTime());
+      } else if (currentCursor < breakStart && (currentCursor.getTime() + duration * 60000) > breakStart.getTime()) {
+        currentCursor = new Date(breakEnd.getTime());
+      }
+    }
 
     const start = new Date(currentCursor.getTime());
     const end = new Date(start.getTime() + duration * 60000);
@@ -287,22 +351,22 @@ export function calculateVenueTimeline(
     ? calculatedSlots[calculatedSlots.length - 1].predictedEnd 
     : baseDate;
 
-  // 1-Day Feasibility check
+  // Recommended close: 5:00 PM (17:00), Hard Limit: 6:00 PM (18:00)
   const endHours = endTime.getHours() + endTime.getMinutes() / 60;
-  const cutoffHour = options.oneDayCutoffHour || 18; // 6:00 PM
-  const extendedCutoff = options.extendedCutoffHour || 20; // 8:00 PM
+  const cutoffHour = options.oneDayCutoffHour || 17; // 5:00 PM recommended close
+  const extendedCutoff = options.extendedCutoffHour || 18; // 6:00 PM hard ceiling
 
   let status: "FEASIBLE" | "TIGHT" | "OVERRUN" = "FEASIBLE";
-  let statusText = "Fits within 1-Day";
+  let statusText = "Fits before 5:00 PM";
   let statusColor = "#10b981"; // Green
 
   if (endHours > extendedCutoff) {
     status = "OVERRUN";
-    statusText = `Overruns 1-Day (> ${Math.floor(endHours - 12)}:${String(endTime.getMinutes()).padStart(2, '0')} PM)`;
+    statusText = `Overruns 6:00 PM (${Math.floor(endHours > 12 ? endHours - 12 : endHours)}:${String(endTime.getMinutes()).padStart(2, '0')} PM)`;
     statusColor = "#ef4444"; // Red
   } else if (endHours > cutoffHour) {
     status = "TIGHT";
-    statusText = `Tight Evening Finish (${Math.floor(endHours - 12)}:${String(endTime.getMinutes()).padStart(2, '0')} PM)`;
+    statusText = `Finishes between 5:00 PM and 6:00 PM (${Math.floor(endHours > 12 ? endHours - 12 : endHours)}:${String(endTime.getMinutes()).padStart(2, '0')} PM)`;
     statusColor = "#f59e0b"; // Amber
   }
 
