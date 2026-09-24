@@ -27,7 +27,8 @@ import {
   getGlobalScheduleSettings,
   saveGlobalScheduleSettings,
   getScheduleClashAnalysis,
-  resolveManageableClashes
+  resolveManageableClashes,
+  resolveClashesSafe
 } from "./actions";
 
 export default function AdminScheduler({ 
@@ -150,11 +151,11 @@ export default function AdminScheduler({
   };
 
   const handleResolveManageableClashes = async () => {
-    if (!confirm("Automatically resolve manageable candidate clashes?\n\nThis will reorder slots within programs so clashing candidates perform first in one stage and last in the conflicting stage. Program types and fixed times are NOT changed.")) return;
+    if (!confirm("Automatically resolve candidate clashes?\n\nThis will reorder slots and adjust buffer gaps (5–15 mins) within venues. Program durations, fixed times, and venues are 100% PRESERVED and NEVER changed.")) return;
     setClashFixLoading(true);
     setClashMsg(null);
     try {
-      const res = await resolveManageableClashes(eventId);
+      const res = await resolveClashesSafe(eventId);
       if (res.success) {
         setClashMsg(res.message || "Clashes resolved successfully!");
         setTimeout(() => window.location.reload(), 1500);
@@ -575,47 +576,7 @@ export default function AdminScheduler({
     }
   };
 
-  // Auto-calculate venue program durations by candidates attending
-  const handleAutoCalculateVenueByCandidates = async (venue: string) => {
-    const venueProgs = groupedPrograms[venue] || [];
-    if (venueProgs.length === 0) return;
 
-    const buf = getVenueBuffer(venue, venueProgs);
-    setLoadingId(`auto-calc-${venue}`);
-    try {
-      const updatedVenueProgs = venueProgs.map(p => {
-        const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
-        const calcInfo = calculateDynamicProgramDuration(p, zoneCandidates, { targetZoneId });
-        return { ...p, duration: calcInfo.duration, durationMode: calcInfo.durationMode };
-      });
-
-      const { predictedList } = getPredictedVenueTimeline(venue, updatedVenueProgs, buf);
-      const updateMap = new Map(predictedList.map(item => [item.program.id, { start: item.predictedStart.toISOString(), duration: item.duration, mode: item.durationMode }]));
-
-      setPrograms(prev => prev.map(p => {
-        if (updateMap.has(p.id)) {
-          const info = updateMap.get(p.id)!;
-          return { ...p, duration: info.duration, durationMode: info.mode, startTime: info.start, venue };
-        }
-        return p;
-      }));
-
-      const updates = predictedList.map(item => ({
-        id: item.program.id,
-        startTime: item.predictedStart.toISOString(),
-        duration: item.duration,
-        durationMode: item.durationMode,
-        stageType: item.program.stageType
-      }));
-
-      await applySequentialVenueSchedule(eventId, venue, updates);
-      alert(`✅ Auto-calculated ${predictedList.length} programs in ${venue} based on registered candidates!`);
-    } catch (e: any) {
-      alert("Failed to auto-calculate: " + (e.message || "Unknown error"));
-    } finally {
-      setLoadingId(null);
-    }
-  };
 
   const handleRenameVenue = async (oldName: string) => {
     const newName = prompt(`Enter new name for venue "${oldName}":`, oldName);
@@ -877,24 +838,6 @@ export default function AdminScheduler({
             activeEventId={eventId} 
             onScheduleUpdated={() => window.location.reload()} 
           />
-
-          <button 
-            className="btn btn-secondary" 
-            onClick={async () => {
-              if (!confirm("Automatically assign unscheduled programs to stages starting at 09:00 AM?")) return;
-              setLoadingId("auto-gen");
-              try {
-                const res = await autoGenerateSchedule(eventId, allVenues);
-                if (res.success) window.location.reload();
-                else alert("Failed to auto-schedule.");
-              } finally {
-                setLoadingId(null);
-              }
-            }} 
-            disabled={loadingId !== null}
-          >
-            {loadingId === "auto-gen" ? "..." : "🤖 Auto-Assign Venues"}
-          </button>
         </div>
       </div>
 
@@ -1441,15 +1384,6 @@ export default function AdminScheduler({
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                   <button className="btn btn-secondary" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 700 }} onClick={() => handleAddBreak(venue)}>
                     + Add Break
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 700 }}
-                    onClick={() => handleAutoCalculateVenueByCandidates(venue)}
-                    disabled={loadingId !== null}
-                    title="Recalculate durations from registered candidate counts"
-                  >
-                    ⚡ Auto-Calculate Durations
                   </button>
                   <button
                     className="btn btn-primary"

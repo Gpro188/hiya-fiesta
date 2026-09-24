@@ -2,53 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { 
-  getZoneScheduleAnalysis, 
-  applyRegistrationBasedScheduleToZone, 
-  applyRegistrationBasedScheduleToAllZones,
   getScheduleClashAnalysis,
+  resolveClashesSafe,
+  testCrossVenueTransfers,
+  applyCrossVenueTransfers,
   resolveManageableClashes
 } from "./actions";
 import { ScoredClash, formatTimeAmPm } from "@/lib/scheduleCalculator";
 
-interface ProgramSlotReport {
+interface ZoneItem {
   id: string;
-  programCode?: string | null;
   name: string;
-  type?: string;
-  candidateCount: number;
-  teamCount?: number;
-  durationMode?: string | null;
-  durationPerCandidate: number;
-  durationMinutes: number;
-  startTime: string;
-  endTime: string;
-}
-
-interface VenueReport {
-  venue: string;
-  totalPrograms: number;
-  totalCandidates: number;
-  totalDurationMinutes: number;
-  formattedDuration: string;
-  startTime: string;
-  endTime: string;
-  status: "FEASIBLE" | "TIGHT" | "OVERRUN";
-  statusText: string;
-  statusColor: string;
-  programs: ProgramSlotReport[];
-}
-
-interface ZoneReport {
-  eventId: string;
-  zoneName: string;
-  zoneId?: string | null;
-  venues: VenueReport[];
-  totalVenues: number;
-  totalPrograms: number;
-  totalCandidates: number;
-  overallFinishTime: string;
-  zoneStatus: "FEASIBLE" | "TIGHT" | "OVERRUN";
-  isOneDayFeasible: boolean;
 }
 
 export default function ZoneScheduleAnalyzer({
@@ -61,48 +25,46 @@ export default function ZoneScheduleAnalyzer({
   onScheduleUpdated?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"CAPACITY" | "CLASHES">("CAPACITY");
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [zones, setZones] = useState<ZoneReport[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string>("ALL");
-  const [expandedVenues, setExpandedVenues] = useState<Record<string, boolean>>({});
-  const [bufferMinutes, setBufferMinutes] = useState<number>(2);
+  const [availableZones, setAvailableZones] = useState<ZoneItem[]>([]);
 
   // Clash Analysis State
   const [clashList, setClashList] = useState<ScoredClash[]>([]);
   const [clashesLoading, setClashesLoading] = useState(false);
-  const [clashCounts, setClashCounts] = useState<{ critical: number; high: number; medium: number; manageable: number }>({ critical: 0, high: 0, medium: 0, manageable: 0 });
+  const [clashCounts, setClashCounts] = useState<{ critical: number; high: number; medium: number; manageable: number }>({ 
+    critical: 0, high: 0, medium: 0, manageable: 0 
+  });
   const [clashFilterSeverity, setClashFilterSeverity] = useState<string>("ALL");
   const [fixMessage, setFixMessage] = useState<string | null>(null);
   const [fixingClashes, setFixingClashes] = useState(false);
 
+  // Type 2: Venue Transfer Simulation State
+  const [testingTransfers, setTestingTransfers] = useState(false);
+  const [transferReport, setTransferReport] = useState<any | null>(null);
+  const [applyingTransfer, setApplyingTransfer] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
-      loadAnalysis();
       loadClashes();
+      loadZonesList();
     }
   }, [isOpen]);
 
-  const loadAnalysis = async () => {
-    setLoading(true);
+  const loadZonesList = async () => {
     try {
-      const res = await getZoneScheduleAnalysis();
-      if (res.success && res.zones) {
-        setZones(res.zones);
-      } else {
-        alert("Failed to load zone analysis: " + (res.error || "Unknown error"));
+      const res = await fetch("/api/events?type=ZONAL").then(r => r.json()).catch(() => null);
+      if (res && Array.isArray(res)) {
+        setAvailableZones(res.map((e: any) => ({ id: e.id, name: e.name })));
       }
-    } catch (err: any) {
-      alert("Error loading analysis: " + err.message);
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      // Non-critical fallback
     }
   };
 
   const loadClashes = async (eventIdOverride?: string) => {
     setClashesLoading(true);
     setFixMessage(null);
+    setTransferReport(null);
     try {
       const targetId = eventIdOverride || (selectedZoneId !== "ALL" ? selectedZoneId : activeEventId);
       if (!targetId) {
@@ -128,79 +90,94 @@ export default function ZoneScheduleAnalyzer({
     }
   };
 
-  const handleFixManageableInAnalyzer = async () => {
+  // TYPE 1: Safe Auto-Fix (Order Change & 5-15m Buffer Gap Only - Same Venue)
+  const handleSafeAutoFix = async () => {
     const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
     if (!targetId) return;
-    if (!confirm("Automatically resolve manageable candidate clashes?\n\nCandidate slots will be swapped so they are 1st in one venue and last in the conflicting venue. Fixed times and program types are never changed.")) return;
+    if (!confirm(
+      "Run Safe Auto-Clash Resolver?\n\n" +
+      "• Reorders candidate slots (1st vs Last) across venues\n" +
+      "• Adjusts buffer gaps strictly between 5 and 15 minutes\n" +
+      "• Preserves candidate and program sequence\n\n" +
+      "🛡️ GUARANTEE: Program durations, mins/candidate, and venues are 100% PRESERVED and NEVER changed."
+    )) return;
+
     setFixingClashes(true);
     setFixMessage(null);
     try {
-      const res = await resolveManageableClashes(targetId);
+      const res = await resolveClashesSafe(targetId);
       if (res.success) {
-        setFixMessage(res.message || "Clashes resolved!");
+        setFixMessage(res.message || "Clashes resolved successfully!");
         await loadClashes(targetId);
         if (onScheduleUpdated) onScheduleUpdated();
       } else {
         setFixMessage(`❌ ${res.error || "Failed to fix clashes"}`);
       }
     } catch (err: any) {
-      setFixMessage(`❌ ${err.message || "Error"}`);
+      setFixMessage(`❌ ${err.message || "Error resolving clashes"}`);
     } finally {
       setFixingClashes(false);
     }
   };
 
-  const handleApplySingleZone = async (zone: ZoneReport) => {
-    if (!confirm(`Apply candidate registration-based 1-day schedule to "${zone.zoneName}"?\n\nProgram durations will be calculated from actual registered candidates and scheduled sequentially starting strictly from 09:00 AM.`)) {
+  // TYPE 2: Test Cross-Venue Transfer for Severe Clashes
+  const handleTestVenueTransfers = async () => {
+    const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
+    if (!targetId) return;
+
+    setTestingTransfers(true);
+    setFixMessage(null);
+    try {
+      const res = await testCrossVenueTransfers(targetId);
+      if (res.success) {
+        setTransferReport(res);
+        if (!res.proposals || res.proposals.length === 0) {
+          setFixMessage("ℹ️ Simulation complete: No beneficial cross-venue moves found. All manageable conflicts can be resolved using Mode 1 (Slot & Buffer).");
+        }
+      } else {
+        setFixMessage(`❌ ${res.error || "Failed to simulate venue transfers"}`);
+      }
+    } catch (err: any) {
+      setFixMessage(`❌ ${err.message || "Error simulating venue transfers"}`);
+    } finally {
+      setTestingTransfers(false);
+    }
+  };
+
+  // Confirm and Apply Cross-Venue Transfer
+  const handleApplyTransfers = async () => {
+    const targetId = selectedZoneId !== "ALL" ? selectedZoneId : activeEventId;
+    if (!targetId || !transferReport?.proposals || transferReport.proposals.length === 0) return;
+
+    if (!confirm(
+      "⚠️ JURY SITTING & VALUATION VERIFICATION:\n\n" +
+      "Are you sure judges, juries, and valuation sheets can be accommodated at the destination venue(s)?\n\n" +
+      "Click OK to confirm and transfer the proposed programs to their new venues."
+    )) {
       return;
     }
 
-    setActionLoading(`zone-${zone.eventId}`);
+    setApplyingTransfer(true);
     try {
-      const res = await applyRegistrationBasedScheduleToZone(zone.eventId, { bufferMinutes });
+      const transfers = transferReport.proposals.map((p: any) => ({
+        programId: p.programId,
+        toVenue: p.proposedVenue
+      }));
+      const res = await applyCrossVenueTransfers(targetId, transfers);
       if (res.success) {
-        alert(`✅ Successfully updated "${zone.zoneName}"!\n• ${res.updatedProgramsCount} Programs scheduled\n• ${res.updatedSlotsCount} Candidate slots assigned`);
-        await loadAnalysis();
+        setFixMessage(`🎉 ${res.message}`);
+        setTransferReport(null);
+        await loadClashes(targetId);
         if (onScheduleUpdated) onScheduleUpdated();
       } else {
-        alert("Failed: " + (res.error || "Unknown error"));
+        setFixMessage(`❌ ${res.error || "Failed to apply venue transfers"}`);
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      setFixMessage(`❌ ${err.message || "Error applying transfers"}`);
     } finally {
-      setActionLoading(null);
+      setApplyingTransfer(false);
     }
   };
-
-  const handleApplyAllZones = async () => {
-    if (!confirm(`Apply candidate registration-based 1-day schedule to ALL ${zones.length} Zones?\n\nEvery zone's program durations will be automatically computed from their candidate registrations and start at 09:00 AM.`)) {
-      return;
-    }
-
-    setActionLoading("all-zones");
-    try {
-      const res = await applyRegistrationBasedScheduleToAllZones({ bufferMinutes });
-      if (res.success) {
-        alert(`🎉 Successfully synchronized 1-Day schedule across all ${res.zonesProcessed} Zones!\n• ${res.totalPrograms} Programs updated\n• ${res.totalSlots} Candidate slots sequenced`);
-        await loadAnalysis();
-        if (onScheduleUpdated) onScheduleUpdated();
-      } else {
-        alert("Failed: " + (res.error || "Unknown error"));
-      }
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const toggleVenueExpand = (key: string) => {
-    setExpandedVenues(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const filteredZones = selectedZoneId === "ALL" 
-    ? zones 
-    : zones.filter(z => z.eventId === selectedZoneId);
 
   return (
     <>
@@ -209,13 +186,13 @@ export default function ZoneScheduleAnalyzer({
         onClick={() => setIsOpen(true)}
         className="btn"
         style={{
-          background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+          background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)",
           color: "#ffffff",
           fontWeight: 800,
           fontSize: "0.85rem",
           padding: "8px 16px",
           borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(99, 102, 241, 0.35)",
+          boxShadow: "0 4px 12px rgba(13, 148, 136, 0.35)",
           display: "inline-flex",
           alignItems: "center",
           gap: "8px",
@@ -223,8 +200,20 @@ export default function ZoneScheduleAnalyzer({
           cursor: "pointer"
         }}
       >
-        <span style={{ fontSize: "1.1rem" }}>⏱️</span>
-        <span>1-Day Zone Capacity & Auto-Scheduler</span>
+        <span style={{ fontSize: "1.1rem" }}>🛡️</span>
+        <span>Clash Assistant & Auto-Fix</span>
+        {clashList.length > 0 && (
+          <span style={{
+            backgroundColor: clashCounts.critical > 0 ? "#ef4444" : "#f59e0b",
+            color: "#ffffff",
+            padding: "1px 7px",
+            borderRadius: "10px",
+            fontSize: "0.72rem",
+            fontWeight: 800
+          }}>
+            {clashList.length}
+          </span>
+        )}
       </button>
 
       {/* Modal / Overlay */}
@@ -248,10 +237,10 @@ export default function ZoneScheduleAnalyzer({
             borderRadius: "16px",
             width: "100%",
             maxWidth: "1150px",
-            maxHeight: "90vh",
+            maxHeight: "92vh",
             display: "flex",
             flexDirection: "column",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
             overflow: "hidden"
           }}>
             
@@ -262,34 +251,45 @@ export default function ZoneScheduleAnalyzer({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              background: "linear-gradient(to right, #f8fafc, #f1f5f9)"
+              backgroundColor: "#f8fafc"
             }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "1.5rem" }}>⏱️</span>
-                  <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
-                    1-Day Zonal Schedule & Venue Runtime Analyzer
-                  </h2>
+                  <span style={{ fontSize: "1.5rem" }}>🛡️</span>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>
+                      Schedule Clash Assistant & Safe Resolver
+                    </h2>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b" }}>
+                      Eliminates candidate conflicts without altering program durations, mins/candidate, or fixed times.
+                    </p>
+                  </div>
                 </div>
-                <p style={{ margin: "4px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
-                  Auto-calculates exact program durations based on registered candidates in each zone. Zonal festivals strictly start at <strong>09:00 AM</strong> and must fit within 1 day.
-                </p>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <button
-                  onClick={loadAnalysis}
-                  disabled={loading}
-                  className="btn btn-secondary"
-                  style={{ padding: "6px 12px", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                >
-                  <span>🔄</span> {loading ? "Analyzing..." : "Refresh"}
-                </button>
+                {isSuperAdmin && availableZones.length > 0 && (
+                  <select
+                    value={selectedZoneId}
+                    onChange={(e) => {
+                      setSelectedZoneId(e.target.value);
+                      loadClashes(e.target.value !== "ALL" ? e.target.value : activeEventId);
+                    }}
+                    className="form-input"
+                    style={{ fontSize: "0.82rem", padding: "6px 12px", width: "190px", fontWeight: 700 }}
+                  >
+                    <option value="ALL">🏛️ Active Event / Zone</option>
+                    {availableZones.map(z => (
+                      <option key={z.id} value={z.id}>{z.name}</option>
+                    ))}
+                  </select>
+                )}
+
                 <button
                   onClick={() => setIsOpen(false)}
                   style={{
-                    background: "none",
                     border: "none",
+                    background: "none",
                     fontSize: "1.5rem",
                     cursor: "pointer",
                     color: "#94a3b8",
@@ -301,628 +301,456 @@ export default function ZoneScheduleAnalyzer({
               </div>
             </div>
 
-            {/* Modal Navigation Tabs */}
-            <div style={{ display: "flex", borderBottom: "1.5px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0 24px" }}>
-              <button
-                onClick={() => setActiveTab("CAPACITY")}
-                style={{
-                  padding: "12px 20px",
-                  fontWeight: 800,
-                  fontSize: "0.85rem",
-                  border: "none",
-                  background: "none",
-                  borderBottom: activeTab === "CAPACITY" ? "3px solid #4f46e5" : "3px solid transparent",
-                  color: activeTab === "CAPACITY" ? "#4f46e5" : "#64748b",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
-                <span>⏱️</span>
-                <span>1-Day Venue Feasibility</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab("CLASHES");
-                  loadClashes();
-                }}
-                style={{
-                  padding: "12px 20px",
-                  fontWeight: 800,
-                  fontSize: "0.85rem",
-                  border: "none",
-                  background: "none",
-                  borderBottom: activeTab === "CLASHES" ? "3px solid #ef4444" : "3px solid transparent",
-                  color: activeTab === "CLASHES" ? "#dc2626" : "#64748b",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
-                <span>⚡</span>
-                <span>Clash Analysis & Auto-Fix</span>
-                {clashCounts.critical > 0 ? (
-                  <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 800 }}>
-                    {clashCounts.critical} Critical
-                  </span>
-                ) : clashCounts.manageable > 0 ? (
-                  <span style={{ backgroundColor: "#22c55e", color: "#fff", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 800 }}>
-                    {clashCounts.manageable} Fixable
-                  </span>
-                ) : null}
-              </button>
-            </div>
-
-            {/* Modal Controls Bar */}
+            {/* Modal Body */}
             <div style={{
-              padding: "12px 24px",
-              backgroundColor: "#f8fafc",
-              borderBottom: "1px solid #e2e8f0",
+              padding: "20px 24px",
+              overflowY: "auto",
+              flex: 1,
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "12px"
+              flexDirection: "column",
+              gap: "16px"
             }}>
-              {/* Zone Filter */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155" }}>Filter Zone:</span>
-                <select
-                  value={selectedZoneId}
-                  onChange={e => {
-                    const zid = e.target.value;
-                    setSelectedZoneId(zid);
-                    if (activeTab === "CLASHES") {
-                      loadClashes(zid !== "ALL" ? zid : activeEventId);
-                    }
-                  }}
-                  className="form-input"
-                  style={{ fontSize: "0.82rem", padding: "4px 10px", width: "220px" }}
-                >
-                  <option value="ALL">All Zones ({zones.length})</option>
-                  {zones.map(z => (
-                    <option key={z.eventId} value={z.eventId}>
-                      {z.zoneName}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Transition Buffer gap */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "8px" }}>
-                  <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155" }}>Gap Buffer:</span>
-                  <select
-                    value={bufferMinutes}
-                    onChange={e => setBufferMinutes(parseInt(e.target.value) || 0)}
-                    className="form-input"
-                    style={{ fontSize: "0.82rem", padding: "4px 8px", width: "110px" }}
+              
+              {/* PRIMARY ACTION BAR */}
+              <div style={{
+                padding: "16px 20px",
+                borderRadius: "12px",
+                backgroundColor: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "12px"
+              }}>
+                {/* Severity Filter Pills */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#475569", marginRight: "4px" }}>Filter:</span>
+                  <button
+                    onClick={() => setClashFilterSeverity("ALL")}
+                    className={`btn ${clashFilterSeverity === "ALL" ? "btn-primary" : "btn-secondary"}`}
+                    style={{ padding: "4px 10px", fontSize: "0.78rem", fontWeight: 700, borderRadius: "6px" }}
                   >
-                    <option value={0}>0 min (Direct)</option>
-                    <option value={2}>2 mins gap</option>
-                    <option value={5}>5 mins gap</option>
-                  </select>
+                    All ({clashList.length})
+                  </button>
+                  <button
+                    onClick={() => setClashFilterSeverity("CRITICAL")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      borderRadius: "6px",
+                      border: "1px solid #fca5a5",
+                      backgroundColor: clashFilterSeverity === "CRITICAL" ? "#ef4444" : "#fef2f2",
+                      color: clashFilterSeverity === "CRITICAL" ? "#ffffff" : "#dc2626",
+                      cursor: "pointer"
+                    }}
+                  >
+                    🔴 Critical ({clashCounts.critical})
+                  </button>
+                  <button
+                    onClick={() => setClashFilterSeverity("HIGH")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      borderRadius: "6px",
+                      border: "1px solid #fdba74",
+                      backgroundColor: clashFilterSeverity === "HIGH" ? "#f97316" : "#fff7ed",
+                      color: clashFilterSeverity === "HIGH" ? "#ffffff" : "#ea580c",
+                      cursor: "pointer"
+                    }}
+                  >
+                    🟠 High ({clashCounts.high})
+                  </button>
+                  <button
+                    onClick={() => setClashFilterSeverity("MEDIUM")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      borderRadius: "6px",
+                      border: "1px solid #fde047",
+                      backgroundColor: clashFilterSeverity === "MEDIUM" ? "#ca8a04" : "#fefce8",
+                      color: clashFilterSeverity === "MEDIUM" ? "#ffffff" : "#854d0e",
+                      cursor: "pointer"
+                    }}
+                  >
+                    🟡 Medium ({clashCounts.medium})
+                  </button>
+                  <button
+                    onClick={() => setClashFilterSeverity("MANAGEABLE")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      borderRadius: "6px",
+                      border: "1px solid #86efac",
+                      backgroundColor: clashFilterSeverity === "MANAGEABLE" ? "#16a34a" : "#f0fdf4",
+                      color: clashFilterSeverity === "MANAGEABLE" ? "#ffffff" : "#166534",
+                      cursor: "pointer"
+                    }}
+                  >
+                    🟢 Manageable ({clashCounts.manageable})
+                  </button>
+                </div>
+
+                {/* Clash Solver Buttons */}
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                  {/* Mode 1: Safe Auto-Fix (Order & Buffer Only) */}
+                  <button
+                    onClick={handleSafeAutoFix}
+                    disabled={fixingClashes || clashList.length === 0}
+                    className="btn"
+                    style={{
+                      background: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
+                      color: "#ffffff",
+                      fontWeight: 800,
+                      fontSize: "0.82rem",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: fixingClashes || clashList.length === 0 ? "not-allowed" : "pointer",
+                      boxShadow: "0 2px 8px rgba(34, 197, 94, 0.35)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                    title="Safely reorders slots & tunes buffer gap between 5 and 15 mins. NEVER touches program durations or venues."
+                  >
+                    <span>🔄</span>
+                    <span>{fixingClashes ? "Optimizing..." : "Auto-Fix Clashes (Slot Order & 5–15m Buffer Only)"}</span>
+                  </button>
+
+                  {/* Mode 2: Test Venue Transfer for Severe Clashes */}
+                  <button
+                    onClick={handleTestVenueTransfers}
+                    disabled={testingTransfers || clashList.length === 0}
+                    className="btn"
+                    style={{
+                      background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+                      color: "#ffffff",
+                      fontWeight: 800,
+                      fontSize: "0.82rem",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: testingTransfers || clashList.length === 0 ? "not-allowed" : "pointer",
+                      boxShadow: "0 2px 8px rgba(99, 102, 241, 0.35)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                    title="Simulate moving stubborn programs to another venue to eliminate critical clashes"
+                  >
+                    <span>🧪</span>
+                    <span>{testingTransfers ? "Simulating..." : "Test Venue Transfer for Severe Clashes"}</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Master Sync Action */}
-              {isSuperAdmin && (
-                <button
-                  onClick={handleApplyAllZones}
-                  disabled={actionLoading !== null || loading || zones.length === 0}
-                  className="btn"
-                  style={{
-                    background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
-                    color: "#ffffff",
-                    fontWeight: 800,
-                    fontSize: "0.85rem",
-                    padding: "8px 18px",
-                    borderRadius: "8px",
-                    border: "none",
-                    cursor: actionLoading !== null ? "not-allowed" : "pointer",
-                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.35)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px"
-                  }}
-                >
-                  <span>⚡</span>
-                  <span>{actionLoading === "all-zones" ? "Calculating & Syncing All..." : "Auto-Calculate & Sync ALL Zones"}</span>
-                </button>
-              )}
-            </div>
-
-            {/* Modal Body: Active Tab Branching */}
-            {activeTab === "CLASHES" ? (
-              <div style={{
-                padding: "20px 24px",
-                overflowY: "auto",
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px"
-              }}>
-                {/* Clash Overview & Actions */}
+              {/* Status Message */}
+              {fixMessage && (
                 <div style={{
-                  padding: "16px 20px",
-                  borderRadius: "12px",
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "12px"
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: fixMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4",
+                  border: `1.5px solid ${fixMessage.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
+                  color: fixMessage.startsWith("❌") ? "#991b1b" : "#166534",
+                  fontSize: "0.85rem",
+                  fontWeight: 700
                 }}>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#475569", marginRight: "4px" }}>Filter:</span>
-                    <button
-                      onClick={() => setClashFilterSeverity("ALL")}
-                      className={`btn ${clashFilterSeverity === "ALL" ? "btn-primary" : "btn-secondary"}`}
-                      style={{ padding: "4px 10px", fontSize: "0.78rem", fontWeight: 700, borderRadius: "6px" }}
-                    >
-                      All ({clashList.length})
-                    </button>
-                    <button
-                      onClick={() => setClashFilterSeverity("CRITICAL")}
-                      style={{
-                        padding: "4px 10px",
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        borderRadius: "6px",
-                        border: "1px solid #fca5a5",
-                        backgroundColor: clashFilterSeverity === "CRITICAL" ? "#ef4444" : "#fef2f2",
-                        color: clashFilterSeverity === "CRITICAL" ? "#ffffff" : "#dc2626",
-                        cursor: "pointer"
-                      }}
-                    >
-                      🔴 Critical ({clashCounts.critical})
-                    </button>
-                    <button
-                      onClick={() => setClashFilterSeverity("HIGH")}
-                      style={{
-                        padding: "4px 10px",
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        borderRadius: "6px",
-                        border: "1px solid #fdba74",
-                        backgroundColor: clashFilterSeverity === "HIGH" ? "#f97316" : "#fff7ed",
-                        color: clashFilterSeverity === "HIGH" ? "#ffffff" : "#ea580c",
-                        cursor: "pointer"
-                      }}
-                    >
-                      🟠 High ({clashCounts.high})
-                    </button>
-                    <button
-                      onClick={() => setClashFilterSeverity("MEDIUM")}
-                      style={{
-                        padding: "4px 10px",
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        borderRadius: "6px",
-                        border: "1px solid #fde047",
-                        backgroundColor: clashFilterSeverity === "MEDIUM" ? "#ca8a04" : "#fefce8",
-                        color: clashFilterSeverity === "MEDIUM" ? "#ffffff" : "#854d0e",
-                        cursor: "pointer"
-                      }}
-                    >
-                      🟡 Medium ({clashCounts.medium})
-                    </button>
-                    <button
-                      onClick={() => setClashFilterSeverity("MANAGEABLE")}
-                      style={{
-                        padding: "4px 10px",
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        borderRadius: "6px",
-                        border: "1px solid #86efac",
-                        backgroundColor: clashFilterSeverity === "MANAGEABLE" ? "#16a34a" : "#f0fdf4",
-                        color: clashFilterSeverity === "MANAGEABLE" ? "#ffffff" : "#166534",
-                        cursor: "pointer"
-                      }}
-                    >
-                      🟢 Manageable ({clashCounts.manageable})
-                    </button>
+                  {fixMessage}
+                </div>
+              )}
+
+              {/* TYPE 2: PROPOSED VENUE TRANSFERS REVIEW MODAL/CARD */}
+              {transferReport && transferReport.proposals && transferReport.proposals.length > 0 && (
+                <div style={{
+                  padding: "18px 22px",
+                  borderRadius: "12px",
+                  backgroundColor: "#fffbeb",
+                  border: "2px solid #f59e0b",
+                  boxShadow: "0 8px 24px rgba(245, 158, 11, 0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "1.4rem" }}>🧪</span>
+                        <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#92400e" }}>
+                          Proposed Cross-Venue Transfers ({transferReport.proposals.length} Recommended Moves)
+                        </h3>
+                      </div>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "0.82rem", color: "#78350f" }}>
+                        Moving these programs reduces total clashes from <strong>{transferReport.currentClashCount}</strong> down to <strong>{transferReport.proposals[0]?.projectedTotalClashes ?? 0}</strong>!
+                      </p>
+                    </div>
+
+                    <span style={{
+                      backgroundColor: "#fef3c7",
+                      color: "#b45309",
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                      fontWeight: 800,
+                      fontSize: "0.78rem",
+                      border: "1px solid #fde68a"
+                    }}>
+                      ⚡ Reduces Clashes
+                    </span>
                   </div>
 
-                  {clashCounts.manageable > 0 && (
-                    <button
-                      onClick={handleFixManageableInAnalyzer}
-                      disabled={fixingClashes}
-                      className="btn"
-                      style={{
-                        background: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
-                        color: "#ffffff",
-                        fontWeight: 800,
-                        fontSize: "0.82rem",
-                        padding: "7px 16px",
-                        borderRadius: "8px",
-                        border: "none",
-                        cursor: fixingClashes ? "not-allowed" : "pointer",
-                        boxShadow: "0 2px 8px rgba(34, 197, 94, 0.35)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}
-                    >
-                      <span>🔧</span>
-                      <span>{fixingClashes ? "Resolving..." : `Auto-Fix Manageable Clashes (${clashCounts.manageable})`}</span>
-                    </button>
-                  )}
-                </div>
-
-                {fixMessage && (
+                  {/* Warning Notice About Jury Sitting and Valuation */}
                   <div style={{
                     padding: "10px 14px",
                     borderRadius: "8px",
-                    backgroundColor: fixMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4",
-                    border: `1px solid ${fixMessage.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
-                    color: fixMessage.startsWith("❌") ? "#991b1b" : "#166534",
-                    fontSize: "0.85rem",
-                    fontWeight: 700
+                    backgroundColor: "#fef2f2",
+                    border: "1.5px solid #ef4444",
+                    color: "#991b1b",
+                    fontSize: "0.82rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px"
                   }}>
-                    {fixMessage}
-                  </div>
-                )}
-
-                {clashesLoading && (
-                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⏳</div>
-                    <strong>Analyzing candidate schedules and calculating conflicts...</strong>
-                  </div>
-                )}
-
-                {!clashesLoading && clashList.length === 0 && (
-                  <div style={{
-                    textAlign: "center",
-                    padding: "48px 20px",
-                    backgroundColor: "#f0fdf4",
-                    borderRadius: "12px",
-                    border: "1.5px solid #86efac"
-                  }}>
-                    <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>🎉</div>
-                    <h3 style={{ margin: "0 0 6px 0", color: "#166534", fontWeight: 800 }}>Zero Clashes Detected!</h3>
-                    <p style={{ margin: 0, fontSize: "0.85rem", color: "#15803d" }}>
-                      All candidates have conflict-free schedules in this zone. No candidate is scheduled in 2 places simultaneously.
-                    </p>
-                  </div>
-                )}
-
-                {!clashesLoading && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "12px" }}>
-                    {clashList
-                      .filter(c => clashFilterSeverity === "ALL" || c.severity === clashFilterSeverity)
-                      .map((c, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            backgroundColor: "#ffffff",
-                            border: `1.5px solid ${c.severityColor}`,
-                            borderRadius: "12px",
-                            padding: "14px",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                            <span style={{
-                              backgroundColor: `${c.severityColor}15`,
-                              color: c.severityColor,
-                              padding: "3px 10px",
-                              borderRadius: "6px",
-                              fontWeight: 800,
-                              fontSize: "0.75rem",
-                              border: `1px solid ${c.severityColor}35`
-                            }}>
-                              {c.severityLabel}
-                            </span>
-                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>
-                              {c.overlapMinutes} min overlap
-                            </span>
-                          </div>
-
-                          <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", marginBottom: "6px" }}>
-                            👤 {c.candidateName}
-                          </div>
-
-                          <div style={{ fontSize: "0.8rem", color: "#334155", marginBottom: "3px" }}>
-                            📍 <strong>{c.program1Venue}</strong>: {c.program1Name}
-                            <span style={{ color: "#64748b", marginLeft: "6px" }}>
-                              ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
-                            </span>
-                          </div>
-                          <div style={{ fontSize: "0.8rem", color: "#334155", marginBottom: "6px" }}>
-                            📍 <strong>{c.program2Venue}</strong>: {c.program2Name}
-                            <span style={{ color: "#64748b", marginLeft: "6px" }}>
-                              ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
-                            </span>
-                          </div>
-
-                          <div style={{
-                            fontSize: "0.75rem",
-                            color: "#475569",
-                            backgroundColor: "#f8fafc",
-                            padding: "8px 10px",
-                            borderRadius: "6px",
-                            borderLeft: `3px solid ${c.severityColor}`
-                          }}>
-                            {c.explanation}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Modal Body: Zones Capacity List */
-              <div style={{
-                padding: "20px 24px",
-                overflowY: "auto",
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "20px"
-              }}>
-                {loading && (
-                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⏳</div>
-                  <strong>Analyzing candidate registrations and building venue timelines...</strong>
-                </div>
-              )}
-
-              {!loading && filteredZones.length === 0 && (
-                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-                  No zone schedules found. Ensure Master Schedule has assigned venues.
-                </div>
-              )}
-
-              {!loading && filteredZones.map(zone => {
-                const isOverrun = zone.zoneStatus === "OVERRUN";
-                const isTight = zone.zoneStatus === "TIGHT";
-
-                return (
-                  <div 
-                    key={zone.eventId}
-                    style={{
-                      border: `1.5px solid ${isOverrun ? "#fca5a5" : isTight ? "#fde68a" : "#e2e8f0"}`,
-                      borderRadius: "14px",
-                      backgroundColor: "#ffffff",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                      overflow: "hidden"
-                    }}
-                  >
-                    {/* Zone Header Bar */}
-                    <div style={{
-                      padding: "14px 20px",
-                      backgroundColor: isOverrun ? "#fef2f2" : isTight ? "#fffbeb" : "#f8fafc",
-                      borderBottom: "1px solid #e2e8f0",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: "12px"
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                        <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "#1e293b" }}>
-                          📍 {zone.zoneName}
-                        </h3>
-                        
-                        {/* 1-Day Status Badge */}
-                        <span style={{
-                          padding: "4px 10px",
-                          borderRadius: "20px",
-                          fontSize: "0.75rem",
-                          fontWeight: 800,
-                          backgroundColor: isOverrun ? "#fee2e2" : isTight ? "#fef3c7" : "#dcfce7",
-                          color: isOverrun ? "#dc2626" : isTight ? "#d97706" : "#15803d",
-                          border: `1px solid ${isOverrun ? "#fca5a5" : isTight ? "#fde68a" : "#86efac"}`
-                        }}>
-                          {isOverrun 
-                            ? "🔴 Exceeds 1-Day (> 8:00 PM)" 
-                            : isTight 
-                            ? `🟡 Tight Evening Finish (Ends by ${zone.overallFinishTime})` 
-                            : `🟢 Fits in 1-Day (Finished by ${zone.overallFinishTime})`}
-                        </span>
-
-                        <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                          <strong>{zone.totalVenues}</strong> Stages • <strong>{zone.totalPrograms}</strong> Programs • <strong>{zone.totalCandidates}</strong> Registered Candidates
-                        </span>
+                    <span style={{ fontSize: "1.3rem" }}>⚠️</span>
+                    <div>
+                      <strong>JURY SITTING & VALUATION VERIFICATION REQUIRED:</strong>
+                      <div style={{ fontSize: "0.78rem", marginTop: "2px" }}>
+                        Moving a program to another venue requires judges, judging tables, and valuation criteria to be accommodated in the destination venue. Please confirm if jury sitting and valuation is possible at the destination venue before applying.
                       </div>
+                    </div>
+                  </div>
 
-                      {/* Action to Apply Schedule to This Zone */}
-                      <button
-                        onClick={() => handleApplySingleZone(zone)}
-                        disabled={actionLoading !== null}
-                        className="btn btn-secondary"
+                  {/* Proposed Transfers Table */}
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    backgroundColor: "#ffffff",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    border: "1px solid #fde68a"
+                  }}>
+                    {transferReport.proposals.map((p: any, pIdx: number) => (
+                      <div
+                        key={pIdx}
                         style={{
-                          padding: "6px 14px",
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          backgroundColor: "#ffffff",
-                          borderColor: "#059669",
-                          color: "#059669",
-                          display: "inline-flex",
+                          display: "flex",
+                          justifyContent: "space-between",
                           alignItems: "center",
-                          gap: "6px"
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          backgroundColor: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          flexWrap: "wrap",
+                          gap: "8px"
                         }}
                       >
-                        <span>⚡</span>
-                        <span>{actionLoading === `zone-${zone.eventId}` ? "Applying..." : "Apply 1-Day Schedule to This Zone"}</span>
-                      </button>
-                    </div>
-
-                    {/* Venue Cards Grid */}
-                    <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-                      {zone.venues.length === 0 ? (
-                        <div style={{ fontSize: "0.85rem", color: "#94a3b8", fontStyle: "italic" }}>
-                          No stages assigned for this zone.
+                        <div>
+                          <strong style={{ color: "#0f172a" }}>
+                            {p.programCode ? `#${p.programCode} ` : ""}{p.programName}
+                          </strong>
+                          <span style={{ fontSize: "0.75rem", color: "#64748b", marginLeft: "6px" }}>
+                            ({p.categoryName})
+                          </span>
+                          <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: "2px" }}>
+                            {p.reason}
+                          </div>
                         </div>
-                      ) : (
-                        zone.venues.map((v, vIdx) => {
-                          const vKey = `${zone.eventId}-${v.venue}`;
-                          const isExpanded = expandedVenues[vKey];
 
-                          return (
-                            <div 
-                              key={vIdx}
-                              style={{
-                                border: "1px solid #e2e8f0",
-                                borderRadius: "10px",
-                                backgroundColor: "#fbfcfd",
-                                overflow: "hidden"
-                              }}
-                            >
-                              {/* Venue Summary Line */}
-                              <div style={{
-                                padding: "10px 16px",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                gap: "10px"
-                              }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a" }}>
-                                    🏛️ {v.venue}
-                                  </span>
-
-                                  <span style={{ fontSize: "0.8rem", color: "#475569" }}>
-                                    {v.totalPrograms} Programs • {v.totalCandidates} Candidates
-                                  </span>
-
-                                  <span style={{
-                                    fontSize: "0.8rem",
-                                    padding: "2px 8px",
-                                    borderRadius: "6px",
-                                    backgroundColor: "#f1f5f9",
-                                    color: "#334155",
-                                    fontWeight: 700
-                                  }}>
-                                    Runtime: {v.formattedDuration}
-                                  </span>
-
-                                  <span style={{
-                                    fontSize: "0.8rem",
-                                    fontWeight: 800,
-                                    color: v.statusColor
-                                  }}>
-                                    ⏰ {v.startTime} &rarr; {v.endTime}
-                                  </span>
-                                </div>
-
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                  <span style={{
-                                    fontSize: "0.72rem",
-                                    fontWeight: 800,
-                                    padding: "2px 8px",
-                                    borderRadius: "12px",
-                                    backgroundColor: v.status === "FEASIBLE" ? "#dcfce7" : v.status === "TIGHT" ? "#fef3c7" : "#fee2e2",
-                                    color: v.statusColor
-                                  }}>
-                                    {v.statusText}
-                                  </span>
-
-                                  <button
-                                    onClick={() => toggleVenueExpand(vKey)}
-                                    style={{
-                                      background: "none",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "6px",
-                                      padding: "3px 8px",
-                                      fontSize: "0.75rem",
-                                      cursor: "pointer",
-                                      fontWeight: 600,
-                                      color: "#475569"
-                                    }}
-                                  >
-                                    {isExpanded ? "Hide Details ▲" : "View Program Breakdown ▼"}
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Program Detailed Breakdown Table */}
-                              {isExpanded && (
-                                <div style={{ borderTop: "1px solid #e2e8f0", padding: "10px 16px", backgroundColor: "#ffffff" }}>
-                                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
-                                    <thead>
-                                      <tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left", color: "#64748b" }}>
-                                        <th style={{ padding: "6px 8px" }}>#</th>
-                                        <th style={{ padding: "6px 8px" }}>Program</th>
-                                        <th style={{ padding: "6px 8px" }}>Type</th>
-                                        <th style={{ padding: "6px 8px" }}>Zone Candidates</th>
-                                        <th style={{ padding: "6px 8px" }}>Rate / Cand</th>
-                                        <th style={{ padding: "6px 8px" }}>Calculated Duration</th>
-                                        <th style={{ padding: "6px 8px" }}>Scheduled Time</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {v.programs.map((p, pIdx) => (
-                                        <tr key={pIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                          <td style={{ padding: "6px 8px", fontWeight: 700, color: "#64748b" }}>{pIdx + 1}</td>
-                                          <td style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>
-                                            {p.programCode ? `[${p.programCode}] ` : ""}{p.name}
-                                          </td>
-                                          <td style={{ padding: "6px 8px" }}>
-                                            <span style={{ fontSize: "0.7rem", padding: "1px 6px", borderRadius: "4px", backgroundColor: "#f1f5f9", color: "#475569" }}>
-                                              {p.type || "INDIVIDUAL"}
-                                            </span>
-                                          </td>
-                                          <td style={{ padding: "6px 8px", fontWeight: 700, color: p.candidateCount > 0 ? "#059669" : "#94a3b8" }}>
-                                            {p.durationMode === 'TOTAL_FIXED' ? (
-                                              <span>⏱️ {p.candidateCount} cands</span>
-                                            ) : (p.teamCount !== undefined && p.teamCount > 0 && (p.durationMode === 'PER_TEAM' || p.type === 'GROUP' || p.type === 'GENERAL')) ? (
-                                              <span>👥 {p.teamCount} Teams ({p.candidateCount} cands)</span>
-                                            ) : (
-                                              <span>👥 {p.candidateCount}</span>
-                                            )}
-                                          </td>
-                                          <td style={{ padding: "6px 8px", color: "#64748b" }}>
-                                            {p.durationMode === 'TOTAL_FIXED' ? (
-                                              <span style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 600 }}>Fixed Total</span>
-                                            ) : (p.teamCount !== undefined && p.teamCount > 0 && (p.durationMode === 'PER_TEAM' || p.type === 'GROUP' || p.type === 'GENERAL')) ? (
-                                              <span>{p.durationPerCandidate} min/team</span>
-                                            ) : (
-                                              <span>{p.durationPerCandidate} min/cand</span>
-                                            )}
-                                          </td>
-                                          <td style={{ padding: "6px 8px", fontWeight: 700, color: "#0f172a" }}>
-                                            {p.durationMinutes} mins
-                                          </td>
-                                          <td style={{ padding: "6px 8px", fontWeight: 700, color: "#4f46e5" }}>
-                                            {p.startTime} &rarr; {p.endTime}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            backgroundColor: "#f1f5f9",
+                            color: "#475569",
+                            fontSize: "0.8rem",
+                            fontWeight: 700
+                          }}>
+                            {p.currentVenue}
+                          </span>
+                          <span style={{ fontSize: "1rem" }}>➔</span>
+                          <span style={{
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            backgroundColor: "#ecfdf5",
+                            color: "#059669",
+                            border: "1px solid #a7f3d0",
+                            fontSize: "0.8rem",
+                            fontWeight: 800
+                          }}>
+                            📍 {p.proposedVenue}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Modal Footer */}
+                  {/* Confirmation Decision Buttons */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", marginTop: "4px" }}>
+                    <button
+                      onClick={() => setTransferReport(null)}
+                      className="btn btn-secondary"
+                      style={{ fontSize: "0.82rem", fontWeight: 700 }}
+                    >
+                      ❌ Keep Original Venues (First Type Change Only)
+                    </button>
+
+                    <button
+                      onClick={handleApplyTransfers}
+                      disabled={applyingTransfer}
+                      className="btn btn-primary"
+                      style={{
+                        background: "linear-gradient(135deg, #b45309 0%, #d97706 100%)",
+                        borderColor: "#b45309",
+                        fontSize: "0.85rem",
+                        fontWeight: 800,
+                        padding: "8px 20px"
+                      }}
+                    >
+                      {applyingTransfer ? "Applying..." : "✅ Confirm Jury & Apply Venue Transfer"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading Indicator */}
+              {clashesLoading && (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⏳</div>
+                  <strong>Analyzing candidate schedules and calculating conflicts...</strong>
+                </div>
+              )}
+
+              {/* Zero Clashes Success Banner */}
+              {!clashesLoading && clashList.length === 0 && (
+                <div style={{
+                  textAlign: "center",
+                  padding: "48px 20px",
+                  backgroundColor: "#f0fdf4",
+                  borderRadius: "12px",
+                  border: "1.5px solid #86efac"
+                }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>🎉</div>
+                  <h3 style={{ margin: "0 0 6px 0", color: "#166534", fontWeight: 800 }}>Zero Clashes Detected!</h3>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#15803d" }}>
+                    All candidates have conflict-free schedules in this zone. No candidate is scheduled in 2 places simultaneously.
+                  </p>
+                </div>
+              )}
+
+              {/* Clashes Cards Grid */}
+              {!clashesLoading && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "12px" }}>
+                  {clashList
+                    .filter(c => clashFilterSeverity === "ALL" || c.severity === clashFilterSeverity)
+                    .map((c, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: "#ffffff",
+                          border: `1.5px solid ${c.severityColor}`,
+                          borderRadius: "10px",
+                          padding: "14px 16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                        }}
+                      >
+                        {/* Clash Card Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{
+                            backgroundColor: `${c.severityColor}18`,
+                            color: c.severityColor,
+                            fontWeight: 800,
+                            fontSize: "0.75rem",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            border: `1px solid ${c.severityColor}40`
+                          }}>
+                            {c.severityIcon} {c.severityLabel}
+                          </span>
+                          <span style={{ fontSize: "0.75rem", color: "#dc2626", fontWeight: 800 }}>
+                            {c.overlapMinutes}m overlap
+                          </span>
+                        </div>
+
+                        {/* Candidate Identity */}
+                        <div>
+                          <div style={{ fontSize: "0.92rem", fontWeight: 800, color: "#0f172a" }}>
+                            👤 {c.candidateName}
+                            {c.chestNumber && (
+                              <span style={{
+                                marginLeft: "6px",
+                                fontSize: "0.75rem",
+                                color: "#475569",
+                                backgroundColor: "#f1f5f9",
+                                padding: "1px 6px",
+                                borderRadius: "4px"
+                              }}>
+                                #{c.chestNumber}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Conflict Pair Visualizer */}
+                        <div style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                          backgroundColor: "#f8fafc",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #e2e8f0"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                            <span><strong>1:</strong> {c.program1Name}</span>
+                            <span style={{ color: "#475569" }}>
+                              {c.program1Venue} ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                            <span><strong>2:</strong> {c.program2Name}</span>
+                            <span style={{ color: "#475569" }}>
+                              {c.program2Venue} ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Explanation Note */}
+                        <div style={{ fontSize: "0.76rem", color: "#64748b", fontStyle: "italic" }}>
+                          {c.explanation}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
             <div style={{
               padding: "14px 24px",
               borderTop: "1.5px solid #e2e8f0",
               backgroundColor: "#f8fafc",
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center"
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px"
             }}>
-              <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                💡 <em>Applying a schedule updates program start times, durations, and candidate timeslots in the database for that zone.</em>
-              </div>
+              <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                Total Clashes: <strong>{clashList.length}</strong> (Critical: {clashCounts.critical}, High: {clashCounts.high}, Medium: {clashCounts.medium}, Manageable: {clashCounts.manageable})
+              </span>
+
               <button
                 onClick={() => setIsOpen(false)}
                 className="btn btn-secondary"
-                style={{ padding: "6px 18px", fontSize: "0.85rem", fontWeight: 700 }}
+                style={{ fontSize: "0.85rem", padding: "6px 18px", fontWeight: 700 }}
               >
                 Close
               </button>

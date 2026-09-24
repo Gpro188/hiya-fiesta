@@ -170,14 +170,17 @@ export function calculateDynamicProgramDuration(
       const duration = teamCount > 0 ? teamCount * minPerTeam : minPerTeam;
       return { duration, candidateCount, teamCount, durationPerItem: minPerTeam, durationMode: "PER_TEAM" };
     }
-    // No override: derive per-team minutes from stored total duration
     if (teamCount === 0) {
-      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 8;
+      const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 10;
       return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem, durationMode: "PER_TEAM" };
     }
-    const minPerTeam = Math.max(1, Math.round(baseProgDuration / teamCount));
+    // If baseProgDuration is substantially larger than team count, it represents total saved time
+    const minPerTeam = baseProgDuration >= teamCount * 4
+      ? Math.max(1, Math.round(baseProgDuration / teamCount))
+      : Math.max(1, baseProgDuration);
+    const duration = teamCount * minPerTeam;
     return {
-      duration: baseProgDuration,
+      duration,
       candidateCount,
       teamCount,
       durationPerItem: minPerTeam,
@@ -195,9 +198,14 @@ export function calculateDynamicProgramDuration(
     const fallbackPerItem = baseProgDuration > 0 ? baseProgDuration : 5;
     return { duration: baseProgDuration, candidateCount: 0, teamCount: 0, durationPerItem: fallbackPerItem, durationMode: "PER_CANDIDATE" };
   }
-  const minPerCandidate = Math.max(1, Math.round(baseProgDuration / candidateCount));
+  // If baseProgDuration is substantially larger than candidate count, it represents total saved time
+  // Otherwise it was saved as per-candidate minutes (e.g. 5m / candidate)
+  const minPerCandidate = baseProgDuration >= candidateCount * 2
+    ? Math.max(1, Math.round(baseProgDuration / candidateCount))
+    : Math.max(1, baseProgDuration);
+  const duration = candidateCount * minPerCandidate;
   return {
-    duration: baseProgDuration,
+    duration,
     candidateCount,
     teamCount,
     durationPerItem: minPerCandidate,
@@ -319,6 +327,7 @@ export function calculateVenueTimeline(
 export interface CandidateClash {
   candidateId: string;
   candidateName: string;
+  chestNumber?: string | null;
   program1Id: string;
   program1Name: string;
   program1Venue: string;
@@ -678,6 +687,7 @@ export function detectClashesBySeverity(
         const sc: ScoredClash = {
           candidateId: a.candidateId,
           candidateName: a.candidateName,
+          chestNumber: a.chestNumber,
           program1Id: a.programId,
           program1Name: a.programName,
           program1Venue: a.venue,

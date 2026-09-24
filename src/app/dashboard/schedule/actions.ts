@@ -1615,3 +1615,418 @@ export async function getScheduleClashAnalysis(eventId: string) {
     return { success: false, error: e.message, clashes: [] };
   }
 }
+
+/**
+ * TYPE 1: SAFE AUTO-FIX CLASHES (Same Venue Slot Reorder & 5-15m Buffer Adjustment)
+ * Reorders candidate slots, shifts venue program sequence, and tunes buffer gaps (strictly 5 to 15 mins).
+ * CRITICAL GUARANTEE: NEVER changes program duration, durationMode, mins/candidate, or venue!
+ */
+export async function resolveClashesSafe(
+  eventId: string,
+  options?: { minBuffer?: number; maxBuffer?: number }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline, detectClashesBySeverity } = await import("@/lib/scheduleCalculator");
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true, parent: true }
+    });
+    if (!event) return { success: false, error: "Event not found" };
+
+    const targetZoneId = event.zoneId || event.zone?.id;
+    const parentId = event.parentId;
+
+    const rawPrograms = await prisma.program.findMany({
+      where: parentId ? { OR: [{ eventId }, { eventId: parentId }] } : { eventId },
+      include: {
+        category: true,
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          },
+          orderBy: { slotNumber: "asc" }
+        }
+      }
+    });
+
+    const venueGroups: Record<string, any[]> = {};
+    for (const p of rawPrograms) {
+      if (!p.venue || p.type === "BREAK") continue;
+      if (!venueGroups[p.venue]) venueGroups[p.venue] = [];
+      venueGroups[p.venue].push(p);
+    }
+
+    const buildTimelines = (bufferMap: Record<string, number> = {}) => {
+      const timelines: Record<string, any[]> = {};
+      for (const [vName, vProgs] of Object.entries(venueGroups)) {
+        const buf = bufferMap[vName] ?? 5;
+        const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: buf });
+        timelines[vName] = tl.programs;
+      }
+      return timelines;
+    };
+
+    const initialAnalysis = detectClashesBySeverity(buildTimelines(), targetZoneId);
+    let fixedSlotsCount = 0;
+
+    // STEP 1: Reorder candidate slots for candidate clashes across venues
+    const processedPairs = new Set<string>();
+    for (const clash of initialAnalysis.scoredClashes) {
+      if (!clash.candidateId) continue;
+      const pairKey = [clash.candidateId, clash.program1Id, clash.program2Id].sort().join("_");
+      if (processedPairs.has(pairKey)) continue;
+      processedPairs.add(pairKey);
+
+      const asnP1 = await prisma.programAssignment.findFirst({
+        where: { candidateId: clash.candidateId, programId: clash.program1Id }
+      });
+      const asnP2 = await prisma.programAssignment.findFirst({
+        where: { candidateId: clash.candidateId, programId: clash.program2Id }
+      });
+
+      if (!asnP1 || !asnP2) continue;
+
+      const [slotsP1, slotsP2] = await Promise.all([
+        prisma.programAssignment.count({ where: { programId: clash.program1Id } }),
+        prisma.programAssignment.count({ where: { programId: clash.program2Id } })
+      ]);
+
+      const [firstProg, lastProg, firstAsn, lastAsn] = slotsP1 <= slotsP2
+        ? [clash.program1Id, clash.program2Id, asnP1, asnP2]
+        : [clash.program2Id, clash.program1Id, asnP2, asnP1];
+
+      await prisma.$transaction([
+        prisma.programAssignment.update({
+          where: { id: firstAsn.id },
+          data: { slotNumber: 1 }
+        }),
+        prisma.programAssignment.update({
+          where: { id: lastAsn.id },
+          data: { slotNumber: Math.max(slotsP1, slotsP2) + 1 }
+        })
+      ]);
+      fixedSlotsCount++;
+    }
+
+    // STEP 2: Buffer gap tuning between 5 and 15 mins (minimum 5m, maximum 15m)
+    const venueBufferMap: Record<string, number> = {};
+    for (const venueName of Object.keys(venueGroups)) {
+      venueBufferMap[venueName] = 5; // default 5m
+    }
+
+    const testBuffers = [5, 8, 10, 12, 15]; // strictly 5 to 15 mins
+    let bestClashCount = detectClashesBySeverity(buildTimelines(venueBufferMap), targetZoneId).scoredClashes.length;
+
+    for (const venueName of Object.keys(venueGroups)) {
+      let bestBufForVenue = venueBufferMap[venueName];
+      for (const b of testBuffers) {
+        const testMap = { ...venueBufferMap, [venueName]: b };
+        const testClashes = detectClashesBySeverity(buildTimelines(testMap), targetZoneId).scoredClashes.length;
+        if (testClashes < bestClashCount) {
+          bestClashCount = testClashes;
+          bestBufForVenue = b;
+        }
+      }
+      venueBufferMap[venueName] = bestBufForVenue;
+    }
+
+    // STEP 3: Apply sequential start times using the optimized buffer gap WITHOUT touching durations!
+    for (const [vName, vProgs] of Object.entries(venueGroups)) {
+      const chosenBuffer = venueBufferMap[vName] || 5;
+      const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: chosenBuffer });
+
+      const timeUpdates = tl.programs.map(item =>
+        prisma.program.update({
+          where: { id: item.program.id },
+          data: {
+            startTime: item.predictedStart
+            // NOTE: duration and durationMode are NEVER touched!
+          }
+        })
+      );
+      if (timeUpdates.length > 0) {
+        await prisma.$transaction(timeUpdates);
+      }
+    }
+
+    const finalAnalysis = detectClashesBySeverity(buildTimelines(venueBufferMap), targetZoneId);
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/tabulation");
+
+    return {
+      success: true,
+      fixedSlotsCount,
+      initialClashes: initialAnalysis.scoredClashes.length,
+      remainingClashes: finalAnalysis.scoredClashes.length,
+      venueBuffers: venueBufferMap,
+      message: `Clashes auto-resolved! Reordered ${fixedSlotsCount} candidate slots and tuned buffer gaps (5–15 mins). Total clashes: ${initialAnalysis.scoredClashes.length} → ${finalAnalysis.scoredClashes.length}. Program durations & venues remained 100% untouched.`
+    };
+  } catch (e: any) {
+    console.error("resolveClashesSafe error:", e);
+    return { success: false, error: e.message || "Failed to resolve clashes" };
+  }
+}
+
+/**
+ * TYPE 2: TEST VENUE TRANSFER FOR SEVERE CLASHES (DRY RUN / SIMULATION)
+ * Tests whether moving stubborn conflicting programs to an alternative venue eliminates critical clashes.
+ * Displays proposals with a required Jury & Valuation confirmation notice.
+ */
+export async function testCrossVenueTransfers(eventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline, detectClashesBySeverity } = await import("@/lib/scheduleCalculator");
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true, parent: true }
+    });
+    if (!event) return { success: false, error: "Event not found" };
+
+    const targetZoneId = event.zoneId || event.zone?.id;
+    const parentId = event.parentId;
+
+    const rawPrograms = await prisma.program.findMany({
+      where: parentId ? { OR: [{ eventId }, { eventId: parentId }] } : { eventId },
+      include: {
+        category: true,
+        assignments: {
+          include: {
+            candidate: {
+              include: {
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const venueGroups: Record<string, any[]> = {};
+    for (const p of rawPrograms) {
+      if (!p.venue || p.type === "BREAK") continue;
+      if (!venueGroups[p.venue]) venueGroups[p.venue] = [];
+      venueGroups[p.venue].push(p);
+    }
+
+    const distinctVenues = Object.keys(venueGroups);
+    if (distinctVenues.length < 2) {
+      return { success: true, proposals: [], message: "At least 2 stages/venues are needed to test cross-venue transfers." };
+    }
+
+    const buildTimelines = (groups: Record<string, any[]>) => {
+      const timelines: Record<string, any[]> = {};
+      for (const [vName, vProgs] of Object.entries(groups)) {
+        const tl = calculateVenueTimeline(vName, vProgs, { targetZoneId, bufferMinutes: 5 });
+        timelines[vName] = tl.programs;
+      }
+      return timelines;
+    };
+
+    const baseAnalysis = detectClashesBySeverity(buildTimelines(venueGroups), targetZoneId);
+    const initialTotalClashes = baseAnalysis.scoredClashes.length;
+    const initialCritical = baseAnalysis.criticalCount + baseAnalysis.highCount;
+
+    if (initialTotalClashes === 0) {
+      return {
+        success: true,
+        proposals: [],
+        currentClashCount: 0,
+        projectedClashCount: 0,
+        message: "No clashes detected in this event! No venue transfers required."
+      };
+    }
+
+    const clashingProgramIds = new Set<string>();
+    for (const c of baseAnalysis.scoredClashes) {
+      clashingProgramIds.add(c.program1Id);
+      clashingProgramIds.add(c.program2Id);
+    }
+
+    type Proposal = {
+      programId: string;
+      programCode: string;
+      programName: string;
+      categoryName: string;
+      currentVenue: string;
+      proposedVenue: string;
+      clashReduction: number;
+      projectedTotalClashes: number;
+      candidateNames: string[];
+      reason: string;
+    };
+
+    const proposals: Proposal[] = [];
+
+    for (const pId of clashingProgramIds) {
+      const prog = rawPrograms.find(p => p.id === pId);
+      if (!prog || !prog.venue) continue;
+
+      const currentVenue = prog.venue;
+      const relatedClashes = baseAnalysis.scoredClashes.filter(c => c.program1Id === pId || c.program2Id === pId);
+      const candidateNames = Array.from(new Set(relatedClashes.map(c => c.candidateName)));
+
+      for (const targetVenue of distinctVenues) {
+        if (targetVenue === currentVenue) continue;
+
+        // Simulate moving prog to targetVenue
+        const simGroups: Record<string, any[]> = {};
+        for (const [v, progs] of Object.entries(venueGroups)) {
+          simGroups[v] = progs.filter(p => p.id !== pId);
+        }
+        simGroups[targetVenue] = [...(simGroups[targetVenue] || []), prog];
+
+        const simAnalysis = detectClashesBySeverity(buildTimelines(simGroups), targetZoneId);
+        const simTotal = simAnalysis.scoredClashes.length;
+        const simCritical = simAnalysis.criticalCount + simAnalysis.highCount;
+
+        if (simTotal < initialTotalClashes || (simTotal === initialTotalClashes && simCritical < initialCritical)) {
+          const reduction = initialTotalClashes - simTotal;
+          proposals.push({
+            programId: prog.id,
+            programCode: prog.programCode || "",
+            programName: prog.name,
+            categoryName: prog.category?.name || "General",
+            currentVenue,
+            proposedVenue: targetVenue,
+            clashReduction: reduction > 0 ? reduction : 1,
+            projectedTotalClashes: simTotal,
+            candidateNames,
+            reason: `Moving to "${targetVenue}" eliminates scheduling conflict for ${candidateNames.slice(0, 2).join(", ")}${candidateNames.length > 2 ? ` +${candidateNames.length - 2} more` : ""}.`
+          });
+        }
+      }
+    }
+
+    const bestByProg = new Map<string, Proposal>();
+    for (const p of proposals) {
+      const existing = bestByProg.get(p.programId);
+      if (!existing || p.clashReduction > existing.clashReduction) {
+        bestByProg.set(p.programId, p);
+      }
+    }
+
+    const sortedProposals = Array.from(bestByProg.values()).sort((a, b) => b.clashReduction - a.clashReduction);
+
+    return {
+      success: true,
+      currentClashCount: initialTotalClashes,
+      criticalCount: baseAnalysis.criticalCount,
+      highCount: baseAnalysis.highCount,
+      proposals: sortedProposals,
+      juryWarning: "⚠️ JURY SITTING & VALUATION NOTICE: Moving a program to another venue requires juries, valuation sheets, and judging arrangements to be available at the destination venue. Please confirm before applying."
+    };
+  } catch (e: any) {
+    console.error("testCrossVenueTransfers error:", e);
+    return { success: false, error: e.message || "Failed to simulate venue transfers" };
+  }
+}
+
+/**
+ * APPLY APPROVED CROSS-VENUE TRANSFERS
+ * Moves approved programs to new venues and re-sequences start times with >=5m buffer.
+ * Preserves all program durations and timing modes!
+ */
+export async function applyCrossVenueTransfers(
+  eventId: string,
+  transfers: { programId: string; toVenue: string }[]
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { calculateVenueTimeline } = await import("@/lib/scheduleCalculator");
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { zone: true, parent: true }
+    });
+    if (!event) return { success: false, error: "Event not found" };
+
+    const targetZoneId = event.zoneId || event.zone?.id;
+    const parentId = event.parentId;
+
+    const affectedVenues = new Set<string>();
+
+    for (const t of transfers) {
+      const prog = await prisma.program.findUnique({ where: { id: t.programId } });
+      if (prog?.venue) affectedVenues.add(prog.venue);
+      affectedVenues.add(t.toVenue);
+
+      await prisma.program.update({
+        where: { id: t.programId },
+        data: { venue: t.toVenue }
+      });
+    }
+
+    // Re-align start times for all affected venues
+    for (const venueName of affectedVenues) {
+      const vProgs = await prisma.program.findMany({
+        where: {
+          venue: venueName,
+          ...(parentId ? { OR: [{ eventId }, { eventId: parentId }] } : { eventId })
+        },
+        include: {
+          assignments: {
+            include: {
+              candidate: {
+                include: {
+                  team: { include: { institution: { include: { zone: true } } } },
+                  institution: { include: { zone: true } }
+                }
+              }
+            }
+          }
+        },
+        orderBy: [{ startTime: "asc" }, { programCode: "asc" }]
+      });
+
+      const tl = calculateVenueTimeline(venueName, vProgs, { targetZoneId, bufferMinutes: 5 });
+      const updates = tl.programs.map(item =>
+        prisma.program.update({
+          where: { id: item.program.id },
+          data: { startTime: item.predictedStart }
+        })
+      );
+      if (updates.length > 0) {
+        await prisma.$transaction(updates);
+      }
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/valuation");
+    revalidatePath("/print/tabulation");
+
+    return {
+      success: true,
+      transferredCount: transfers.length,
+      message: `Successfully transferred ${transfers.length} program(s) to new venues and updated timeline sequence!`
+    };
+  } catch (e: any) {
+    console.error("applyCrossVenueTransfers error:", e);
+    return { success: false, error: e.message || "Failed to apply venue transfers" };
+  }
+}
