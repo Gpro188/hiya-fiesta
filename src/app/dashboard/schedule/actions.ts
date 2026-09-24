@@ -1475,7 +1475,7 @@ export async function resolveManageableClashes(eventId: string) {
     }
 
     const { scoredClashes } = detectClashesBySeverity(venueTimelines, targetZoneId);
-    const fixable = scoredClashes.filter(c => c.isAutoFixable && c.severity === "MANAGEABLE");
+    const fixable = scoredClashes.filter(c => c.isAutoFixable);
 
     if (fixable.length === 0) {
       return { success: true, fixed: 0, message: "No manageable clashes found to fix." };
@@ -1711,7 +1711,7 @@ export async function resolveClashesSafe(
     const initialAnalysis = detectClashesBySeverity(buildTimelines(), targetZoneId);
     let fixedSlotsCount = 0;
 
-    // STEP 1: Reorder candidate slots for candidate clashes across venues (1st vs Last slot)
+    // STEP 1: Reorder candidate slots according to Fix One, Fix Two, and Fix Three
     const processedPairs = new Set<string>();
     for (const clash of initialAnalysis.scoredClashes) {
       if (!clash.candidateId) continue;
@@ -1725,7 +1725,6 @@ export async function resolveClashesSafe(
       const asnP2 = await prisma.programAssignment.findFirst({
         where: { candidateId: clash.candidateId, programId: clash.program2Id }
       });
-
       if (!asnP1 || !asnP2) continue;
 
       const [slotsP1, slotsP2] = await Promise.all([
@@ -1733,24 +1732,99 @@ export async function resolveClashesSafe(
         prisma.programAssignment.count({ where: { programId: clash.program2Id } })
       ]);
 
-      const [firstProg, lastProg, firstAsn, lastAsn] = slotsP1 <= slotsP2
-        ? [clash.program1Id, clash.program2Id, asnP1, asnP2]
-        : [clash.program2Id, clash.program1Id, asnP2, asnP1];
+      const isP1Fixed = clash.program1DurationMode === "TOTAL_FIXED" || clash.program1DurationMode === "FIXED";
+      const isP2Fixed = clash.program2DurationMode === "TOTAL_FIXED" || clash.program2DurationMode === "FIXED";
+      const isP1Group = clash.program1Type === "GROUP" || clash.program1Type === "GENERAL" || clash.program1Type === "INSTITUTION";
+      const isP2Group = clash.program2Type === "GROUP" || clash.program2Type === "GENERAL" || clash.program2Type === "INSTITUTION";
 
-      await prisma.$transaction([
-        prisma.programAssignment.update({
-          where: { id: firstAsn.id },
-          data: { slotNumber: 1 }
-        }),
-        prisma.programAssignment.update({
-          where: { id: lastAsn.id },
-          data: { slotNumber: Math.max(slotsP1, slotsP2) + 1 }
-        })
-      ]);
-      fixedSlotsCount++;
+      if (isP1Fixed && !isP2Fixed) {
+        // FIX ONE: P1 is Fixed-Time. Move candidate slot in P2 outside P1 window
+        const p1StartHour = new Date(clash.program1Start).getHours();
+        const targetSlot = p1StartHour >= 13 ? 1 : Math.max(slotsP2, 2);
+        await prisma.programAssignment.update({
+          where: { id: asnP2.id },
+          data: { slotNumber: targetSlot }
+        });
+        fixedSlotsCount++;
+      } else if (isP2Fixed && !isP1Fixed) {
+        // FIX ONE: P2 is Fixed-Time. Move candidate slot in P1 outside P2 window
+        const p2StartHour = new Date(clash.program2Start).getHours();
+        const targetSlot = p2StartHour >= 13 ? 1 : Math.max(slotsP1, 2);
+        await prisma.programAssignment.update({
+          where: { id: asnP1.id },
+          data: { slotNumber: targetSlot }
+        });
+        fixedSlotsCount++;
+      } else if (isP1Group && isP2Group) {
+        // FIX TWO: Dual Group Program clash — perform first in P1, participate last in P2
+        await prisma.$transaction([
+          prisma.programAssignment.update({
+            where: { id: asnP1.id },
+            data: { slotNumber: 1 } // start first in venue 1
+          }),
+          prisma.programAssignment.update({
+            where: { id: asnP2.id },
+            data: { slotNumber: Math.max(slotsP2, 2) } // participate at end in venue 2
+          })
+        ]);
+        fixedSlotsCount++;
+      } else {
+        // Individual vs Individual or General slot positioning (1st vs Last)
+        const [firstProg, lastProg, firstAsn, lastAsn] = slotsP1 <= slotsP2
+          ? [clash.program1Id, clash.program2Id, asnP1, asnP2]
+          : [clash.program2Id, clash.program1Id, asnP2, asnP1];
+
+        await prisma.$transaction([
+          prisma.programAssignment.update({
+            where: { id: firstAsn.id },
+            data: { slotNumber: 1 }
+          }),
+          prisma.programAssignment.update({
+            where: { id: lastAsn.id },
+            data: { slotNumber: Math.max(slotsP1, slotsP2) + 1 }
+          })
+        ]);
+        fixedSlotsCount++;
+      }
     }
 
-    // STEP 2: Buffer gap tuning from minBuf up to maxBuf (up to 60 mins), strictly rejecting finish > 6:00 PM
+    // STEP 2: FIX THREE & STUBBORN CLASHES — Test Venue Program Sequence Reordering
+    // If clashes remain (especially 3+ candidate clashes), test adjacent swaps within venues
+    // strictly guaranteeing: 09:30 AM start, 1:00-1:45 PM break, finish <= 5:00 PM (ceiling 6:00 PM),
+    // and durations/venues 100% UNTOUCHED!
+    let bestVenueGroups = { ...venueGroups };
+    let currentBestClashCount = detectClashesBySeverity(buildTimelines({}, bestVenueGroups), targetZoneId).scoredClashes.length;
+
+    if (currentBestClashCount > 0) {
+      for (const [venueName, vProgs] of Object.entries(venueGroups)) {
+        if (vProgs.length <= 1) continue;
+
+        for (let i = 0; i < vProgs.length; i++) {
+          for (let j = i + 1; j < vProgs.length; j++) {
+            const testProgs = [...bestVenueGroups[venueName]];
+            const temp = testProgs[i];
+            testProgs[i] = testProgs[j];
+            testProgs[j] = temp;
+
+            // Verify venue finish is <= maxCloseHour (6:00 PM)
+            const tl = calculateVenueTimeline(venueName, testProgs, { ...calcTimingOpts, bufferMinutes: minBuf });
+            const endHours = tl.endTime.getHours() + tl.endTime.getMinutes() / 60;
+            if (endHours > maxCloseHour) continue;
+
+            const testGroups = { ...bestVenueGroups, [venueName]: testProgs };
+            const testClashes = detectClashesBySeverity(buildTimelines({}, testGroups), targetZoneId).scoredClashes.length;
+
+            if (testClashes < currentBestClashCount) {
+              currentBestClashCount = testClashes;
+              bestVenueGroups = testGroups;
+              venueGroups[venueName] = testProgs;
+            }
+          }
+        }
+      }
+    }
+
+    // STEP 3: Buffer gap tuning from minBuf up to maxBuf (up to 60 mins), strictly rejecting finish > 6:00 PM
     const venueBufferMap: Record<string, number> = {};
     for (const venueName of Object.keys(venueGroups)) {
       venueBufferMap[venueName] = minBuf;
@@ -1760,21 +1834,20 @@ export async function resolveClashesSafe(
     if (!testBuffers.includes(minBuf)) testBuffers.unshift(minBuf);
     if (!testBuffers.includes(maxBuf)) testBuffers.push(maxBuf);
 
-    let bestClashCount = detectClashesBySeverity(buildTimelines(venueBufferMap), targetZoneId).scoredClashes.length;
+    let bestClashCount = detectClashesBySeverity(buildTimelines(venueBufferMap, bestVenueGroups), targetZoneId).scoredClashes.length;
 
     for (const venueName of Object.keys(venueGroups)) {
       let bestBufForVenue = venueBufferMap[venueName];
       for (const b of testBuffers) {
         // Enforce hard ceiling: must not exceed maxCloseHour (6:00 PM)
-        const tl = calculateVenueTimeline(venueName, venueGroups[venueName], { ...calcTimingOpts, bufferMinutes: b });
+        const tl = calculateVenueTimeline(venueName, bestVenueGroups[venueName], { ...calcTimingOpts, bufferMinutes: b });
         const endHours = tl.endTime.getHours() + tl.endTime.getMinutes() / 60;
         if (endHours > maxCloseHour) {
-          // Reject this buffer because it pushes venue past 6:00 PM!
           continue;
         }
 
         const testMap = { ...venueBufferMap, [venueName]: b };
-        const testClashes = detectClashesBySeverity(buildTimelines(testMap), targetZoneId).scoredClashes.length;
+        const testClashes = detectClashesBySeverity(buildTimelines(testMap, bestVenueGroups), targetZoneId).scoredClashes.length;
         if (testClashes < bestClashCount) {
           bestClashCount = testClashes;
           bestBufForVenue = b;
@@ -1784,7 +1857,7 @@ export async function resolveClashesSafe(
     }
 
     // STEP 3: Apply sequential start times using the optimized buffer gap WITHOUT touching durations!
-    for (const [vName, vProgs] of Object.entries(venueGroups)) {
+    for (const [vName, vProgs] of Object.entries(bestVenueGroups)) {
       const chosenBuffer = venueBufferMap[vName] || minBuf;
       const tl = calculateVenueTimeline(vName, vProgs, { ...calcTimingOpts, bufferMinutes: chosenBuffer });
 
@@ -1802,7 +1875,7 @@ export async function resolveClashesSafe(
       }
     }
 
-    const finalAnalysis = detectClashesBySeverity(buildTimelines(venueBufferMap), targetZoneId);
+    const finalAnalysis = detectClashesBySeverity(buildTimelines(venueBufferMap, bestVenueGroups), targetZoneId);
 
     revalidatePath("/dashboard/schedule");
     revalidatePath("/print/stage-manager");

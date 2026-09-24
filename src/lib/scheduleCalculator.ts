@@ -649,11 +649,18 @@ export function detectClashesBySeverity(
         if (!cand?.id) continue;
 
         const list = candidateAppearances.get(cand.id) || [];
-        // For individual programs, use the slot's scheduledTime if available
+        // Calculate slot timing: for individual programs, stagger based on slotNumber if scheduledTime not stored
+        const slotIdx = (asn.slotNumber && asn.slotNumber > 0) ? asn.slotNumber - 1 : zoneCands.indexOf(asn);
         const slotStart = asn.scheduledTime
           ? new Date(asn.scheduledTime)
-          : slot.predictedStart;
-        const slotEnd = new Date(slotStart.getTime() + (slot.durationPerItem || 10) * 60000);
+          : (progType === "INDIVIDUAL" && slot.durationPerItem
+              ? new Date(slot.predictedStart.getTime() + Math.max(0, slotIdx) * slot.durationPerItem * 60000)
+              : slot.predictedStart);
+        const slotEnd = asn.scheduledTime
+          ? new Date(new Date(asn.scheduledTime).getTime() + (slot.durationPerItem || 10) * 60000)
+          : (progType === "INDIVIDUAL" && slot.durationPerItem
+              ? new Date(slotStart.getTime() + slot.durationPerItem * 60000)
+              : slot.predictedEnd);
 
         list.push({
           candidateId: cand.id,
@@ -674,7 +681,27 @@ export function detectClashesBySeverity(
     }
   }
 
-  // -- 2. Find overlapping pairs ------------------------------------------------
+  // -- 2. Pre-scan pair overlaps to detect multi-candidate clashes (Rule 3: 3+ candidates)
+  const pairCandidates = new Map<string, Set<string>>();
+  for (const [, appearances] of candidateAppearances.entries()) {
+    if (appearances.length < 2) continue;
+    for (let i = 0; i < appearances.length; i++) {
+      for (let j = i + 1; j < appearances.length; j++) {
+        const a = appearances[i];
+        const b = appearances[j];
+        if (a.venue === b.venue && a.programId === b.programId) continue;
+        const startA = a.start.getTime(), endA = a.end.getTime();
+        const startB = b.start.getTime(), endB = b.end.getTime();
+        if (startA < endB && startB < endA) {
+          const pairKey = [a.programId, b.programId].sort().join("::");
+          if (!pairCandidates.has(pairKey)) pairCandidates.set(pairKey, new Set());
+          pairCandidates.get(pairKey)!.add(a.candidateId);
+        }
+      }
+    }
+  }
+
+  // -- 3. Build scored clashes with Rules 1, 2, 3 --------------------------------
   const scored: ScoredClash[] = [];
   const clashesByProgramId: Record<string, ScoredClash[]> = {};
   const clashingCandidateIds = new Set<string>();
@@ -695,13 +722,16 @@ export function detectClashesBySeverity(
         const overlapMs = Math.min(endA, endB) - Math.max(startA, startB);
         const overlapMinutes = Math.round(overlapMs / 60000);
 
-        // -- Determine severity -----------------------------------------------
+        // -- Determine severity based on Rules 1, 2, and 3 --------------------
         const aFixed = a.durationMode === "FIXED" || a.durationMode === "TOTAL_FIXED";
         const bFixed = b.durationMode === "FIXED" || b.durationMode === "TOTAL_FIXED";
         const aInd = a.programType === "INDIVIDUAL";
         const bInd = b.programType === "INDIVIDUAL";
         const aGroup = a.programType === "GROUP" || a.programType === "GENERAL" || a.programType === "INSTITUTION";
         const bGroup = b.programType === "GROUP" || b.programType === "GENERAL" || b.programType === "INSTITUTION";
+
+        const pairKey = [a.programId, b.programId].sort().join("::");
+        const multiCandCount = pairCandidates.get(pairKey)?.size || 1;
 
         // Count how many INDIVIDUAL programs this candidate has at this time window
         const overlapWindow = appearances.filter(x =>
@@ -714,44 +744,64 @@ export function detectClashesBySeverity(
         let severityColor: string;
         let severityIcon: string;
         let explanation: string;
-        let isAutoFixable = false;
+        let isAutoFixable = true;
 
-        if (overlapWindow.length >= 3) {
+        if (multiCandCount >= 3 && ((aInd && bGroup) || (bInd && aGroup))) {
+          // FIX THREE: 3+ different candidates clash between individual and group program
           severity = "CRITICAL";
-          severityLabel = "Critical  Multiple Simultaneous Individual Slots";
+          severityLabel = `Critical — ${multiCandCount}+ Candidates Clashing (Individual vs Group)`;
           severityColor = "#ef4444";
-          severityIcon = "??";
-          explanation = `${overlapWindow.length} individual programs overlap at the same time. Candidate cannot be in multiple venues simultaneously.`;
-          isAutoFixable = false;
-        } else if (aFixed || bFixed) {
-          severity = "HIGH";
-          severityLabel = "High  Fixed-Time Conflict";
-          severityColor = "#f97316";
-          severityIcon = "??";
-          const fixedName = aFixed ? a.programName : b.programName;
-          explanation = `"${fixedName}" has a fixed start time. Candidate must be present  cannot adjust slot position.`;
-          isAutoFixable = false;
-        } else if ((aInd && bGroup) || (bInd && aGroup)) {
-          severity = "MEDIUM";
-          severityLabel = "Medium  Individual vs Group";
-          severityColor = "#eab308";
-          severityIcon = "??";
+          severityIcon = "🚨";
           const indName = aInd ? a.programName : b.programName;
           const grpName = aGroup ? a.programName : b.programName;
-          explanation = `"${indName}" (individual) overlaps with "${grpName}" (group). Group programs have flexibility  try adjusting buffer or ordering.`;
+          explanation = `Critical Multi-Candidate Clash: ${multiCandCount} different candidates are enrolled in both "${indName}" (individual) and "${grpName}" (group) simultaneously. Slot reordering cannot resolve this; venue program sequence reordering or buffer adjustment is required.`;
+          isAutoFixable = true;
+        } else if (overlapWindow.length >= 3) {
+          severity = "CRITICAL";
+          severityLabel = "Critical — Multiple Simultaneous Individual Slots";
+          severityColor = "#ef4444";
+          severityIcon = "🚨";
+          explanation = `${overlapWindow.length} individual programs overlap at the same time for this candidate. Candidate cannot be in multiple venues simultaneously.`;
+          isAutoFixable = false;
+        } else if (aFixed || bFixed) {
+          // FIX ONE: Fixed time program clash — candidate cannot attempt any other program
+          severity = "HIGH";
+          severityLabel = "High — Fixed-Time Lock Conflict";
+          severityColor = "#f97316";
+          severityIcon = "🔒";
+          const fixedName = aFixed ? a.programName : b.programName;
+          const otherName = aFixed ? b.programName : a.programName;
+          explanation = `Fixed-Time Lock: "${fixedName}" has a fixed schedule window. Candidate cannot attempt "${otherName}" (or any other group/individual event) during this time. Non-fixed program must be shifted or candidate slot moved outside the fixed window.`;
+          isAutoFixable = true;
+        } else if (aGroup && bGroup) {
+          // FIX TWO: Both group programs at same time — start first in one, participate at end in other
+          severity = "HIGH";
+          severityLabel = "High — Dual Group Program Overlap";
+          severityColor = "#f59e0b";
+          severityIcon = "👥";
+          explanation = `Dual Group Overlap: Candidate is in two simultaneous group events ("${a.programName}" & "${b.programName}"). Auto-fix schedules candidate's team first at start in ${a.venue}, and last at end in ${b.venue} (or shifts venue buffer).`;
+          isAutoFixable = true;
+        } else if ((aInd && bGroup) || (bInd && aGroup)) {
+          severity = "MEDIUM";
+          severityLabel = "Medium — Individual vs Group";
+          severityColor = "#eab308";
+          severityIcon = "⚡";
+          const indName = aInd ? a.programName : b.programName;
+          const grpName = aGroup ? a.programName : b.programName;
+          explanation = `"${indName}" (individual) overlaps with "${grpName}" (group). Adjustable via individual slot positioning outside group time or venue buffer.`;
           isAutoFixable = true;
         } else if (aInd && bInd) {
           severity = "MANAGEABLE";
-          severityLabel = "Manageable  Two Individual Programs";
+          severityLabel = "Manageable — Two Individual Programs";
           severityColor = "#22c55e";
-          severityIcon = "??";
-          explanation = `Candidate can perform first in ${a.venue}, then last in ${b.venue} (or vice versa). Adjustable via slot reordering.`;
+          severityIcon = "✅";
+          explanation = `Candidate can perform first in ${a.venue}, then last in ${b.venue} (or vice versa). Solved via slot reordering.`;
           isAutoFixable = true;
         } else {
           severity = "MEDIUM";
-          severityLabel = "Medium  Scheduling Overlap";
+          severityLabel = "Medium — Scheduling Overlap";
           severityColor = "#eab308";
-          severityIcon = "??";
+          severityIcon = "⚠️";
           explanation = `Time overlap of ${overlapMinutes} min between "${a.programName}" and "${b.programName}".`;
           isAutoFixable = true;
         }
