@@ -80,23 +80,29 @@ export default async function PrintSchedulePage(props: {
     });
   }
 
+  // Check if this event has its own scheduled on-stage programs
+  let targetEventId = eventId;
+  if (eventId && activeEv?.parentId) {
+    const ownCount = await prisma.program.count({
+      where: {
+        eventId,
+        stageType: "ON_STAGE",
+        venue: { not: null },
+        startTime: { not: null }
+      }
+    });
+    if (ownCount === 0) {
+      targetEventId = activeEv.parentId;
+    }
+  }
+
   // Fetch only legitimately SCHEDULED ON_STAGE programs for this specific event
   const programWhere: any = {
     stageType: "ON_STAGE",
     venue: { not: null },
-    startTime: { not: null }
+    startTime: { not: null },
+    ...(targetEventId ? { eventId: targetEventId } : {})
   };
-
-  if (eventId) {
-    if (activeEv?.parentId) {
-      programWhere.OR = [
-        { eventId },
-        { eventId: activeEv.parentId }
-      ];
-    } else {
-      programWhere.eventId = eventId;
-    }
-  }
 
   const rawPrograms = await prisma.program.findMany({
     where: programWhere,
