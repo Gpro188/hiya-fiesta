@@ -260,11 +260,19 @@ export async function updateStudent(id: string, data: {
       return { success: false, error: "Unauthorized" };
     }
 
+    const current = await prisma.masterStudent.findUnique({
+      where: { id },
+      select: { uid: true, institutionId: true, name: true }
+    });
+
+    const newUid = data.uid.trim();
+    const newName = data.name.trim();
+
     await prisma.masterStudent.update({
       where: { id },
       data: {
-        uid: data.uid.trim(),
-        name: data.name.trim(),
+        uid: newUid,
+        name: newName,
         institutionId: data.institutionId,
         district: data.district || null,
         phone: data.phone || null,
@@ -272,7 +280,30 @@ export async function updateStudent(id: string, data: {
       }
     });
 
+    // Automatically synchronize candidate record(s) so Mark Entry, Tabulation, Results, and Search reflect changes immediately
+    if (current) {
+      await prisma.candidate.updateMany({
+        where: {
+          OR: [
+            { institutionId: current.institutionId, uid: current.uid },
+            { institutionId: data.institutionId, uid: newUid }
+          ]
+        },
+        data: {
+          name: newName,
+          uid: newUid,
+          institutionId: data.institutionId
+        }
+      });
+    }
+
     revalidatePath("/dashboard/super/students");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/results");
+    revalidatePath("/search");
+    revalidatePath("/print/tabulation");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to update student:", error);

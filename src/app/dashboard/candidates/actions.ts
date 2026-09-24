@@ -212,7 +212,25 @@ export async function updateCandidate(id: string, data: { name: string, category
       }
     });
 
+    if (candidate.institutionId && candidate.uid) {
+      await prisma.masterStudent.updateMany({
+        where: {
+          institutionId: candidate.institutionId,
+          uid: candidate.uid
+        },
+        data: {
+          name: data.name.trim()
+        }
+      });
+    }
+
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/super/students");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/results");
+    revalidatePath("/search");
+    revalidatePath("/print/tabulation");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to update candidate:", error);
@@ -960,6 +978,9 @@ export async function directReplaceCandidate(data: {
     revalidatePath("/dashboard/assignments");
     revalidatePath("/dashboard/super/zones");
     revalidatePath("/dashboard/teams");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/results");
+    revalidatePath("/search");
     revalidatePath("/print/id-cards");
     revalidatePath("/print/assignments");
     revalidatePath("/print/chest-numbers");
