@@ -126,6 +126,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
+          name: "Candidates & Photos",
+          subtitle: "Candidate list & photo updates",
+          icon: "👤",
+          href: "/dashboard/candidates",
+          highlight: true,
+        },
+        {
           name: "Chest Number Hub",
           subtitle: "Pending confirm & print roster",
           icon: "🎫",
@@ -254,6 +261,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/teams",
         },
         {
+          name: "Candidates & Photos",
+          subtitle: "Candidate list & photo updates",
+          icon: "👤",
+          href: "/dashboard/candidates",
+          highlight: true,
+        },
+        {
           name: "Users",
           subtitle: "Portal access & credentials",
           icon: "👥",
@@ -363,6 +377,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "Check registered candidates",
           icon: "📜",
           href: "/dashboard/programs",
+          highlight: true,
+        },
+        {
+          name: "Candidates & Photos",
+          subtitle: "Candidate list & photo updates",
+          icon: "👤",
+          href: "/dashboard/candidates",
           highlight: true,
         },
         {
