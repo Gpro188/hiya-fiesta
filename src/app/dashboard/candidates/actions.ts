@@ -127,7 +127,8 @@ export async function addCandidate(data: { name: string, categoryId: string, tea
         categoryId: data.categoryId,
         teamId: data.teamId,
         institutionId: teamInstitutionId || institutionId || null,
-        photoUrl: data.photo,
+        photo: data.photo || null,
+        photoUrl: data.photo || null,
         uid: finalUid || null,
         isApproved: false,
         chestNumber: null
@@ -158,11 +159,11 @@ export async function updateCandidate(id: string, data: { name: string, category
     const candidate = await prisma.candidate.findUnique({ where: { id } });
     if (!candidate) return { success: false, error: "Candidate not found" };
 
-    if (session.user.role === "ZONE_ADMIN") {
-      return { success: false, error: "Zone Admins cannot manage candidates directly." };
+    if (!["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
     }
 
-    if (session.user.role !== "SUPER_ADMIN") {
+    if (!["SUPER_ADMIN", "ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       const lock = await isZoneOrEventCompleted({ teamId: candidate.teamId });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Registration is locked because this festival is completed." };
@@ -206,7 +207,8 @@ export async function updateCandidate(id: string, data: { name: string, category
       data: {
         name: data.name,
         categoryId: data.categoryId,
-        photo: data.photo,
+        photo: data.photo || null,
+        photoUrl: data.photo || null,
         chestNumber: data.chestNumber,
         isApproved: data.isApproved ?? candidate.isApproved,
       }
@@ -231,6 +233,8 @@ export async function updateCandidate(id: string, data: { name: string, category
     revalidatePath("/dashboard/results");
     revalidatePath("/search");
     revalidatePath("/print/tabulation");
+    revalidatePath("/print/id-cards");
+    revalidatePath("/print/chest-numbers");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to update candidate:", error);

@@ -833,6 +833,18 @@ export default function AdminScheduler({
             </button>
           )}
 
+          <a
+            href={`/print/schedule?eventId=${eventId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+            style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
+            title="Open official printable layout for this schedule"
+          >
+            <span>🖨️</span>
+            <span>Print Schedule</span>
+          </a>
+
           <ZoneScheduleAnalyzer 
             isSuperAdmin={isSuperAdmin} 
             activeEventId={eventId} 

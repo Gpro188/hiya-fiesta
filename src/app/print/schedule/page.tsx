@@ -88,7 +88,14 @@ export default async function PrintSchedulePage(props: {
   };
 
   if (eventId) {
-    programWhere.eventId = eventId;
+    if (activeEv?.parentId) {
+      programWhere.OR = [
+        { eventId },
+        { eventId: activeEv.parentId }
+      ];
+    } else {
+      programWhere.eventId = eventId;
+    }
   }
 
   const rawPrograms = await prisma.program.findMany({

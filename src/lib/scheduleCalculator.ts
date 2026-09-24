@@ -264,20 +264,28 @@ export function calculateVenueTimeline(
   let baseDate: Date;
   if (options.baseStartTime) {
     baseDate = getFestivalBaseDate(options.baseStartTime, options.startHour ?? 9, options.startMinute ?? 30);
-  } else if (options.startTimeMode !== "FIXED_930") {
+  } else if (options.startTimeMode === "SAVED") {
     // Check if any program in this venue has a saved startTime
     const validSavedTimes = programs
       .map(p => p.startTime ? new Date(p.startTime) : null)
       .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
       .sort((a, b) => a.getTime() - b.getTime());
 
-    if (validSavedTimes.length > 0) {
-      baseDate = validSavedTimes[0];
+    // Only accept a saved start time if it is a morning festival start (e.g. between 07:00 and 11:30 AM in IST)
+    // If it's afternoon (e.g. 2:29 PM) or night, it's an erroneous UTC offset or late program, so fallback to 09:30 AM!
+    const morningSaved = validSavedTimes.find(d => {
+      const istHour = (d.getUTCHours() + 5 + Math.floor((d.getUTCMinutes() + 30) / 60)) % 24;
+      return istHour >= 7 && istHour <= 11;
+    });
+
+    if (morningSaved) {
+      baseDate = morningSaved;
     } else {
-      baseDate = getFestivalBaseDate(undefined, options.startHour ?? 9, options.startMinute ?? 30);
+      const sampleDate = validSavedTimes[0] || programs.find(p => p.startTime)?.startTime;
+      baseDate = getFestivalBaseDate(sampleDate, options.startHour ?? 9, options.startMinute ?? 30);
     }
   } else {
-    // FIXED_930: Use date from first program (or today) at 09:30 AM IST
+    // FIXED_930 or default: Use date from festival / first program at 09:30 AM IST
     const sampleDate = programs.find(p => p.startTime)?.startTime;
     baseDate = getFestivalBaseDate(sampleDate, options.startHour ?? 9, options.startMinute ?? 30);
   }

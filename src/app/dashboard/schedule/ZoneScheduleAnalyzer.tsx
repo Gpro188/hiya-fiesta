@@ -608,9 +608,37 @@ export default function ZoneScheduleAnalyzer({
                   border: `1.5px solid ${fixMessage.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
                   color: fixMessage.startsWith("❌") ? "#991b1b" : "#166534",
                   fontSize: "0.85rem",
-                  fontWeight: 700
+                  fontWeight: 700,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}>
-                  {fixMessage}
+                  <div>{fixMessage}</div>
+                  {!fixMessage.startsWith("❌") && (
+                    <a
+                      href={`/print/schedule?eventId=${selectedZoneId !== "ALL" ? selectedZoneId : activeEventId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn"
+                      style={{
+                        backgroundColor: "#166534",
+                        color: "#ffffff",
+                        padding: "6px 14px",
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                        borderRadius: "6px",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <span>🖨️</span>
+                      <span>View & Print Updated Schedule</span>
+                    </a>
+                  )}
                 </div>
               )}
 
