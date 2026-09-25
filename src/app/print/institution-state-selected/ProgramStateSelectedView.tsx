@@ -38,6 +38,7 @@ export interface StateSelectedViewProps {
   festLogo: string | null;
   institutions: { id: string; name: string; code: string }[];
   initialTeamId?: string;
+  isKarnatakaZone?: boolean;
 }
 
 export default function ProgramStateSelectedView({
@@ -47,7 +48,8 @@ export default function ProgramStateSelectedView({
   festName,
   festLogo,
   institutions,
-  initialTeamId
+  initialTeamId,
+  isKarnatakaZone = false
 }: StateSelectedViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedInstitution, setSelectedInstitution] = useState<string>(initialTeamId || "ALL");
@@ -170,7 +172,7 @@ export default function ProgramStateSelectedView({
               </h2>
             </div>
             <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-              Categorized by Fadhila, Fadheela &amp; General with Top 2 &amp; 1st Place qualification rules
+              Categorized by Fadhila, Fadheela &amp; General &bull; 1st Place with &apos;A&apos; Grade Only qualification rule
             </p>
           </div>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -283,19 +285,33 @@ export default function ProgramStateSelectedView({
           )}
           <div>
             <div style={{ fontSize: "0.95rem", fontWeight: 800, letterSpacing: "1.5px", color: "#8E0033", textTransform: "uppercase" }}>
-              Council of Samastha Women's Colleges (CSWC)
+              Council of Samastha Women&apos;s Colleges (CSWC)
             </div>
             <h1 style={{ margin: "3px 0", fontSize: "1.85rem", fontWeight: 900, color: "#0f172a" }}>
               {festName || "HIYA FIESTA 2026"}
             </h1>
             <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#8E0033", letterSpacing: "0.5px" }}>
-              {zoneName.toUpperCase()} &bull; OFFICIAL STATE FESTIVAL QUALIFIED LIST
+              {isKarnatakaZone ? `${zoneName.toUpperCase()} \u2022 KARNATAKA STATE FESTIVAL MERIT LIST` : `${zoneName.toUpperCase()} \u2022 OFFICIAL STATE FESTIVAL QUALIFIED LIST`}
             </div>
             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "3px" }}>
-              Category-Wise &amp; Program-Wise State Selection List &bull; Rank 1 &amp; 2 for Fadhila / Fadheela &bull; 1st Place for General
+              {isKarnatakaZone
+                ? "Official Karnataka State Fest Merit & Selection List \u2022 Standalone State Honours"
+                : "Official State Selection List \u2022 1st Place with 'A' Grade Only (Pending / non-A programs ineligible without Steering Committee approval)"}
             </div>
           </div>
         </div>
+
+        {/* Karnataka Standalone Notice */}
+        {isKarnatakaZone && (
+          <div style={{ backgroundColor: "#fef3c7", border: "2px solid #f59e0b", padding: "12px 18px", borderRadius: "8px", marginTop: "12px", textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 900, color: "#b45309", fontSize: "0.95rem" }}>
+              <span>ℹ️</span> KARNATAKA ZONE FESTIVAL &mdash; INDEPENDENT STATE FESTIVAL
+            </div>
+            <div style={{ fontSize: "0.82rem", color: "#92400e", marginTop: "4px", lineHeight: "1.4" }}>
+              Karnataka Zone operates as an autonomous, independent State Festival (Karnataka State Fest) and does not participate in the Central State Final. Candidates listed below are awarded Karnataka State Honours and Merit Certificates.
+            </div>
+          </div>
+        )}
 
         {/* Selected Institution Filter Subheader (if filtered) */}
         {selectedInstitution !== "ALL" && (
@@ -346,8 +362,8 @@ export default function ProgramStateSelectedView({
           const isGeneralCat = categoryKey === "GENERAL";
           const catTitle = isGeneralCat ? "GENERAL PROGRAMS" : `${categoryKey} CATEGORY`;
           const catSubtitle = isGeneralCat 
-            ? "1st Place Only Qualified for State Final &bull; Magazine: Institution Only" 
-            : "Top 2 (1st & 2nd Place Winners) Qualified for State Final";
+            ? (isKarnatakaZone ? "1st Place with 'A' Grade &bull; Magazine: Institution Only" : "1st Place with 'A' Grade Only Qualified for State Final &bull; Magazine: Institution Only") 
+            : (isKarnatakaZone ? "1st Place with 'A' Grade Winners &bull; Karnataka State Merit" : "1st Place with 'A' Grade Winners Qualified for State Final");
           const catHeaderBg = isGeneralCat ? "#fdf4ff" : (categoryKey === "FADHILA" ? "#fff1f2" : "#f0fdf4");
           const catBorderColor = isGeneralCat ? "#d946ef" : (categoryKey === "FADHILA" ? "#e11d48" : "#16a34a");
           const catTextColor = isGeneralCat ? "#86198f" : (categoryKey === "FADHILA" ? "#9f1239" : "#166534");
@@ -444,10 +460,10 @@ export default function ProgramStateSelectedView({
                           fontWeight: 800,
                           padding: "2px 8px",
                           borderRadius: "4px",
-                          backgroundColor: prog.isGeneral ? "#fef3c7" : "#dcfce7",
-                          color: prog.isGeneral ? "#b45309" : "#15803d"
+                          backgroundColor: "#dcfce7",
+                          color: "#15803d"
                         }}>
-                          {prog.isGeneral ? "1st Place Only" : "Top 2 Qualified"}
+                          1st with &apos;A&apos; Grade Only
                         </span>
                       </div>
                     </div>
@@ -587,15 +603,15 @@ export default function ProgramStateSelectedView({
                                 <span style={{
                                   fontSize: "0.72rem",
                                   fontWeight: 900,
-                                  color: "#15803d",
-                                  backgroundColor: "#dcfce7",
+                                  color: isKarnatakaZone ? "#b45309" : "#15803d",
+                                  backgroundColor: isKarnatakaZone ? "#fef3c7" : "#dcfce7",
                                   padding: "4px 8px",
                                   borderRadius: "4px",
-                                  border: "1px solid #86efac",
+                                  border: isKarnatakaZone ? "1px solid #fde68a" : "1px solid #86efac",
                                   display: "inline-block",
                                   whiteSpace: "nowrap"
                                 }}>
-                                  ✓ QUALIFIED FOR STATE
+                                  {isKarnatakaZone ? "✓ KARNATAKA STATE MERIT" : "✓ QUALIFIED FOR STATE"}
                                 </span>
                               </td>
                             </tr>

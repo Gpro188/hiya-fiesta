@@ -205,9 +205,16 @@ export default async function InstitutionStateSelectedPage(props: {
 
     const isGeneral = normalizedCat === "GENERAL";
     const isMagazine = (p.programCode === "43") || p.name.toLowerCase().includes("magaz");
-    const maxRank = isGeneral ? 1 : 2;
 
-    if (!res.rank || res.rank > maxRank) continue;
+    // CRITICAL QUALIFICATION RULE:
+    // Only 1st Place WITH Grade 'A' qualifies for the State Festival.
+    // 2nd Place winners, or 1st Place winners without Grade 'A' (e.g. Grade B, C, or null),
+    // and pending programs are NOT eligible for the state selection list
+    // (unless approved by steering committee via explicit StateQualification).
+    const gradeUpper = res.grade ? res.grade.trim().toUpperCase() : "";
+    const hasAGrade = gradeUpper === "A" || gradeUpper === "A+";
+
+    if (res.rank !== 1 || !hasAGrade) continue;
 
     const progCode = p.programCode ? p.programCode.trim() : "-";
     const progKey = getProgramKey(p.programCode, p.name, normalizedCat);
@@ -222,9 +229,9 @@ export default async function InstitutionStateSelectedPage(props: {
         stageType: p.stageType || "ON_STAGE",
         isGeneral,
         isMagazine,
-        qualificationRule: isGeneral 
-          ? (isMagazine ? "1st Place Only (Institution)" : "1st Place Only") 
-          : "Top 2 (1st & 2nd Place)",
+        qualificationRule: isMagazine 
+          ? "1st Place with 'A' Grade (Institution)" 
+          : "1st Place with 'A' Grade Only",
         winners: []
       });
     }
@@ -353,6 +360,12 @@ export default async function InstitutionStateSelectedPage(props: {
     return a.name.localeCompare(b.name);
   });
 
+  const isKarnatakaZone = Boolean(
+    activeEv.zone?.code === "KAR" || 
+    activeEv.zone?.name?.toUpperCase().includes("KARNATAKA") || 
+    activeEv.name.toUpperCase().includes("KARNATAKA")
+  );
+
   return (
     <ProgramStateSelectedView
       programs={sortedPrograms}
@@ -362,6 +375,7 @@ export default async function InstitutionStateSelectedPage(props: {
       festLogo={festLogo}
       institutions={institutionsList}
       initialTeamId={teamId}
+      isKarnatakaZone={isKarnatakaZone}
     />
   );
 }

@@ -490,12 +490,16 @@ export async function toggleZoneCompleted(zoneId: string, markCompleted: boolean
           }
         });
 
-        // 3. Publish all results for programs in this zone
+        // 3. Publish all results for programs/teams in this zone
         const zoneEventIds = zone.events.map(e => e.id);
         if (zoneEventIds.length > 0) {
           await tx.result.updateMany({
             where: {
-              program: { eventId: { in: zoneEventIds } },
+              OR: [
+                { program: { eventId: { in: zoneEventIds } } },
+                { team: { eventId: { in: zoneEventIds } } },
+                { candidate: { team: { eventId: { in: zoneEventIds } } } }
+              ],
               isPublished: false
             },
             data: { isPublished: true }

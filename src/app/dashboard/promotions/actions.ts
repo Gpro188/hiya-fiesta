@@ -184,11 +184,25 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    // 1. Fetch all published Rank 1 results for this zone
+    // Exclude Karnataka Zone (conducts its own standalone state fest)
+    const zoneEvent = await prisma.event.findUnique({
+      where: { id: zoneEventId },
+      include: { zone: true }
+    });
+
+    if (zoneEvent?.zone?.code === "KAR" || zoneEvent?.name?.toUpperCase().includes("KARNATAKA")) {
+      return {
+        success: false,
+        error: "Karnataka Zone conducts its own standalone State Fest and does not participate in the Central State Final."
+      };
+    }
+
+    // 1. Fetch all published Rank 1 results WITH Grade 'A' for this zone
     const rank1Results = await prisma.result.findMany({
       where: {
         isPublished: true,
         rank: 1,
+        grade: { in: ["A", "A+", "a", "a+"] },
         OR: [
           { candidate: { team: { eventId: zoneEventId } } },
           { team: { eventId: zoneEventId } }
@@ -202,7 +216,7 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
     });
 
     if (rank1Results.length === 0) {
-      return { success: false, error: "No published Rank 1 results found for this zone." };
+      return { success: false, error: "No published Rank 1 results with Grade 'A' found for this zone." };
     }
 
     // 2. Fetch master event programs
