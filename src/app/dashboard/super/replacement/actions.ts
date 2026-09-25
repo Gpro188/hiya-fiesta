@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { approveCandidate } from "@/app/dashboard/candidates/actions";
 
 // ── Get all zones that have active events ─────────────────────────────────
+// ── Get all zones that have active events ─────────────────────────────────
 export async function getZonesWithEvents() {
   try {
     const session = await getServerSession(authOptions);
@@ -15,10 +16,8 @@ export async function getZonesWithEvents() {
     }
 
     const zones = await prisma.zone.findMany({
-      where: { events: { some: {} } },
       include: {
         events: {
-          where: { parentId: null },
           select: { id: true, name: true, type: true }
         }
       },
@@ -39,32 +38,33 @@ export async function getInstitutionsByZone(zoneId: string) {
       return { success: false, error: "Unauthorized", institutions: [] };
     }
 
-    // Get all teams in this zone's events
+    // Get all teams in this zone
     const teams = await prisma.team.findMany({
-      where: { event: { zoneId, parentId: null } },
+      where: {
+        OR: [
+          { event: { zoneId } },
+          { institution: { zoneId } }
+        ]
+      },
       include: {
-        institution: { select: { id: true, name: true, place: true } },
+        institution: { select: { id: true, name: true, place: true, code: true } },
         event: { select: { id: true, name: true } }
       },
       orderBy: { name: "asc" }
     });
 
-    // Group by institution
-    const instMap: Record<string, { id: string; name: string; place: string | null; teamId: string; eventId: string }> = {};
-    for (const t of teams) {
-      if (!t.institution) continue;
-      if (!instMap[t.institution.id]) {
-        instMap[t.institution.id] = {
-          id: t.institution.id,
-          name: t.institution.name,
-          place: t.institution.place || null,
-          teamId: t.id,
-          eventId: t.event.id
-        };
-      }
-    }
+    const instList = teams.map(t => ({
+      id: t.institution?.id || t.id,
+      name: t.institution?.name || t.name,
+      place: t.institution?.place || null,
+      teamId: t.id,
+      eventId: t.eventId,
+      prefixCode: t.prefixCode,
+      isMagazineParticipating: t.isMagazineParticipating,
+      magazineCode: t.magazineCode
+    }));
 
-    return { success: true, institutions: Object.values(instMap).sort((a, b) => a.name.localeCompare(b.name)) };
+    return { success: true, institutions: instList.sort((a, b) => a.name.localeCompare(b.name)) };
   } catch (e: any) {
     return { success: false, error: e.message, institutions: [] };
   }
@@ -78,39 +78,13 @@ export async function getProgramAssignmentsByInstitution(teamId: string, eventId
       return { success: false, error: "Unauthorized", programs: [] };
     }
 
-    // Get all programs in the event
-    const programs = await prisma.program.findMany({
-      where: {
-        eventId,
-        type: { not: "BREAK" }
-      },
-      include: {
-        category: { select: { id: true, name: true } },
-        assignments: {
-          where: {
-            candidate: { teamId }
-          },
-          include: {
-            candidate: {
-              select: {
-                id: true, name: true, uid: true, chestNumber: true,
-                photoUrl: true, photo: true, isApproved: true,
-                replacedFromChest: true, replacementNote: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: [{ programCode: "asc" }, { name: "asc" }]
-    });
-
-    // Also get unassigned programs (limit is candidateLimitPerTeam)
-    // and master students for this institution
     const team = await prisma.team.findUnique({
       where: { id: teamId },
       include: {
+        event: { include: { zone: true, parent: true } },
         institution: {
           include: {
+            zone: true,
             students: {
               select: { id: true, name: true, uid: true, stream: true }
             }
@@ -127,6 +101,78 @@ export async function getProgramAssignmentsByInstitution(teamId: string, eventId
       }
     });
 
+    if (!team) return { success: false, error: "Team not found", programs: [] };
+
+    // Get all candidate assignments for this team across any event (State or Zone)
+    const teamAssignments = await prisma.programAssignment.findMany({
+      where: {
+        candidate: { teamId }
+      },
+      include: {
+        candidate: {
+          select: {
+            id: true, name: true, uid: true, chestNumber: true,
+            photoUrl: true, photo: true, isApproved: true,
+            replacedFromChest: true, replacementNote: true
+          }
+        },
+        program: {
+          include: { category: true }
+        }
+      }
+    });
+
+    // Map assignments by programCode or name+category
+    const assignmentsByProgKey = new Map<string, typeof teamAssignments>();
+    for (const a of teamAssignments) {
+      const codeKey = a.program.programCode ? `code_${a.program.programCode.trim()}` : null;
+      const catName = a.program.category?.name?.trim().toUpperCase() || 'GENERAL';
+      const nameKey = `name_${a.program.name.trim().toUpperCase()}_${catName}`;
+      
+      const keys = [codeKey, nameKey].filter(Boolean) as string[];
+      for (const k of keys) {
+        if (!assignmentsByProgKey.has(k)) assignmentsByProgKey.set(k, []);
+        if (!assignmentsByProgKey.get(k)!.some(existing => existing.candidate.id === a.candidate.id)) {
+          assignmentsByProgKey.get(k)!.push(a);
+        }
+      }
+    }
+
+    // Get all official competition programs from state event or zone event
+    const targetEventId = team.event.parentId || team.eventId;
+    const rawPrograms = await prisma.program.findMany({
+      where: {
+        OR: [
+          { eventId: targetEventId },
+          { eventId: team.eventId }
+        ],
+        type: { not: "BREAK" }
+      },
+      include: {
+        category: { select: { id: true, name: true } }
+      },
+      orderBy: [{ programCode: "asc" }, { name: "asc" }]
+    });
+
+    // Deduplicate programs by programCode or name+category
+    const programMap = new Map<string, any>();
+    for (const p of rawPrograms) {
+      const codeKey = p.programCode ? `code_${p.programCode.trim()}` : null;
+      const catName = p.category?.name?.trim().toUpperCase() || 'GENERAL';
+      const nameKey = `name_${p.name.trim().toUpperCase()}_${catName}`;
+      const primaryKey = codeKey || nameKey;
+
+      if (!programMap.has(primaryKey)) {
+        const matchedAssignments = (codeKey && assignmentsByProgKey.get(codeKey)) || assignmentsByProgKey.get(nameKey) || [];
+        programMap.set(primaryKey, {
+          ...p,
+          assignments: matchedAssignments
+        });
+      }
+    }
+
+    const programs = Array.from(programMap.values());
+
     return {
       success: true,
       programs,
@@ -135,6 +181,170 @@ export async function getProgramAssignmentsByInstitution(teamId: string, eventId
     };
   } catch (e: any) {
     return { success: false, error: e.message, programs: [] };
+  }
+}
+
+// ── Super Admin Toggle Magazine (#43) Participation ──────────────────────
+export async function superAdminToggleMagazine(teamId: string, participating: boolean) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized — only Super Admin can execute this action" };
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        event: { include: { zone: true } },
+        institution: true
+      }
+    });
+
+    if (!team) return { success: false, error: "Team not found" };
+
+    let magazineCode = team.magazineCode;
+    if (participating && !magazineCode) {
+      // Find or generate next magazine code for this zone
+      const targetZoneId = team.institution?.zoneId || team.event?.zoneId;
+      const zoneFilter = targetZoneId
+        ? [{ institution: { zoneId: targetZoneId } }, { event: { zoneId: targetZoneId } }]
+        : [];
+
+      const existingTeamsWithCodes = await prisma.team.findMany({
+        where: {
+          ...(zoneFilter.length > 0 ? { OR: zoneFilter } : {}),
+          magazineCode: { not: null }
+        },
+        select: { magazineCode: true }
+      });
+
+      const usedNums = existingTeamsWithCodes
+        .map(t => {
+          const match = t.magazineCode?.match(/\d+/);
+          return match ? parseInt(match[0], 10) : 0;
+        })
+        .filter(n => n > 0);
+
+      const nextNum = usedNums.length > 0 ? Math.max(...usedNums) + 1 : 1;
+      magazineCode = `MAG-${String(nextNum).padStart(2, "0")}`;
+    }
+
+    const updated = await prisma.team.update({
+      where: { id: teamId },
+      data: {
+        isMagazineParticipating: participating,
+        magazineCode: participating ? magazineCode : team.magazineCode
+      }
+    });
+
+    // Audit log
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: participating ? "SUPER_ADMIN_ENROLL_MAGAZINE" : "SUPER_ADMIN_WITHDRAW_MAGAZINE",
+        entityType: "TEAM",
+        entityId: teamId,
+        reason: `Super Admin ${participating ? "enrolled" : "withdrew"} ${team.name} (${team.event?.zone?.name || "Zone"}) ${participating ? `for Magazine with Code ${magazineCode}` : "from Magazine"}.`
+      }
+    }).catch(() => {});
+
+    revalidatePath("/dashboard/super/replacement");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/reports");
+    revalidatePath("/print/zonal-offstage-valuation");
+    revalidatePath("/print/institution-state-selected");
+
+    return { success: true, team: updated };
+  } catch (e: any) {
+    return { success: false, error: e.message || "Failed to update magazine registration" };
+  }
+}
+
+// ── Super Admin Assign Existing Candidate to Program ─────────────────────
+export async function superAdminAssignExistingCandidate(data: {
+  candidateId: string;
+  programId: string;
+  reason?: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: data.candidateId },
+      include: {
+        team: { include: { event: { include: { zone: true } } } },
+        programs: true
+      }
+    });
+
+    if (!candidate) return { success: false, error: "Candidate not found" };
+
+    const program = await prisma.program.findUnique({
+      where: { id: data.programId }
+    });
+
+    if (!program) return { success: false, error: "Program not found" };
+
+    // Resolve canonical programId if master exists
+    let actualProgramId = data.programId;
+    if (program.programCode) {
+      const masterProg = await prisma.program.findFirst({
+        where: {
+          programCode: program.programCode,
+          event: {
+            OR: [
+              { parentId: null },
+              { type: "STATE" }
+            ]
+          }
+        },
+        select: { id: true }
+      });
+      if (masterProg) {
+        actualProgramId = masterProg.id;
+      }
+    }
+
+    // Check if already assigned
+    const alreadyAssigned = candidate.programs.some(
+      p => p.programId === actualProgramId || (program.programCode && p.programId === program.id)
+    );
+    if (alreadyAssigned) {
+      return { success: false, error: "Candidate is already assigned to this program" };
+    }
+
+    await prisma.programAssignment.create({
+      data: {
+        candidateId: candidate.id,
+        programId: actualProgramId
+      }
+    });
+
+    // Audit log
+    await prisma.systemAuditLog.create({
+      data: {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || "Super Admin",
+        action: "SUPER_ADMIN_ASSIGN_CANDIDATE",
+        entityType: "CANDIDATE",
+        entityId: candidate.id,
+        reason: `Super Admin assigned ${candidate.name} (Chest #${candidate.chestNumber || "None"}) to program #${program.programCode || ""} ${program.name}. Reason: ${data.reason || "Manual enrollment"}`
+      }
+    }).catch(() => {});
+
+    revalidatePath("/dashboard/super/replacement");
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message || "Failed to assign candidate" };
   }
 }
 

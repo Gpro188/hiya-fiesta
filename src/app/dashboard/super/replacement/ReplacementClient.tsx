@@ -6,6 +6,8 @@ import {
   getProgramAssignmentsByInstitution,
   addAndAssignNewCandidate,
   zonalTransferProgram,
+  superAdminToggleMagazine,
+  superAdminAssignExistingCandidate,
 } from "./actions";
 import { transferProgramToAnotherCandidate } from "@/app/dashboard/candidates/actions";
 import ImageUpload from "@/app/components/ImageUpload";
@@ -113,24 +115,52 @@ export default function ReplacementClient({ zones }: Props) {
     setReason("Zonal replacement approved by Super Admin");
   };
 
+  const handleToggleMagazine = (enroll: boolean) => {
+    if (!selectedInst) return;
+    startTransition(async () => {
+      const res = await superAdminToggleMagazine(selectedInst.teamId, enroll);
+      if (res.success && res.team) {
+        const assignedCode = res.team.magazineCode || null;
+        showToast(enroll ? `✅ Enrolled in Magazine (Code: ${assignedCode || 'Assigned'})` : `✅ Withdrawn from Magazine`);
+        setSelectedInst((prev: any) => ({
+          ...prev,
+          isMagazineParticipating: enroll,
+          magazineCode: assignedCode
+        }));
+        setInstitutions(prev => prev.map(i => i.teamId === selectedInst.teamId ? { ...i, isMagazineParticipating: enroll, magazineCode: assignedCode } : i));
+      } else {
+        showToast(res.error || "Failed to update magazine registration", "err");
+      }
+    });
+  };
+
   const handleReplace = () => {
     if (!activeProgram || !selectedInst) return;
 
     if (mode === "EXISTING") {
       if (!targetCandidateId) { showToast("Please select a target candidate", "err"); return; }
-      if (!activeAssignment) { showToast("No assignment selected", "err"); return; }
 
       startTransition(async () => {
-        const res = await transferProgramToAnotherCandidate({
-          fromCandidateId: activeAssignment.candidate.id,
-          programAssignmentId: activeAssignment.id,
-          targetType: "EXISTING_CANDIDATE",
-          existingCandidateId: targetCandidateId,
-          reason,
-          bypassLimits: true
-        });
+        let res: any;
+        if (activeAssignment) {
+          res = await transferProgramToAnotherCandidate({
+            fromCandidateId: activeAssignment.candidate.id,
+            programAssignmentId: activeAssignment.id,
+            targetType: "EXISTING_CANDIDATE",
+            existingCandidateId: targetCandidateId,
+            reason,
+            bypassLimits: true
+          });
+        } else {
+          res = await superAdminAssignExistingCandidate({
+            candidateId: targetCandidateId,
+            programId: activeProgram.id,
+            reason
+          });
+        }
+
         if (res.success) {
-          showToast(`✅ Transferred to selected candidate`);
+          showToast(`✅ ${activeAssignment ? "Transferred" : "Assigned"} to selected candidate`);
           resetPanel();
           loadInstitution(selectedInst);
         } else {
@@ -268,6 +298,71 @@ export default function ReplacementClient({ zones }: Props) {
             <span style={{ color: COLORS.muted, fontSize: "0.82rem" }}>Zone: {selectedZone?.name}</span>
             <Tag color={COLORS.green}>{programs.length} Programs</Tag>
             <Tag color={COLORS.accent}>{teamCandidates.length} Candidates</Tag>
+            {selectedInst.isMagazineParticipating ? (
+              <Tag color={COLORS.green}>📖 Magazine Enrolled ({selectedInst.magazineCode || 'Assigned'})</Tag>
+            ) : (
+              <Tag color="#f59e0b">⚠ Magazine Not Enrolled</Tag>
+            )}
+          </div>
+        )}
+
+        {/* Magazine (#43) Quick-Action Banner */}
+        {selectedInst && (
+          <div style={{
+            marginTop: 14, padding: "14px 18px", borderRadius: 12,
+            background: selectedInst.isMagazineParticipating ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
+            border: `1.5px solid ${selectedInst.isMagazineParticipating ? "rgba(16, 185, 129, 0.35)" : "rgba(245, 158, 11, 0.35)"}`,
+            display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: "1.8rem" }}>📖</span>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>College Magazine (#43) Registration</span>
+                  {selectedInst.isMagazineParticipating ? (
+                    <Tag color={COLORS.green}>Registered — Code: {selectedInst.magazineCode || 'Assigned'}</Tag>
+                  ) : (
+                    <Tag color="#f59e0b">Not Registered</Tag>
+                  )}
+                </div>
+                <p style={{ margin: "4px 0 0 0", color: COLORS.muted, fontSize: "0.82rem" }}>
+                  {selectedInst.isMagazineParticipating
+                    ? "This zonal institution is officially registered for the College Magazine competition."
+                    : "This institution is currently not enrolled for College Magazine. Super Admin can register it directly below."}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              {selectedInst.isMagazineParticipating ? (
+                <button
+                  onClick={() => handleToggleMagazine(false)}
+                  disabled={isPending}
+                  style={{
+                    padding: "7px 14px", borderRadius: 8,
+                    background: "rgba(239, 68, 68, 0.15)", color: "#ef4444",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    fontSize: "0.80rem", fontWeight: 800, cursor: isPending ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {isPending ? "Updating…" : "Withdraw Magazine"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleToggleMagazine(true)}
+                  disabled={isPending}
+                  style={{
+                    padding: "8px 18px", borderRadius: 8,
+                    background: COLORS.green, color: "#fff",
+                    border: "none",
+                    fontSize: "0.82rem", fontWeight: 900, cursor: isPending ? "not-allowed" : "pointer",
+                    boxShadow: "0 2px 10px rgba(16, 185, 129, 0.3)"
+                  }}
+                >
+                  {isPending ? "Registering…" : "📖 Register for College Magazine"}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -295,6 +390,66 @@ export default function ReplacementClient({ zones }: Props) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {filteredPrograms.map(prog => {
+              const isMagazine = prog.programCode === "43" || prog.name?.toLowerCase().includes("magazine");
+
+              if (isMagazine) {
+                return (
+                  <div
+                    key={prog.id}
+                    style={{
+                      background: COLORS.card,
+                      border: `1.5px solid ${selectedInst.isMagazineParticipating ? "rgba(16, 185, 129, 0.4)" : COLORS.border}`,
+                      borderRadius: 14, overflow: "hidden"
+                    }}
+                  >
+                    <div style={{
+                      padding: "14px 18px",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      flexWrap: "wrap", gap: 12
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{
+                          background: `${COLORS.gold}22`, color: COLORS.gold,
+                          border: `1px solid ${COLORS.gold}44`,
+                          padding: "2px 8px", borderRadius: 9999,
+                          fontSize: "0.66rem", fontWeight: 900
+                        }}>#43</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: "0.98rem", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {prog.name}
+                            <Tag color={COLORS.gold}>Institution Submission</Tag>
+                            {selectedInst.isMagazineParticipating ? (
+                              <Tag color={COLORS.green}>Registered — Code: {selectedInst.magazineCode || 'Assigned'}</Tag>
+                            ) : (
+                              <Tag color={COLORS.red}>Not Registered</Tag>
+                            )}
+                          </div>
+                          <div style={{ fontSize: "0.80rem", color: COLORS.muted, marginTop: 2 }}>
+                            College Magazine is evaluated per institution (no candidate assignment required).
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <button
+                          onClick={() => handleToggleMagazine(!selectedInst.isMagazineParticipating)}
+                          disabled={isPending}
+                          style={{
+                            padding: "7px 16px", borderRadius: 8,
+                            background: selectedInst.isMagazineParticipating ? "rgba(239, 68, 68, 0.15)" : COLORS.green,
+                            color: selectedInst.isMagazineParticipating ? "#ef4444" : "#fff",
+                            border: selectedInst.isMagazineParticipating ? "1px solid rgba(239, 68, 68, 0.4)" : "none",
+                            fontSize: "0.82rem", fontWeight: 800, cursor: isPending ? "not-allowed" : "pointer"
+                          }}
+                        >
+                          {isPending ? "Updating…" : selectedInst.isMagazineParticipating ? "Withdraw Magazine" : "📖 Register for Magazine"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               const assignments = prog.assignments || [];
               const isActive = activeProgram?.id === prog.id;
               const catColor = (prog.category?.name || "").toUpperCase().includes("FADHIL") ? "#facc15"
@@ -341,7 +496,8 @@ export default function ReplacementClient({ zones }: Props) {
                           onClick={() => {
                             setActiveProgram(prog);
                             setActiveAssignment(null);
-                            setMode("NEW");
+                            setMode("EXISTING");
+                            setTargetCandidateId("");
                           }}
                           style={{
                             padding: "5px 12px", borderRadius: 8,
@@ -437,7 +593,7 @@ export default function ReplacementClient({ zones }: Props) {
                     }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span style={{ fontWeight: 900, fontSize: "0.92rem", color: COLORS.accent }}>
-                          {activeAssignment ? `🔄 Replace: ${activeAssignment.candidate.name}` : "➕ Add New Candidate"}
+                          {activeAssignment ? `🔄 Replace: ${activeAssignment.candidate.name}` : "➕ Assign Candidate"}
                           <span style={{ color: COLORS.muted, fontWeight: 600, fontSize: "0.80rem", marginLeft: 8 }}>
                             for {prog.name}
                           </span>
@@ -447,32 +603,30 @@ export default function ReplacementClient({ zones }: Props) {
                         }}>✕</button>
                       </div>
 
-                      {/* Mode Tabs — only show if replacing */}
-                      {activeAssignment && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {(["EXISTING", "NEW"] as const).map(m => (
-                            <button
-                              key={m}
-                              onClick={() => setMode(m)}
-                              style={{
-                                padding: "6px 16px", borderRadius: 8,
-                                background: mode === m ? COLORS.accent : `${COLORS.accent}15`,
-                                color: mode === m ? "#fff" : COLORS.accent,
-                                border: "none", cursor: "pointer",
-                                fontSize: "0.82rem", fontWeight: 800
-                              }}
-                            >
-                              {m === "EXISTING" ? "👤 Existing Candidate" : "✨ New / Directory Student"}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {/* Mode Tabs */}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {(["EXISTING", "NEW"] as const).map(m => (
+                          <button
+                            key={m}
+                            onClick={() => setMode(m)}
+                            style={{
+                              padding: "6px 16px", borderRadius: 8,
+                              background: mode === m ? COLORS.accent : `${COLORS.accent}15`,
+                              color: mode === m ? "#fff" : COLORS.accent,
+                              border: "none", cursor: "pointer",
+                              fontSize: "0.82rem", fontWeight: 800
+                            }}
+                          >
+                            {m === "EXISTING" ? "👤 Existing Candidate" : "✨ New / Directory Student"}
+                          </button>
+                        ))}
+                      </div>
 
                       {/* EXISTING candidate selector */}
-                      {mode === "EXISTING" && activeAssignment && (
+                      {mode === "EXISTING" && (
                         <div>
                           <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 700, color: COLORS.muted, marginBottom: 6 }}>
-                            Select from team's current candidates:
+                            {activeAssignment ? "Select candidate to replace with:" : "Select candidate from institution to assign:"}
                           </label>
                           <select
                             value={targetCandidateId}
@@ -483,9 +637,9 @@ export default function ReplacementClient({ zones }: Props) {
                               color: COLORS.text, fontSize: "0.92rem", outline: "none"
                             }}
                           >
-                            <option value="">— Select target candidate —</option>
+                            <option value="">— Select candidate —</option>
                             {teamCandidates
-                              .filter(c => c.id !== activeAssignment.candidate.id)
+                              .filter(c => !activeAssignment || c.id !== activeAssignment.candidate.id)
                               .map((c: any) => (
                                 <option key={c.id} value={c.id}>
                                   {c.name}{c.chestNumber ? ` (Chest #${c.chestNumber})` : ""} — {c.category?.name || ""}
