@@ -4,7 +4,17 @@ import { useState } from "react";
 import { togglePublishResult, deleteResult, deleteProgramResults, publishProgramResults, unpublishProgramResults } from "./actions";
 import EditResultModal from "./EditResultModal";
 
-export default function ResultList({ results, role }: { results: any[], role: string }) {
+export default function ResultList({ 
+  results, 
+  role,
+  isCompleted = false,
+  completedFestName = ""
+}: { 
+  results: any[]; 
+  role: string;
+  isCompleted?: boolean;
+  completedFestName?: string;
+}) {
   const [filter, setFilter] = useState<'all' | 'published' | 'pending'>('all');
   const [editingResult, setEditingResult] = useState<any | null>(null);
 
@@ -35,10 +45,31 @@ export default function ResultList({ results, role }: { results: any[], role: st
     return <div style={{ color: 'var(--text-muted)' }}>No marks entered yet.</div>;
   }
 
-  const canManage = ["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(role);
+  // Only allow management if festival is NOT completed, OR if user is SUPER_ADMIN
+  const canManage = role === "SUPER_ADMIN" || (!isCompleted && ["ADMIN", "ZONE_ADMIN", "JUDGE"].includes(role));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+      {isCompleted && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fef2f2',
+          border: '1.5px solid #f87171',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          color: '#991b1b'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>🔒</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.92rem' }}>Fest Concluded & Locked</div>
+            <div style={{ fontSize: '0.82rem', color: '#b91c1c' }}>
+              The festival for {completedFestName || 'this zone'} has concluded and is marked COMPLETED. Results and mark entries are locked against edits or deletions by Zone Admins. Only Super Admin can modify or reopen.
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setFilter('all')}
@@ -422,6 +453,7 @@ export default function ResultList({ results, role }: { results: any[], role: st
         <EditResultModal 
           result={editingResult} 
           onClose={() => setEditingResult(null)} 
+          isCompleted={isCompleted && role !== 'SUPER_ADMIN'}
         />
       )}
     </div>

@@ -23,12 +23,16 @@ export default function ScoringForm({
   events, 
   availableJudges = [],
   userRole = "SUPER_ADMIN",
-  userVenue = null
+  userVenue = null,
+  isCompleted = false,
+  completedFestName = ""
 }: { 
   events: any[];
   availableJudges?: any[];
   userRole?: string;
   userVenue?: string | null;
+  isCompleted?: boolean;
+  completedFestName?: string;
 }) {
   const isStageJury = userRole === "JUDGE" || Boolean(userVenue);
   const [eventId, setEventId] = useState(events[0]?.id || "");
@@ -287,6 +291,10 @@ export default function ScoringForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCompleted) {
+      setStatus({ type: 'error', message: 'Mark entry is locked because this fest has been marked COMPLETED.' });
+      return;
+    }
     setLoading(true);
     setStatus(null);
 
@@ -344,6 +352,28 @@ export default function ScoringForm({
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+      {isCompleted && (
+        <div style={{
+          backgroundColor: '#fff7ed',
+          border: '1.5px solid #fb923c',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          color: '#9a3412',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>🔒</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.92rem' }}>Rapid Result Entry Locked (Fest Completed)</div>
+            <div style={{ fontSize: '0.82rem', color: '#c2410c' }}>
+              The festival for {completedFestName || 'this zone'} has concluded and is marked COMPLETED. Mark entry and submissions are locked for Zone Admins.
+            </div>
+          </div>
+        </div>
+      )}
+
       {status && (
         <div style={{ 
           color: status.type === 'error' ? '#dc2626' : '#059669', 
@@ -794,16 +824,19 @@ export default function ScoringForm({
               <button 
                 type="submit" 
                 className="btn btn-primary"
-                disabled={loading || entries.length === 0}
+                disabled={loading || isCompleted || entries.length === 0}
                 style={{
                   padding: '9px 24px',
                   fontWeight: 800,
                   fontSize: '0.95rem',
-                  boxShadow: '0 4px 14px rgba(230,0,126,0.3)',
+                  boxShadow: isCompleted ? 'none' : '0 4px 14px rgba(230,0,126,0.3)',
+                  backgroundColor: isCompleted ? '#94a3b8' : undefined,
+                  borderColor: isCompleted ? '#64748b' : undefined,
+                  cursor: isCompleted ? 'not-allowed' : 'pointer',
                   textTransform: 'uppercase'
                 }}
               >
-                {loading ? "Saving All..." : userRole === "JUDGE" ? "📤 Submit Marks to Zonal Admin" : "💾 Save All Marks"}
+                {loading ? "Saving All..." : isCompleted ? "🔒 Fest Completed" : userRole === "JUDGE" ? "📤 Submit Marks to Zonal Admin" : "💾 Save All Marks"}
               </button>
             </div>
           </div>
@@ -974,16 +1007,19 @@ export default function ScoringForm({
               <button 
                 type="submit" 
                 className="btn btn-primary"
-                disabled={loading}
+                disabled={loading || isCompleted}
                 style={{
                   padding: '10px 28px',
                   fontWeight: 800,
                   fontSize: '0.95rem',
-                  boxShadow: '0 4px 14px rgba(230,0,126,0.35)',
+                  boxShadow: isCompleted ? 'none' : '0 4px 14px rgba(230,0,126,0.35)',
+                  backgroundColor: isCompleted ? '#94a3b8' : undefined,
+                  borderColor: isCompleted ? '#64748b' : undefined,
+                  cursor: isCompleted ? 'not-allowed' : 'pointer',
                   textTransform: 'uppercase'
                 }}
               >
-                {loading ? "Saving All..." : "🚀 Save & Submit All Marks"}
+                {loading ? "Saving All..." : isCompleted ? "🔒 Fest Completed (Locked)" : "🚀 Save & Submit All Marks"}
               </button>
             </div>
           )}

@@ -156,7 +156,15 @@ export async function submitMarks(data: {
     if (!program) return { success: false, error: "Program not found" };
 
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId: data.programId, eventId: data.eventId, teamId: data.teamId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        programId: data.programId, 
+        eventId: data.eventId || userEventId, 
+        teamId: data.teamId,
+        zoneId: userZoneId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
       }
@@ -286,7 +294,14 @@ export async function batchSubmitProgramMarks(data: {
     if (!program) return { success: false, error: "Program not found" };
 
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId: data.programId, eventId: data.eventId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        programId: data.programId, 
+        eventId: data.eventId || userEventId,
+        zoneId: userZoneId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
       }
@@ -499,8 +514,16 @@ export async function togglePublishResult(id: string, isPublished: boolean) {
       return { success: false, error: "Unauthorized" };
     }
     const currentRes = await prisma.result.findUnique({ where: { id }, select: { programId: true } });
-    if (session.user.role !== "SUPER_ADMIN" && currentRes?.programId) {
-      const lock = await isZoneOrEventCompleted({ programId: currentRes.programId });
+    if (session.user.role !== "SUPER_ADMIN") {
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        resultId: id,
+        programId: currentRes?.programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
@@ -522,7 +545,14 @@ export async function publishProgramResults(programId: string) {
       return { success: false, error: "Unauthorized" };
     }
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
@@ -547,7 +577,14 @@ export async function unpublishProgramResults(programId: string) {
       return { success: false, error: "Unauthorized" };
     }
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
@@ -574,7 +611,15 @@ export async function deleteResult(id: string) {
     const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
     if (!result) return { success: false, error: "Result not found" };
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId: result.programId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        resultId: id,
+        programId: result.programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
@@ -598,7 +643,14 @@ export async function deleteProgramResults(programId: string) {
       return { success: false, error: "Unauthorized" };
     }
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
@@ -641,7 +693,15 @@ export async function updateResultMark(
     });
     if (!result) return { success: false, error: "Result not found" };
     if (session.user.role !== "SUPER_ADMIN") {
-      const lock = await isZoneOrEventCompleted({ programId: result.programId });
+      const userZoneId = (session.user as any)?.zoneId || null;
+      const userEventId = session.user.eventId || null;
+      const lock = await isZoneOrEventCompleted({ 
+        resultId: id,
+        programId: result.programId,
+        zoneId: userZoneId,
+        eventId: userEventId,
+        userId: session.user.id
+      });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Scoring is locked because this fest is completed." };
       }

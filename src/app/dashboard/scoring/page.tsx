@@ -75,6 +75,9 @@ export default async function ScoringPage(props: {
       id: true,
       name: true,
       parentId: true,
+      statusOverride: true,
+      zoneId: true,
+      type: true,
       teams: {
         select: {
           id: true,
@@ -502,11 +505,32 @@ export default async function ScoringPage(props: {
 
   const zoneScores = Object.values(zoneScoresMap);
 
+  const isFestCompleted = activeEvent.statusOverride === "COMPLETED";
+  const isScoringLocked = isFestCompleted && session.user.role !== "SUPER_ADMIN";
+
   return (
     <div className="animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
         <div>
-          <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Live Scoring & Results Hub</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Live Scoring & Results Hub</h1>
+            {isFestCompleted && (
+              <span style={{
+                padding: '4px 10px',
+                borderRadius: '8px',
+                backgroundColor: '#fef2f2',
+                border: '1.5px solid #ef4444',
+                color: '#b91c1c',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}>
+                🔒 FEST COMPLETED
+              </span>
+            )}
+          </div>
           <p className="page-description" style={{ marginBottom: 0 }}>
             Enter marks, assign ranks and grades, calculate points, and publish results for live standings.
           </p>
@@ -584,6 +608,8 @@ export default async function ScoringPage(props: {
                   availableJudges={availableJudges}
                   userRole={session.user.role}
                   userVenue={(session.user as any).venue || null}
+                  isCompleted={isScoringLocked}
+                  completedFestName={activeEvent.name}
                 />
               </Suspense>
             </div>
@@ -591,7 +617,12 @@ export default async function ScoringPage(props: {
             {/* Results Management Section */}
             <div data-tour="scoring-results" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
               <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--secondary)' }}>Results Management Hub</h3>
-              <ResultList results={results as any} role={session.user.role} />
+              <ResultList 
+                results={results as any} 
+                role={session.user.role} 
+                isCompleted={isScoringLocked}
+                completedFestName={activeEvent.name}
+              />
             </div>
           </div>
           

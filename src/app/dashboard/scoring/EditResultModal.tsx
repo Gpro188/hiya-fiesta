@@ -3,7 +3,15 @@
 import { useState, useMemo } from "react";
 import { updateResultMark, deleteResult } from "./actions";
 
-export default function EditResultModal({ result, onClose }: { result: any, onClose: () => void }) {
+export default function EditResultModal({ 
+  result, 
+  onClose,
+  isCompleted = false
+}: { 
+  result: any; 
+  onClose: () => void;
+  isCompleted?: boolean;
+}) {
   const [marks, setMarks] = useState(result.marks !== undefined && result.marks !== null ? result.marks.toString() : "");
   const [rank, setRank] = useState(result.rank?.toString() || "");
   const [grade, setGrade] = useState(result.grade || "");
@@ -36,6 +44,10 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCompleted) {
+      alert("This festival has been marked COMPLETED. Modifications are locked.");
+      return;
+    }
     setLoading(true);
     const parsedMarks = marks ? parseFloat(marks) : 0;
     const res = await updateResultMark(
@@ -54,6 +66,10 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
   };
 
   const handleDelete = async () => {
+    if (isCompleted) {
+      alert("This festival has been marked COMPLETED. Deletions are locked.");
+      return;
+    }
     const participant = result.candidate?.name || result.team?.name || 'this participant';
     if (!confirm(`Are you sure you want to DELETE the result for ${participant}? This cannot be undone.`)) {
       return;
@@ -109,6 +125,25 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
           <span style={{ fontSize: '1.25rem' }}>✏️</span>
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Edit Result Details</h3>
         </div>
+
+        {isCompleted && (
+          <div style={{
+            padding: '10px 14px',
+            backgroundColor: '#fef2f2',
+            border: '1.5px solid #f87171',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            color: '#991b1b',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>🔒</span>
+            <span>Fest is marked COMPLETED. Modifications are locked for Zone Admins. Only Super Admin can edit.</span>
+          </div>
+        )}
 
         <div style={{ 
           padding: '10px 14px', 
@@ -279,18 +314,18 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
             <button 
               type="button" 
               onClick={handleDelete} 
-              disabled={deleting || loading}
+              disabled={deleting || loading || isCompleted}
               style={{ 
                 padding: '0.65rem 1rem',
-                backgroundColor: '#fee2e2',
-                border: '1.5px solid #ef4444',
-                color: '#b91c1c',
+                backgroundColor: isCompleted ? '#f1f5f9' : '#fee2e2',
+                border: isCompleted ? '1.5px solid #cbd5e1' : '1.5px solid #ef4444',
+                color: isCompleted ? '#94a3b8' : '#b91c1c',
                 borderRadius: '8px',
                 fontWeight: 800,
                 fontSize: '0.84rem',
-                cursor: 'pointer'
+                cursor: isCompleted ? 'not-allowed' : 'pointer'
               }}
-              title="Delete this result entry"
+              title={isCompleted ? "Fest completed: deletion locked" : "Delete this result entry"}
             >
               {deleting ? 'Deleting...' : '🗑️ Delete'}
             </button>
@@ -315,20 +350,20 @@ export default function EditResultModal({ result, onClose }: { result: any, onCl
 
             <button 
               type="submit" 
-              disabled={loading || deleting}
+              disabled={loading || deleting || isCompleted}
               style={{ 
                 flex: 1.2,
                 padding: '0.65rem 1rem',
-                backgroundColor: '#2563eb',
-                border: '1.5px solid #1d4ed8',
+                backgroundColor: isCompleted ? '#94a3b8' : '#2563eb',
+                border: isCompleted ? '1.5px solid #64748b' : '1.5px solid #1d4ed8',
                 color: '#ffffff',
                 borderRadius: '8px',
                 fontWeight: 800,
                 fontSize: '0.88rem',
-                cursor: 'pointer'
+                cursor: isCompleted ? 'not-allowed' : 'pointer'
               }}
             >
-              {loading ? "Updating..." : "💾 Save Changes"}
+              {loading ? "Updating..." : isCompleted ? "🔒 Locked" : "💾 Save Changes"}
             </button>
           </div>
         </form>
