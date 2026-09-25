@@ -278,6 +278,9 @@ export default async function ScoringPage(props: {
       select: {
         id: true,
         name: true,
+        programCode: true,
+        stageType: true,
+        type: true,
         results: { 
           where: {
             OR: [
@@ -287,7 +290,7 @@ export default async function ScoringPage(props: {
           },
           select: { id: true } 
         },
-        category: { select: { name: true } },
+        category: { select: { id: true, name: true } },
         _count: { select: { assignments: { where: { candidate: { team: { eventId: activeEventId } } } } } }
       }
     }),

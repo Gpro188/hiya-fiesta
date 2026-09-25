@@ -154,8 +154,8 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
-          name: "Master Zones & Sessions",
-          subtitle: "Replacement sessions & stats",
+          name: "Zones Management",
+          subtitle: "Mark completed & lock zones",
           icon: "🗺️",
           href: "/dashboard/super/zones",
           highlight: true,
@@ -164,7 +164,7 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           name: "Direct Replacements",
           subtitle: "Swap candidates across zones",
           icon: "🔄",
-          href: "/dashboard/super/zones?action=replace",
+          href: "/dashboard/super/replacement",
           highlight: true,
         },
         {

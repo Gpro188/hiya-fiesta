@@ -645,23 +645,46 @@ export default async function DashboardPage() {
         {/* Only show Live Hub button for Super Admin / Admin / Media. Replace with quick workflow action for Zone & Institution */}
         <div data-tour="dash-hub-btn" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           {role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA" ? (
-            <Link
-              href="/hub"
-              className="btn btn-success"
-              style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "0.5rem",
-                background: 'var(--emerald)',
-                color: '#ffffff',
-                borderRadius: 'var(--radius-full)',
-                padding: '0.5rem 1.25rem',
-                fontWeight: 700,
-                fontSize: '0.85rem'
-              }}
-            >
-              <span>📡</span> Live Management Hub
-            </Link>
+            <>
+              {role === "SUPER_ADMIN" && (
+                <Link
+                  href="/dashboard/super/zones"
+                  className="btn btn-primary"
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "0.5rem",
+                    background: '#8E0033',
+                    borderColor: '#8E0033',
+                    color: '#ffffff',
+                    borderRadius: 'var(--radius-full)',
+                    padding: '0.5rem 1.25rem',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    boxShadow: '0 2px 8px rgba(142, 0, 51, 0.3)'
+                  }}
+                >
+                  <span>🗺️</span> Zones Management (Mark Fest Completed)
+                </Link>
+              )}
+              <Link
+                href="/hub"
+                className="btn btn-success"
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "0.5rem",
+                  background: 'var(--emerald)',
+                  color: '#ffffff',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '0.5rem 1.25rem',
+                  fontWeight: 700,
+                  fontSize: '0.85rem'
+                }}
+              >
+                <span>📡</span> Live Management Hub
+              </Link>
+            </>
           ) : role === "ZONE_ADMIN" ? (
             <Link
               href="/dashboard/scoring"
@@ -810,6 +833,61 @@ export default async function DashboardPage() {
             >
               🪪 Print ID Cards
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin: Zones Management & Mark Fest Completed Banner */}
+      {role === "SUPER_ADMIN" && (
+        <div style={{
+          padding: '16px 20px',
+          borderRadius: '14px',
+          background: 'linear-gradient(135deg, rgba(142, 0, 51, 0.08), rgba(16, 185, 129, 0.08))',
+          border: '1.5px solid rgba(142, 0, 51, 0.25)',
+          marginBottom: '1.75rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span style={{ fontSize: '2rem' }}>🏁</span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '1.05rem', color: '#8E0033' }}>
+                  Zones Management & Fest Concluded Control
+                </strong>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '9999px', background: '#10b98122', color: '#10b981', border: '1px solid #10b98144', fontWeight: 800 }}>
+                  SUPER ADMIN ACTION
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Has a regional zone concluded (e.g. Kasaragod, Palakkad)? Click to open Zones Management and mark the fest completed to lock scoring and publish final state selections.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Link
+              href="/dashboard/super/zones"
+              className="btn btn-primary"
+              style={{
+                background: '#8E0033',
+                borderColor: '#8E0033',
+                color: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                padding: '0.5rem 1.25rem',
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(142,0,51,0.25)'
+              }}
+            >
+              🏁 Open Zones Management (Mark Fest Completed) →
+            </Link>
           </div>
         </div>
       )}

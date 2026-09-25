@@ -5,7 +5,6 @@ import { getSettings } from "@/lib/settings";
 import SettingsForm from "./SettingsForm";
 import RegistrationLimitsCard from "./RegistrationLimitsCard";
 import PointMatrixSettingsCard from "./PointMatrixSettingsCard";
-import PendingList from "./PendingList";
 import MaintenanceActions from "./MaintenanceActions";
 import { prisma } from "@/lib/prisma";
 
@@ -54,45 +53,7 @@ export default async function SettingsPage() {
     orderBy: { createdAt: 'asc' }
   });
 
-  // Fetch Pending Assignments (optimized queries to select only necessary fields, omitting photos)
-  const programs = await prisma.program.findMany({
-    where: eventFilter,
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      categoryId: true,
-      candidateLimitPerTeam: true,
-      _count: { select: { assignments: true } },
-      category: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    }
-  });
 
-  const teams = await prisma.team.findMany({
-    where: eventFilter,
-    select: {
-      id: true,
-      name: true,
-      _count: { select: { candidates: true } },
-      candidates: {
-        select: {
-          id: true,
-          categoryId: true,
-          _count: { select: { programs: true } },
-          programs: {
-            select: {
-              programId: true
-            }
-          }
-        }
-      }
-    }
-  });
 
   return (
     <div className="animate-fade-in">
@@ -150,11 +111,6 @@ export default async function SettingsPage() {
         <div data-tour="settings-config" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>General Configuration</h2>
           <SettingsForm initialSettings={settings} events={events as any} role={role} />
-        </div>
-
-        <div data-tour="settings-audit" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>Program Assignment Audit (Pending List)</h2>
-          <PendingList programs={programs as any} teams={teams as any} />
         </div>
 
         {role === "SUPER_ADMIN" && (
