@@ -82,6 +82,7 @@ export default async function PrintVenuePage(props: {
         stageType: "ON_STAGE"
       },
       include: {
+        category: true,
         assignments: {
           include: {
             candidate: {
@@ -98,21 +99,27 @@ export default async function PrintVenuePage(props: {
     const parentMap = new Map<string, any[]>();
     for (const pp of parentPrograms) {
       const codeKey = pp.programCode ? `code_${pp.programCode.trim()}` : null;
-      const nameKey = `name_${pp.name.trim().toLowerCase()}_${pp.categoryId || ''}`;
+      const catName = pp.category?.name?.trim().toLowerCase() || '';
+      const nameKey = `name_${pp.name.trim().toLowerCase()}_${catName}`;
       if (codeKey) parentMap.set(codeKey, pp.assignments);
       parentMap.set(nameKey, pp.assignments);
     }
 
     for (const zp of rawPrograms) {
-      if (zp.assignments.length === 0) {
-        const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
-        const nameKey = `name_${zp.name.trim().toLowerCase()}_${zp.categoryId || ''}`;
-        if (codeKey && parentMap.has(codeKey)) {
-          zp.assignments = parentMap.get(codeKey) || [];
-        } else if (parentMap.has(nameKey)) {
-          zp.assignments = parentMap.get(nameKey) || [];
-        }
-      }
+      const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
+      const catName = zp.category?.name?.trim().toLowerCase() || '';
+      const nameKey = `name_${zp.name.trim().toLowerCase()}_${catName}`;
+      const parentAss = (codeKey && parentMap.get(codeKey)) || parentMap.get(nameKey) || [];
+
+      // Combine direct zone assignments and parent assignments, deduplicating candidates
+      const combined = [...(zp.assignments || []), ...parentAss];
+      const seenCandidateIds = new Set<string>();
+      zp.assignments = combined.filter((a: any) => {
+        const cId = a.candidate?.id || a.candidateId;
+        if (!cId || seenCandidateIds.has(cId)) return false;
+        seenCandidateIds.add(cId);
+        return true;
+      });
     }
   }
 

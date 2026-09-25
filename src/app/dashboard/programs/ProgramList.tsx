@@ -52,9 +52,12 @@ export default function ProgramList({
   const filteredPrograms = programs.filter(p => {
     // Category / General Filter
     if (filterCategory === "GENERAL") {
-      if (p.type !== "GENERAL" && p.categoryId) return false;
+      if (p.type !== "GENERAL" && p.categoryId && p.category?.name?.trim().toUpperCase() !== "GENERAL") return false;
     } else if (filterCategory !== "ALL") {
-      if (p.categoryId !== filterCategory) return false;
+      const selectedCat = categories.find(c => c.id === filterCategory);
+      const matchesId = p.categoryId === filterCategory;
+      const matchesName = selectedCat && p.category?.name?.trim().toUpperCase() === selectedCat.name?.trim().toUpperCase();
+      if (!matchesId && !matchesName) return false;
     }
 
     // Stage Filter
@@ -121,7 +124,7 @@ export default function ProgramList({
             {categories
               .filter(cat => cat.name.trim().toUpperCase() !== "GENERAL")
               .map(cat => {
-                const count = programs.filter(p => p.categoryId === cat.id).length;
+                const count = programs.filter(p => p.categoryId === cat.id || (p.category?.name && p.category.name.trim().toUpperCase() === cat.name.trim().toUpperCase())).length;
                 return (
                   <button
                     key={cat.id}

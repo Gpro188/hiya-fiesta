@@ -90,21 +90,49 @@ export default async function ProgramsPage() {
     ]
   });
 
+  // Deduplicate categories by normalized name so no duplicate category buttons appear
+  const rawCategories = events.flatMap(e => e.categories);
+  const categoryMap = new Map<string, (typeof rawCategories)[0]>();
+  for (const cat of rawCategories) {
+    const norm = cat.name.trim().toUpperCase();
+    if (!categoryMap.has(norm)) {
+      categoryMap.set(norm, cat);
+    }
+  }
+  const allCategories = Array.from(categoryMap.values());
+
+  const getProgKey = (p: { programCode?: string | null; name: string; category?: { name: string } | null; categoryId?: string | null }) => {
+    if (p.programCode && p.programCode.trim()) {
+      return `CODE_${p.programCode.trim()}`;
+    }
+    const catName = p.category?.name?.trim().toUpperCase() || 'GENERAL';
+    return `${p.name.trim().toUpperCase()}_${catName}`;
+  };
+
   // Calculate actual candidate registration counts (scoped to zone for ZONE_ADMIN)
   let programsWithCounts: any[] = rawPrograms;
 
   if (isZoneAdmin && userZoneId) {
-    // Deduplicate programs by normalized name + category
+    // Deduplicate programs by programCode (or normalized name + category)
     const programMap = new Map<string, typeof rawPrograms[0]>();
     for (const p of rawPrograms) {
-      const key = `${p.name.trim().toUpperCase()}_${p.categoryId || 'NONE'}`;
+      const key = getProgKey(p);
       if (!programMap.has(key)) {
         programMap.set(key, p);
       } else {
         const existing = programMap.get(key)!;
-        if (p._count.assignments > existing._count.assignments) {
-          programMap.set(key, p);
-        }
+        // Merge judges so no judge assignment is lost across counterpart programs
+        const allJudgesMap = new Map<string, { id: string; username: string }>();
+        (existing.judges || []).forEach(j => allJudgesMap.set(j.id, j));
+        (p.judges || []).forEach(j => allJudgesMap.set(j.id, j));
+        const mergedJudges = Array.from(allJudgesMap.values());
+
+        // Prefer zone program if scheduled or if it has venue, otherwise keep existing
+        const preferP = (p.eventId === zoneEventId && (p.venue || p.startTime)) ||
+          (!existing.venue && !existing.startTime && p.eventId === zoneEventId);
+
+        const chosen = preferP ? { ...p, judges: mergedJudges } : { ...existing, judges: mergedJudges };
+        programMap.set(key, chosen);
       }
     }
     const deduplicatedPrograms = Array.from(programMap.values());
@@ -125,34 +153,37 @@ export default async function ProgramsPage() {
       select: {
         candidateId: true,
         program: {
-          select: { name: true, categoryId: true }
+          select: { programCode: true, name: true, categoryId: true, category: { select: { name: true } } }
         }
       }
     });
 
-    const countMap: Record<string, number> = {};
-    const seen = new Set<string>();
+    const candidateIdsByKey = new Map<string, Set<string>>();
     for (const za of zoneAssignments) {
-      const key = `${za.program.name.trim().toUpperCase()}_${za.program.categoryId || 'NONE'}`;
-      const dedupKey = `${key}_${za.candidateId}`;
-      if (!seen.has(dedupKey)) {
-        seen.add(dedupKey);
-        countMap[key] = (countMap[key] || 0) + 1;
+      const key = getProgKey(za.program);
+      if (!candidateIdsByKey.has(key)) {
+        candidateIdsByKey.set(key, new Set());
       }
+      candidateIdsByKey.get(key)!.add(za.candidateId);
     }
 
     programsWithCounts = deduplicatedPrograms.map(p => {
-      const key = `${p.name.trim().toUpperCase()}_${p.categoryId || 'NONE'}`;
-      const count = countMap[key] || 0;
+      const key = getProgKey(p);
+      const count = candidateIdsByKey.get(key)?.size || 0;
+
+      // Align categoryId with deduplicated category ID for 100% reliable category tab filtering
+      const normCat = p.category?.name?.trim().toUpperCase();
+      const unifiedCategoryId = normCat ? categoryMap.get(normCat)?.id || p.categoryId : p.categoryId;
+
       return {
         ...p,
+        categoryId: unifiedCategoryId,
         candidateCount: count,
         _count: { assignments: count }
       };
     });
   }
 
-  const allCategories = events.flatMap(e => e.categories);
   const judges = await prisma.user.findMany({ where: { role: 'JUDGE' }, select: { id: true, username: true } });
 
   return (

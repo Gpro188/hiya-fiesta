@@ -108,15 +108,30 @@ export async function deleteProgram(id: string) {
 
 export async function assignJudgesToProgram(programId: string, judgeIds: string[]) {
   try {
-    // We update the program to connect the specified judges (and disconnect all others)
-    await prisma.program.update({
+    const targetProg = await prisma.program.findUnique({
       where: { id: programId },
-      data: {
-        judges: {
-          set: judgeIds.map(id => ({ id }))
-        }
-      }
+      select: { programCode: true }
     });
+
+    let targetIds = [programId];
+    if (targetProg?.programCode) {
+      const peers = await prisma.program.findMany({
+        where: { programCode: targetProg.programCode },
+        select: { id: true }
+      });
+      targetIds = Array.from(new Set([...targetIds, ...peers.map(p => p.id)]));
+    }
+
+    for (const pid of targetIds) {
+      await prisma.program.update({
+        where: { id: pid },
+        data: {
+          judges: {
+            set: judgeIds.map(id => ({ id }))
+          }
+        }
+      });
+    }
     
     revalidatePath("/dashboard/programs");
     return { success: true };
@@ -343,16 +358,18 @@ export async function getProgramParticipants(programId: string, requestedZoneId?
       return { success: false, error: "Program not found" };
     }
 
-    // Find all matching programs across events (State and Zonal) with the same name and category
+    // Find all matching programs across events (State and Zonal) with the same code or name and category
     const matchingPrograms = await prisma.program.findMany({
       where: {
         OR: [
           { id: programId },
+          ...(program.programCode ? [{ programCode: program.programCode }] : []),
           { 
             name: { equals: program.name, mode: "insensitive" },
-            ...(program.categoryId ? { categoryId: program.categoryId } : {})
-          },
-          ...(program.programCode ? [{ programCode: program.programCode }] : [])
+            ...(program.category?.name 
+              ? { category: { name: { equals: program.category.name, mode: "insensitive" } } }
+              : {})
+          }
         ]
       },
       select: { id: true }
