@@ -15,8 +15,12 @@ export async function GET(req: NextRequest) {
       select: { id: true, name: true, zoneId: true, parentId: true, zone: { select: { id: true, name: true } } }
     });
 
+    if (!targetEvent) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
     // Use the event's own zoneId — never fall back to a hardcoded zone
-    const zoneId = searchParams.get("zoneId") || targetEvent?.zoneId || null;
+    const zoneId = searchParams.get("zoneId") || targetEvent.zoneId || null;
     if (!zoneId) {
       return NextResponse.json({ error: "Could not determine zone for this event." }, { status: 400 });
     }
@@ -26,14 +30,10 @@ export async function GET(req: NextRequest) {
       where: {
         isPublished: true,
         rank: { in: [1, 2, 3] },
-        program: {
-          OR: [
-            { eventId },
-            { eventId: childEventId },
-            { event: { parentId: eventId } },
-            ...(targetEvent?.parentId ? [{ eventId: targetEvent.parentId }] : [])
-          ]
-        }
+        OR: [
+          { team: { eventId: targetEvent.id } },
+          { candidate: { team: { eventId: targetEvent.id } } }
+        ]
       },
       include: {
         program: { include: { category: true } },

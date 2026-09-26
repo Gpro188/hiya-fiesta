@@ -357,170 +357,154 @@ export default function PublicDashboard({
                 transition: 'opacity 0.35s ease-in-out, transform 0.35s ease-in-out'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span style={{
-                    background: '#FFFFFF',
-                    color: '#e6007e',
-                    fontSize: '0.72rem',
-                    fontWeight: 900,
-                    padding: '4px 12px',
-                    borderRadius: '9999px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                  }}>
-                    ⚡ JUST PUBLISHED
-                  </span>
-
-                  <h3 style={{ 
-                    margin: 0, 
-                    fontSize: '1.15rem', 
-                    fontFamily: "'Fraunces', serif", 
-                    fontWeight: 800, 
-                    color: '#FFFFFF',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    {currentProg.program.name}
-                    {currentProg.program.categoryName && (
+              {/* Main Clickable Program Card (Program Name Only) */}
+              <Link 
+                href={`/results/${currentProg.program.id}?eventId=${activeEventId}`}
+                style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                title={`Click to view official results for ${currentProg.program.name}`}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                       <span style={{
-                        fontSize: '0.72rem',
-                        color: '#FFFFFF',
-                        background: 'rgba(255, 255, 255, 0.25)',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        fontWeight: 700,
-                        fontFamily: "'Inter', sans-serif"
-                      }}>
-                        {currentProg.program.categoryName}
-                      </span>
-                    )}
-                  </h3>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {programsList.length > 1 && (
-                    <span style={{ 
-                      fontSize: '0.72rem', 
-                      color: 'rgba(255,255,255,0.75)', 
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontWeight: 700
-                    }}>
-                      {(publishedIndex % programsList.length) + 1} / {programsList.length}
-                    </span>
-                  )}
-                  <Link 
-                    href={`/results/${currentProg.program.id}?eventId=${activeEventId}`}
-                    style={{
-                      color: '#e6007e',
-                      background: '#FFFFFF',
-                      fontSize: '0.8rem',
-                      fontWeight: 800,
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 16px',
-                      borderRadius: '10px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      transition: 'transform 0.15s ease'
-                    }}
-                  >
-                    Winner Board →
-                  </Link>
-                </div>
-              </div>
-
-              {/* 3 Places Horizontal Cards / Strip */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '10px',
-                marginTop: '10px'
-              }}>
-                {currentProg.winners.slice(0, 3).map((w: any, idx: number) => {
-                  const rankNum = w.rank || (idx + 1);
-                  const medal = rankNum === 1 ? '🥇 1st' : rankNum === 2 ? '🥈 2nd' : '🥉 3rd';
-                  const rankBadgeBg = rankNum === 1 
-                    ? 'linear-gradient(135deg, #FDE68A, #F59E0B)' 
-                    : rankNum === 2 
-                    ? 'linear-gradient(135deg, #F1F5F9, #CBD5E1)' 
-                    : 'linear-gradient(135deg, #FFEDD5, #D97706)';
-                  
-                  // Short institution name
-                  const rawTeam = w.teamName || '';
-                  const shortTeam = rawTeam.length > 24 ? rawTeam.slice(0, 22) + '…' : rawTeam;
-
-                  return (
-                    <div 
-                      key={idx}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.14)',
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: '12px',
-                        padding: '10px 14px',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}
-                    >
-                      <span style={{
-                        background: rankBadgeBg,
-                        color: '#1a1420',
+                        background: '#FFFFFF',
+                        color: '#e6007e',
                         fontSize: '0.72rem',
                         fontWeight: 900,
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                        padding: '4px 12px',
+                        borderRadius: '9999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                       }}>
-                        {medal}
+                        ⚡ RECENT RESULT PUBLISHED
                       </span>
 
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ 
-                          fontWeight: 800, 
-                          color: '#FFFFFF', 
-                          fontSize: '0.88rem', 
-                          whiteSpace: 'nowrap', 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis' 
+                      {currentProg.program.categoryName && (
+                        <span style={{
+                          fontSize: '0.74rem',
+                          color: '#FFFFFF',
+                          background: 'rgba(255, 255, 255, 0.22)',
+                          padding: '3px 10px',
+                          borderRadius: '9999px',
+                          fontWeight: 800,
+                          fontFamily: "'Inter', sans-serif"
                         }}>
-                          {w.name}
-                        </div>
-                        <div style={{ 
-                          fontSize: '0.72rem', 
-                          color: 'rgba(255, 255, 255, 0.82)', 
-                          whiteSpace: 'nowrap', 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis' 
-                        }} title={rawTeam}>
-                          {w.teamPrefix ? `${w.teamPrefix} • ` : ''}{shortTeam}
-                        </div>
-                      </div>
+                          {currentProg.program.categoryName}
+                        </span>
+                      )}
 
-                      {w.points > 0 && (
-                        <div style={{ 
-                          fontSize: '0.82rem', 
-                          fontWeight: 900, 
-                          color: '#FDE68A', 
+                      {programsList.length > 1 && (
+                        <span style={{ 
+                          fontSize: '0.72rem', 
+                          color: 'rgba(255,255,255,0.75)', 
                           fontFamily: "'IBM Plex Mono', monospace",
-                          flexShrink: 0 
+                          fontWeight: 700
                         }}>
-                          {w.points}p
-                        </div>
+                          {(publishedIndex % programsList.length) + 1} of {programsList.length}
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
+
+                    <h3 style={{ 
+                      margin: '2px 0 0 0', 
+                      fontSize: '1.45rem', 
+                      fontFamily: "'Fraunces', serif", 
+                      fontWeight: 900, 
+                      color: '#FFFFFF',
+                      lineHeight: 1.25,
+                      letterSpacing: '-0.01em'
+                    }}>
+                      {currentProg.program.name}
+                    </h3>
+
+                    <div style={{ 
+                      fontSize: '0.82rem', 
+                      color: 'rgba(255, 255, 255, 0.88)', 
+                      marginTop: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{ color: '#FDE68A', fontWeight: 800 }}>Tap to view verified official result sheet &amp; winners →</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        color: '#e6007e',
+                        background: '#FFFFFF',
+                        fontSize: '0.82rem',
+                        fontWeight: 900,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '10px 18px',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
+                      }}
+                    >
+                      View Result →
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Horizontal List of Recent Published Programs (Program Names Only) */}
+              {programsList.length > 1 && (
+                <div style={{
+                  marginTop: '16px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none'
+                }}>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: 'rgba(255,255,255,0.75)',
+                    fontWeight: 800,
+                    flexShrink: 0
+                  }}>
+                    Recent:
+                  </span>
+                  {programsList.map((p: any, idx: number) => {
+                    const isCurrent = idx === (publishedIndex % programsList.length);
+                    return (
+                      <Link
+                        key={p.program.id || idx}
+                        href={`/results/${p.program.id}?eventId=${activeEventId}`}
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: '9999px',
+                          backgroundColor: isCurrent ? '#FFFFFF' : 'rgba(255, 255, 255, 0.16)',
+                          color: isCurrent ? '#e6007e' : '#FFFFFF',
+                          fontWeight: 800,
+                          fontSize: '0.74rem',
+                          textDecoration: 'none',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          border: isCurrent ? '1.5px solid #FFFFFF' : '1px solid rgba(255, 255, 255, 0.22)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {p.program.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );

@@ -22,7 +22,6 @@ const getCachedPublicEventData = unstable_cache(
       prisma.result.findMany({
         where: {
           OR: [
-            { program: { eventId } },
             { candidate: { team: { eventId } } },
             { team: { eventId } }
           ],
@@ -63,7 +62,6 @@ const getCachedPublicEventData = unstable_cache(
       prisma.result.findMany({
         where: {
           OR: [
-            { program: { eventId } },
             { candidate: { team: { eventId } } },
             { team: { eventId } }
           ],
