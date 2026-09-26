@@ -14,7 +14,7 @@ export default async function DistributionSheetPage(props: {
     mode?: "program" | "student" | "institution";
     place?: string; // "all" | "1" | "2" | "3"
     category?: string; // "ALL" | "FADHILA" | "FADHEELA" | "GENERAL"
-    stageType?: string; // "ALL" | "ON_STAGE" | "OFF_STAGE"
+    stageType?: string; // "ALL" | "ON_STAGE" | "OFF_STAGE" | "GENERAL"
     orientation?: string; // "landscape" | "portrait"
   }>;
 }) {
@@ -58,8 +58,7 @@ export default async function DistributionSheetPage(props: {
   let targetEventId = searchParams.eventId || null;
   if (!targetEventId) {
     if (allAvailableEvents.length > 0) {
-      // Prioritize zone event with completed or live status
-      const completedOrLive = allAvailableEvents.find(e =>
+      const completedOrLive = allAvailableEvents.find((e) =>
         ["COMPLETED", "LIVE", "SCHEDULE_PUBLISHED"].includes(e.statusOverride || "")
       );
       targetEventId = completedOrLive ? completedOrLive.id : allAvailableEvents[0].id;
@@ -140,11 +139,47 @@ export default async function DistributionSheetPage(props: {
     ]
   });
 
-  // Filter by category or stageType if specified
+  // Calculate distinct evaluated programs for this event to get accurate breakdown counts
+  const allEventProgramsMap = new Map<string, any>();
+  for (const r of rawResults) {
+    if (r.program && !allEventProgramsMap.has(r.program.id)) {
+      allEventProgramsMap.set(r.program.id, r.program);
+    }
+  }
+  const allEventProgramsList = Array.from(allEventProgramsMap.values());
+
+  const totalProgramsCount = allEventProgramsList.length;
+  const totalOnStageCount = allEventProgramsList.filter((p) => p.stageType === "ON_STAGE").length;
+  const totalOffStageCount = allEventProgramsList.filter((p) => p.stageType === "OFF_STAGE").length;
+  const totalGeneralCount = allEventProgramsList.filter(
+    (p) =>
+      p.type === "GENERAL" ||
+      p.category?.name?.toUpperCase() === "GENERAL" ||
+      !p.categoryId ||
+      (p.name || "").toLowerCase().includes("magazine")
+  ).length;
+
+  // Filter results by stageType or category if specified
   const filteredResults = rawResults.filter((res) => {
     const prog = res.program;
     if (!prog) return false;
-    if (stageTypeFilter !== "ALL" && prog.stageType !== stageTypeFilter) return false;
+
+    const isGen =
+      prog.type === "GENERAL" ||
+      prog.category?.name?.toUpperCase() === "GENERAL" ||
+      !prog.categoryId ||
+      (prog.name || "").toLowerCase().includes("magazine");
+
+    if (stageTypeFilter !== "ALL") {
+      if (stageTypeFilter === "GENERAL") {
+        if (!isGen) return false;
+      } else if (stageTypeFilter === "ON_STAGE") {
+        if (prog.stageType !== "ON_STAGE") return false;
+      } else if (stageTypeFilter === "OFF_STAGE") {
+        if (prog.stageType !== "OFF_STAGE") return false;
+      }
+    }
+
     if (categoryFilter !== "ALL") {
       const catName = prog.category?.name?.toUpperCase() || "GENERAL";
       if (categoryFilter === "FADHILA" && !catName.includes("FADHILA")) return false;
@@ -154,7 +189,7 @@ export default async function DistributionSheetPage(props: {
     return true;
   });
 
-  // 6. Pre-fetch group team candidates to list students for Group / General programs
+  // 6. Pre-fetch group team candidates to list chest numbers for Group / General programs
   const teamResults = filteredResults.filter(
     (r) => (r.teamId && !r.candidateId) || r.program.type === "GENERAL" || r.program.type === "GROUP"
   );
@@ -206,6 +241,7 @@ export default async function DistributionSheetPage(props: {
   // 7. Group Results by Program for Program Gazette view
   interface ProgramGroup {
     program: any;
+    isGeneralProgram: boolean;
     winners: Array<{
       resultId: string;
       rank: number;
@@ -214,11 +250,10 @@ export default async function DistributionSheetPage(props: {
       points: number | null;
       isGroupOrGeneral: boolean;
       isMagazine: boolean;
-      participantName: string;
       chestNumber: string;
       institutionName: string;
       institutionCode?: string;
-      groupMembers: Array<{ id: string; name: string; chestNumber: string }>;
+      groupChestNumbers: string[];
     }>;
   }
 
@@ -228,24 +263,30 @@ export default async function DistributionSheetPage(props: {
     const prog = r.program;
     if (!prog) continue;
 
-    if (!programMap.has(prog.id)) {
-      programMap.set(prog.id, {
-        program: prog,
-        winners: []
-      });
-    }
-
     const isMag =
       (prog.name || "").toLowerCase().includes("magazine") ||
       prog.programCode === "43" ||
       (prog.type || "").toUpperCase() === "INSTITUTION";
+
+    const isGen =
+      prog.type === "GENERAL" ||
+      prog.category?.name?.toUpperCase() === "GENERAL" ||
+      !prog.categoryId ||
+      isMag;
+
+    if (!programMap.has(prog.id)) {
+      programMap.set(prog.id, {
+        program: prog,
+        isGeneralProgram: isGen,
+        winners: []
+      });
+    }
 
     const isGroupOrGeneral =
       !r.candidateId ||
       prog.type === "GENERAL" ||
       prog.type === "GROUP";
 
-    let participantName = r.candidate?.name || r.team?.name || "Participant";
     let chestNumber = r.candidate?.chestNumber || "-";
     let institutionName =
       r.candidate?.institution?.name ||
@@ -259,20 +300,16 @@ export default async function DistributionSheetPage(props: {
       r.team?.institution?.code ||
       "";
 
-    let groupMembers: Array<{ id: string; name: string; chestNumber: string }> = [];
+    let groupChestNumbers: string[] = [];
 
     if (isGroupOrGeneral && r.teamId) {
       const candidates =
         teamCandidatesMap.get(`${prog.id}_${r.teamId}`) ||
         teamCandidatesMap.get(`${prog.programCode}_${r.teamId}`) ||
         [];
-      groupMembers = candidates.map((c) => ({
-        id: c.id,
-        name: c.name,
-        chestNumber: c.chestNumber || "-"
-      }));
-      if (groupMembers.length > 0 && (!chestNumber || chestNumber === "-")) {
-        chestNumber = groupMembers.map((m) => m.chestNumber).join(", ");
+      groupChestNumbers = candidates.map((c) => c.chestNumber || "-").filter(Boolean);
+      if (groupChestNumbers.length > 0 && (!chestNumber || chestNumber === "-")) {
+        chestNumber = groupChestNumbers.join(", ");
       }
     }
 
@@ -284,11 +321,10 @@ export default async function DistributionSheetPage(props: {
       points: r.points || null,
       isGroupOrGeneral,
       isMagazine: isMag,
-      participantName,
       chestNumber,
       institutionName,
       institutionCode,
-      groupMembers
+      groupChestNumbers
     });
   }
 
@@ -306,8 +342,8 @@ export default async function DistributionSheetPage(props: {
     return (a.program.name || "").localeCompare(b.program.name || "");
   });
 
-  // 8. Generate Flat List of All Student Winners for Student-by-Student View
-  interface StudentRow {
+  // 8. Generate Flat List of Chest Number Winners (NO Candidate Names)
+  interface ChestNumberRow {
     slNo: number;
     resultId: string;
     programCode: string;
@@ -316,17 +352,15 @@ export default async function DistributionSheetPage(props: {
     stageType: string;
     rank: number;
     grade: string | null;
-    studentName: string;
     chestNumber: string;
     institutionName: string;
     isGroupMember: boolean;
     isMagazine: boolean;
-    isTeamLeaderRow?: boolean;
     trophyCount: number;
     certCount: number;
   }
 
-  const allStudentRows: StudentRow[] = [];
+  const allStudentRows: ChestNumberRow[] = [];
   let studentSl = 1;
 
   for (const pg of programGroups) {
@@ -341,7 +375,6 @@ export default async function DistributionSheetPage(props: {
           stageType: pg.program.stageType || "OFF_STAGE",
           rank: w.rank,
           grade: w.grade,
-          studentName: `🏛️ ${w.institutionName} (Magazine Entry)`,
           chestNumber: w.chestNumber !== "-" ? w.chestNumber : "INST-MAG",
           institutionName: w.institutionName,
           isGroupMember: false,
@@ -349,24 +382,22 @@ export default async function DistributionSheetPage(props: {
           trophyCount: 1,
           certCount: 0
         });
-      } else if (w.groupMembers && w.groupMembers.length > 0) {
+      } else if (w.groupChestNumbers && w.groupChestNumbers.length > 0) {
         let first = true;
-        for (const gm of w.groupMembers) {
+        for (const chest of w.groupChestNumbers) {
           allStudentRows.push({
             slNo: studentSl++,
-            resultId: `${w.resultId}_${gm.id}`,
+            resultId: `${w.resultId}_${chest}`,
             programCode: pg.program.programCode || "-",
             programName: pg.program.name,
             category: pg.program.category?.name || "General",
             stageType: pg.program.stageType || "ON_STAGE",
             rank: w.rank,
             grade: w.grade,
-            studentName: gm.name,
-            chestNumber: gm.chestNumber,
+            chestNumber: chest,
             institutionName: w.institutionName,
             isGroupMember: true,
             isMagazine: false,
-            isTeamLeaderRow: first,
             trophyCount: first ? 1 : 0,
             certCount: 1
           });
@@ -382,7 +413,6 @@ export default async function DistributionSheetPage(props: {
           stageType: pg.program.stageType || "ON_STAGE",
           rank: w.rank,
           grade: w.grade,
-          studentName: w.participantName,
           chestNumber: w.chestNumber,
           institutionName: w.institutionName,
           isGroupMember: false,
@@ -394,11 +424,11 @@ export default async function DistributionSheetPage(props: {
     }
   }
 
-  // 9. Generate Institution-wise Handover Groups
+  // 9. Generate Institution-wise Handover Groups (NO Candidate Names)
   interface InstitutionHandoverGroup {
     institutionName: string;
     institutionCode?: string;
-    items: StudentRow[];
+    items: ChestNumberRow[];
     total1stTrophies: number;
     total2ndTrophies: number;
     total3rdTrophies: number;
@@ -506,9 +536,6 @@ export default async function DistributionSheetPage(props: {
               tfoot {
                 display: table-footer-group !important;
               }
-              .print-border {
-                border-color: #000000 !important;
-              }
             }
           `
         }}
@@ -539,7 +566,7 @@ export default async function DistributionSheetPage(props: {
               </span>
             </div>
             <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-              Official verification &amp; physical handover register with student chest numbers, checkboxes (Trophy &bull; Certificate), and signature column.
+              Official verification &amp; physical handover register with <strong>Chest Number Entry Area</strong> (candidate names omitted), On/Off/General totals, and signature lines.
             </p>
           </div>
 
@@ -616,7 +643,7 @@ export default async function DistributionSheetPage(props: {
                 boxShadow: viewMode === "student" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
               }}
             >
-              👤 Student Master Roster ({allStudentRows.length})
+              🏷️ Chest No. Master Register ({allStudentRows.length})
             </Link>
             <Link
               href={`/print/distribution-sheet?eventId=${targetEventId}&mode=institution&place=${placeFilter}&category=${categoryFilter}&stageType=${stageTypeFilter}&orientation=${orientation}`}
@@ -635,6 +662,67 @@ export default async function DistributionSheetPage(props: {
             </Link>
           </div>
 
+          {/* Stage & Type Filter with Program Totals */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.82rem", fontWeight: 700, color: "#475569" }}>
+            <span>Programs:</span>
+            <Link
+              href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=${placeFilter}&category=${categoryFilter}&stageType=ALL&orientation=${orientation}`}
+              style={{
+                padding: "4px 8px",
+                borderRadius: "5px",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                backgroundColor: stageTypeFilter === "ALL" ? "#0f172a" : "#f1f5f9",
+                color: stageTypeFilter === "ALL" ? "#fff" : "#475569"
+              }}
+            >
+              All ({totalProgramsCount})
+            </Link>
+            <Link
+              href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=${placeFilter}&category=${categoryFilter}&stageType=ON_STAGE&orientation=${orientation}`}
+              style={{
+                padding: "4px 8px",
+                borderRadius: "5px",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                backgroundColor: stageTypeFilter === "ON_STAGE" ? "#1d4ed8" : "#f1f5f9",
+                color: stageTypeFilter === "ON_STAGE" ? "#fff" : "#1d4ed8"
+              }}
+            >
+              🎭 On-Stage ({totalOnStageCount})
+            </Link>
+            <Link
+              href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=${placeFilter}&category=${categoryFilter}&stageType=OFF_STAGE&orientation=${orientation}`}
+              style={{
+                padding: "4px 8px",
+                borderRadius: "5px",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                backgroundColor: stageTypeFilter === "OFF_STAGE" ? "#047857" : "#f1f5f9",
+                color: stageTypeFilter === "OFF_STAGE" ? "#fff" : "#047857"
+              }}
+            >
+              📝 Off-Stage ({totalOffStageCount})
+            </Link>
+            <Link
+              href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=${placeFilter}&category=${categoryFilter}&stageType=GENERAL&orientation=${orientation}`}
+              style={{
+                padding: "4px 8px",
+                borderRadius: "5px",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                backgroundColor: stageTypeFilter === "GENERAL" ? "#b45309" : "#f1f5f9",
+                color: stageTypeFilter === "GENERAL" ? "#fff" : "#b45309"
+              }}
+            >
+              🌐 General ({totalGeneralCount})
+            </Link>
+          </div>
+
           {/* Place Filter */}
           <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.82rem", fontWeight: 700, color: "#475569" }}>
             <span>Position:</span>
@@ -650,7 +738,7 @@ export default async function DistributionSheetPage(props: {
                 color: placeFilter === "all" ? "#fff" : "#475569"
               }}
             >
-              All 3 Places
+              All 3
             </Link>
             <Link
               href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=1&category=${categoryFilter}&stageType=${stageTypeFilter}&orientation=${orientation}`}
@@ -664,7 +752,7 @@ export default async function DistributionSheetPage(props: {
                 color: placeFilter === "1" ? "#fff" : "#475569"
               }}
             >
-              🥇 1st Only
+              🥇 1st
             </Link>
             <Link
               href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=2&category=${categoryFilter}&stageType=${stageTypeFilter}&orientation=${orientation}`}
@@ -678,7 +766,7 @@ export default async function DistributionSheetPage(props: {
                 color: placeFilter === "2" ? "#fff" : "#475569"
               }}
             >
-              🥈 2nd Only
+              🥈 2nd
             </Link>
             <Link
               href={`/print/distribution-sheet?eventId=${targetEventId}&mode=${viewMode}&place=3&category=${categoryFilter}&stageType=${stageTypeFilter}&orientation=${orientation}`}
@@ -692,7 +780,7 @@ export default async function DistributionSheetPage(props: {
                 color: placeFilter === "3" ? "#fff" : "#475569"
               }}
             >
-              🥉 3rd Only
+              🥉 3rd
             </Link>
           </div>
 
@@ -764,7 +852,7 @@ export default async function DistributionSheetPage(props: {
                   HIYA FIESTA 2026 &bull; {zoneDisplayName.toUpperCase()} {zoneDisplayCode}
                 </h1>
                 <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#b45309", marginTop: "2px" }}>
-                  PRIZE, TROPHY &amp; CERTIFICATE DISTRIBUTION MARKING REGISTER
+                  PRIZE, TROPHY &amp; CERTIFICATE DISTRIBUTION MARKING REGISTER &bull; CHEST NUMBER ENTRY
                 </div>
               </div>
             </div>
@@ -776,37 +864,150 @@ export default async function DistributionSheetPage(props: {
             </div>
           </div>
 
-          {/* AUDIT SUMMARY STATS STRIP */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "8px",
-              marginTop: "12px",
-              padding: "8px 12px",
-              backgroundColor: "#f8fafc",
-              border: "1.5px solid #0f172a",
-              borderRadius: "6px",
-              fontSize: "0.78rem"
-            }}
-          >
-            <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center" }}>
-              <span>Programs Evaluated: <strong>{programGroups.length}</strong></span>
-              <span>&bull;</span>
-              <span>🥇 1st Place: <strong>{total1stTrophies}</strong></span>
-              <span>&bull;</span>
-              <span>🥈 2nd Place: <strong>{total2ndTrophies}</strong></span>
-              <span>&bull;</span>
-              <span>🥉 3rd Place: <strong>{total3rdTrophies}</strong></span>
+          {/* AUDIT SUMMARY STATS STRIP WITH TOTAL ON-STAGE, OFF-STAGE & GENERAL PROGRAMS */}
+          <div style={{ marginTop: "12px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))",
+                gap: "8px"
+              }}
+            >
+              {/* Card 1: Total Programs */}
+              <div
+                style={{
+                  backgroundColor: "#0f172a",
+                  color: "#ffffff",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#94a3b8", fontWeight: 700 }}>
+                  Total Programs
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, lineHeight: 1.15, marginTop: "2px" }}>
+                  {totalProgramsCount}
+                </div>
+              </div>
+
+              {/* Card 2: On-Stage Programs */}
+              <div
+                style={{
+                  backgroundColor: "#eff6ff",
+                  border: "1.5px solid #bfdbfe",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#1e40af", fontWeight: 800 }}>
+                  🎭 On-Stage
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#1e3a8a", lineHeight: 1.15, marginTop: "2px" }}>
+                  {totalOnStageCount}
+                </div>
+              </div>
+
+              {/* Card 3: Off-Stage Programs */}
+              <div
+                style={{
+                  backgroundColor: "#f0fdf4",
+                  border: "1.5px solid #bbf7d0",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#166534", fontWeight: 800 }}>
+                  📝 Off-Stage
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#14532d", lineHeight: 1.15, marginTop: "2px" }}>
+                  {totalOffStageCount}
+                </div>
+              </div>
+
+              {/* Card 4: General Programs */}
+              <div
+                style={{
+                  backgroundColor: "#fef3c7",
+                  border: "1.5px solid #fde68a",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#92400e", fontWeight: 800 }}>
+                  🌐 General
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#78350f", lineHeight: 1.15, marginTop: "2px" }}>
+                  {totalGeneralCount}
+                </div>
+              </div>
+
+              {/* Card 5: Trophies */}
+              <div
+                style={{
+                  backgroundColor: "#fff7ed",
+                  border: "1.5px solid #fed7aa",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#c2410c", fontWeight: 800 }}>
+                  🏆 Trophies
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#9a3412", lineHeight: 1.15, marginTop: "2px" }}>
+                  {grandTotalTrophies}
+                </div>
+              </div>
+
+              {/* Card 6: Certificates */}
+              <div
+                style={{
+                  backgroundColor: "#eef2ff",
+                  border: "1.5px solid #c7d2fe",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  textAlign: "center"
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#4338ca", fontWeight: 800 }}>
+                  📜 Certificates
+                </div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#312e81", lineHeight: 1.15, marginTop: "2px" }}>
+                  {grandTotalCertificates}
+                </div>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center", fontWeight: 800 }}>
-              <span style={{ color: "#b45309" }}>🏆 Trophies: {grandTotalTrophies}</span>
-              <span>&bull;</span>
-              <span style={{ color: "#4338ca" }}>📜 Certificates: {grandTotalCertificates}</span>
-              <span>&bull;</span>
-              <span style={{ color: "#047857" }}>👥 Recipients: {allStudentRows.length}</span>
+
+            {/* Position Sub-tally */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "8px",
+                marginTop: "8px",
+                padding: "6px 12px",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #cbd5e1",
+                borderRadius: "6px",
+                fontSize: "0.76rem"
+              }}
+            >
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+                <span>🥇 1st Place: <strong>{total1stTrophies}</strong></span>
+                <span>&bull;</span>
+                <span>🥈 2nd Place: <strong>{total2ndTrophies}</strong></span>
+                <span>&bull;</span>
+                <span>🥉 3rd Place: <strong>{total3rdTrophies}</strong></span>
+              </div>
+              <div style={{ color: "#475569", fontWeight: 700 }}>
+                Total Winning Recipients: <strong>{allStudentRows.length}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -815,7 +1016,7 @@ export default async function DistributionSheetPage(props: {
         {viewMode === "program" && (
           <div>
             <div style={{ marginBottom: "10px", fontSize: "0.82rem", color: "#475569", fontWeight: 600 }}>
-              Showing {programGroups.length} programs with 1st, 2nd &amp; 3rd place winners in sequential award ceremony order:
+              Showing {programGroups.length} programs with 1st, 2nd &amp; 3rd place <strong>Chest Number Entry Areas</strong> (candidate names omitted):
             </div>
 
             {programGroups.length === 0 ? (
@@ -823,194 +1024,346 @@ export default async function DistributionSheetPage(props: {
                 No published or recorded results found for the selected filter criteria.
               </div>
             ) : (
-              programGroups.map((pg, pIdx) => (
-                <div
-                  key={pg.program.id}
-                  className="page-break-avoid"
-                  style={{
-                    marginBottom: "16px",
-                    border: "1.5px solid #0f172a",
-                    borderRadius: "6px",
-                    overflow: "hidden"
-                  }}
-                >
-                  {/* Program Header */}
+              programGroups.map((pg, pIdx) => {
+                const placesToDisplay =
+                  placeFilter === "1" ? [1] : placeFilter === "2" ? [2] : placeFilter === "3" ? [3] : [1, 2, 3];
+
+                const isProgOnStage = pg.program.stageType === "ON_STAGE";
+                const isProgGeneral = pg.isGeneralProgram;
+
+                return (
                   <div
+                    key={pg.program.id}
+                    className="page-break-avoid"
                     style={{
-                      backgroundColor: "#0f172a",
-                      color: "#ffffff",
-                      padding: "6px 12px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: "8px"
+                      marginBottom: "16px",
+                      border: "1.5px solid #0f172a",
+                      borderRadius: "6px",
+                      overflow: "hidden"
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span
-                        style={{
-                          backgroundColor: "#f59e0b",
-                          color: "#0f172a",
-                          padding: "1px 7px",
-                          borderRadius: "4px",
-                          fontWeight: 900,
-                          fontSize: "0.82rem",
-                          fontFamily: "monospace"
-                        }}
-                      >
-                        #{pg.program.programCode || pIdx + 1}
-                      </span>
-                      <strong style={{ fontSize: "0.95rem" }}>{pg.program.name}</strong>
-                    </div>
+                    {/* Program Header */}
+                    <div
+                      style={{
+                        backgroundColor: "#0f172a",
+                        color: "#ffffff",
+                        padding: "6px 12px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "8px"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span
+                          style={{
+                            backgroundColor: "#f59e0b",
+                            color: "#0f172a",
+                            padding: "1px 7px",
+                            borderRadius: "4px",
+                            fontWeight: 900,
+                            fontSize: "0.82rem",
+                            fontFamily: "monospace"
+                          }}
+                        >
+                          #{pg.program.programCode || pIdx + 1}
+                        </span>
+                        <strong style={{ fontSize: "0.95rem" }}>{pg.program.name}</strong>
+                      </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "0.74rem" }}>
-                      <span style={{ backgroundColor: "#334155", padding: "2px 8px", borderRadius: "4px" }}>
-                        Category: <strong>{pg.program.category?.name || "General"}</strong>
-                      </span>
-                      <span style={{ backgroundColor: "#334155", padding: "2px 8px", borderRadius: "4px" }}>
-                        Stage: <strong>{pg.program.stageType}</strong>
-                      </span>
-                      <span style={{ backgroundColor: "#334155", padding: "2px 8px", borderRadius: "4px" }}>
-                        Type: <strong>{pg.program.type}</strong>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Winners Table */}
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "0.78rem",
-                      textAlign: "left"
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ backgroundColor: "#f1f5f9", color: "#334155", borderBottom: "1.5px solid #0f172a" }}>
-                        <th style={{ padding: "6px 8px", width: "95px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>Position</th>
-                        <th style={{ padding: "6px 8px", width: "95px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>Chest No.</th>
-                        <th style={{ padding: "6px 10px", width: "240px", borderRight: "1px solid #cbd5e1" }}>Winner / Student Name</th>
-                        <th style={{ padding: "6px 10px", borderRight: "1px solid #cbd5e1" }}>College / Institution</th>
-                        <th style={{ padding: "6px 8px", width: "75px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>Grade</th>
-                        <th style={{ padding: "6px 8px", width: "85px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>Trophy</th>
-                        <th style={{ padding: "6px 8px", width: "95px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>Certificate</th>
-                        <th style={{ padding: "6px 12px", width: "160px", textAlign: "center" }}>Recipient Signature</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pg.winners.map((w, wIdx) => {
-                        const rankLabel = w.rank === 1 ? "🥇 1st Place" : w.rank === 2 ? "🥈 2nd Place" : w.rank === 3 ? "🥉 3rd Place" : `Rank ${w.rank}`;
-                        const rankBg = w.rank === 1 ? "#fef3c7" : w.rank === 2 ? "#f1f5f9" : "#ffedd5";
-                        const rankColor = w.rank === 1 ? "#92400e" : w.rank === 2 ? "#334155" : "#9a3412";
-
-                        return (
-                          <tr
-                            key={w.resultId}
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.74rem" }}>
+                        <span
+                          style={{
+                            backgroundColor: isProgOnStage ? "#1d4ed8" : "#047857",
+                            color: "#ffffff",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontWeight: 800
+                          }}
+                        >
+                          {isProgOnStage ? "🎭 ON STAGE" : "📝 OFF STAGE"}
+                        </span>
+                        {isProgGeneral && (
+                          <span
                             style={{
-                              borderBottom: wIdx === pg.winners.length - 1 ? "none" : "1px solid #cbd5e1",
-                              backgroundColor: wIdx % 2 === 0 ? "#ffffff" : "#fafafa"
+                              backgroundColor: "#b45309",
+                              color: "#ffffff",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              fontWeight: 800
                             }}
                           >
-                            {/* Position */}
-                            <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
-                              <span
+                            🌐 GENERAL
+                          </span>
+                        )}
+                        <span style={{ backgroundColor: "#334155", padding: "2px 8px", borderRadius: "4px" }}>
+                          Cat: <strong>{pg.program.category?.name || "General"}</strong>
+                        </span>
+                        <span style={{ backgroundColor: "#334155", padding: "2px 8px", borderRadius: "4px" }}>
+                          Type: <strong>{pg.program.type}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Winners Table - CHEST NUMBER ENTRY AREA (NO CANDIDATE NAMES) */}
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: "0.78rem",
+                        textAlign: "left"
+                      }}
+                    >
+                      <thead>
+                        <tr style={{ backgroundColor: "#f1f5f9", color: "#334155", borderBottom: "1.5px solid #0f172a" }}>
+                          <th style={{ padding: "6px 8px", width: "95px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                            Position
+                          </th>
+                          <th style={{ padding: "6px 12px", width: "180px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                            Chest No. (Entry Area)
+                          </th>
+                          <th style={{ padding: "6px 10px", borderRight: "1px solid #cbd5e1" }}>
+                            College / Institution
+                          </th>
+                          <th style={{ padding: "6px 8px", width: "75px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                            Grade
+                          </th>
+                          <th style={{ padding: "6px 8px", width: "85px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                            Trophy
+                          </th>
+                          <th style={{ padding: "6px 8px", width: "95px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                            Certificate
+                          </th>
+                          <th style={{ padding: "6px 12px", width: "170px", textAlign: "center" }}>
+                            Recipient Signature
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {placesToDisplay.map((rankNum, rIdx) => {
+                          const w = pg.winners.find((x) => x.rank === rankNum);
+
+                          const rankLabel =
+                            rankNum === 1 ? "🥇 1st Place" : rankNum === 2 ? "🥈 2nd Place" : rankNum === 3 ? "🥉 3rd Place" : `Rank ${rankNum}`;
+                          const rankBg = rankNum === 1 ? "#fef3c7" : rankNum === 2 ? "#f1f5f9" : "#ffedd5";
+                          const rankColor = rankNum === 1 ? "#92400e" : rankNum === 2 ? "#334155" : "#9a3412";
+
+                          if (!w) {
+                            // Blank entry row for manual chest number entry
+                            return (
+                              <tr
+                                key={`blank_${pg.program.id}_${rankNum}`}
                                 style={{
-                                  display: "inline-block",
-                                  padding: "3px 8px",
-                                  borderRadius: "4px",
-                                  backgroundColor: rankBg,
-                                  color: rankColor,
-                                  fontWeight: 800,
-                                  fontSize: "0.76rem",
-                                  border: "1px solid rgba(0,0,0,0.1)"
+                                  borderBottom: rIdx === placesToDisplay.length - 1 ? "none" : "1px solid #cbd5e1",
+                                  backgroundColor: "#ffffff"
                                 }}
                               >
-                                {rankLabel}
-                              </span>
-                            </td>
+                                <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "3px 8px",
+                                      borderRadius: "4px",
+                                      backgroundColor: rankBg,
+                                      color: rankColor,
+                                      fontWeight: 800,
+                                      fontSize: "0.76rem",
+                                      border: "1px solid rgba(0,0,0,0.1)"
+                                    }}
+                                  >
+                                    {rankLabel}
+                                  </span>
+                                </td>
 
-                            {/* Chest No */}
-                            <td
+                                {/* Blank Chest Number Entry Box */}
+                                <td style={{ padding: "8px 12px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      width: "130px",
+                                      height: "34px",
+                                      border: "1.8px dashed #64748b",
+                                      borderRadius: "6px",
+                                      backgroundColor: "#ffffff",
+                                      fontSize: "0.75rem",
+                                      color: "#94a3b8",
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    Chest: ____________
+                                  </div>
+                                </td>
+
+                                {/* College line */}
+                                <td style={{ padding: "8px 10px", borderRight: "1px solid #cbd5e1" }}>
+                                  <div style={{ height: "24px", borderBottom: "1.2px dotted #94a3b8", width: "95%" }}></div>
+                                </td>
+
+                                {/* Grade */}
+                                <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1", color: "#94a3b8", fontSize: "0.72rem" }}>
+                                  [ A / B / C ]
+                                </td>
+
+                                {/* Trophy */}
+                                <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      padding: "4px 8px",
+                                      border: "1.2px solid #0f172a",
+                                      borderRadius: "4px",
+                                      backgroundColor: "#ffffff",
+                                      fontWeight: 700,
+                                      fontSize: "0.72rem"
+                                    }}
+                                  >
+                                    <span style={{ display: "inline-block", width: "12px", height: "12px", border: "1.5px solid #000", borderRadius: "2px" }}></span>
+                                    <span>Trophy</span>
+                                  </div>
+                                </td>
+
+                                {/* Certificate */}
+                                <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      padding: "4px 8px",
+                                      border: "1.2px solid #0f172a",
+                                      borderRadius: "4px",
+                                      backgroundColor: "#ffffff",
+                                      fontWeight: 700,
+                                      fontSize: "0.72rem"
+                                    }}
+                                  >
+                                    <span style={{ display: "inline-block", width: "12px", height: "12px", border: "1.5px solid #000", borderRadius: "2px" }}></span>
+                                    <span>Cert</span>
+                                  </div>
+                                </td>
+
+                                {/* Signature */}
+                                <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                                  <div style={{ height: "24px", borderBottom: "1.2px solid #334155", margin: "0 auto", width: "90%" }}></div>
+                                  <div style={{ fontSize: "0.62rem", color: "#64748b", marginTop: "2px" }}>(Sign / Date)</div>
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return (
+                            <tr
+                              key={w.resultId}
                               style={{
-                                padding: "8px",
-                                textAlign: "center",
-                                fontWeight: 900,
-                                fontFamily: "monospace",
-                                fontSize: "0.82rem",
-                                color: "#0f172a",
-                                borderRight: "1px solid #cbd5e1"
+                                borderBottom: rIdx === placesToDisplay.length - 1 ? "none" : "1px solid #cbd5e1",
+                                backgroundColor: rIdx % 2 === 0 ? "#ffffff" : "#fafafa"
                               }}
                             >
-                              {w.chestNumber}
-                            </td>
-
-                            {/* Winner Name */}
-                            <td style={{ padding: "8px 10px", borderRight: "1px solid #cbd5e1" }}>
-                              <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.84rem" }}>
-                                {w.participantName}
-                              </div>
-                              {w.groupMembers && w.groupMembers.length > 0 && (
-                                <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: "3px", lineHeight: 1.3 }}>
-                                  <strong>Team Members ({w.groupMembers.length}):</strong>{" "}
-                                  {w.groupMembers.map((m) => `${m.name} (#${m.chestNumber})`).join(", ")}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* College */}
-                            <td style={{ padding: "8px 10px", borderRight: "1px solid #cbd5e1" }}>
-                              <div style={{ fontWeight: 700, color: "#1e3a8a", fontSize: "0.8rem" }}>
-                                {w.institutionName}
-                              </div>
-                            </td>
-
-                            {/* Grade */}
-                            <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, borderRight: "1px solid #cbd5e1" }}>
-                              {w.grade ? (
+                              {/* Position */}
+                              <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
                                 <span
                                   style={{
-                                    padding: "2px 6px",
+                                    display: "inline-block",
+                                    padding: "3px 8px",
                                     borderRadius: "4px",
-                                    backgroundColor: w.grade === "A" ? "#dcfce7" : w.grade === "B" ? "#eff6ff" : "#fef3c7",
-                                    color: w.grade === "A" ? "#166534" : w.grade === "B" ? "#1e40af" : "#854d0e",
-                                    fontSize: "0.74rem"
+                                    backgroundColor: rankBg,
+                                    color: rankColor,
+                                    fontWeight: 800,
+                                    fontSize: "0.76rem",
+                                    border: "1px solid rgba(0,0,0,0.1)"
                                   }}
                                 >
-                                  {w.grade === "A" ? "⭐ Grade A" : w.grade === "B" ? "Grade B" : `Grade ${w.grade}`}
+                                  {rankLabel}
                                 </span>
-                              ) : (
-                                <span style={{ color: "#94a3b8" }}>—</span>
-                              )}
-                            </td>
+                              </td>
 
-                            {/* Checkbox: Trophy */}
-                            <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
-                              <div
+                              {/* CHEST NUMBER ENTRY AREA (PROMINENT BOX, NO CANDIDATE NAMES) */}
+                              <td
                                 style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "4px",
-                                  padding: "4px 8px",
-                                  border: "1.2px solid #0f172a",
-                                  borderRadius: "4px",
-                                  backgroundColor: "#ffffff",
-                                  fontWeight: 700,
-                                  fontSize: "0.72rem"
+                                  padding: "8px 12px",
+                                  textAlign: "center",
+                                  borderRight: "1px solid #cbd5e1"
                                 }}
                               >
-                                <span style={{ display: "inline-block", width: "12px", height: "12px", border: "1.5px solid #000", borderRadius: "2px" }}></span>
-                                <span>Trophy</span>
-                              </div>
-                            </td>
+                                <div
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    minWidth: "120px",
+                                    minHeight: "34px",
+                                    padding: "3px 12px",
+                                    border: "2px solid #0f172a",
+                                    borderRadius: "6px",
+                                    backgroundColor: "#f8fafc",
+                                    fontWeight: 900,
+                                    fontSize: "1.05rem",
+                                    fontFamily: "monospace",
+                                    letterSpacing: "0.06em",
+                                    color: "#0f172a",
+                                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)"
+                                  }}
+                                >
+                                  {w.chestNumber && w.chestNumber !== "-" ? (
+                                    <span>{w.chestNumber}</span>
+                                  ) : (
+                                    <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>Chest: _______</span>
+                                  )}
+                                </div>
 
-                            {/* Checkbox: Certificate */}
-                            <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
-                              {w.isMagazine ? (
-                                <span style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic" }}>
-                                  Inst Only
-                                </span>
-                              ) : (
+                                {w.groupChestNumbers && w.groupChestNumbers.length > 1 && (
+                                  <div
+                                    style={{
+                                      fontSize: "0.68rem",
+                                      fontWeight: 800,
+                                      color: "#334155",
+                                      marginTop: "3px",
+                                      fontFamily: "monospace"
+                                    }}
+                                  >
+                                    Chests: {w.groupChestNumbers.map((c) => `#${c}`).join(", ")}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* College / Institution */}
+                              <td style={{ padding: "8px 10px", borderRight: "1px solid #cbd5e1" }}>
+                                <div style={{ fontWeight: 700, color: "#1e3a8a", fontSize: "0.82rem" }}>
+                                  {w.institutionName}
+                                </div>
+                                {w.institutionCode && (
+                                  <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 600 }}>
+                                    Code: {w.institutionCode}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Grade */}
+                              <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, borderRight: "1px solid #cbd5e1" }}>
+                                {w.grade ? (
+                                  <span
+                                    style={{
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      backgroundColor: w.grade === "A" ? "#dcfce7" : w.grade === "B" ? "#eff6ff" : "#fef3c7",
+                                      color: w.grade === "A" ? "#166534" : w.grade === "B" ? "#1e40af" : "#854d0e",
+                                      fontSize: "0.74rem"
+                                    }}
+                                  >
+                                    {w.grade === "A" ? "⭐ Grade A" : w.grade === "B" ? "Grade B" : `Grade ${w.grade}`}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: "#94a3b8" }}>—</span>
+                                )}
+                              </td>
+
+                              {/* Checkbox: Trophy */}
+                              <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
                                 <div
                                   style={{
                                     display: "inline-flex",
@@ -1025,32 +1378,58 @@ export default async function DistributionSheetPage(props: {
                                   }}
                                 >
                                   <span style={{ display: "inline-block", width: "12px", height: "12px", border: "1.5px solid #000", borderRadius: "2px" }}></span>
-                                  <span>{w.groupMembers?.length > 1 ? `Cert (${w.groupMembers.length})` : "Cert"}</span>
+                                  <span>Trophy</span>
                                 </div>
-                              )}
-                            </td>
+                              </td>
 
-                            {/* Recipient Signature Line */}
-                            <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                              <div style={{ height: "26px", borderBottom: "1.2px solid #334155", margin: "0 auto", width: "90%" }}></div>
-                              <div style={{ fontSize: "0.62rem", color: "#64748b", marginTop: "2px" }}>(Sign / Date)</div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ))
+                              {/* Checkbox: Certificate */}
+                              <td style={{ padding: "8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                                {w.isMagazine ? (
+                                  <span style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic" }}>
+                                    Inst Only
+                                  </span>
+                                ) : (
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      padding: "4px 8px",
+                                      border: "1.2px solid #0f172a",
+                                      borderRadius: "4px",
+                                      backgroundColor: "#ffffff",
+                                      fontWeight: 700,
+                                      fontSize: "0.72rem"
+                                    }}
+                                  >
+                                    <span style={{ display: "inline-block", width: "12px", height: "12px", border: "1.5px solid #000", borderRadius: "2px" }}></span>
+                                    <span>{w.groupChestNumbers?.length > 1 ? `Cert (${w.groupChestNumbers.length})` : "Cert"}</span>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Recipient Signature Line */}
+                              <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                                <div style={{ height: "26px", borderBottom: "1.2px solid #334155", margin: "0 auto", width: "90%" }}></div>
+                                <div style={{ fontSize: "0.62rem", color: "#64748b", marginTop: "2px" }}>(Sign / Date)</div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
 
-        {/* VIEW MODE B: STUDENT-BY-STUDENT ROSTER */}
+        {/* VIEW MODE B: CHEST NUMBER MASTER ROSTER (NO CANDIDATE NAMES) */}
         {viewMode === "student" && (
           <div>
             <div style={{ marginBottom: "10px", fontSize: "0.82rem", color: "#475569", fontWeight: 600 }}>
-              Complete roster of all {allStudentRows.length} certificate &amp; trophy recipients:
+              Complete register of all {allStudentRows.length} certificate &amp; trophy recipients by <strong>Chest Number</strong> (candidate names omitted):
             </div>
 
             <table
@@ -1064,15 +1443,15 @@ export default async function DistributionSheetPage(props: {
               <thead>
                 <tr style={{ backgroundColor: "#0f172a", color: "#ffffff", textAlign: "center" }}>
                   <th style={{ padding: "6px 4px", width: "35px" }}>Sl</th>
-                  <th style={{ padding: "6px 6px", width: "85px" }}>Chest No.</th>
-                  <th style={{ padding: "6px 8px", textAlign: "left", width: "190px" }}>Student Winner Name</th>
-                  <th style={{ padding: "6px 8px", textAlign: "left" }}>College / Institution</th>
-                  <th style={{ padding: "6px 8px", textAlign: "left", width: "180px" }}>Program</th>
-                  <th style={{ padding: "6px 6px", width: "85px" }}>Place</th>
+                  <th style={{ padding: "6px 8px", width: "110px" }}>Chest No. (Entry Box)</th>
+                  <th style={{ padding: "6px 10px", textAlign: "left" }}>College / Institution</th>
+                  <th style={{ padding: "6px 8px", textAlign: "left", width: "200px" }}>Program</th>
+                  <th style={{ padding: "6px 6px", width: "85px" }}>Stage/Type</th>
+                  <th style={{ padding: "6px 6px", width: "80px" }}>Place</th>
                   <th style={{ padding: "6px 6px", width: "65px" }}>Grade</th>
                   <th style={{ padding: "6px 6px", width: "75px" }}>Trophy</th>
-                  <th style={{ padding: "6px 6px", width: "80px" }}>Cert</th>
-                  <th style={{ padding: "6px 8px", width: "145px" }}>Recipient Sign</th>
+                  <th style={{ padding: "6px 6px", width: "75px" }}>Cert</th>
+                  <th style={{ padding: "6px 8px", width: "150px" }}>Recipient Sign</th>
                 </tr>
               </thead>
               <tbody>
@@ -1088,35 +1467,63 @@ export default async function DistributionSheetPage(props: {
                         borderBottom: "1px solid #cbd5e1"
                       }}
                     >
-                      <td style={{ padding: "5px 4px", textAlign: "center", fontWeight: 700, borderRight: "1px solid #cbd5e1" }}>
+                      <td style={{ padding: "6px 4px", textAlign: "center", fontWeight: 700, borderRight: "1px solid #cbd5e1" }}>
                         {sr.slNo}
                       </td>
-                      <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 900, fontFamily: "monospace", color: "#0f172a", borderRight: "1px solid #cbd5e1" }}>
-                        {sr.chestNumber}
+
+                      {/* Chest Number Entry Box */}
+                      <td style={{ padding: "6px 8px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                        <div
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            border: "1.8px solid #0f172a",
+                            borderRadius: "4px",
+                            backgroundColor: "#f8fafc",
+                            fontWeight: 900,
+                            fontFamily: "monospace",
+                            fontSize: "0.92rem",
+                            color: "#0f172a"
+                          }}
+                        >
+                          {sr.chestNumber}
+                        </div>
                       </td>
-                      <td style={{ padding: "5px 8px", fontWeight: 800, color: "#0f172a", borderRight: "1px solid #cbd5e1" }}>
-                        {sr.studentName}
-                        {sr.isGroupMember && (
-                          <span style={{ fontSize: "0.65rem", color: "#64748b", marginLeft: "4px", fontWeight: 600 }}>
-                            (Group)
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: "5px 8px", color: "#1e3a8a", fontWeight: 600, borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 10px", color: "#1e3a8a", fontWeight: 700, borderRight: "1px solid #cbd5e1" }}>
                         {sr.institutionName}
                       </td>
-                      <td style={{ padding: "5px 8px", borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 8px", borderRight: "1px solid #cbd5e1" }}>
                         <span style={{ fontWeight: 800, color: "#b45309" }}>#{sr.programCode}</span> {sr.programName}
                       </td>
-                      <td style={{ padding: "5px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            padding: "1px 5px",
+                            borderRadius: "3px",
+                            backgroundColor: sr.stageType === "ON_STAGE" ? "#dbeafe" : "#dcfce7",
+                            color: sr.stageType === "ON_STAGE" ? "#1e40af" : "#166534",
+                            fontWeight: 800
+                          }}
+                        >
+                          {sr.stageType === "ON_STAGE" ? "🎭 ON" : "📝 OFF"}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: "6px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
                         <span style={{ padding: "2px 6px", borderRadius: "3px", backgroundColor: rankBg, fontWeight: 800, fontSize: "0.72rem" }}>
                           {rankLabel}
                         </span>
                       </td>
-                      <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 800, borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 800, borderRight: "1px solid #cbd5e1" }}>
                         {sr.grade || "—"}
                       </td>
-                      <td style={{ padding: "5px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
                         {sr.trophyCount > 0 ? (
                           <div style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "0.7rem", fontWeight: 700 }}>
                             <span style={{ width: "11px", height: "11px", border: "1.2px solid #000", display: "inline-block" }}></span>
@@ -1126,7 +1533,8 @@ export default async function DistributionSheetPage(props: {
                           <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: "5px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+
+                      <td style={{ padding: "6px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
                         {sr.certCount > 0 ? (
                           <div style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "0.7rem", fontWeight: 700 }}>
                             <span style={{ width: "11px", height: "11px", border: "1.2px solid #000", display: "inline-block" }}></span>
@@ -1136,7 +1544,8 @@ export default async function DistributionSheetPage(props: {
                           <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}>
+
+                      <td style={{ padding: "6px 8px", textAlign: "center" }}>
                         <div style={{ height: "20px", borderBottom: "1px solid #475569", width: "90%", margin: "0 auto" }}></div>
                       </td>
                     </tr>
@@ -1147,11 +1556,11 @@ export default async function DistributionSheetPage(props: {
           </div>
         )}
 
-        {/* VIEW MODE C: BY INSTITUTION (COLLEGE BUNDLE HANDOVER) */}
+        {/* VIEW MODE C: BY INSTITUTION (COLLEGE BUNDLE HANDOVER - NO CANDIDATE NAMES) */}
         {viewMode === "institution" && (
           <div>
             <div style={{ marginBottom: "10px", fontSize: "0.82rem", color: "#475569", fontWeight: 600 }}>
-              Grouped by College/Institution for bulk handover to College Principals &amp; Staff In-charges:
+              Grouped by College/Institution for bulk handover to College Principals &amp; Staff In-charges by <strong>Chest Number</strong>:
             </div>
 
             {institutionGroups.map((inst) => (
@@ -1202,14 +1611,14 @@ export default async function DistributionSheetPage(props: {
                   </div>
                 </div>
 
-                {/* Items Table */}
+                {/* Items Table - CHEST NUMBERS ONLY */}
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#f1f5f9", color: "#334155", borderBottom: "1px solid #cbd5e1" }}>
                       <th style={{ padding: "5px 6px", width: "35px", textAlign: "center" }}>#</th>
-                      <th style={{ padding: "5px 8px", width: "90px", textAlign: "center" }}>Chest No</th>
-                      <th style={{ padding: "5px 8px", textAlign: "left" }}>Winning Student / Entry</th>
-                      <th style={{ padding: "5px 8px", textAlign: "left" }}>Program Name</th>
+                      <th style={{ padding: "5px 8px", width: "110px", textAlign: "center" }}>Chest No. (Entry Area)</th>
+                      <th style={{ padding: "5px 8px", textAlign: "left" }}>Program Code &amp; Name</th>
+                      <th style={{ padding: "5px 6px", width: "85px", textAlign: "center" }}>Stage/Type</th>
                       <th style={{ padding: "5px 6px", width: "85px", textAlign: "center" }}>Position</th>
                       <th style={{ padding: "5px 6px", width: "65px", textAlign: "center" }}>Grade</th>
                       <th style={{ padding: "5px 6px", width: "75px", textAlign: "center" }}>Trophy</th>
@@ -1220,9 +1629,39 @@ export default async function DistributionSheetPage(props: {
                     {inst.items.map((it, idx) => (
                       <tr key={it.resultId} style={{ borderBottom: "1px solid #e2e8f0", backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fafafa" }}>
                         <td style={{ padding: "5px 6px", textAlign: "center", color: "#64748b" }}>{idx + 1}</td>
-                        <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 900, fontFamily: "monospace" }}>{it.chestNumber}</td>
-                        <td style={{ padding: "5px 8px", fontWeight: 800, color: "#0f172a" }}>{it.studentName}</td>
-                        <td style={{ padding: "5px 8px" }}><span style={{ fontWeight: 800, color: "#b45309" }}>#{it.programCode}</span> {it.programName}</td>
+                        <td style={{ padding: "5px 8px", textAlign: "center" }}>
+                          <div
+                            style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              border: "1.5px solid #0f172a",
+                              borderRadius: "4px",
+                              backgroundColor: "#f8fafc",
+                              fontWeight: 900,
+                              fontFamily: "monospace",
+                              fontSize: "0.88rem"
+                            }}
+                          >
+                            {it.chestNumber}
+                          </div>
+                        </td>
+                        <td style={{ padding: "5px 8px" }}>
+                          <span style={{ fontWeight: 800, color: "#b45309" }}>#{it.programCode}</span> {it.programName}
+                        </td>
+                        <td style={{ padding: "5px 6px", textAlign: "center" }}>
+                          <span
+                            style={{
+                              fontSize: "0.68rem",
+                              padding: "1px 5px",
+                              borderRadius: "3px",
+                              backgroundColor: it.stageType === "ON_STAGE" ? "#dbeafe" : "#dcfce7",
+                              color: it.stageType === "ON_STAGE" ? "#1e40af" : "#166534",
+                              fontWeight: 800
+                            }}
+                          >
+                            {it.stageType === "ON_STAGE" ? "🎭 ON" : "📝 OFF"}
+                          </span>
+                        </td>
                         <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 800 }}>
                           {it.rank === 1 ? "🥇 1st" : it.rank === 2 ? "🥈 2nd" : it.rank === 3 ? "🥉 3rd" : `#${it.rank}`}
                         </td>
