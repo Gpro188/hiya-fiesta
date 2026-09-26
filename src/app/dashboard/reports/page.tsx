@@ -133,28 +133,50 @@ export default async function ReportsPage(props: {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
               <a
-                href={`/api/reports/trophy-audit-excel?eventId=${activeEventId || ''}`}
-                download="Zone_Final_Results_Trophies_Certificates.xlsx"
+                href={`/print/distribution-sheet?eventId=${activeEventId || ''}`}
+                target="_blank"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   padding: '12px 20px',
                   borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
                   color: '#ffffff',
                   fontWeight: 800,
                   fontSize: '0.95rem',
                   textDecoration: 'none',
-                  boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
                   transition: 'all 0.2s',
                   whiteSpace: 'nowrap'
                 }}
               >
-                <span>📥</span> Download Zone Results &amp; Trophy Audit Excel
+                <span>🖨️</span> Print Distribution Sheet (PDF Sheet)
               </a>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                Format: Microsoft Excel (.XLSX) &bull; 6 Tabs
+
+              <a
+                href={`/api/reports/trophy-audit-excel?eventId=${activeEventId || ''}`}
+                download="Zone_Final_Results_Trophies_Certificates.xlsx"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(217, 119, 6, 0.25)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>📥</span> Download Audit Excel (.XLSX)
+              </a>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                Both PDF Handover Sheet &bull; Excel Audit Tabs
               </span>
             </div>
           </div>
@@ -398,6 +420,16 @@ export default async function ReportsPage(props: {
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontWeight: 800 }}>OFFICIAL SUMMARY</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Full Zonal points &amp; mark breakdown: 1st/2nd/3rd counts, Grade A/B/C point tallies, Category stars (Fadhila &amp; Fadheela Kalaathilakam), General programs, and official signature declaration.</p>
+          </a>
+
+          {/* Trophy & Certificate Distribution Marking List */}
+          <a href={`/print/distribution-sheet?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #2563eb', backgroundColor: 'rgba(37,99,235,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📜</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#1d4ed8', fontWeight: 800 }}>Trophy &amp; Certificate Distribution Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#dbeafe', color: '#1e40af', border: '1px solid #bfdbfe', fontWeight: 800 }}>HANDOVER REGISTER (PDF)</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official prize distribution &amp; handover register for 1st, 2nd, and 3rd place winners with student chest numbers, checkboxes (Trophy &amp; Certificate), and recipient signatures.</p>
           </a>
 
           {/* Merit Certificates */}

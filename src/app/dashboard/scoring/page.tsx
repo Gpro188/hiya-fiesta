@@ -579,6 +579,28 @@ export default async function ScoringPage(props: {
           >
             <span>📑</span> All Off-Stage
           </a>
+          <a
+            href={`/print/distribution-sheet?eventId=${activeEventId}`}
+            target="_blank"
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.45rem 0.9rem',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              backgroundColor: '#eff6ff',
+              border: '1.5px solid #2563eb',
+              color: '#1d4ed8',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.15)'
+            }}
+            title="Print official Trophy & Certificate Distribution Marking Sheet for 1st, 2nd, 3rd places"
+          >
+            <span>🏆</span> Distribution Sheet (PDF)
+          </a>
           <ExcelExport results={results} />
         </div>
       </div>

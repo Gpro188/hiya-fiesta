@@ -407,7 +407,25 @@ export default function CertificateStudioClient({
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            <Link
+              href={`/print/distribution-sheet?eventId=${selectedEventId}`}
+              target="_blank"
+              className="btn btn-sm"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                backgroundColor: "#2563eb",
+                color: "#ffffff",
+                fontWeight: 700,
+                textDecoration: "none",
+                borderRadius: "6px"
+              }}
+              title="Print official Trophy & Certificate Distribution Sheet"
+            >
+              🏆 Distribution Sheet (PDF)
+            </Link>
             <Link 
               href="/dashboard/reports" 
               className="btn btn-secondary btn-sm"
