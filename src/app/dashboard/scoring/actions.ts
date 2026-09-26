@@ -53,15 +53,18 @@ export async function getPointsConfigForProgram(programType: string, eventId?: s
   return programType === "INDIVIDUAL" ? defaultInd : defaultGen;
 }
 
-// Helper to recalculate ranks and points for a specific program
+// Helper to recalculate ranks and points for a specific program in an event
 async function recalculateProgramResults(programId: string, manualUpdateId?: string, eventId?: string) {
-  const whereClause: any = { programId };
-  if (eventId) {
-    whereClause.OR = [
+  // CRITICAL: Never execute an un-scoped recalculation across all zones!
+  if (!eventId) return;
+
+  const whereClause: any = {
+    programId,
+    OR: [
       { team: { eventId } },
       { candidate: { team: { eventId } } }
-    ];
-  }
+    ]
+  };
 
   const results = await prisma.result.findMany({
     where: whereClause,
@@ -90,17 +93,39 @@ async function recalculateProgramResults(programId: string, manualUpdateId?: str
     }
   }
 
-  // Assign ranks, handle ties
+  // CRITICAL FEST INTEGRITY:
+  // If ANY result already has manual rank/grade or if marks are 0 (consensus rank/grade entry mode),
+  // NEVER overwrite their ranks or grades! ONLY synchronize points based on existing rank & grade!
+  const hasManualRanksOrZeroMarks = results.some(r => r.rank !== null || r.grade !== null || r.marks === 0);
+
+  if (hasManualRanksOrZeroMarks) {
+    for (const res of results) {
+      let points = 0;
+      if (res.rank === 1) points += pointsConfig.rank1 || 0;
+      else if (res.rank === 2) points += pointsConfig.rank2 || 0;
+      else if (res.rank === 3) points += pointsConfig.rank3 || 0;
+
+      if (res.grade === "A") points += pointsConfig.gradeA || 0;
+      else if (res.grade === "B") points += pointsConfig.gradeB || 0;
+      else if (res.grade === "C") points += pointsConfig.gradeC || 0;
+
+      if (res.points !== points) {
+        await prisma.result.update({
+          where: { id: res.id },
+          data: { points }
+        });
+      }
+    }
+    return;
+  }
+
+  // Only auto-rank if all entries have raw non-zero marks and no manual ranks assigned
   let currentRank = 1;
   let currentMarks = results[0].marks;
   let sameRankCount = 0;
 
   for (let i = 0; i < results.length; i++) {
     const res = results[i];
-    
-    // If this result was manually updated, we might want to preserve its rank/grade
-    // BUT usually points must match the rank. 
-    // For now, auto-recalculate everything based on marks UNLESS we are in "Manual Entry" mode.
     
     if (res.marks < currentMarks) {
       currentRank += sameRankCount;
@@ -538,7 +563,7 @@ export async function togglePublishResult(id: string, isPublished: boolean) {
   }
 }
 
-export async function publishProgramResults(programId: string) {
+export async function publishProgramResults(programId: string, resultIds?: string[], eventId?: string) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
@@ -550,19 +575,54 @@ export async function publishProgramResults(programId: string) {
       const lock = await isZoneOrEventCompleted({ 
         programId,
         zoneId: userZoneId,
-        eventId: userEventId,
+        eventId: eventId || userEventId,
         userId: session.user.id
       });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
     }
+
+    let whereClause: any = { programId };
+    if (resultIds && resultIds.length > 0) {
+      whereClause = { id: { in: resultIds } };
+    } else if (eventId) {
+      whereClause = {
+        programId,
+        OR: [
+          { team: { eventId } },
+          { candidate: { team: { eventId } } }
+        ]
+      };
+    } else if (session.user.role === "ZONE_ADMIN") {
+      const userZoneId = (session.user as any)?.zoneId;
+      const userEvId = session.user.eventId;
+      if (userEvId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { eventId: userEvId } },
+            { candidate: { team: { eventId: userEvId } } }
+          ]
+        };
+      } else if (userZoneId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { institution: { zoneId: userZoneId } } },
+            { candidate: { institution: { zoneId: userZoneId } } }
+          ]
+        };
+      }
+    }
+
     await prisma.result.updateMany({
-      where: { programId },
+      where: whereClause,
       data: { isPublished: true }
     });
     revalidatePath("/dashboard/scoring");
     revalidatePath("/tv");
+    revalidatePath("/dashboard/certificates");
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -570,7 +630,7 @@ export async function publishProgramResults(programId: string) {
   }
 }
 
-export async function unpublishProgramResults(programId: string) {
+export async function unpublishProgramResults(programId: string, resultIds?: string[], eventId?: string) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
@@ -582,19 +642,54 @@ export async function unpublishProgramResults(programId: string) {
       const lock = await isZoneOrEventCompleted({ 
         programId,
         zoneId: userZoneId,
-        eventId: userEventId,
+        eventId: eventId || userEventId,
         userId: session.user.id
       });
       if (lock.isCompleted) {
         return { success: false, error: lock.message || "Results are locked because this fest is completed." };
       }
     }
+
+    let whereClause: any = { programId };
+    if (resultIds && resultIds.length > 0) {
+      whereClause = { id: { in: resultIds } };
+    } else if (eventId) {
+      whereClause = {
+        programId,
+        OR: [
+          { team: { eventId } },
+          { candidate: { team: { eventId } } }
+        ]
+      };
+    } else if (session.user.role === "ZONE_ADMIN") {
+      const userZoneId = (session.user as any)?.zoneId;
+      const userEvId = session.user.eventId;
+      if (userEvId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { eventId: userEvId } },
+            { candidate: { team: { eventId: userEvId } } }
+          ]
+        };
+      } else if (userZoneId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { institution: { zoneId: userZoneId } } },
+            { candidate: { institution: { zoneId: userZoneId } } }
+          ]
+        };
+      }
+    }
+
     await prisma.result.updateMany({
-      where: { programId },
+      where: whereClause,
       data: { isPublished: false }
     });
     revalidatePath("/dashboard/scoring");
     revalidatePath("/tv");
+    revalidatePath("/dashboard/certificates");
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -608,7 +703,14 @@ export async function deleteResult(id: string) {
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
-    const result = await prisma.result.findUnique({ where: { id }, include: { program: true } });
+    const result = await prisma.result.findUnique({ 
+      where: { id }, 
+      include: { 
+        program: true,
+        candidate: { select: { team: { select: { eventId: true } } } },
+        team: { select: { eventId: true } }
+      } 
+    });
     if (!result) return { success: false, error: "Result not found" };
     if (session.user.role !== "SUPER_ADMIN") {
       const userZoneId = (session.user as any)?.zoneId || null;
@@ -625,7 +727,13 @@ export async function deleteResult(id: string) {
       }
     }
     await prisma.result.delete({ where: { id } });
-    await recalculateProgramResults(result.programId);
+
+    // Scoped recalculation that strictly PRESERVES manual ranks/grades
+    const evId = result.candidate?.team?.eventId || result.team?.eventId;
+    if (evId) {
+      await recalculateProgramResults(result.programId, undefined, evId);
+    }
+
     revalidatePath("/dashboard/scoring");
     revalidatePath("/tv");
     revalidatePath("/dashboard/certificates");
@@ -636,7 +744,7 @@ export async function deleteResult(id: string) {
   }
 }
 
-export async function deleteProgramResults(programId: string) {
+export async function deleteProgramResults(programId: string, resultIds?: string[], eventId?: string) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN", "JUDGE"].includes(session.user.role)) {
@@ -648,7 +756,7 @@ export async function deleteProgramResults(programId: string) {
       const lock = await isZoneOrEventCompleted({ 
         programId,
         zoneId: userZoneId,
-        eventId: userEventId,
+        eventId: eventId || userEventId,
         userId: session.user.id
       });
       if (lock.isCompleted) {
@@ -656,8 +764,41 @@ export async function deleteProgramResults(programId: string) {
       }
     }
 
+    let whereClause: any = { programId };
+    if (resultIds && resultIds.length > 0) {
+      whereClause = { id: { in: resultIds } };
+    } else if (eventId) {
+      whereClause = {
+        programId,
+        OR: [
+          { team: { eventId } },
+          { candidate: { team: { eventId } } }
+        ]
+      };
+    } else if (session.user.role === "ZONE_ADMIN") {
+      const userZoneId = (session.user as any)?.zoneId;
+      const userEvId = session.user.eventId;
+      if (userEvId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { eventId: userEvId } },
+            { candidate: { team: { eventId: userEvId } } }
+          ]
+        };
+      } else if (userZoneId) {
+        whereClause = {
+          programId,
+          OR: [
+            { team: { institution: { zoneId: userZoneId } } },
+            { candidate: { institution: { zoneId: userZoneId } } }
+          ]
+        };
+      }
+    }
+
     await prisma.result.deleteMany({
-      where: { programId }
+      where: whereClause
     });
 
     revalidatePath("/dashboard/scoring");
@@ -688,7 +829,9 @@ export async function updateResultMark(
       include: { 
         program: {
           include: { category: { include: { pointMatrix: true } } }
-        } 
+        },
+        candidate: { select: { team: { select: { eventId: true } } } },
+        team: { select: { eventId: true } }
       } 
     });
     if (!result) return { success: false, error: "Result not found" };
@@ -737,7 +880,10 @@ export async function updateResultMark(
       });
     } else {
       await prisma.result.update({ where: { id }, data: { marks: marks || 0, rank: null, grade: null, points: 0 } });
-      await recalculateProgramResults(result.programId);
+      const evId = result.candidate?.team?.eventId || result.team?.eventId;
+      if (evId) {
+        await recalculateProgramResults(result.programId, undefined, evId);
+      }
     }
     
     revalidatePath("/dashboard/scoring");

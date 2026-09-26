@@ -18,7 +18,14 @@ export default async function PrintCertificatePage(props: {
   let targetEventId = searchParams.eventId;
 
   if (!targetEventId) {
-    const defaultEvent = await prisma.event.findFirst({
+    const liveEvent = await prisma.event.findFirst({
+      where: { statusOverride: "LIVE" },
+      orderBy: { updatedAt: "desc" }
+    });
+    const defaultEvent = liveEvent || await prisma.event.findFirst({
+      where: { type: "ZONE" },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
+    }) || await prisma.event.findFirst({
       orderBy: [{ type: "desc" }, { createdAt: "desc" }]
     });
     if (!defaultEvent) notFound();

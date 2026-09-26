@@ -349,8 +349,7 @@ export async function getCertificateWinners(params: {
       program: programWhere,
       OR: [
         { team: { eventId: eventId } },
-        { candidate: { team: { eventId: eventId } } },
-        { program: { eventId: eventId } }
+        { candidate: { team: { eventId: eventId } } }
       ]
     },
     include: {

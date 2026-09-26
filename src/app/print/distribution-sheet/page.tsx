@@ -112,8 +112,7 @@ export default async function DistributionSheetPage(props: {
       rank: { in: allowedRanks },
       OR: [
         { team: { eventId: targetEvent.id } },
-        { candidate: { team: { eventId: targetEvent.id } } },
-        { program: { eventId: targetEvent.id } }
+        { candidate: { team: { eventId: targetEvent.id } } }
       ]
     },
     include: {

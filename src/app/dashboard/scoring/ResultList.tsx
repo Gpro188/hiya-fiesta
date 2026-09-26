@@ -8,12 +8,14 @@ export default function ResultList({
   results, 
   role,
   isCompleted = false,
-  completedFestName = ""
+  completedFestName = "",
+  activeEventId = ""
 }: { 
   results: any[]; 
   role: string;
   isCompleted?: boolean;
   completedFestName?: string;
+  activeEventId?: string;
 }) {
   const [filter, setFilter] = useState<'all' | 'published' | 'pending'>('all');
   const [editingResult, setEditingResult] = useState<any | null>(null);
@@ -174,7 +176,9 @@ export default function ResultList({
                     <button 
                       onClick={() => {
                         if (confirm(`Unpublish results for ${group.program.name} back to Pending status so you can check and make changes?`)) {
-                          unpublishProgramResults(pid);
+                          const resIds = group.results.map(r => r.id);
+                          const evId = activeEventId || group.results[0]?.candidate?.team?.eventId || group.results[0]?.team?.eventId;
+                          unpublishProgramResults(pid, resIds, evId);
                         }
                       }}
                       className="btn"
@@ -201,7 +205,9 @@ export default function ResultList({
                     <button 
                       onClick={() => {
                         if (confirm(`Approve physical valuation and publish all results for ${group.program.name}?`)) {
-                          publishProgramResults(pid);
+                          const resIds = group.results.map(r => r.id);
+                          const evId = activeEventId || group.results[0]?.candidate?.team?.eventId || group.results[0]?.team?.eventId;
+                          publishProgramResults(pid, resIds, evId);
                         }
                       }}
                       className="btn btn-primary"
@@ -224,8 +230,10 @@ export default function ResultList({
                   {canManage && (
                     <button 
                       onClick={async () => {
-                        if (confirm(`Are you sure you want to DELETE ALL results for "${group.program.name}"?\n\nThis will remove all entered marks and places for this program so you can re-enter cleanly.`)) {
-                          const res = await deleteProgramResults(pid);
+                        if (confirm(`Are you sure you want to DELETE ALL results for "${group.program.name}"?\n\nThis will remove all entered marks and places for this program in this zone so you can re-enter cleanly.`)) {
+                          const resIds = group.results.map(r => r.id);
+                          const evId = activeEventId || group.results[0]?.candidate?.team?.eventId || group.results[0]?.team?.eventId;
+                          const res = await deleteProgramResults(pid, resIds, evId);
                           if (!res.success) alert(res.error || "Failed to delete program results");
                         }
                       }}

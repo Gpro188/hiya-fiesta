@@ -98,7 +98,11 @@ export default async function CertificatesDashboardPage(props: {
   }
 
   // Select target event
-  let selectedEvent = events[0];
+  let selectedEvent = (searchParams.eventId && events.find(e => e.id === searchParams.eventId))
+    || events.find(e => e.statusOverride === "LIVE")
+    || events.find(e => e.statusOverride === "COMPLETED")
+    || events[0];
+
   if (role === "SUPER_ADMIN") {
     if (searchParams.session === "state") {
       selectedEvent = events.find(e => e.type === "STATE") || events[0];

@@ -300,7 +300,6 @@ export default async function ScoringPage(props: {
     prisma.result.findMany({
       where: { 
         OR: [
-          { program: { eventId: activeEventId } },
           { team: { eventId: activeEventId } },
           { candidate: { team: { eventId: activeEventId } } }
         ]
@@ -644,6 +643,7 @@ export default async function ScoringPage(props: {
                 role={session.user.role} 
                 isCompleted={isScoringLocked}
                 completedFestName={activeEvent.name}
+                activeEventId={activeEventId}
               />
             </div>
           </div>
