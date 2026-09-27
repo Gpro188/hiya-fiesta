@@ -85,6 +85,73 @@ export default async function ReportsPage(props: {
           <EventSwitcher events={events} activeEventId={activeEventId || ""} />
         </div>
 
+        {/* Grand Closing Ceremony Official Declaration Printout */}
+        <div className="glass-panel" style={{
+          padding: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+          borderRadius: '16px',
+          border: '2px solid #e11d48',
+          background: 'linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(190, 18, 60, 0.04) 100%)',
+          boxShadow: '0 10px 25px -5px rgba(225, 29, 72, 0.12)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 450px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🎙️</span>
+                <h3 style={{ margin: 0, color: '#be123c', fontWeight: 800 }}>
+                  Grand Closing Ceremony &bull; Official Results Declaration (4 A4 Pages)
+                </h3>
+                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#ffe4e6', color: '#9f1239', fontWeight: 800, border: '1px solid #fecdd3' }}>
+                  STAGE ANNOUNCEMENT PDF
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Official 4-page announcement sheets structured for smooth stage declaration at the closing ceremony: <strong>Page 1:</strong> Zone Title &amp; Overall Champions (Champion, 1st &amp; 2nd Runner Up) &bull; <strong>Page 2:</strong> Fadhila &amp; Fadheela Category Champions &bull; <strong>Page 3:</strong> College Magazine Results (Prog 43) &bull; <strong>Page 4:</strong> Fadhila &amp; Fadheela Kalathilakam (Individual Champions &bull; Joint if tied). <em>Includes all entered results (published + pending).</em>
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(225,29,72,0.12)', color: '#be123c', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🏆 Overall Champions (Top 3)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(99,102,241,0.12)', color: '#4338ca', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🌟 Fadhila &amp; Fadheela Titles
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(13,148,136,0.12)', color: '#0f766e', fontSize: '0.82rem', fontWeight: 700 }}>
+                  📰 Magazine Result (Prog 43)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(162,28,175,0.12)', color: '#86198f', fontSize: '0.82rem', fontWeight: 700 }}>
+                  👑 Kalathilakam (Top Scorers &bull; Joint Tied)
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
+              <a
+                href={`/print/closing-ceremony?eventId=${activeEventId || ''}`}
+                target="_blank"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 22px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>🎙️</span> Open Closing Declaration (4 Pages)
+              </a>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                Optimized for Stage Reading &bull; A4 Printable
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Finished Zone Results, Trophy & Certificate Audit Download */}
         <div className="glass-panel" style={{
           padding: 'var(--spacing-lg)',

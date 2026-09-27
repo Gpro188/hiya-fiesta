@@ -183,6 +183,25 @@ export default async function ZonalResultsSummaryPage(props: {
               </a>
             </div>
 
+            <a
+              href={`/print/closing-ceremony?eventId=${eventId || ''}`}
+              target="_blank"
+              style={{
+                padding: "6px 14px",
+                backgroundColor: "#e11d48",
+                color: "#ffffff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontSize: "0.80rem",
+                fontWeight: 800,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                boxShadow: "0 2px 6px rgba(225, 29, 72, 0.3)"
+              }}
+            >
+              <span>🎙️</span> 4-Page Stage Declaration
+            </a>
             <PrintButton label="🖨️ Print Closing Ceremony Announcement" />
             <Link
               href="/dashboard/reports"

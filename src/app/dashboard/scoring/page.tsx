@@ -600,6 +600,28 @@ export default async function ScoringPage(props: {
           >
             <span>🏆</span> Distribution Sheet (PDF)
           </a>
+          <a
+            href={`/print/closing-ceremony?eventId=${activeEventId}`}
+            target="_blank"
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.45rem 0.95rem',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              backgroundColor: '#fdf2f8',
+              border: '1.5px solid #db2777',
+              color: '#9d174d',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              boxShadow: '0 2px 6px rgba(219, 39, 119, 0.15)'
+            }}
+            title="Print Official 4-Page Closing Ceremony Announcement Sheet (Overall Champions, Categories, Magazine & Kalathilakam)"
+          >
+            <span>🎙️</span> Closing Declaration (4 Pages)
+          </a>
           <ExcelExport results={results} />
         </div>
       </div>
