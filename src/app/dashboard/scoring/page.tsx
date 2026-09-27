@@ -618,9 +618,9 @@ export default async function ScoringPage(props: {
               textDecoration: 'none',
               boxShadow: '0 2px 6px rgba(219, 39, 119, 0.15)'
             }}
-            title="Print Official 4-Page Closing Ceremony Announcement Sheet (Overall Champions, Categories, Magazine & Kalathilakam)"
+            title="Download / Print Official 4-Page Closing Ceremony Announcement Sheet (PDF)"
           >
-            <span>🎙️</span> Closing Declaration (4 Pages)
+            <span>📥</span> 🎙️ Closing Declaration (4P PDF)
           </a>
           <ExcelExport results={results} />
         </div>

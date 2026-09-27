@@ -99,6 +99,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/reports",
         },
         {
+          name: "Closing Declaration",
+          subtitle: "4-Page Stage Announcement PDF",
+          icon: "🎙️",
+          href: "/print/closing-ceremony",
+          highlight: true,
+        },
+        {
           name: "Venue Control Sheet",
           subtitle: "Program, result & cert tick sheet",
           icon: "📋",
@@ -297,6 +304,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "All printables & schedules",
           icon: "🖨️",
           href: "/dashboard/reports",
+        },
+        {
+          name: "Closing Declaration",
+          subtitle: "4-Page Stage Announcement PDF",
+          icon: "🎙️",
+          href: "/print/closing-ceremony",
+          highlight: true,
         },
         {
           name: "Venue Control Sheet",

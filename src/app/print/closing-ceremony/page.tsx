@@ -407,7 +407,12 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
             </div>
           )}
 
-          <PrintButton label="Print 4-Page Announcement (A4)" color="#e11d48" />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+            <PrintButton label="Download as PDF / Print (A4)" color="#e11d48" />
+            <span style={{ fontSize: "0.72rem", color: "#cbd5e1" }}>
+              💡 Select <strong>&quot;Save as PDF&quot;</strong> in print window to download
+            </span>
+          </div>
         </div>
       </div>
 

@@ -752,7 +752,61 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Institution First-Login / Profile Onboarding Modal */}
+      {/* Grand Closing Ceremony Stage Declaration Banner for Admins */}
+      {["SUPER_ADMIN", "ADMIN", "ZONE_ADMIN"].includes(role) && (
+        <div className="glass-panel" style={{
+          padding: '1.25rem 1.5rem',
+          marginBottom: '1.75rem',
+          borderRadius: '16px',
+          border: '2px solid #e11d48',
+          background: 'linear-gradient(135deg, rgba(225, 29, 72, 0.12) 0%, rgba(190, 18, 60, 0.05) 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: '0 8px 24px -4px rgba(225, 29, 72, 0.2)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '2.2rem' }}>🎙️</span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, color: '#be123c', fontWeight: 900, fontSize: '1.15rem' }}>
+                  Grand Closing Ceremony &bull; Official Declaration (4 A4 Pages)
+                </h3>
+                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#ffe4e6', color: '#9f1239', fontWeight: 800 }}>
+                  STAGE ANNOUNCEMENT PDF
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Download &amp; print the 4-page announcement: <strong>P1:</strong> Overall Champions &bull; <strong>P2:</strong> Category Champions &bull; <strong>P3:</strong> Magazine Results &bull; <strong>P4:</strong> Kalathilakam Titles (Joint if tied).
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <a
+              href="/print/closing-ceremony"
+              target="_blank"
+              className="btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0.65rem 1.4rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                textDecoration: 'none',
+                boxShadow: '0 4px 14px rgba(225, 29, 72, 0.35)'
+              }}
+            >
+              <span>📥</span> Download / Print 4-Page PDF
+            </a>
+          </div>
+        </div>
+      )}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && institutionInfo && (
         <InstitutionOnboardingModal
           institutionName={institutionInfo.name}

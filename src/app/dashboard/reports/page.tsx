@@ -143,10 +143,10 @@ export default async function ReportsPage(props: {
                   whiteSpace: 'nowrap'
                 }}
               >
-                <span>🎙️</span> Open Closing Declaration (4 Pages)
+                <span>📥</span> Download / Print 4-Page PDF
               </a>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                Optimized for Stage Reading &bull; A4 Printable
+                A4 Official Stage Announcement &bull; Select &quot;Save as PDF&quot; in print window to download
               </span>
             </div>
           </div>
