@@ -382,29 +382,29 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Event Switcher */}
           {allAvailableEvents.length > 1 && (
-            <form method="GET" style={{ margin: 0 }}>
-              <select
-                name="eventId"
-                defaultValue={targetEventId}
-                onChange={(e) => e.target.form?.submit()}
-                style={{
-                  backgroundColor: "#0f172a",
-                  color: "#f8fafc",
-                  border: "1px solid #334155",
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer"
-                }}
-              >
-                {allAvailableEvents.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              {allAvailableEvents.map((ev) => {
+                const isActive = ev.id === targetEventId;
+                return (
+                  <Link
+                    key={ev.id}
+                    href={`/print/closing-ceremony?eventId=${ev.id}`}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "0.8rem",
+                      fontWeight: 700,
+                      textDecoration: "none",
+                      backgroundColor: isActive ? "#e11d48" : "#1e293b",
+                      color: isActive ? "#ffffff" : "#94a3b8",
+                      border: isActive ? "1px solid #f43f5e" : "1px solid #334155"
+                    }}
+                  >
                     {ev.name}
-                  </option>
-                ))}
-              </select>
-            </form>
+                  </Link>
+                );
+              })}
+            </div>
           )}
 
           <PrintButton label="Print 4-Page Announcement (A4)" color="#e11d48" />
