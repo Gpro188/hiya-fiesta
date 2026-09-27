@@ -412,7 +412,7 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
       </div>
 
       {/* STYLES FOR SCREEN & PRINT */}
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Fraunces:opsz,wght@9..144,700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap');
 
         .ceremony-container {
@@ -466,7 +466,7 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
             break-after: avoid !important;
           }
         }
-      `}</style>
+      ` }} />
 
       <div className="ceremony-container">
         {/* ========================================================================= */}
