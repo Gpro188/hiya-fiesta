@@ -1,3 +1,4 @@
 {
-  "regions": ["bom1"]
+  "regions": ["bom1"],
+  "buildCommand": "cp prisma/schema.postgres.prisma prisma/schema.prisma && npx prisma generate && next build"
 }
