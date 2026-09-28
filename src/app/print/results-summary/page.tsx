@@ -490,9 +490,6 @@ export default async function ZonalResultsSummaryPage(props: {
                       color: "#334155"
                     }}>
                       <span style={{ fontWeight: 800, color: "#9f1239" }}>🥈 2nd:</span> <strong>{champions.fadhilaRunnerUpInstitution.name}</strong> ({champions.fadhilaRunnerUpInstitution.fadhilaPoints} PTS)
-                      {champions.fadhilaSecondRunnerUpInstitution && (
-                        <span> • <span style={{ fontWeight: 800, color: "#9f1239" }}>🥉 3rd:</span> <strong>{champions.fadhilaSecondRunnerUpInstitution.name}</strong> ({champions.fadhilaSecondRunnerUpInstitution.fadhilaPoints} PTS)</span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -532,9 +529,6 @@ export default async function ZonalResultsSummaryPage(props: {
                       color: "#334155"
                     }}>
                       <span style={{ fontWeight: 800, color: "#581c87" }}>🥈 2nd:</span> <strong>{champions.fadheelaRunnerUpInstitution.name}</strong> ({champions.fadheelaRunnerUpInstitution.fadheelaPoints} PTS)
-                      {champions.fadheelaSecondRunnerUpInstitution && (
-                        <span> • <span style={{ fontWeight: 800, color: "#581c87" }}>🥉 3rd:</span> <strong>{champions.fadheelaSecondRunnerUpInstitution.name}</strong> ({champions.fadheelaSecondRunnerUpInstitution.fadheelaPoints} PTS)</span>
-                      )}
                     </div>
                   )}
                 </div>
