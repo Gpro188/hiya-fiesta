@@ -113,8 +113,8 @@ function InstitutionLogo({
 
 // ── Olympic Medal Badge ────────────────────────────────────────────────────
 function MedalBadge({ rank, small = false }: { rank: number; small?: boolean }) {
-  const sz = small ? 32 : 40;
-  const fs = small ? 12 : 14;
+  const sz = small ? 24 : 36;
+  const fs = small ? 10 : 13;
 
   if (rank === 1) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: sz, height: sz + 4, flexShrink: 0 }}>
@@ -150,7 +150,7 @@ function MedalBadge({ rank, small = false }: { rank: number; small?: boolean }) 
   );
 
   return (
-    <div style={{ width: small ? 28 : 36, height: small ? 28 : 36, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.9rem", color: "#ffffff", flexShrink: 0 }}>
+    <div style={{ width: small ? 24 : 32, height: small ? 24 : 32, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: small ? "0.72rem" : "0.85rem", color: "#ffffff", flexShrink: 0 }}>
       {rank}
     </div>
   );
@@ -185,13 +185,15 @@ function CategoryProgramBox({
   categoryName,
   categoryType,
   peelKey,
-  isGeneral = false
+  isGeneral = false,
+  fullWidth = false
 }: {
   prog: PublishedProgram | null | undefined;
   categoryName: string;
   categoryType: "FADHILA" | "FADHEELA" | "GENERAL";
   peelKey: number;
   isGeneral?: boolean;
+  fullWidth?: boolean;
 }) {
   const isFadhila = categoryType === "FADHILA";
   const isFadheela = categoryType === "FADHEELA";
@@ -264,6 +266,17 @@ function CategoryProgramBox({
   }
 
   const winners = prog.winners || [];
+  const winnerCount = winners.length;
+
+  // Adaptive density: adjust row size dynamically so all winners & graded participants fit cleanly on TV!
+  const isCompact = winnerCount >= 4;
+  const isUltraCompact = winnerCount >= 7;
+
+  const rowPadding = isUltraCompact ? "3px 8px" : isCompact ? "5px 10px" : "7px 12px";
+  const rowMinHeight = isUltraCompact ? 32 : isCompact ? 38 : 46;
+  const nameFs = isUltraCompact ? "0.78rem" : isCompact ? "0.85rem" : "0.94rem";
+  const collegeFs = isUltraCompact ? "0.58rem" : isCompact ? "0.64rem" : "0.70rem";
+  const rowGap = isUltraCompact ? 3 : isCompact ? 4 : 5;
 
   return (
     <div
@@ -289,39 +302,44 @@ function CategoryProgramBox({
       {/* Box Header Banner */}
       <div
         style={{
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          borderRadius: 12,
-          padding: isGeneral ? "7px 12px" : "6px 10px",
-          marginBottom: 6,
+          background: "rgba(255,255,255,0.07)",
+          border: "1px solid rgba(255,255,255,0.16)",
+          borderRadius: 14,
+          padding: isGeneral ? "8px 14px" : "7px 12px",
+          marginBottom: 8,
           flexShrink: 0,
           minWidth: 0,
           overflow: "hidden"
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                backgroundColor: badgeBg,
+                color: badgeColor,
+                padding: "2px 8px",
+                borderRadius: 9999,
+                fontSize: "0.68rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                flexShrink: 0
+              }}
+            >
+              {categoryName}
+            </span>
+            <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>
+              {isGeneral ? "General Program" : "Individual Program"}
+            </span>
+          </div>
           <span
             style={{
-              backgroundColor: badgeBg,
-              color: badgeColor,
-              padding: "2px 8px",
-              borderRadius: 9999,
-              fontSize: "0.68rem",
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              flexShrink: 0
-            }}
-          >
-            {categoryName}
-          </span>
-          <span
-            style={{
-              backgroundColor: "rgba(255,255,255,0.18)",
+              backgroundColor: "rgba(255,255,255,0.2)",
               color: "#ffffff",
-              padding: "1px 7px",
+              padding: "1px 8px",
               borderRadius: 9999,
-              fontSize: "0.70rem",
+              fontSize: "0.72rem",
               fontWeight: 900,
               fontFamily: "monospace",
               flexShrink: 0
@@ -332,7 +350,7 @@ function CategoryProgramBox({
         </div>
         <div
           style={{
-            fontSize: isGeneral ? "1.18rem" : "1.00rem",
+            fontSize: isGeneral ? "1.2rem" : "1.05rem",
             fontWeight: 900,
             color: "#ffffff",
             lineHeight: 1.2,
@@ -346,18 +364,18 @@ function CategoryProgramBox({
         </div>
       </div>
 
-      {/* Winners List — ALL results, grade + place only, no points, scrollable */}
+      {/* Winners List — ALL results: 1st, 2nd, 3rd, and all participants with grades */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 4,
+          gap: rowGap,
           flex: 1,
           minHeight: 0,
           minWidth: 0,
           overflowY: "auto",
           overflowX: "hidden",
-          scrollbarWidth: "none",
+          scrollbarWidth: "none"
         }}
       >
         {winners.map((w, i) => {
@@ -369,35 +387,52 @@ function CategoryProgramBox({
           const placeLabel = w.rank === 1 ? "1st" : w.rank === 2 ? "2nd" : w.rank === 3 ? "3rd"
             : w.rank === 4 ? "4th" : w.rank === 5 ? "5th" : w.rank ? `${w.rank}th` : null;
 
-          const gradeBg = w.grade === "A"
-            ? (is1 ? "rgba(0,0,0,0.18)" : "rgba(250,204,21,0.22)")
-            : w.grade === "B" ? "rgba(148,163,184,0.22)"
-            : w.grade === "C" ? "rgba(251,146,60,0.22)"
+          const isGradeA = w.grade === "A";
+          const isGradeB = w.grade === "B";
+          const isGradeC = w.grade === "C";
+
+          const gradeBg = isGradeA
+            ? (is1 ? "rgba(0,0,0,0.22)" : "rgba(250,204,21,0.24)")
+            : isGradeB
+            ? "rgba(148,163,184,0.22)"
+            : isGradeC
+            ? "rgba(251,146,60,0.22)"
             : "rgba(255,255,255,0.1)";
-          const gradeColor = w.grade === "A"
+
+          const gradeColor = isGradeA
             ? (is1 ? "#0f172a" : "#facc15")
-            : w.grade === "B" ? "#cbd5e1"
-            : w.grade === "C" ? "#fb923c"
-            : "#fff";
+            : isGradeB
+            ? "#cbd5e1"
+            : isGradeC
+            ? "#fb923c"
+            : "#ffffff";
 
           const rowBg = is1
             ? "linear-gradient(135deg, #facc15 0%, #eab308 50%, #ca8a04 100%)"
             : is2
-            ? "linear-gradient(135deg, rgba(241,245,249,0.14) 0%, rgba(148,163,184,0.06) 100%)"
+            ? "linear-gradient(135deg, rgba(241,245,249,0.16) 0%, rgba(148,163,184,0.08) 100%)"
             : is3
-            ? "linear-gradient(135deg, rgba(251,146,60,0.14) 0%, rgba(194,65,12,0.06) 100%)"
-            : "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)";
+            ? "linear-gradient(135deg, rgba(251,146,60,0.16) 0%, rgba(194,65,12,0.08) 100%)"
+            : isGradeA
+            ? "linear-gradient(135deg, rgba(250,204,21,0.10) 0%, rgba(250,204,21,0.03) 100%)"
+            : isGradeB
+            ? "linear-gradient(135deg, rgba(148,163,184,0.08) 0%, rgba(148,163,184,0.03) 100%)"
+            : "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)";
 
           const rowBorder = is1
-            ? "1px solid rgba(255,255,255,0.5)"
+            ? "1.5px solid rgba(255,255,255,0.6)"
             : is2
-            ? "1px solid rgba(226,232,240,0.22)"
+            ? "1px solid rgba(226,232,240,0.3)"
             : is3
-            ? "1px solid rgba(251,146,60,0.22)"
+            ? "1px solid rgba(251,146,60,0.3)"
+            : isGradeA
+            ? "1px solid rgba(250,204,21,0.25)"
+            : isGradeB
+            ? "1px solid rgba(148,163,184,0.2)"
             : "1px solid rgba(255,255,255,0.08)";
 
           const textColor = is1 ? "#0f172a" : "#ffffff";
-          const subTextColor = is1 ? "#451a03" : "rgba(255,255,255,0.62)";
+          const subTextColor = is1 ? "#451a03" : "rgba(255,255,255,0.68)";
 
           return (
             <div
@@ -406,37 +441,43 @@ function CategoryProgramBox({
               style={{
                 background: rowBg,
                 border: rowBorder,
-                borderRadius: 8,
-                padding: "4px 8px",
+                borderRadius: 10,
+                padding: rowPadding,
+                minHeight: rowMinHeight,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                boxShadow: is1 ? "0 3px 12px rgba(250,204,21,0.28)" : "none",
+                boxShadow: is1 ? "0 4px 14px rgba(250,204,21,0.32)" : "none",
                 flexShrink: 0,
                 minWidth: 0,
                 boxSizing: "border-box",
                 overflow: "hidden",
-                gap: 6
+                gap: 8
               }}
             >
               {/* Left: badge + name + college */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flex: 1, overflow: "hidden" }}>
                 {isTop3 ? (
-                  <MedalBadge rank={w.rank as number} small />
+                  <MedalBadge rank={w.rank as number} small={isCompact} />
                 ) : (
                   <div style={{
-                    width: 26, height: 26, borderRadius: "50%",
-                    border: "1.5px solid rgba(255,255,255,0.22)",
+                    width: isUltraCompact ? 22 : 26,
+                    height: isUltraCompact ? 22 : 26,
+                    borderRadius: "50%",
+                    backgroundColor: isGradeA ? "rgba(250,204,21,0.2)" : isGradeB ? "rgba(148,163,184,0.18)" : "rgba(255,255,255,0.08)",
+                    border: isGradeA ? "1.5px solid rgba(250,204,21,0.5)" : isGradeB ? "1.5px solid rgba(148,163,184,0.4)" : "1.5px solid rgba(255,255,255,0.2)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 900, fontSize: "0.68rem", color: "rgba(255,255,255,0.65)",
+                    fontWeight: 900,
+                    fontSize: isUltraCompact ? "0.62rem" : "0.68rem",
+                    color: isGradeA ? "#facc15" : isGradeB ? "#cbd5e1" : "rgba(255,255,255,0.7)",
                     flexShrink: 0
                   }}>
-                    {placeLabel || "—"}
+                    {placeLabel ? placeLabel.replace(/[^0-9]/g, "") : (w.grade || (i + 1))}
                   </div>
                 )}
                 <div style={{ minWidth: 0, overflow: "hidden", flex: 1 }}>
                   <div style={{
-                    fontSize: "0.82rem",
+                    fontSize: nameFs,
                     fontWeight: 800,
                     lineHeight: 1.15,
                     overflow: "hidden",
@@ -448,11 +489,11 @@ function CategoryProgramBox({
                     {w.chestNumber && (
                       <span style={{
                         marginLeft: 4,
-                        backgroundColor: is1 ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.15)",
+                        backgroundColor: is1 ? "rgba(0,0,0,0.78)" : "rgba(255,255,255,0.16)",
                         color: "#fff",
-                        padding: "1px 4px",
+                        padding: "1px 5px",
                         borderRadius: 9999,
-                        fontSize: "0.58rem",
+                        fontSize: isUltraCompact ? "0.56rem" : "0.62rem",
                         fontWeight: 800,
                       }}>
                         #{w.chestNumber}
@@ -460,7 +501,7 @@ function CategoryProgramBox({
                     )}
                   </div>
                   <div style={{
-                    fontSize: "0.60rem",
+                    fontSize: collegeFs,
                     fontWeight: 700,
                     color: subTextColor,
                     overflow: "hidden",
@@ -472,16 +513,16 @@ function CategoryProgramBox({
                 </div>
               </div>
 
-              {/* Right: Place pill + Grade badge — NO points */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              {/* Right: Place pill + Grade badge */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                 {placeLabel && (
                   <span style={{
-                    backgroundColor: is1 ? "rgba(0,0,0,0.18)" : is2 ? "rgba(226,232,240,0.15)" : is3 ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.08)",
+                    backgroundColor: is1 ? "rgba(0,0,0,0.18)" : is2 ? "rgba(226,232,240,0.18)" : is3 ? "rgba(251,146,60,0.22)" : "rgba(255,255,255,0.1)",
                     color: textColor,
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    padding: "2px 7px",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    padding: isUltraCompact ? "1px 6px" : "2px 8px",
                     borderRadius: 9999,
-                    fontSize: "0.68rem",
+                    fontSize: isUltraCompact ? "0.62rem" : "0.70rem",
                     fontWeight: 900,
                   }}>
                     {placeLabel}
@@ -490,13 +531,13 @@ function CategoryProgramBox({
                 {w.grade && (
                   <span style={{
                     backgroundColor: gradeBg,
-                    border: `1px solid ${gradeColor}55`,
+                    border: `1.5px solid ${gradeColor}66`,
                     color: gradeColor,
-                    padding: "2px 8px",
+                    padding: isUltraCompact ? "1px 6px" : "2px 8px",
                     borderRadius: 9999,
-                    fontSize: "0.72rem",
+                    fontSize: isUltraCompact ? "0.66rem" : "0.74rem",
                     fontWeight: 900,
-                    minWidth: 26,
+                    minWidth: isUltraCompact ? 22 : 26,
                     textAlign: "center"
                   }}>
                     {w.grade}
@@ -534,9 +575,8 @@ export default function TVDisplayClient({
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [leftIndex, setLeftIndex] = useState(0);    // 0: Overall, 1: Category, 2: Kalathilakam
-  const [indivIndex, setIndivIndex] = useState(0);
-  const [genIndex, setGenIndex] = useState(0);
-  const [peelKey, setPeelKey] = useState(0);        // Increments on 5s rotation for 3D page peeling effect
+  const [slideIndex, setSlideIndex] = useState(0);  // Unified program slide index (Fadhila & Fadheela side-by-side, or General full)
+  const [peelKey, setPeelKey] = useState(0);        // Increments on 5.5s rotation for 3D page peeling effect
   const [isPaused, setIsPaused] = useState(false);
   const [leftFade, setLeftFade] = useState(true);
 
@@ -561,9 +601,9 @@ export default function TVDisplayClient({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [inputLocation, setInputLocation] = useState(defaultLocation);
 
-  // ── TV Screen Fit & Zoom State ──
+  // ── TV Screen Fit & Zoom State (Safe TV margins & presets) ──
   const [zoomMode, setZoomMode] = useState<"auto" | number>("auto");
-  const [scaleFactor, setScaleFactor] = useState(1);
+  const [scaleFactor, setScaleFactor] = useState(0.92);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -621,13 +661,13 @@ export default function TVDisplayClient({
   useEffect(() => {
     const calcScale = () => {
       if (zoomMode === "auto") {
-        const targetW = 1880;
-        const targetH = 940;
+        const targetW = 1920;
+        const targetH = 1020;
         const wRatio = window.innerWidth / targetW;
         const hRatio = window.innerHeight / targetH;
-        // Scale down if window is smaller; keep capped between 0.60 and 1.05
-        const calculated = Math.min(1.0, Math.min(wRatio, hRatio));
-        setScaleFactor(Math.max(0.60, Math.min(calculated, 1.05)));
+        // On TV, cap auto-fit between 0.65 and 0.95 so border overscan never clips edges
+        const calculated = Math.min(wRatio, hRatio);
+        setScaleFactor(Math.max(0.65, Math.min(calculated, 0.95)));
       } else {
         setScaleFactor(zoomMode);
       }
@@ -694,13 +734,19 @@ export default function TVDisplayClient({
     return () => clearInterval(id);
   }, [isPaused]);
 
-  // Build paired individual slides (Fadhila + Fadheela in distinct boxes)
-  const indivSlides = useMemo(() => {
+  // Unified program slides: Fadhila & Fadheela side-by-side at full height; General programs on dedicated slides
+  const programSlides = useMemo(() => {
     const fadhila = publishedPrograms.filter(p => p.categoryType === "FADHILA");
     const fadheela = publishedPrograms.filter(p => p.categoryType === "FADHEELA");
+    const general = publishedPrograms.filter(p => p.categoryType === "GENERAL");
 
-    const out: Array<{ fadhila?: PublishedProgram; fadheela?: PublishedProgram }> = [];
+    const slides: Array<{
+      fadhila?: PublishedProgram;
+      fadheela?: PublishedProgram;
+      general?: PublishedProgram;
+    }> = [];
 
+    // 1. Pair matching Fadhila and Fadheela programs first
     const usedFa = new Set<string>();
     const usedFd = new Set<string>();
     fadhila.forEach(fa => {
@@ -708,40 +754,36 @@ export default function TVDisplayClient({
       if (match) {
         usedFa.add(fa.id);
         usedFd.add(match.id);
-        out.push({ fadhila: fa, fadheela: match });
+        slides.push({ fadhila: fa, fadheela: match });
       }
     });
 
+    // 2. Add remaining unmatched Fadhila and Fadheela programs paired side-by-side
     const remFa = fadhila.filter(f => !usedFa.has(f.id));
     const remFd = fadheela.filter(f => !usedFd.has(f.id));
     const maxRem = Math.max(remFa.length, remFd.length);
     for (let i = 0; i < maxRem; i++) {
-      out.push({ fadhila: remFa[i] || undefined, fadheela: remFd[i] || undefined });
+      slides.push({ fadhila: remFa[i] || undefined, fadheela: remFd[i] || undefined });
     }
 
-    return out;
+    // 3. If any General programs exist, add them as distinct slides in rotation (no empty boxes on screen)
+    general.forEach(gen => {
+      slides.push({ general: gen });
+    });
+
+    return slides;
   }, [publishedPrograms]);
 
-  // General programs list
-  const generalPrograms = useMemo(() => {
-    return publishedPrograms.filter(p => p.categoryType === "GENERAL");
-  }, [publishedPrograms]);
-
-  // 5-second 3D page peeling rotation for individual and general programs
+  // 5.5-second 3D page peeling rotation across all program slides
   useEffect(() => {
     if (isPaused) return;
-    if (indivSlides.length <= 1 && generalPrograms.length <= 1) return;
+    if (programSlides.length <= 1) return;
     const id = setInterval(() => {
       setPeelKey(k => k + 1);
-      if (indivSlides.length > 0) {
-        setIndivIndex(p => (p + 1) % indivSlides.length);
-      }
-      if (generalPrograms.length > 0) {
-        setGenIndex(p => (p + 1) % generalPrograms.length);
-      }
-    }, 5000);
+      setSlideIndex(p => (p + 1) % programSlides.length);
+    }, 5500);
     return () => clearInterval(id);
-  }, [isPaused, indivSlides.length, generalPrograms.length]);
+  }, [isPaused, programSlides.length]);
 
   // Keyboard nav & shortcuts
   useEffect(() => {
@@ -761,13 +803,11 @@ export default function TVDisplayClient({
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         setPeelKey(k => k + 1);
-        if (indivSlides.length > 0) setIndivIndex(p => (p + 1) % indivSlides.length);
-        if (generalPrograms.length > 0) setGenIndex(p => (p + 1) % generalPrograms.length);
+        if (programSlides.length > 0) setSlideIndex(p => (p + 1) % programSlides.length);
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         setPeelKey(k => k + 1);
-        if (indivSlides.length > 0) setIndivIndex(p => (p - 1 + indivSlides.length) % indivSlides.length);
-        if (generalPrograms.length > 0) setGenIndex(p => (p - 1 + generalPrograms.length) % generalPrograms.length);
+        if (programSlides.length > 0) setSlideIndex(p => (p - 1 + programSlides.length) % programSlides.length);
       } else if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         adjustZoom(0.05);
@@ -790,10 +830,10 @@ export default function TVDisplayClient({
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
-  }, [indivSlides.length, generalPrograms.length, isPaused, scaleFactor]);
+  }, [programSlides.length, isPaused, scaleFactor]);
 
-  const currentIndiv = indivSlides[indivIndex] || null;
-  const currentGen = generalPrograms[genIndex] || null;
+  const currentSlide = programSlides[slideIndex] || null;
+  const isCurrentGeneral = Boolean(currentSlide?.general);
 
   const overall1 = champions.overallChampion || leaderboard[0] || null;
   const overall2 = champions.overallRunnerUp || leaderboard[1] || null;
@@ -929,7 +969,7 @@ export default function TVDisplayClient({
               <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, justifyContent: "center" }}>
                 {/* 1st – Grand Champion */}
                 {overall1 && (
-                  <div style={{ background: "linear-gradient(135deg, #78350f 0%, #b45309 40%, #f59e0b 85%, #fbbf24 100%)", borderRadius: 18, padding: "14px 18px", boxShadow: "0 10px 28px rgba(245,158,11,0.45)", border: "1.5px solid rgba(255,255,255,0.35)", position: "relative", overflow: "hidden" }}>
+                  <div style={{ background: "linear-gradient(135deg, #78350f 0%, #b45309 40%, #f59e0b 85%, #fbbf24 100%)", borderRadius: 18, padding: "14px 18px", boxShadow: "0 10px 28px rgba(245,158,11,0.45)", border: "1.5px solid rgba(255,255,255,0.35)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <span style={{ fontSize: "0.64rem", fontWeight: 900, color: "#fef08a", textTransform: "uppercase", letterSpacing: 1.5 }}>★ Grand Champion ★</span>
                       <span style={{ backgroundColor: "rgba(0,0,0,0.25)", color: "#fff", padding: "1px 8px", borderRadius: 9999, fontSize: "0.64rem", fontWeight: 800 }}>RANK 1</span>
@@ -959,7 +999,7 @@ export default function TVDisplayClient({
 
                 {/* 2nd Runner Up */}
                 {overall2 && (
-                  <div style={{ backgroundColor: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(226,232,240,0.3)", borderRadius: 16, padding: "11px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ backgroundColor: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(226,232,240,0.3)", borderRadius: 16, padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                     <MedalBadge rank={2} />
                     <InstitutionLogo logoUrl={overall2.logoUrl} name={overall2.name} size={40} bg="#334155" />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -978,7 +1018,7 @@ export default function TVDisplayClient({
 
                 {/* 3rd Runner Up */}
                 {overall3 && (
-                  <div style={{ backgroundColor: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(251,146,60,0.3)", borderRadius: 16, padding: "11px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ backgroundColor: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(251,146,60,0.3)", borderRadius: 16, padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                     <MedalBadge rank={3} />
                     <InstitutionLogo logoUrl={overall3.logoUrl} name={overall3.name} size={40} bg="#334155" />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -997,7 +1037,7 @@ export default function TVDisplayClient({
 
                 {/* Ranks 4-5 */}
                 {leaderboard.length > 3 && (
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
                     {leaderboard.slice(3, 5).map((t, i) => (
                       <div key={t.id || i} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "rgba(255,255,255,0.75)", fontWeight: 700 }}>
                         <span>{i + 4}. {t.name}</span>
@@ -1013,7 +1053,7 @@ export default function TVDisplayClient({
           {/* ── SLIDE 1: CATEGORY CHAMPIONS ── */}
           {leftIndex === 1 && (
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: "#facc15", fontSize: "1.1rem" }}>▶</span>
                   <h2 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 900, color: "#ffffff" }}>Category champions</h2>
@@ -1024,7 +1064,7 @@ export default function TVDisplayClient({
               <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, justifyContent: "center" }}>
 
                 {/* ── Fadhila Top 3 ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.14) 0%, rgba(250,204,21,0.04) 100%)", border: "1.5px solid rgba(250,204,21,0.4)", borderRadius: 18, padding: "12px 16px" }}>
+                <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.14) 0%, rgba(250,204,21,0.04) 100%)", border: "1.5px solid rgba(250,204,21,0.4)", borderRadius: 18, padding: "12px 16px", flexShrink: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                     <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "3px 12px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase" }}>Fadhila</span>
                     <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Individual category</span>
@@ -1035,7 +1075,7 @@ export default function TVDisplayClient({
                       { data: fadhilaTop2, pts: fadhilaTop2?.fadhilaPoints || fadhilaTop2?.points },
                       { data: fadhilaTop3, pts: fadhilaTop3?.fadhilaPoints || fadhilaTop3?.points }
                     ].filter(r => r.data).map((row, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(250,204,21,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(250,204,21,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(250,204,21,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(250,204,21,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px", flexShrink: 0, minHeight: 40, boxSizing: "border-box" }}>
                         <MedalBadge rank={i + 1} small />
                         <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={32} bg="#78350f" />
                         <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
@@ -1049,7 +1089,7 @@ export default function TVDisplayClient({
                 </div>
 
                 {/* ── Fadheela Top 3 ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(239,68,68,0.04) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 18, padding: "12px 16px", minWidth: 0, overflow: "hidden" }}>
+                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(239,68,68,0.04) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 18, padding: "12px 16px", minWidth: 0, overflow: "hidden", flexShrink: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                     <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "3px 12px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", flexShrink: 0 }}>Fadheela</span>
                     <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Individual category</span>
@@ -1060,7 +1100,7 @@ export default function TVDisplayClient({
                       { data: fadheelaTop2, pts: fadheelaTop2?.fadheelaPoints || fadheelaTop2?.points },
                       { data: fadheelaTop3, pts: fadheelaTop3?.fadheelaPoints || fadheelaTop3?.points }
                     ].filter(r => r.data).map((row, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(239,68,68,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px", minWidth: 0, overflow: "hidden" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: i === 0 ? "rgba(239,68,68,0.22)" : "rgba(255,255,255,0.06)", border: i === 0 ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "7px 12px", minWidth: 0, overflow: "hidden", flexShrink: 0, minHeight: 40, boxSizing: "border-box" }}>
                         <MedalBadge rank={i + 1} small />
                         <InstitutionLogo logoUrl={row.data.logoUrl} name={row.data.name} size={32} bg="#7f1d1d" />
                         <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
@@ -1077,37 +1117,37 @@ export default function TVDisplayClient({
             </div>
           )}
 
-          {/* ── SLIDE 2: KALATHILAKAM (Regal fillable layout for viewers watching from distance) ── */}
+          {/* ── SLIDE 2: KALATHILAKAM (Anti-overlap, crystal-clear rows for TV viewing) ── */}
           {leftIndex === 2 && (
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               {/* Grand Regal Header */}
-              <div style={{ textAlign: "center", marginBottom: 8 }}>
-                <div className="kalathilakam-crown-banner" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(90deg, rgba(250,204,21,0.2) 0%, rgba(250,204,21,0.35) 50%, rgba(250,204,21,0.2) 100%)", border: "1.5px solid rgba(250,204,21,0.6)", borderRadius: 16, padding: "6px 20px", boxShadow: "0 4px 16px rgba(250,204,21,0.3)" }}>
-                  <span style={{ fontSize: "1.3rem" }}>👑</span>
-                  <span style={{ fontSize: "1.35rem", fontWeight: 900, color: "#facc15", letterSpacing: "0.8px" }}>KALATHILAKAM</span>
-                  <span style={{ fontSize: "1.3rem" }}>👑</span>
+              <div style={{ textAlign: "center", marginBottom: 6, flexShrink: 0 }}>
+                <div className="kalathilakam-crown-banner" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(90deg, rgba(250,204,21,0.2) 0%, rgba(250,204,21,0.35) 50%, rgba(250,204,21,0.2) 100%)", border: "1.5px solid rgba(250,204,21,0.6)", borderRadius: 14, padding: "4px 16px", boxShadow: "0 4px 14px rgba(250,204,21,0.3)" }}>
+                  <span style={{ fontSize: "1.15rem" }}>👑</span>
+                  <span style={{ fontSize: "1.18rem", fontWeight: 900, color: "#facc15", letterSpacing: "0.8px" }}>KALATHILAKAM</span>
+                  <span style={{ fontSize: "1.15rem" }}>👑</span>
                 </div>
-                <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.7)", fontWeight: 800, marginTop: 3, textTransform: "uppercase", letterSpacing: 1.5 }}>
+                <div style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.7)", fontWeight: 800, marginTop: 2, textTransform: "uppercase", letterSpacing: 1.2 }}>
                   Individual Excellence · Festival Star Standings
                 </div>
               </div>
 
-              {/* Two Fillable Star Sections (Fadhila & Fadheela) */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0, justifyContent: "space-between" }}>
+              {/* Two Star Sections (Fadhila & Fadheela) - Anti-overlap layout */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, justifyContent: "space-between" }}>
 
-                {/* ── Fadhila Star Section (Fillable Card) ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(250,204,21,0.4)", borderRadius: 16, padding: "9px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                {/* ── Fadhila Star Section ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(250,204,21,0.4)", borderRadius: 16, padding: "8px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "2px 8px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>
                         ★ Fadhila Star
                       </span>
-                      <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Individual race</span>
+                      <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Individual race</span>
                     </div>
-                    <span style={{ fontSize: "0.64rem", color: "#facc15", fontWeight: 800 }}>Top 3 Standings</span>
+                    <span style={{ fontSize: "0.62rem", color: "#facc15", fontWeight: 800 }}>Top 3 Standings</span>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, justifyContent: "space-around" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minHeight: 0, justifyContent: "space-around" }}>
                     {fadhilaStars.slice(0, 3).map((cand, i) => {
                       const is1 = i === 0;
                       const pts = cand.totalPoints || cand.points || 0;
@@ -1121,32 +1161,35 @@ export default function TVDisplayClient({
                             backgroundColor: is1 ? "rgba(250,204,21,0.22)" : "rgba(255,255,255,0.06)",
                             border: is1 ? "1.5px solid rgba(250,204,21,0.55)" : "1px solid rgba(255,255,255,0.08)",
                             borderRadius: 10,
-                            padding: "6px 10px",
+                            padding: is1 ? "5px 10px" : "4px 8px",
+                            minHeight: 40,
+                            flexShrink: 0,
+                            boxSizing: "border-box",
                             boxShadow: is1 ? "0 4px 14px rgba(250,204,21,0.25)" : "none"
                           }}
                         >
                           <MedalBadge rank={i + 1} small />
                           <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                              <span style={{ fontSize: is1 ? "0.98rem" : "0.90rem", fontWeight: 900, color: is1 ? "#fef08a" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <span style={{ fontSize: is1 ? "0.92rem" : "0.84rem", fontWeight: 900, color: is1 ? "#fef08a" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {cand.name}
                               </span>
                               {cand.chestNumber && (
-                                <span style={{ backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.16)", color: "#fff", padding: "1px 6px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 800, flexShrink: 0 }}>
+                                <span style={{ backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.16)", color: "#fff", padding: "1px 5px", borderRadius: 9999, fontSize: "0.62rem", fontWeight: 800, flexShrink: 0 }}>
                                   #{cand.chestNumber}
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: "0.66rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {cand.institutionName || cand.teamName}{cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}
                             </div>
                           </div>
-                          {/* Large points badge for distance viewing */}
+                          {/* Points badge */}
                           <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: is1 ? "1.65rem" : "1.35rem", fontWeight: 900, fontFamily: "monospace", color: is1 ? "#facc15" : "rgba(255,255,255,0.9)", lineHeight: 1 }}>
+                            <div style={{ fontSize: is1 ? "1.45rem" : "1.25rem", fontWeight: 900, fontFamily: "monospace", color: is1 ? "#facc15" : "rgba(255,255,255,0.9)", lineHeight: 1 }}>
                               {pts}
                             </div>
-                            <div style={{ fontSize: "0.50rem", fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
+                            <div style={{ fontSize: "0.48rem", fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
                               PTS
                             </div>
                           </div>
@@ -1161,19 +1204,19 @@ export default function TVDisplayClient({
                   </div>
                 </div>
 
-                {/* ── Fadheela Star Section (Fillable Card) ── */}
-                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 16, padding: "9px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                {/* ── Fadheela Star Section ── */}
+                <div style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(15,23,42,0.85) 100%)", border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 16, padding: "8px 12px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ backgroundColor: "#ef4444", color: "#ffffff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>
+                      <span style={{ backgroundColor: "#ef4444", color: "#ffffff", padding: "2px 8px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>
                         ★ Fadheela Star
                       </span>
-                      <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Individual race</span>
+                      <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Individual race</span>
                     </div>
-                    <span style={{ fontSize: "0.64rem", color: "#f87171", fontWeight: 800 }}>Top 3 Standings</span>
+                    <span style={{ fontSize: "0.62rem", color: "#f87171", fontWeight: 800 }}>Top 3 Standings</span>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, justifyContent: "space-around", minWidth: 0, overflow: "hidden" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minHeight: 0, justifyContent: "space-around", minWidth: 0, overflow: "hidden" }}>
                     {fadheelaStars.slice(0, 3).map((cand, i) => {
                       const is1 = i === 0;
                       const pts = cand.totalPoints || cand.points || 0;
@@ -1187,7 +1230,10 @@ export default function TVDisplayClient({
                             backgroundColor: is1 ? "rgba(239,68,68,0.24)" : "rgba(255,255,255,0.06)",
                             border: is1 ? "1.5px solid rgba(239,68,68,0.55)" : "1px solid rgba(255,255,255,0.08)",
                             borderRadius: 10,
-                            padding: "6px 10px",
+                            padding: is1 ? "5px 10px" : "4px 8px",
+                            minHeight: 40,
+                            flexShrink: 0,
+                            boxSizing: "border-box",
                             boxShadow: is1 ? "0 4px 14px rgba(239,68,68,0.25)" : "none",
                             minWidth: 0,
                             overflow: "hidden"
@@ -1196,25 +1242,25 @@ export default function TVDisplayClient({
                           <MedalBadge rank={i + 1} small />
                           <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden" }}>
-                              <span style={{ fontSize: is1 ? "0.98rem" : "0.90rem", fontWeight: 900, color: is1 ? "#fca5a5" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                              <span style={{ fontSize: is1 ? "0.92rem" : "0.84rem", fontWeight: 900, color: is1 ? "#fca5a5" : "#ffffff", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                                 {cand.name}
                               </span>
                               {cand.chestNumber && (
-                                <span style={{ backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.16)", color: "#fff", padding: "1px 6px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 800, flexShrink: 0 }}>
+                                <span style={{ backgroundColor: is1 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.16)", color: "#fff", padding: "1px 5px", borderRadius: 9999, fontSize: "0.62rem", fontWeight: 800, flexShrink: 0 }}>
                                   #{cand.chestNumber}
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: "0.66rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {cand.institutionName || cand.teamName}{cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}
                             </div>
                           </div>
-                          {/* Large points badge for distance viewing */}
+                          {/* Points badge */}
                           <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: is1 ? "1.65rem" : "1.35rem", fontWeight: 900, fontFamily: "monospace", color: is1 ? "#fca5a5" : "rgba(255,255,255,0.9)", lineHeight: 1 }}>
+                            <div style={{ fontSize: is1 ? "1.45rem" : "1.25rem", fontWeight: 900, fontFamily: "monospace", color: is1 ? "#fca5a5" : "rgba(255,255,255,0.9)", lineHeight: 1 }}>
                               {pts}
                             </div>
-                            <div style={{ fontSize: "0.50rem", fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
+                            <div style={{ fontSize: "0.48rem", fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
                               PTS
                             </div>
                           </div>
@@ -1233,88 +1279,77 @@ export default function TVDisplayClient({
           )}
 
           {/* Left card dot indicators */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10, flexShrink: 0 }}>
             {[0, 1, 2].map(i => (
               <div key={i} onClick={() => setLeftIndex(i)} style={{ width: i === leftIndex ? 22 : 7, height: 7, borderRadius: 9999, backgroundColor: i === leftIndex ? "#facc15" : "rgba(255,255,255,0.25)", transition: "all 0.3s ease", cursor: "pointer" }} />
             ))}
           </div>
         </div>
 
-        {/* ── RIGHT COLUMN (Individual & General Program Results in distinct boxes, 5s 3D page peeling) ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+        {/* ── RIGHT COLUMN: Full-Height Program Results Display ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
 
-          {/* ── 1. TOP SECTION: INDIVIDUAL PROGRAM RESULTS (Two Distinct Boxes: Fadhila & Fadheela) ── */}
-          <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Top Subheader Bar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#facc15", fontSize: "1.05rem" }}>▶</span>
-                <h2 style={{ margin: 0, fontSize: "1.18rem", fontWeight: 900, color: "#ffffff" }}>
-                  Individual program results
-                </h2>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "2px 8px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 900 }}>Fadhila Box</span>
-                <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "2px 8px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 900 }}>Fadheela Box</span>
-                {indivSlides.length > 0 && (
-                  <span style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "#fff", padding: "2px 8px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 800, fontFamily: "monospace" }}>
-                    {indivIndex + 1}/{indivSlides.length}
-                  </span>
-                )}
-              </div>
+          {/* Top Subheader Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isCurrentGeneral ? "#10b981" : "#facc15", fontSize: "1.05rem" }}>▶</span>
+              <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#ffffff" }}>
+                {isCurrentGeneral ? "General program results" : "Individual program results"}
+              </h2>
             </div>
-
-            {/* TWO DISTINCT SIDE-BY-SIDE BOXES (Fadhila on left, Fadheela on right - Strictly bounded) */}
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
-              <CategoryProgramBox
-                prog={currentIndiv?.fadhila}
-                categoryName="FADHILA"
-                categoryType="FADHILA"
-                peelKey={peelKey}
-              />
-              <CategoryProgramBox
-                prog={currentIndiv?.fadheela}
-                categoryName="FADHEELA"
-                categoryType="FADHEELA"
-                peelKey={peelKey}
-              />
-            </div>
-          </div>
-
-          {/* ── 2. BOTTOM SECTION: GENERAL PROGRAM RESULTS (Distinct Emerald Box) ── */}
-          <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Bottom Subheader Bar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#10b981", fontSize: "1.05rem" }}>▶</span>
-                <h2 style={{ margin: 0, fontSize: "1.18rem", fontWeight: 900, color: "#ffffff" }}>
-                  General program results
-                </h2>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ backgroundColor: "#10b981", color: "#fff", padding: "2px 10px", borderRadius: 9999, fontSize: "0.66rem", fontWeight: 900 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {isCurrentGeneral ? (
+                <span style={{ backgroundColor: "#10b981", color: "#fff", padding: "3px 12px", borderRadius: 9999, fontSize: "0.70rem", fontWeight: 900 }}>
                   General · All institutions
                 </span>
-                {generalPrograms.length > 0 && (
-                  <span style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "#fff", padding: "2px 8px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 800, fontFamily: "monospace" }}>
-                    {genIndex + 1}/{generalPrograms.length}
+              ) : (
+                <>
+                  <span style={{ backgroundColor: "#facc15", color: "#0f172a", padding: "3px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900 }}>
+                    Fadhila Box
                   </span>
-                )}
-              </div>
-            </div>
-
-            {/* DISTINCT GENERAL PROGRAM BOX */}
-            <div style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
-              <CategoryProgramBox
-                prog={currentGen}
-                categoryName="GENERAL"
-                categoryType="GENERAL"
-                peelKey={peelKey}
-                isGeneral
-              />
+                  <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "3px 10px", borderRadius: 9999, fontSize: "0.68rem", fontWeight: 900 }}>
+                    Fadheela Box
+                  </span>
+                </>
+              )}
+              {programSlides.length > 0 && (
+                <span style={{ backgroundColor: "rgba(255,255,255,0.16)", color: "#fff", padding: "3px 10px", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 800, fontFamily: "monospace" }}>
+                  {slideIndex + 1}/{programSlides.length}
+                </span>
+              )}
             </div>
           </div>
 
+          {/* TWO FULL-HEIGHT DISTINCT BOXES (Fadhila & Fadheela side-by-side, or General full width) */}
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", display: "flex" }}>
+            {isCurrentGeneral ? (
+              <div style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+                <CategoryProgramBox
+                  prog={currentSlide?.general}
+                  categoryName="GENERAL"
+                  categoryType="GENERAL"
+                  peelKey={peelKey}
+                  isGeneral
+                  fullWidth
+                />
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+                <CategoryProgramBox
+                  prog={currentSlide?.fadhila}
+                  categoryName="FADHILA"
+                  categoryType="FADHILA"
+                  peelKey={peelKey}
+                />
+                <CategoryProgramBox
+                  prog={currentSlide?.fadheela}
+                  categoryName="FADHEELA"
+                  categoryType="FADHEELA"
+                  peelKey={peelKey}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

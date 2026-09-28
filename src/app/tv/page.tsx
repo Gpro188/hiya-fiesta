@@ -164,7 +164,18 @@ export default async function TVDisplayPage(props: {
 
     const winners = (prog.results || [])
       .filter((r: any) => r.isPublished !== false)
-      .sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99))
+      .sort((a: any, b: any) => {
+        const rankA = a.rank != null ? a.rank : 999;
+        const rankB = b.rank != null ? b.rank : 999;
+        if (rankA !== rankB) return rankA - rankB;
+
+        const gradeOrder: Record<string, number> = { A: 1, B: 2, C: 3 };
+        const gA = gradeOrder[a.grade?.toUpperCase() || ""] || 9;
+        const gB = gradeOrder[b.grade?.toUpperCase() || ""] || 9;
+        if (gA !== gB) return gA - gB;
+
+        return (b.points || 0) - (a.points || 0);
+      })
       .map((r: any) => {
         const isIndiv = Boolean(r.candidate);
         const name = isIndiv
