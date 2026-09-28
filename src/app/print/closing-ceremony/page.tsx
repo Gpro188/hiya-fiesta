@@ -278,7 +278,7 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
   const firstRunnerUp = overallLeaderboard[1] || null;
   const secondRunnerUp = overallLeaderboard[2] || null;
 
-  // 7. Category Champions (Page 2) - Fadhila & Fadheela only (no General per instruction)
+  // 7. Category Champions (Page 2) - Fadhila & Fadheela only (supports multiple tied runner ups)
   const fadhilaLeaderboard = Object.values(teamScoresMap)
     .filter((t) => t.fadhilaPoints > 0)
     .sort((a, b) => b.fadhilaPoints - a.fadhilaPoints || b.gold - a.gold);
@@ -287,11 +287,16 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
     .filter((t) => t.fadheelaPoints > 0)
     .sort((a, b) => b.fadheelaPoints - a.fadheelaPoints || b.gold - a.gold);
 
-  const fadhilaChampion = fadhilaLeaderboard[0] || null;
-  const fadhilaFirstRunnerUp = fadhilaLeaderboard[1] || null;
+  // Group by distinct points to accurately handle ties and runner-ups
+  const distinctFadhilaPoints = Array.from(new Set(fadhilaLeaderboard.map((t) => t.fadhilaPoints)));
+  const fadhilaChampions = fadhilaLeaderboard.filter((t) => t.fadhilaPoints === distinctFadhilaPoints[0]);
+  const fadhilaFirstRunnerUps = fadhilaLeaderboard.filter((t) => t.fadhilaPoints === distinctFadhilaPoints[1]);
+  const fadhilaSecondRunnerUps = fadhilaLeaderboard.filter((t) => t.fadhilaPoints === distinctFadhilaPoints[2]);
 
-  const fadheelaChampion = fadheelaLeaderboard[0] || null;
-  const fadheelaFirstRunnerUp = fadheelaLeaderboard[1] || null;
+  const distinctFadheelaPoints = Array.from(new Set(fadheelaLeaderboard.map((t) => t.fadheelaPoints)));
+  const fadheelaChampions = fadheelaLeaderboard.filter((t) => t.fadheelaPoints === distinctFadheelaPoints[0]);
+  const fadheelaFirstRunnerUps = fadheelaLeaderboard.filter((t) => t.fadheelaPoints === distinctFadheelaPoints[1]);
+  const fadheelaSecondRunnerUps = fadheelaLeaderboard.filter((t) => t.fadheelaPoints === distinctFadheelaPoints[2]);
 
   // 8. Magazine Result (Page 3)
   const magazineResults = allResults
@@ -481,8 +486,8 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
           {/* Header */}
           <div>
             <div style={{ textAlign: "center", borderBottom: "3px double #0f172a", paddingBottom: "14px", marginBottom: "22px" }}>
-              <div style={{ fontSize: "0.78rem", fontWeight: 900, letterSpacing: "0.22em", textTransform: "uppercase", color: "#64748b" }}>
-                STATE WOMEN&apos;S SHARI&apos;ATH CAMPUS &bull; CSWC
+              <div style={{ fontSize: "0.85rem", fontWeight: 900, letterSpacing: "0.26em", textTransform: "uppercase", color: "#64748b" }}>
+                CSWC
               </div>
               <h1 style={{
                 margin: "4px 0",
@@ -811,117 +816,210 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
               </div>
 
               {/* Fadhila Champion */}
-              {fadhilaChampion ? (
-                <div style={{
-                  border: "2px solid #0369a1",
-                  borderRadius: "10px",
-                  padding: "14px 18px",
-                  backgroundColor: "#ffffff",
-                  marginBottom: "10px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px"
-                }}>
-                  <div style={{ flex: 1, minWidth: "240px" }}>
+              {fadhilaChampions.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "8px" }}>
+                  {fadhilaChampions.length > 1 && (
                     <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      backgroundColor: "#0369a1",
-                      color: "#ffffff",
-                      padding: "2px 10px",
-                      borderRadius: "9999px",
-                      fontSize: "0.72rem",
-                      fontWeight: 900,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      marginBottom: "4px"
+                      backgroundColor: "#e0f2fe",
+                      border: "1px solid #7dd3fc",
+                      color: "#0369a1",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.74rem",
+                      fontWeight: 800
                     }}>
-                      🥇 CATEGORY CHAMPION
+                      🤝 JOINT CATEGORY CHAMPION: {fadhilaChampions.length} institutions tied with {fadhilaChampions[0].fadhilaPoints} Points!
                     </div>
-                    <h3 style={{ margin: "2px 0 2px 0", fontSize: "1.25rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#0c4a6e" }}>
-                      {fadhilaChampion.name}
-                    </h3>
-                    {fadhilaChampion.place && (
-                      <div style={{ fontSize: "0.82rem", color: "#0369a1", fontWeight: 700 }}>
-                        📍 {fadhilaChampion.place}
+                  )}
+                  {fadhilaChampions.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "2px solid #0369a1",
+                      borderRadius: "10px",
+                      padding: "10px 16px",
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#0369a1",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.70rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥇 CATEGORY CHAMPION {fadhilaChampions.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h3 style={{ margin: "2px 0 2px 0", fontSize: "1.18rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#0c4a6e" }}>
+                          {team.name}
+                        </h3>
+                        {team.place && (
+                          <div style={{ fontSize: "0.80rem", color: "#0369a1", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div style={{
-                    backgroundColor: "#e0f2fe",
-                    border: "1.5px solid #7dd3fc",
-                    padding: "6px 16px",
-                    borderRadius: "8px",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ fontSize: "1.8rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#0369a1", lineHeight: 1 }}>
-                      {fadhilaChampion.fadhilaPoints}
+                      <div style={{
+                        backgroundColor: "#e0f2fe",
+                        border: "1.5px solid #7dd3fc",
+                        padding: "5px 16px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.65rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#0369a1", lineHeight: 1 }}>
+                          {team.fadhilaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#0284c7", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.68rem", fontWeight: 900, color: "#0284c7", textTransform: "uppercase" }}>
-                      POINTS
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <div style={{ color: "#64748b" }}>No results recorded in Fadhila category yet.</div>
               )}
 
-              {/* Fadhila 1st Runner Up */}
-              {fadhilaFirstRunnerUp && (
-                <div style={{
-                  border: "1.5px solid #cbd5e1",
-                  borderRadius: "10px",
-                  padding: "12px 16px",
-                  backgroundColor: "#ffffff",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px"
-                }}>
-                  <div style={{ flex: 1, minWidth: "240px" }}>
+              {/* Fadhila 1st Runner Up (Handles 2 or more tied runner ups) */}
+              {fadhilaFirstRunnerUps.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: fadhilaSecondRunnerUps.length > 0 ? "8px" : "0" }}>
+                  {fadhilaFirstRunnerUps.length > 1 && (
                     <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      backgroundColor: "#475569",
-                      color: "#ffffff",
-                      padding: "2px 10px",
-                      borderRadius: "9999px",
-                      fontSize: "0.70rem",
-                      fontWeight: 900,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      marginBottom: "4px"
+                      backgroundColor: "#f1f5f9",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.74rem",
+                      fontWeight: 800
                     }}>
-                      🥈 1ST RUNNER UP
+                      🤝 JOINT 1ST RUNNER UP: {fadhilaFirstRunnerUps.length} institutions tied with {fadhilaFirstRunnerUps[0].fadhilaPoints} Points!
                     </div>
-                    <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.1rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#1e293b" }}>
-                      {fadhilaFirstRunnerUp.name}
-                    </h4>
-                    {fadhilaFirstRunnerUp.place && (
-                      <div style={{ fontSize: "0.80rem", color: "#64748b", fontWeight: 700 }}>
-                        📍 {fadhilaFirstRunnerUp.place}
+                  )}
+                  {fadhilaFirstRunnerUps.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: "10px",
+                      padding: "9px 14px",
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#475569",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.68rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥈 1ST RUNNER UP {fadhilaFirstRunnerUps.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.05rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#1e293b" }}>
+                          {team.name}
+                        </h4>
+                        {team.place && (
+                          <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div style={{
-                    backgroundColor: "#f8fafc",
-                    border: "1.5px solid #cbd5e1",
-                    padding: "6px 14px",
-                    borderRadius: "8px",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ fontSize: "1.5rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#334155", lineHeight: 1 }}>
-                      {fadhilaFirstRunnerUp.fadhilaPoints}
+                      <div style={{
+                        backgroundColor: "#f8fafc",
+                        border: "1.5px solid #cbd5e1",
+                        padding: "5px 14px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#334155", lineHeight: 1 }}>
+                          {team.fadhilaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#64748b", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.66rem", fontWeight: 900, color: "#64748b", textTransform: "uppercase" }}>
-                      POINTS
+                  ))}
+                </div>
+              )}
+
+              {/* Fadhila 2nd Runner Up (if exists) */}
+              {fadhilaSecondRunnerUps.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {fadhilaSecondRunnerUps.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "1.5px solid #fed7aa",
+                      borderRadius: "10px",
+                      padding: "9px 14px",
+                      backgroundColor: "#fffdfa",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#b45309",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.68rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥉 2ND RUNNER UP {fadhilaSecondRunnerUps.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.05rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#78350f" }}>
+                          {team.name}
+                        </h4>
+                        {team.place && (
+                          <div style={{ fontSize: "0.78rem", color: "#b45309", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{
+                        backgroundColor: "#fffbeb",
+                        border: "1.5px solid #fde68a",
+                        padding: "5px 14px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#b45309", lineHeight: 1 }}>
+                          {team.fadhilaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#92400e", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -930,136 +1028,229 @@ export default async function ClosingCeremonyAnnouncementPage(props: {
             <div style={{
               border: "2px solid #9d174d",
               borderRadius: "14px",
-              padding: "16px 20px",
+              padding: "14px 18px",
               backgroundColor: "#fdf2f8"
             }}>
               <div style={{
                 display: "inline-block",
                 backgroundColor: "#9d174d",
                 color: "#ffffff",
-                padding: "4px 16px",
+                padding: "3px 14px",
                 borderRadius: "6px",
-                fontSize: "0.84rem",
+                fontSize: "0.82rem",
                 fontWeight: 900,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                marginBottom: "14px"
+                marginBottom: "10px"
               }}>
                 FADHEELA CATEGORY (SENIOR)
               </div>
 
               {/* Fadheela Champion */}
-              {fadheelaChampion ? (
-                <div style={{
-                  border: "2px solid #831843",
-                  borderRadius: "10px",
-                  padding: "14px 18px",
-                  backgroundColor: "#ffffff",
-                  marginBottom: "10px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px"
-                }}>
-                  <div style={{ flex: 1, minWidth: "240px" }}>
+              {fadheelaChampions.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "8px" }}>
+                  {fadheelaChampions.length > 1 && (
                     <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      backgroundColor: "#831843",
-                      color: "#ffffff",
-                      padding: "2px 10px",
-                      borderRadius: "9999px",
-                      fontSize: "0.72rem",
-                      fontWeight: 900,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      marginBottom: "4px"
+                      backgroundColor: "#fce7f3",
+                      border: "1px solid #f472b6",
+                      color: "#831843",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.74rem",
+                      fontWeight: 800
                     }}>
-                      🥇 CATEGORY CHAMPION
+                      🤝 JOINT CATEGORY CHAMPION: {fadheelaChampions.length} institutions tied with {fadheelaChampions[0].fadheelaPoints} Points!
                     </div>
-                    <h3 style={{ margin: "2px 0 2px 0", fontSize: "1.25rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#831843" }}>
-                      {fadheelaChampion.name}
-                    </h3>
-                    {fadheelaChampion.place && (
-                      <div style={{ fontSize: "0.82rem", color: "#9d174d", fontWeight: 700 }}>
-                        📍 {fadheelaChampion.place}
+                  )}
+                  {fadheelaChampions.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "2px solid #831843",
+                      borderRadius: "10px",
+                      padding: "10px 16px",
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#831843",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.70rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥇 CATEGORY CHAMPION {fadheelaChampions.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h3 style={{ margin: "2px 0 2px 0", fontSize: "1.18rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#831843" }}>
+                          {team.name}
+                        </h3>
+                        {team.place && (
+                          <div style={{ fontSize: "0.80rem", color: "#9d174d", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div style={{
-                    backgroundColor: "#fce7f3",
-                    border: "1.5px solid #f472b6",
-                    padding: "6px 16px",
-                    borderRadius: "8px",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ fontSize: "1.8rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#831843", lineHeight: 1 }}>
-                      {fadheelaChampion.fadheelaPoints}
+                      <div style={{
+                        backgroundColor: "#fce7f3",
+                        border: "1.5px solid #f472b6",
+                        padding: "5px 16px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.65rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#831843", lineHeight: 1 }}>
+                          {team.fadheelaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#9d174d", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.68rem", fontWeight: 900, color: "#9d174d", textTransform: "uppercase" }}>
-                      POINTS
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <div style={{ color: "#64748b" }}>No results recorded in Fadheela category yet.</div>
               )}
 
-              {/* Fadheela 1st Runner Up */}
-              {fadheelaFirstRunnerUp && (
-                <div style={{
-                  border: "1.5px solid #cbd5e1",
-                  borderRadius: "10px",
-                  padding: "12px 16px",
-                  backgroundColor: "#ffffff",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px"
-                }}>
-                  <div style={{ flex: 1, minWidth: "240px" }}>
+              {/* Fadheela 1st Runner Up (Handles 2 or more tied runner ups) */}
+              {fadheelaFirstRunnerUps.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: fadheelaSecondRunnerUps.length > 0 ? "8px" : "0" }}>
+                  {fadheelaFirstRunnerUps.length > 1 && (
                     <div style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      backgroundColor: "#475569",
-                      color: "#ffffff",
-                      padding: "2px 10px",
-                      borderRadius: "9999px",
-                      fontSize: "0.70rem",
-                      fontWeight: 900,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      marginBottom: "4px"
+                      backgroundColor: "#f1f5f9",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.74rem",
+                      fontWeight: 800
                     }}>
-                      🥈 1ST RUNNER UP
+                      🤝 JOINT 1ST RUNNER UP: {fadheelaFirstRunnerUps.length} institutions tied with {fadheelaFirstRunnerUps[0].fadheelaPoints} Points!
                     </div>
-                    <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.1rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#1e293b" }}>
-                      {fadheelaFirstRunnerUp.name}
-                    </h4>
-                    {fadheelaFirstRunnerUp.place && (
-                      <div style={{ fontSize: "0.80rem", color: "#64748b", fontWeight: 700 }}>
-                        📍 {fadheelaFirstRunnerUp.place}
+                  )}
+                  {fadheelaFirstRunnerUps.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: "10px",
+                      padding: "9px 14px",
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#475569",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.68rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥈 1ST RUNNER UP {fadheelaFirstRunnerUps.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.05rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#1e293b" }}>
+                          {team.name}
+                        </h4>
+                        {team.place && (
+                          <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div style={{
-                    backgroundColor: "#f8fafc",
-                    border: "1.5px solid #cbd5e1",
-                    padding: "6px 14px",
-                    borderRadius: "8px",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ fontSize: "1.5rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#334155", lineHeight: 1 }}>
-                      {fadheelaFirstRunnerUp.fadheelaPoints}
+                      <div style={{
+                        backgroundColor: "#f8fafc",
+                        border: "1.5px solid #cbd5e1",
+                        padding: "5px 14px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#334155", lineHeight: 1 }}>
+                          {team.fadheelaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#64748b", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.66rem", fontWeight: 900, color: "#64748b", textTransform: "uppercase" }}>
-                      POINTS
+                  ))}
+                </div>
+              )}
+
+              {/* Fadheela 2nd Runner Up (if exists) */}
+              {fadheelaSecondRunnerUps.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {fadheelaSecondRunnerUps.map((team, idx) => (
+                    <div key={team.id || idx} style={{
+                      border: "1.5px solid #fed7aa",
+                      borderRadius: "10px",
+                      padding: "9px 14px",
+                      backgroundColor: "#fffdfa",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}>
+                      <div style={{ flex: 1, minWidth: "240px" }}>
+                        <div style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          backgroundColor: "#b45309",
+                          color: "#ffffff",
+                          padding: "2px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "0.68rem",
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: "3px"
+                        }}>
+                          🥉 2ND RUNNER UP {fadheelaSecondRunnerUps.length > 1 ? `(TIE ${idx + 1})` : ""}
+                        </div>
+                        <h4 style={{ margin: "2px 0 2px 0", fontSize: "1.05rem", fontFamily: "'Fraunces', serif", fontWeight: 900, color: "#78350f" }}>
+                          {team.name}
+                        </h4>
+                        {team.place && (
+                          <div style={{ fontSize: "0.78rem", color: "#b45309", fontWeight: 700 }}>
+                            📍 {team.place}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{
+                        backgroundColor: "#fffbeb",
+                        border: "1.5px solid #fde68a",
+                        padding: "5px 14px",
+                        borderRadius: "8px",
+                        textAlign: "center"
+                      }}>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: "#b45309", lineHeight: 1 }}>
+                          {team.fadheelaPoints}
+                        </div>
+                        <div style={{ fontSize: "0.64rem", fontWeight: 900, color: "#92400e", textTransform: "uppercase" }}>
+                          POINTS
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
