@@ -25,13 +25,6 @@ export default async function MasterInstitutionsPage() {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>Master Institutions & Zone Directory</h1>
-        <p className="page-description">
-          Upload and manage all 80+ CSWC Women's Colleges across 8 Regional Zones.
-        </p>
-      </div>
-
       <InstitutionsClient initialInstitutions={institutions} zones={zones} />
     </div>
   );

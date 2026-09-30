@@ -8,6 +8,7 @@ import InstitutionProfileButton from "@/components/InstitutionProfileButton";
 import ZoneInstitutionStatusTable, { ZoneTeamStatus } from "./ZoneInstitutionStatusTable";
 import RegistrationCountdownBanner from "@/components/RegistrationCountdownBanner";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
+import { Shield, UserCheck, CheckCircle2, BookOpen, Trophy, Sparkles, CalendarDays, Scale, Users, Radio, ClipboardList, Map, TrendingUp, Clock, Zap, Printer } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -18,7 +19,7 @@ export default async function DashboardPage() {
   let stats: {
     label: string;
     value: string | number;
-    icon: string;
+    icon: React.ElementType;
     accentStart: string;
     accentEnd: string;
     trend?: string;
@@ -167,49 +168,49 @@ export default async function DashboardPage() {
         {
           label: "Your Team",
           value: userTeam.name,
-          icon: "🛡️",
-          accentStart: "#A5003A",
-          accentEnd: "#818cf8",
+          icon: Shield,
+          accentStart: "var(--brand)",
+          accentEnd: "var(--brand)",
           trend: userTeam.isAssignmentsConfirmed ? "Confirmed" : "In Progress",
         },
         {
           label: "Candidates",
           value: candidatesCount,
-          icon: "👤",
-          accentStart: "#ec4899",
-          accentEnd: "#f472b6",
+          icon: UserCheck,
+          accentStart: "var(--brand)",
+          accentEnd: "var(--brand)",
           trend: "Roster",
         },
         {
           label: "Approved",
           value: `${approvedCandidatesCount} / ${candidatesCount}`,
-          icon: "✅",
-          accentStart: "#10b981",
-          accentEnd: "#34d399",
-          trend: approvedCandidatesCount === candidatesCount && candidatesCount > 0 ? "All Approved" : "Pending",
+          icon: CheckCircle2,
+          accentStart: "var(--success)",
+          accentEnd: "var(--success)",
+          trend: approvedCandidatesCount === candidatesCount && candidatesCount > 0 ? "All approved" : "Pending",
         },
         {
           label: "Program Entries",
           value: assignmentsCount,
-          icon: "📜",
-          accentStart: "#f59e0b",
-          accentEnd: "#fbbf24",
-          trend: `${pendingPrograms.length} Pending`,
+          icon: BookOpen,
+          accentStart: "var(--warning)",
+          accentEnd: "var(--warning)",
+          trend: `${pendingPrograms.length} pending`,
         },
         {
           label: "Points Published",
           value: publishedPoints,
-          icon: "🏆",
-          accentStart: "#8E0033",
-          accentEnd: "#a78bfa",
+          icon: Trophy,
+          accentStart: "var(--brand)",
+          accentEnd: "var(--brand)",
           trend: "Live",
         },
         {
           label: "Total Points",
           value: totalPoints,
-          icon: "✨",
-          accentStart: "#e11d48",
-          accentEnd: "#fb7185",
+          icon: TrendingUp,
+          accentStart: "var(--brand)",
+          accentEnd: "var(--brand)",
           trend: "Overall",
         },
       ];
@@ -419,49 +420,49 @@ export default async function DashboardPage() {
       {
         label: "Zone Institutions",
         value: `${confirmedTeams.length} / ${zoneTeams.length}`,
-        icon: "🛡️",
-        accentStart: confirmedTeams.length === zoneTeams.length && zoneTeams.length > 0 ? "#10b981" : "#f59e0b",
-        accentEnd: "#34d399",
-        trend: `${pendingTeams.length} Pending Confirm`,
+        icon: Shield,
+        accentStart: confirmedTeams.length === zoneTeams.length && zoneTeams.length > 0 ? "var(--success)" : "var(--warning)",
+        accentEnd: "var(--success)",
+        trend: `${pendingTeams.length} pending`,
       },
       {
         label: "Stages & Schedule",
         value: `${scheduledPrograms.length} / ${zonePrograms.length}`,
-        icon: "📅",
-        accentStart: scheduledPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "#10b981" : "#0ea5e9",
-        accentEnd: "#38bdf8",
-        trend: `${unscheduledPrograms.length} Unscheduled`,
+        icon: CalendarDays,
+        accentStart: scheduledPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "var(--success)" : "var(--info)",
+        accentEnd: "var(--info)",
+        trend: `${unscheduledPrograms.length} unscheduled`,
       },
       {
         label: "Jury Assignments",
         value: `${juryAssignedPrograms.length} / ${zonePrograms.length}`,
-        icon: "⚖️",
-        accentStart: juryAssignedPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "#10b981" : "#8E0033",
-        accentEnd: "#a78bfa",
-        trend: `${missingJuryPrograms.length} Missing Jury`,
+        icon: Scale,
+        accentStart: juryAssignedPrograms.length === zonePrograms.length && zonePrograms.length > 0 ? "var(--success)" : "var(--brand)",
+        accentEnd: "var(--brand)",
+        trend: `${missingJuryPrograms.length} missing`,
       },
       {
         label: "Active Participants",
         value: participantsCount,
-        icon: "👤",
-        accentStart: "#ec4899",
-        accentEnd: "#f472b6",
+        icon: Users,
+        accentStart: "var(--brand)",
+        accentEnd: "var(--brand)",
         trend: "Enrolled",
       },
       {
         label: "Results Published",
         value: publishedResults,
-        icon: "🏆",
-        accentStart: "#10b981",
-        accentEnd: "#34d399",
+        icon: Trophy,
+        accentStart: "var(--success)",
+        accentEnd: "var(--success)",
         trend: "Live",
       },
       {
         label: "Results Pending",
         value: pendingResults,
-        icon: "⏳",
-        accentStart: "#ef4444",
-        accentEnd: "#f87171",
+        icon: Clock,
+        accentStart: "var(--danger)",
+        accentEnd: "var(--danger)",
         trend: "Awaiting",
       },
     ];
@@ -506,49 +507,49 @@ export default async function DashboardPage() {
       {
         label: "Total Events",
         value: eventsCount,
-        icon: "🎭",
-        accentStart: "#A5003A",
-        accentEnd: "#818cf8",
+        icon: CalendarDays,
+        accentStart: "var(--brand)",
+        accentEnd: "var(--brand)",
         trend: "Active",
       },
       {
         label: "Active Teams",
         value: teamsCount,
-        icon: "🛡️",
-        accentStart: "#ec4899",
-        accentEnd: "#f472b6",
+        icon: Shield,
+        accentStart: "var(--brand)",
+        accentEnd: "var(--brand)",
         trend: "Competing",
       },
       {
         label: "Programmes",
         value: programsCount,
-        icon: "📜",
-        accentStart: "#f59e0b",
-        accentEnd: "#fbbf24",
+        icon: BookOpen,
+        accentStart: "var(--warning)",
+        accentEnd: "var(--warning)",
         trend: "Scheduled",
       },
       {
         label: "Participants",
         value: participantsCount,
-        icon: "👤",
-        accentStart: "#10b981",
-        accentEnd: "#34d399",
+        icon: Users,
+        accentStart: "var(--success)",
+        accentEnd: "var(--success)",
         trend: "Registered",
       },
       {
         label: "Results Published",
         value: publishedResults,
-        icon: "🏆",
-        accentStart: "#8E0033",
-        accentEnd: "#a78bfa",
+        icon: Trophy,
+        accentStart: "var(--success)",
+        accentEnd: "var(--success)",
         trend: "Live",
       },
       {
         label: "Results Pending",
         value: pendingResults,
-        icon: "⏳",
-        accentStart: "#ef4444",
-        accentEnd: "#f87171",
+        icon: Clock,
+        accentStart: "var(--danger)",
+        accentEnd: "var(--danger)",
         trend: "Awaiting",
       },
     ];
@@ -556,69 +557,54 @@ export default async function DashboardPage() {
 
   if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && !hasTeam) {
     return (
-      <div className="animate-fade-in" style={{ padding: "var(--spacing-xl)" }}>
-        <div
-          className="stat-card"
-          style={{
-            maxWidth: "600px",
-            margin: "0 auto",
-            textAlign: "center",
-            padding: "3rem",
-            "--card-accent-start": "#f59e0b",
-            "--card-accent-end": "#fbbf24",
-          } as React.CSSProperties}
-        >
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
-          <h2 style={{ color: "#d97706", marginBottom: "1rem", fontSize: "1.25rem" }}>
-            Account Setup Pending
-          </h2>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: 1.6 }}>
-            Welcome, <strong>{username}</strong>. Your account has not been assigned to a
-            participating team yet.
-          </p>
-          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Please contact your festival administrator to link your profile with your designated
-            team.
-          </p>
+      <div className="animate-fade-in" style={{ padding: "var(--space-8)" }}>
+        <div className="empty-state glass-panel" style={{ maxWidth: "480px", margin: "0 auto", padding: "var(--space-12)" }}>
+          <div className="empty-state-icon">
+            <Zap size={32} strokeWidth={1} />
+          </div>
+          <div className="empty-state-title">Account setup pending</div>
+          <div className="empty-state-desc">
+            Your account is not yet linked to a participating team. Contact your administrator to complete setup.
+          </div>
         </div>
       </div>
     );
   }
 
-  const quickLinks: { label: string; href: string; icon: string; color: string }[] = [];
+  const quickLinks: { label: string; href: string }[] = [];
   if (role === "ZONE_ADMIN") {
     quickLinks.push(
-      { label: "Confirm Team Lists", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
-      { label: "Scheduling & Stages", href: "/dashboard/schedule", icon: "📅", color: "#0ea5e9" },
-      { label: "Assign Juries", href: "/dashboard/juries", icon: "⚖️", color: "#8E0033" },
-      { label: "Volunteers & IDs", href: "/dashboard/volunteers", icon: "🦺", color: "#8E0033" },
-      { label: "Rapid Mark Entry", href: "/dashboard/scoring", icon: "🏆", color: "#10b981" },
-      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
+      { label: "Confirm Team Lists", href: "/dashboard/teams" },
+      { label: "Scheduling & Stages", href: "/dashboard/schedule" },
+      { label: "Assign Juries", href: "/dashboard/juries" },
+      { label: "Volunteers & IDs", href: "/dashboard/volunteers" },
+      { label: "Rapid Mark Entry", href: "/dashboard/scoring" },
+      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}` }
     );
   } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
     quickLinks.push(
-      { label: "Manage Teams", href: "/dashboard/teams", icon: "🛡️", color: "#f59e0b" },
-      { label: "Volunteers Hub", href: "/dashboard/volunteers", icon: "🦺", color: "#8E0033" },
-      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" },
-      { label: "Manage Schedule", href: "/dashboard/schedule", icon: "📅", color: "#10b981" },
-      { label: "Media Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
-      { label: "Program Reg Counts", href: "/print/programs-registration", icon: "📊", color: "#8b5cf6" },
-      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}`, icon: "🪪", color: "#ec4899" }
+      { label: "Manage Teams", href: "/dashboard/teams" },
+      { label: "Volunteers Hub", href: "/dashboard/volunteers" },
+      { label: "Results Entry", href: "/dashboard/scoring" },
+      { label: "Manage Schedule", href: "/dashboard/schedule" },
+      { label: "Media Branding", href: "/dashboard/media" },
+      { label: "Program Reg Counts", href: "/print/programs-registration" },
+      { label: "Print Candidate IDs", href: `/print/id-cards${fullUser?.eventId ? `?eventId=${fullUser.eventId}` : ""}` }
     );
   } else if (["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam) {
     quickLinks.push(
-      { label: "1. Register Candidates", href: "/dashboard/candidates", icon: "👤", color: "#ec4899" },
-      { label: "2. Program Allocations", href: "/dashboard/assignments", icon: "📜", color: "#f59e0b" },
-      { label: "3. Print Schedule & IDs", href: "/dashboard/reports", icon: "🖨️", color: "#10b981" }
+      { label: "Register Candidates", href: "/dashboard/candidates" },
+      { label: "Program Allocations", href: "/dashboard/assignments" },
+      { label: "Print Schedule & IDs", href: "/dashboard/reports" }
     );
   } else if (role === "MEDIA") {
     quickLinks.push(
-      { label: "Poster Branding", href: "/dashboard/media", icon: "🎨", color: "#0ea5e9" },
-      { label: "Live Hub", href: "/hub", icon: "📡", color: "#A5003A" }
+      { label: "Poster Branding", href: "/dashboard/media" },
+      { label: "Live Hub", href: "/hub" }
     );
   } else if (role === "JUDGE") {
     quickLinks.push(
-      { label: "Results Entry", href: "/dashboard/scoring", icon: "🏆", color: "#A5003A" }
+      { label: "Results Entry", href: "/dashboard/scoring" }
     );
   }
 
@@ -632,77 +618,53 @@ export default async function DashboardPage() {
       }}
     >
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
+      <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 700, margin: '0 0 4px 0' }}>
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? "Institution Portal Dashboard" : (role === "ZONE_ADMIN" ? "Zone Admin Control Hub" : "Management Overview")}
+          <h1 className="page-title">
+            {["MANAGER", "INSTITUTION_MANAGER"].includes(role)
+              ? "Institution Portal"
+              : role === "ZONE_ADMIN"
+              ? "Zone Dashboard"
+              : "Management Overview"}
           </h1>
-          <p className="page-subtitle" style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>
-            Welcome back, <strong>{username}</strong> · {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          <p className="page-subtitle">
+            {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        
-        {/* Only show Live Hub button for Super Admin / Admin / Media. Replace with quick workflow action for Zone & Institution */}
-        <div data-tour="dash-hub-btn" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          {role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA" ? (
+
+        <div data-tour="dash-hub-btn" style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
+          {(role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA") ? (
             <>
               {role === "SUPER_ADMIN" && (
                 <Link
                   href="/dashboard/super/zones"
-                  className="btn btn-primary"
-                  style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "0.5rem",
-                    background: '#8E0033',
-                    borderColor: '#8E0033',
-                    color: '#ffffff',
-                    borderRadius: 'var(--radius-full)',
-                    padding: '0.5rem 1.25rem',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    boxShadow: '0 2px 8px rgba(142, 0, 51, 0.3)'
-                  }}
+                  className="btn btn-secondary"
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  <span>🗺️</span> Zones Management (Mark Fest Completed)
+                  <Map size={15} strokeWidth={1.5} />
+                  Zones Management
                 </Link>
               )}
               <Link
                 href="/hub"
-                className="btn btn-success"
-                style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "0.5rem",
-                  background: 'var(--emerald)',
-                  color: '#ffffff',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '0.5rem 1.25rem',
-                  fontWeight: 700,
-                  fontSize: '0.85rem'
-                }}
+                className="btn btn-primary"
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
-                <span>📡</span> Live Management Hub
+                <Radio size={15} strokeWidth={1.5} />
+                Live Hub
               </Link>
             </>
           ) : role === "ZONE_ADMIN" ? (
             <Link
               href="/dashboard/scoring"
               className="btn btn-primary"
-              style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "0.5rem",
-                borderRadius: 'var(--radius-full)',
-                padding: '0.5rem 1.25rem',
-                fontWeight: 700,
-                fontSize: '0.85rem'
-              }}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
             >
-              <span>🏆</span> Results & Mark Entry
+              <Trophy size={15} strokeWidth={1.5} />
+              Mark Entry
             </Link>
           ) : (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
               {institutionInfo && (
                 <InstitutionProfileButton
                   institutionName={institutionInfo.name}
@@ -715,96 +677,61 @@ export default async function DashboardPage() {
                   href={`/print/institution-report?teamId=${userTeam.id}`}
                   target="_blank"
                   className="btn btn-secondary"
-                  style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "0.5rem",
-                    borderRadius: 'var(--radius-full)',
-                    padding: '0.5rem 1.25rem',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    backgroundColor: '#8E0033',
-                    color: '#ffffff',
-                    border: 'none',
-                    boxShadow: '0 2px 6px rgba(142,0,51,0.25)'
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  <span>📋</span> Print On-Stage Entry Sheet
+                  <ClipboardList size={15} strokeWidth={1.5} />
+                  Print Entry Sheet
                 </a>
               )}
               <Link
                 href="/dashboard/assignments"
                 className="btn btn-primary"
-                style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "0.5rem",
-                  borderRadius: 'var(--radius-full)',
-                  padding: '0.5rem 1.25rem',
-                  fontWeight: 700,
-                  fontSize: '0.85rem'
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
-                <span>📜</span> Program Allocations
+                <BookOpen size={15} strokeWidth={1.5} />
+                Program Allocations
               </Link>
             </div>
           )}
         </div>
       </div>
 
-      {/* Grand Closing Ceremony Stage Declaration Banner for Admins */}
+      {/* Grand Closing Ceremony Banner for Admins */}
       {["SUPER_ADMIN", "ADMIN", "ZONE_ADMIN"].includes(role) && (
-        <div className="glass-panel" style={{
-          padding: '1.25rem 1.5rem',
-          marginBottom: '1.75rem',
-          borderRadius: '16px',
-          border: '2px solid #e11d48',
-          background: 'linear-gradient(135deg, rgba(225, 29, 72, 0.12) 0%, rgba(190, 18, 60, 0.05) 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          boxShadow: '0 8px 24px -4px rgba(225, 29, 72, 0.2)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '2.2rem' }}>🎙️</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, color: '#be123c', fontWeight: 900, fontSize: '1.15rem' }}>
-                  Grand Closing Ceremony &bull; Official Declaration (4 A4 Pages)
-                </h3>
-                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#ffe4e6', color: '#9f1239', fontWeight: 800 }}>
-                  STAGE ANNOUNCEMENT PDF
-                </span>
-              </div>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Download &amp; print the 4-page announcement: <strong>P1:</strong> Overall Champions &bull; <strong>P2:</strong> Category Champions &bull; <strong>P3:</strong> Magazine Results &bull; <strong>P4:</strong> Kalathilakam Titles (Joint if tied).
-              </p>
+        <div
+          className="glass-panel"
+          style={{
+            padding: "var(--space-4) var(--space-5)",
+            marginBottom: "var(--space-5)",
+            border: "1px solid var(--danger-border)",
+            background: "var(--danger-bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "var(--space-4)",
+          }}
+        >
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "2px" }}>
+              <span style={{ fontWeight: 600, fontSize: "var(--text-base)", color: "var(--danger)" }}>
+                Grand Closing Ceremony
+              </span>
+              <span className="badge badge-danger">Stage Announcement PDF</span>
             </div>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", margin: 0 }}>
+              4-page declaration: Overall Champions, Category Champions, Magazine Results, Kalathilakam Titles.
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <a
-              href="/print/closing-ceremony"
-              target="_blank"
-              className="btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '0.65rem 1.4rem',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '0.92rem',
-                textDecoration: 'none',
-                boxShadow: '0 4px 14px rgba(225, 29, 72, 0.35)'
-              }}
-            >
-              <span>📥</span> Download / Print 4-Page PDF
-            </a>
-          </div>
+          <a
+            href="/print/closing-ceremony"
+            target="_blank"
+            className="btn btn-danger"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
+          >
+            <Printer size={15} strokeWidth={1.5} />
+            Print 4-Page PDF
+          </a>
         </div>
       )}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && institutionInfo && (
@@ -832,232 +759,163 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Zone Admin Confirmation Alert Banner for Institutions (when chest numbers generated) */}
+      {/* Zone Admin Confirmation Banner */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasChestNumbers && (
-        <div style={{
-          padding: '16px 20px',
-          borderRadius: '12px',
-          backgroundColor: 'rgba(16, 185, 129, 0.08)',
-          border: '2px solid #10b981',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08)'
-        }}>
+        <div
+          className="glass-panel"
+          style={{
+            padding: "var(--space-4) var(--space-5)",
+            border: "1px solid var(--success-border)",
+            background: "var(--success-bg)",
+            marginBottom: "var(--space-5)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "var(--space-3)",
+          }}
+        >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '1.3rem' }}>🎉</span>
-              <strong style={{ fontSize: '1.05rem', color: '#065f46' }}>
-                Zone Admin Confirmed Your Registration!
-              </strong>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "2px", flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 600, fontSize: "var(--text-base)", color: "var(--success)" }}>
+                Registration confirmed by Zone Admin
+              </span>
               {userTeam.magazineCode && (
-                <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: 'white', fontWeight: 800 }}>
-                  MAGAZINE CODE: {userTeam.magazineCode}
+                <span className="badge badge-brand">
+                  Magazine: {userTeam.magazineCode}
                 </span>
               )}
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#047857' }}>
-              Official Chest Numbers have been generated for your candidates. You can now view and print the full student list with chest numbers and ID cards.
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              Chest numbers are generated. View and print the official student list.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <Link 
-              href="/dashboard/candidates"
-              className="btn btn-primary"
-              style={{ backgroundColor: '#059669', borderColor: '#059669', color: 'white', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
-            >
-              👤 View Students & Chest Nos
-            </Link>
-            <a 
-              href={`/print/candidates?teamId=${userTeam.id}`} 
-              target="_blank" 
-              className="btn btn-secondary"
-              style={{ borderColor: '#059669', color: '#059669', backgroundColor: '#ffffff', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
-            >
-              📜 Print Official List
-            </a>
-            <a 
-              href={`/print/id-cards?teamId=${userTeam.id}`} 
-              target="_blank" 
-              className="btn btn-secondary"
-              style={{ borderColor: '#059669', color: '#059669', backgroundColor: '#ffffff', fontSize: '0.85rem', padding: '0.45rem 1rem' }}
-            >
-              🪪 Print ID Cards
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Super Admin: Zones Management & Mark Fest Completed Banner */}
-      {role === "SUPER_ADMIN" && (
-        <div style={{
-          padding: '16px 20px',
-          borderRadius: '14px',
-          background: 'linear-gradient(135deg, rgba(142, 0, 51, 0.08), rgba(16, 185, 129, 0.08))',
-          border: '1.5px solid rgba(142, 0, 51, 0.25)',
-          marginBottom: '1.75rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '14px',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <span style={{ fontSize: '2rem' }}>🏁</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <strong style={{ fontSize: '1.05rem', color: '#8E0033' }}>
-                  Zones Management & Fest Concluded Control
-                </strong>
-                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '9999px', background: '#10b98122', color: '#10b981', border: '1px solid #10b98144', fontWeight: 800 }}>
-                  SUPER ADMIN ACTION
-                </span>
-              </div>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Has a regional zone concluded (e.g. Kasaragod, Palakkad)? Click to open Zones Management and mark the fest completed to lock scoring and publish final state selections.
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <Link
-              href="/dashboard/super/zones"
-              className="btn btn-primary"
-              style={{
-                background: '#8E0033',
-                borderColor: '#8E0033',
-                color: '#ffffff',
-                fontSize: '0.85rem',
-                fontWeight: 800,
-                padding: '0.5rem 1.25rem',
-                borderRadius: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(142,0,51,0.25)'
-              }}
+              href="/dashboard/candidates"
+              className="btn btn-success"
+              style={{ display: "flex", alignItems: "center", gap: "5px" }}
             >
-              🏁 Open Zones Management (Mark Fest Completed) →
+              <UserCheck size={14} strokeWidth={1.5} />
+              View Students
             </Link>
+            <a
+              href={`/print/candidates?teamId=${userTeam.id}`}
+              target="_blank"
+              className="btn btn-secondary"
+              style={{ display: "flex", alignItems: "center", gap: "5px" }}
+            >
+              <ClipboardList size={14} strokeWidth={1.5} />
+              Print List
+            </a>
           </div>
         </div>
       )}
 
-      {/* Stats Grid with auto-fit reflow */}
+      {/* Super Admin: Zones Management Banner */}
+      {role === "SUPER_ADMIN" && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: "var(--space-4) var(--space-5)",
+            border: "1px solid var(--brand-tint-hover)",
+            background: "var(--brand-tint)",
+            marginBottom: "var(--space-5)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "var(--space-3)",
+          }}
+        >
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "2px" }}>
+              <span style={{ fontWeight: 600, fontSize: "var(--text-base)", color: "var(--brand)" }}>
+                Zones Management
+              </span>
+              <span className="badge badge-brand">Super Admin</span>
+            </div>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              Mark a regional zone as concluded to lock scoring and publish final state selections.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/super/zones"
+            className="btn btn-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
+          >
+            <Map size={15} strokeWidth={1.5} />
+            Open Zones Management
+          </Link>
+        </div>
+      )}
+
+      {/* KPI Stats Grid */}
       <div
         data-tour="dash-stats"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: "1rem",
-          marginBottom: "2rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: "var(--space-4)",
+          marginBottom: "var(--space-6)",
         }}
       >
-        {stats.map((stat, i) => (
-          <div
-            key={i}
-            className="stat-card"
-            style={{
-              padding: '1.25rem 1rem',
-              borderRadius: 'var(--radius)',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderTop: `4px solid ${stat.accentStart}`,
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-              <div
-                style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "10px",
-                  background: `${stat.accentStart}15`,
-                  border: `1px solid ${stat.accentStart}30`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.1rem",
-                }}
-              >
-                {stat.icon}
+        {stats.map((stat, i) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={i}
+              className="kpi-card"
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {stat.label}
+                </div>
+                {stat.trend && (
+                  <span
+                    style={{
+                      fontSize: "var(--text-xs)",
+                      fontWeight: 500,
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {stat.trend}
+                  </span>
+                )}
               </div>
-              {stat.trend && (
-                <span
-                  style={{
-                    background: `${stat.accentStart}15`,
-                    color: stat.accentStart,
-                    border: `1px solid ${stat.accentStart}30`,
-                    fontSize: "0.62rem",
-                    fontWeight: 800,
-                    padding: "2px 6px",
-                    borderRadius: "9999px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {stat.trend}
-                </span>
-              )}
-            </div>
-            <div>
               <div
                 className="mono-numeral"
                 style={{
-                  fontSize: typeof stat.value === "string" && stat.value.length > 6 ? "1.2rem" : "1.85rem",
-                  fontWeight: 800,
-                  color: "var(--text-primary)",
+                  fontSize: typeof stat.value === "string" && stat.value.length > 6 ? "1.25rem" : "1.75rem",
+                  fontWeight: 600,
+                  color: "var(--text)",
                   lineHeight: 1.1,
-                  marginBottom: "0.3rem",
-                  fontFamily: "var(--font-mono)",
                 }}
               >
                 {stat.value}
               </div>
-              <div
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  color: "var(--muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                {stat.label}
-              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* ========================================================================= */}
-      {/* 🚀 ZONE ADMIN: STEP-BY-STEP FEST LIFECYCLE WORKFLOW & STATUS */}
-      {/* ========================================================================= */}
+      {/* ZONE ADMIN: Fest Lifecycle Workflow */}
       {role === "ZONE_ADMIN" && zoneData && (
-        <div style={{ marginBottom: "2rem" }}>
-          <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span>🎯</span> Zone Festival Execution Steps & Status
-              </h2>
-              <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Follow these continuous stages to organize and execute your zone arts festival.
-              </p>
-            </div>
+        <div style={{ marginBottom: "var(--space-6)" }}>
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <h2 style={{ fontSize: "var(--text-md)", fontWeight: 600, margin: 0 }}>Festival Execution Checklist</h2>
+            <p style={{ margin: "2px 0 0 0", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              Track progress across the four stages of your zone festival.
+            </p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
             {/* Step 1: Confirm Institution Lists */}
-            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.pendingTeams.length === 0 ? "#10b981" : "#f59e0b"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 1</span>
-                <span className="badge" style={{ backgroundColor: zoneData.pendingTeams.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: zoneData.pendingTeams.length === 0 ? "#10b981" : "#d97706", fontWeight: 700 }}>
-                  {zoneData.pendingTeams.length === 0 ? "✅ Confirmed" : `⚠️ ${zoneData.pendingTeams.length} Pending`}
+            <div className="glass-panel" style={{ padding: "var(--space-5)", borderLeft: `3px solid ${zoneData.pendingTeams.length === 0 ? "var(--success)" : "var(--warning)"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 1</span>
+                <span className={`badge ${zoneData.pendingTeams.length === 0 ? "badge-success" : "badge-warning"}`}>
+                  {zoneData.pendingTeams.length === 0 ? "Confirmed" : `${zoneData.pendingTeams.length} pending`}
                 </span>
               </div>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>1. Confirm Institution Lists</h3>
@@ -1075,11 +933,11 @@ export default async function DashboardPage() {
             </div>
 
             {/* Step 2: Scheduling & Stages */}
-            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.unscheduledPrograms.length === 0 ? "#10b981" : "#0ea5e9"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 2</span>
-                <span className="badge" style={{ backgroundColor: zoneData.unscheduledPrograms.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(14,165,233,0.15)", color: zoneData.unscheduledPrograms.length === 0 ? "#10b981" : "#0284c7", fontWeight: 700 }}>
-                  {zoneData.unscheduledPrograms.length === 0 ? "✅ All Scheduled" : `📅 ${zoneData.unscheduledPrograms.length} Remaining`}
+            <div className="glass-panel" style={{ padding: "var(--space-5)", borderLeft: `3px solid ${zoneData.unscheduledPrograms.length === 0 ? "var(--success)" : "var(--info)"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 2</span>
+                <span className={`badge ${zoneData.unscheduledPrograms.length === 0 ? "badge-success" : "badge-info"}`}>
+                  {zoneData.unscheduledPrograms.length === 0 ? "All scheduled" : `${zoneData.unscheduledPrograms.length} remaining`}
                 </span>
               </div>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>2. Scheduling & Stages</h3>
@@ -1097,11 +955,11 @@ export default async function DashboardPage() {
             </div>
 
             {/* Step 3: Jury / Judge Assignment */}
-            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.missingJuryPrograms.length === 0 ? "#10b981" : "#8E0033"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 3</span>
-                <span className="badge" style={{ backgroundColor: zoneData.missingJuryPrograms.length === 0 ? "rgba(16,185,129,0.15)" : "rgba(142,0,51,0.15)", color: zoneData.missingJuryPrograms.length === 0 ? "#10b981" : "#8E0033", fontWeight: 700 }}>
-                  {zoneData.missingJuryPrograms.length === 0 ? "✅ All Assigned" : `⚖️ ${zoneData.missingJuryPrograms.length} Missing`}
+            <div className="glass-panel" style={{ padding: "var(--space-5)", borderLeft: `3px solid ${zoneData.missingJuryPrograms.length === 0 ? "var(--success)" : "var(--brand)"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 3</span>
+                <span className={`badge ${zoneData.missingJuryPrograms.length === 0 ? "badge-success" : "badge-brand"}`}>
+                  {zoneData.missingJuryPrograms.length === 0 ? "All assigned" : `${zoneData.missingJuryPrograms.length} missing`}
                 </span>
               </div>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>3. Jury Assignment</h3>
@@ -1119,11 +977,11 @@ export default async function DashboardPage() {
             </div>
 
             {/* Step 4: Mark Entry Status & Scoring */}
-            <div className="glass-panel" style={{ padding: "1.25rem", borderLeft: `4px solid ${zoneData.unscoredProgramsCount === 0 ? "#10b981" : "#A5003A"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Step 4</span>
-                <span className="badge" style={{ backgroundColor: "rgba(165,0,58,0.15)", color: "#A5003A", fontWeight: 700 }}>
-                  {zoneData.publishedResultsCount} Published
+            <div className="glass-panel" style={{ padding: "var(--space-5)", borderLeft: `3px solid ${zoneData.unscoredProgramsCount === 0 ? "var(--success)" : "var(--brand)"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 4</span>
+                <span className="badge badge-brand">
+                  {zoneData.publishedResultsCount} published
                 </span>
               </div>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>4. Results & Mark Entry</h3>
@@ -1131,8 +989,8 @@ export default async function DashboardPage() {
                 Record marks, calculate automatic points, assign places, and publish results.
               </p>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                  {zoneData.pendingResultsCount > 0 ? `⏳ ${zoneData.pendingResultsCount} Drafts` : `${zoneData.unscoredProgramsCount} Awaiting Entry`}
+                <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-muted)" }}>
+                  {zoneData.pendingResultsCount > 0 ? `${zoneData.pendingResultsCount} drafts` : `${zoneData.unscoredProgramsCount} awaiting entry`}
                 </span>
                 <Link href="/dashboard/scoring" className="btn btn-sm btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>
                   Enter Scores →
@@ -1158,69 +1016,34 @@ export default async function DashboardPage() {
         }}
       >
         {/* Welcome Card */}
-        <div data-tour="dash-welcome" className="glass-panel" style={{ padding: "var(--spacing-lg)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #A5003A, #8E0033)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1rem",
-              }}
-            >
-              👋
-            </div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Welcome Back</h3>
+        <div data-tour="dash-welcome" className="glass-panel" style={{ padding: "var(--space-5)" }}>
+          <div style={{ marginBottom: "var(--space-3)" }}>
+            <div style={{ fontWeight: 600, fontSize: "var(--text-base)", color: "var(--text)", marginBottom: "4px" }}>Signed in as {username}</div>
+            <p style={{ color: "var(--text-muted)", lineHeight: 1.5, fontSize: "var(--text-sm)", margin: 0 }}>
+              {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? (
+                <>
+                  Managing team <strong style={{ color: "var(--text)" }}>{userTeam?.name}</strong> for {userTeam?.event?.name}.
+                  {userTeam?.event?.zone?.name && (
+                    <span className="badge badge-brand" style={{ marginLeft: "8px" }}>
+                      {userTeam.event.zone.name} Zone
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())} access. All systems operational.
+                </>
+              )}
+            </p>
           </div>
-          <p style={{ color: "var(--text-secondary)", lineHeight: 1.6, fontSize: "0.875rem", marginBottom: "1.25rem" }}>
-            {["MANAGER", "INSTITUTION_MANAGER"].includes(role) ? (
-              <>
-                Logged in as <strong>{username}</strong>, managing team{" "}
-                <strong>{userTeam?.name}</strong> for <strong>{userTeam?.event?.name}</strong>.
-                {userTeam?.event?.zone?.name && (
-                  <span style={{ 
-                    marginLeft: '8px',
-                    padding: '2px 8px', 
-                    background: 'var(--primary)', 
-                    color: 'white', 
-                    borderRadius: '12px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700
-                  }}>
-                    {userTeam.event.zone.name} ZONE
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                Logged in as <strong>{username}</strong> with{" "}
-                <strong>{role.replace("_", " ").toLowerCase()}</strong> privileges. All
-                system operations are running normally.
-              </>
-            )}
-          </p>
           {quickLinks.length > 0 && (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               {quickLinks.map((link, idx) => (
                 <Link
                   key={idx}
                   href={link.href}
-                  className="btn btn-sm"
-                  style={{
-                    background: `${link.color}15`,
-                    color: link.color,
-                    border: `1px solid ${link.color}30`,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                  }}
+                  className="btn btn-secondary btn-sm"
                 >
-                  <span style={{ fontSize: "0.85rem" }}>{link.icon}</span>
                   {link.label}
                 </Link>
               ))}
@@ -1233,64 +1056,62 @@ export default async function DashboardPage() {
       {/* 📝 INSTITUTION MANAGER: STEP-BY-STEP WORKFLOW & REGISTRATION GUIDE */}
       {/* ========================================================================= */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && hasTeam && (
-        <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginBottom: "2rem", borderLeft: "4px solid #10b981" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
-            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981" }}>
-              <span>📝</span> Institution Registration & Assignment Steps
-            </h3>
-            <span className="badge" style={{ backgroundColor: userTeam.isAssignmentsConfirmed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: userTeam.isAssignmentsConfirmed ? "#10b981" : "#d97706", fontWeight: 700 }}>
-              {userTeam.isAssignmentsConfirmed ? "✅ Zone Confirmed & Locked" : "⏳ In Progress (Awaiting Zone Confirmation)"}
+        <div className="glass-panel" style={{ padding: "var(--space-5)", marginBottom: "var(--space-6)", borderLeft: "3px solid var(--success)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)", flexWrap: "wrap", gap: "var(--space-2)" }}>
+            <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 600 }}>Registration & Assignment Steps</h3>
+            <span className={`badge ${userTeam.isAssignmentsConfirmed ? "badge-success" : "badge-warning"}`}>
+              {userTeam.isAssignmentsConfirmed ? "Confirmed & locked" : "Awaiting zone confirmation"}
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-3)" }}>
             {/* Step 1 */}
-            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 1</div>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Register Students</h4>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
-                Add your participating candidates by searching their Name or UID.
+            <div style={{ padding: "var(--space-4)", borderRadius: "var(--radius)", background: "var(--bg)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 500, fontSize: "var(--text-xs)", color: "var(--brand)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>Step 1</div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "4px" }}>Register Students</div>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 var(--space-3) 0", lineHeight: 1.4 }}>
+                Add candidates by searching their name or UID.
               </p>
-              <Link href="/dashboard/candidates" className="btn btn-sm btn-secondary" style={{ width: "100%", textAlign: "center" }}>
-                Student Roster →
+              <Link href="/dashboard/candidates" className="btn btn-sm btn-secondary" style={{ width: "100%", justifyContent: "center" }}>
+                Student Roster
               </Link>
             </div>
 
             {/* Step 2 */}
-            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 2</div>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Program Allocations</h4>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
-                Enroll registered students into their competition categories.
+            <div style={{ padding: "var(--space-4)", borderRadius: "var(--radius)", background: "var(--bg)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 500, fontSize: "var(--text-xs)", color: "var(--brand)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>Step 2</div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "4px" }}>Program Allocations</div>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 var(--space-3) 0", lineHeight: 1.4 }}>
+                Enroll students into their competition programs.
               </p>
-              <Link href="/dashboard/assignments" className="btn btn-sm btn-primary" style={{ width: "100%", textAlign: "center" }}>
-                Assign Programs →
+              <Link href="/dashboard/assignments" className="btn btn-sm btn-primary" style={{ width: "100%", justifyContent: "center" }}>
+                Assign Programs
               </Link>
             </div>
 
             {/* Step 3 */}
-            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 3</div>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Zone Confirmation</h4>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
-                {userTeam.isAssignmentsConfirmed 
-                  ? "Chest numbers are officially generated and active." 
-                  : "Contact your Zone Admin once all allocations are finished."}
+            <div style={{ padding: "var(--space-4)", borderRadius: "var(--radius)", background: "var(--bg)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 500, fontSize: "var(--text-xs)", color: "var(--brand)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>Step 3</div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "4px" }}>Zone Confirmation</div>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 var(--space-3) 0", lineHeight: 1.4 }}>
+                {userTeam.isAssignmentsConfirmed
+                  ? "Chest numbers are generated and active."
+                  : "Contact your Zone Admin after all allocations are complete."}
               </p>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: userTeam.isAssignmentsConfirmed ? "#10b981" : "#f59e0b" }}>
-                {userTeam.isAssignmentsConfirmed ? "✅ Confirmed" : "⏳ Pending Zone Admin"}
+              <span className={`badge ${userTeam.isAssignmentsConfirmed ? "badge-success" : "badge-warning"}`}>
+                {userTeam.isAssignmentsConfirmed ? "Confirmed" : "Pending zone admin"}
               </span>
             </div>
 
             {/* Step 4 */}
-            <div style={{ padding: "1rem", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 800, fontSize: "0.75rem", color: "var(--primary)", textTransform: "uppercase", marginBottom: "4px" }}>Step 4</div>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem" }}>Print ID & Schedules</h4>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 10px 0" }}>
-                Print official candidate ID cards and institution event timetable.
+            <div style={{ padding: "var(--space-4)", borderRadius: "var(--radius)", background: "var(--bg)", border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 500, fontSize: "var(--text-xs)", color: "var(--brand)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>Step 4</div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "4px" }}>Print IDs & Schedules</div>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 var(--space-3) 0", lineHeight: 1.4 }}>
+                Print candidate ID cards and institution timetable.
               </p>
-              <Link href="/dashboard/reports" className="btn btn-sm btn-secondary" style={{ width: "100%", textAlign: "center" }}>
-                Reports & Print Hub →
+              <Link href="/dashboard/reports" className="btn btn-sm btn-secondary" style={{ width: "100%", justifyContent: "center" }}>
+                Reports & Print
               </Link>
             </div>
           </div>
@@ -1301,13 +1122,14 @@ export default async function DashboardPage() {
 
       {/* Pending Programs for Managers */}
       {["MANAGER", "INSTITUTION_MANAGER"].includes(role) && pendingPrograms.length > 0 && (
-        <div className="glass-panel" style={{ padding: "var(--spacing-lg)", marginTop: "2rem" }}>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ color: "var(--warning)" }}>⚠️</span> Pending Program Assignments ({pendingPrograms.length})
-          </h3>
-          <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-            You have not reached the candidate limit for the following programs. Please assign candidates before the deadline.
-          </p>
+        <div className="glass-panel" style={{ padding: "var(--space-5)", marginTop: "var(--space-6)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-base)", color: "var(--text)" }}>Pending Program Assignments</div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "2px" }}>Assign candidates before the deadline to fill these programs.</div>
+            </div>
+            <span className="badge badge-warning">{pendingPrograms.length} pending</span>
+          </div>
           <div style={{ overflowX: "auto" }}>
             <table className="data-table">
               <thead>

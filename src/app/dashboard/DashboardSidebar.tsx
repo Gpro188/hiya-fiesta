@@ -5,6 +5,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "./LogoutButton";
 import ThemeToggle from "@/app/components/ThemeToggle";
+import {
+  LayoutDashboard,
+  Radio,
+  Star,
+  CalendarDays,
+  Scale,
+  Trophy,
+  Image,
+  GraduationCap,
+  FileText,
+  UploadCloud,
+  Building2,
+  Users,
+  Settings,
+  Palette,
+  ClipboardList,
+  Printer,
+  UserCheck,
+  BookOpen,
+  Award,
+  Map,
+  RefreshCw,
+  Shield,
+  PenLine,
+  TableProperties,
+  X,
+  Menu,
+  ChevronRight,
+  Ticket,
+} from "lucide-react";
 
 interface SidebarProps {
   role: string;
@@ -17,7 +47,7 @@ interface SidebarProps {
 interface NavItem {
   name: string;
   subtitle: string;
-  icon: string;
+  icon: React.ElementType;
   href: string;
   highlight?: boolean;
 }
@@ -29,17 +59,16 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     {
       name: "Dashboard",
       subtitle: "Overview & quick stats",
-      icon: "📊",
+      icon: LayoutDashboard,
       href: "/dashboard",
     },
   ];
 
-  // Only show Live Hub for Super Admin, Admin, and Media (removed from Zone Admin & Institution portals)
   if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "MEDIA") {
     overviewItems.push({
       name: "Live Hub",
       subtitle: "Real-time public standings",
-      icon: "📡",
+      icon: Radio,
       href: "/hub",
       highlight: true,
     });
@@ -52,70 +81,70 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
 
   if (role === "SUPER_ADMIN") {
     groups.push({
-      section: "STATE FEST CONTROL",
+      section: "State Fest Control",
       items: [
         {
           name: "State Advancements",
           subtitle: "Zone List Conform",
-          icon: "⭐",
+          icon: Star,
           href: "/dashboard/promotions",
           highlight: true,
         },
         {
           name: "Schedule & Stages",
           subtitle: "Assign venues & time slots",
-          icon: "📅",
+          icon: CalendarDays,
           href: "/dashboard/schedule",
         },
         {
           name: "Jury Assign",
           subtitle: "Global master list of judges",
-          icon: "⚖️",
+          icon: Scale,
           href: "/dashboard/juries",
         },
         {
           name: "Mark Entry",
           subtitle: "State Fest Results",
-          icon: "🏆",
+          icon: Trophy,
           href: "/dashboard/scoring?session=state",
         },
         {
           name: "Poster Branding",
           subtitle: "State result posters",
-          icon: "🖼️",
+          icon: Image,
           href: "/dashboard/media?session=state",
         },
         {
           name: "State Merit Certificates",
           subtitle: "1st, 2nd, 3rd overprint",
-          icon: "🎓",
+          icon: GraduationCap,
           href: "/dashboard/certificates?session=state",
           highlight: true,
         },
         {
           name: "Reports & Print Hub",
           subtitle: "All printables & schedules",
-          icon: "🖨️",
+          icon: FileText,
           href: "/dashboard/reports",
         },
         {
           name: "Closing Declaration",
           subtitle: "4-Page Stage Announcement PDF",
-          icon: "🎙️",
+          icon: Printer,
           href: "/print/closing-ceremony",
           highlight: true,
         },
         {
           name: "Venue Control Sheet",
           subtitle: "Program, result & cert tick sheet",
-          icon: "📋",
+          icon: ClipboardList,
           href: "/print/venue-control",
           highlight: true,
         },
         {
           name: "Program Reg Counts",
           subtitle: "Candidate & college counts",
-          icon: "📊",
+          icon: TableProperties,
           href: "/print/programs-registration",
           highlight: true,
         },
@@ -123,98 +152,98 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     });
 
     groups.push({
-      section: "ZONE FEST CONTROL",
+      section: "Zone Fest Control",
       items: [
         {
           name: "Master Students",
           subtitle: "Upload & UID Directory",
-          icon: "👨‍🎓",
+          icon: GraduationCap,
           href: "/dashboard/super/students",
           highlight: true,
         },
         {
           name: "Candidates & Photos",
           subtitle: "Candidate list & photo updates",
-          icon: "👤",
+          icon: UserCheck,
           href: "/dashboard/candidates",
           highlight: true,
         },
         {
           name: "Chest Number Hub",
           subtitle: "Pending confirm & print roster",
-          icon: "🎫",
+          icon: Ticket,
           href: "/print/chest-numbers",
           highlight: true,
         },
         {
           name: "Zonal Off-Stage Valuation",
           subtitle: "Photos & marks sheet",
-          icon: "📝",
+          icon: PenLine,
           href: "/print/zonal-offstage-valuation",
           highlight: true,
         },
         {
           name: "Master Institutions",
           subtitle: "Upload & Zone mappings",
-          icon: "🏫",
+          icon: Building2,
           href: "/dashboard/super/institutions",
           highlight: true,
         },
         {
           name: "Zones Management",
           subtitle: "Mark completed & lock zones",
-          icon: "🗺️",
+          icon: Map,
           href: "/dashboard/super/zones",
           highlight: true,
         },
         {
           name: "Direct Replacements",
           subtitle: "Swap candidates across zones",
-          icon: "🔄",
+          icon: RefreshCw,
           href: "/dashboard/super/replacement",
           highlight: true,
         },
         {
           name: "User Manage",
           subtitle: "Portal access & credentials",
-          icon: "👥",
+          icon: Users,
           href: "/dashboard/users",
         },
         {
           name: "Events",
           subtitle: "Manage zone events",
-          icon: "🎭",
+          icon: CalendarDays,
           href: "/dashboard/events",
         },
         {
           name: "Teams",
           subtitle: "Teams & flag colors",
-          icon: "🛡️",
+          icon: Shield,
           href: "/dashboard/teams",
         },
         {
           name: "Mark Entry (Zone)",
           subtitle: "Override Zone Results",
-          icon: "🏆",
+          icon: Trophy,
           href: "/dashboard/scoring?session=zone",
         },
         {
           name: "Poster Branding (Zone)",
           subtitle: "Zone result posters",
-          icon: "🎨",
+          icon: Image,
           href: "/dashboard/media?session=zone",
         },
         {
           name: "Volunteers",
           subtitle: "Team & ID cards",
-          icon: "🦺",
+          icon: Award,
           href: "/dashboard/volunteers",
           highlight: true,
         },
         {
           name: "Zonal Merit Certificates",
           subtitle: "1st, 2nd, 3rd overprint",
-          icon: "🎓",
+          icon: GraduationCap,
           href: "/dashboard/certificates?session=zone",
           highlight: true,
         },
@@ -222,30 +251,30 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     });
 
     groups.push({
-      section: "SYSTEM SETTINGS",
+      section: "System Settings",
       items: [
         {
           name: "Homepage & Theme",
           subtitle: "Colors, hero & public UI",
-          icon: "🎨",
+          icon: Palette,
           href: "/dashboard/settings/homepage",
         },
         {
           name: "Global Settings",
           subtitle: "Config, audit & maintenance",
-          icon: "⚙️",
+          icon: Settings,
           href: "/dashboard/settings",
         },
         {
           name: "Programs",
           subtitle: "Competition programs & rules",
-          icon: "📜",
+          icon: BookOpen,
           href: "/dashboard/programs",
         },
         {
           name: "Program Reg Counts",
           subtitle: "Candidate & college counts",
-          icon: "📊",
+          icon: TableProperties,
           href: "/print/programs-registration",
           highlight: true,
         },
@@ -258,117 +287,117 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         {
           name: "Events",
           subtitle: "Create & manage festival events",
-          icon: "🎭",
+          icon: CalendarDays,
           href: "/dashboard/events",
         },
         {
           name: "Teams",
           subtitle: "Teams, managers & flag colors",
-          icon: "🛡️",
+          icon: Shield,
           href: "/dashboard/teams",
         },
         {
           name: "Candidates & Photos",
           subtitle: "Candidate list & photo updates",
-          icon: "👤",
+          icon: UserCheck,
           href: "/dashboard/candidates",
           highlight: true,
         },
         {
           name: "Users",
           subtitle: "Portal access & credentials",
-          icon: "👥",
+          icon: Users,
           href: "/dashboard/users",
         },
         {
           name: "Jury Directory",
           subtitle: "Global master list of judges",
-          icon: "⚖️",
+          icon: Scale,
           href: "/dashboard/juries",
         },
         {
           name: "Programs",
           subtitle: "Competition programs & rules",
-          icon: "📜",
+          icon: BookOpen,
           href: "/dashboard/programs",
         },
         {
           name: "State Advancements",
           subtitle: "Promote winners to state",
-          icon: "⭐",
+          icon: Star,
           href: "/dashboard/promotions",
           highlight: true,
         },
         {
           name: "Reports & Print Hub",
           subtitle: "All printables & schedules",
-          icon: "🖨️",
+          icon: FileText,
           href: "/dashboard/reports",
         },
         {
           name: "Closing Declaration",
           subtitle: "4-Page Stage Announcement PDF",
-          icon: "🎙️",
+          icon: Printer,
           href: "/print/closing-ceremony",
           highlight: true,
         },
         {
           name: "Venue Control Sheet",
           subtitle: "Program, result & cert tick sheet",
-          icon: "📋",
+          icon: ClipboardList,
           href: "/print/venue-control",
           highlight: true,
         },
         {
           name: "Merit Certificates",
           subtitle: "1st, 2nd, 3rd overprint",
-          icon: "🎓",
+          icon: GraduationCap,
           href: "/dashboard/certificates",
           highlight: true,
         },
         {
           name: "Chest Number Hub",
           subtitle: "Pending confirm & print roster",
-          icon: "🎫",
+          icon: Ticket,
           href: "/print/chest-numbers",
           highlight: true,
         },
         {
           name: "Zonal Off-Stage Valuation",
           subtitle: "Photos & marks sheet",
-          icon: "📝",
+          icon: PenLine,
           href: "/print/zonal-offstage-valuation",
           highlight: true,
         },
         {
           name: "Program Reg Counts",
           subtitle: "Candidate & college counts",
-          icon: "📊",
+          icon: TableProperties,
           href: "/print/programs-registration",
           highlight: true,
         },
         {
           name: "Settings",
           subtitle: "Config, audit & maintenance",
-          icon: "⚙️",
+          icon: Settings,
           href: "/dashboard/settings",
         },
         {
           name: "Homepage & Theme",
           subtitle: "Colors, hero & committee",
-          icon: "🎨",
+          icon: Palette,
           href: "/dashboard/settings/homepage",
         },
         {
           name: "Poster Branding",
           subtitle: "Design result posters",
-          icon: "🖼️",
+          icon: Image,
           href: "/dashboard/media",
         },
         {
           name: "Volunteers",
           subtitle: "Team & ID cards",
-          icon: "🦺",
+          icon: Award,
           href: "/dashboard/volunteers",
         },
       ],
@@ -382,85 +411,85 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         {
           name: "Teams & Institutions",
           subtitle: "Confirm List & Chest Nos",
-          icon: "🛡️",
+          icon: Shield,
           href: "/dashboard/teams",
           highlight: true,
         },
         {
           name: "Programs & Participants",
           subtitle: "Check registered candidates",
-          icon: "📜",
+          icon: BookOpen,
           href: "/dashboard/programs",
           highlight: true,
         },
         {
           name: "Candidates & Photos",
           subtitle: "Candidate list & photo updates",
-          icon: "👤",
+          icon: UserCheck,
           href: "/dashboard/candidates",
           highlight: true,
         },
         {
           name: "Scheduling & Stages",
           subtitle: "Assign venues & time slots",
-          icon: "📅",
+          icon: CalendarDays,
           href: "/dashboard/schedule",
         },
         {
           name: "Jury Selection",
           subtitle: "Assign judges to programs",
-          icon: "⚖️",
+          icon: Scale,
           href: "/dashboard/juries",
         },
         {
           name: "Results & Scoring",
           subtitle: "Mark Entry & Publishing",
-          icon: "🏆",
+          icon: Trophy,
           href: "/dashboard/scoring",
         },
         {
           name: "Reports & Print Hub",
           subtitle: "All printables & ID cards",
-          icon: "🖨️",
+          icon: FileText,
           href: "/dashboard/reports",
         },
         {
           name: "Venue Program & Result Control",
           subtitle: "Program, result & cert tick sheet",
-          icon: "📋",
+          icon: ClipboardList,
           href: "/print/venue-control",
           highlight: true,
         },
         {
           name: "User Credentials",
           subtitle: "Manage institution accounts",
-          icon: "👥",
+          icon: Users,
           href: "/dashboard/users",
         },
         {
           name: "Volunteers",
           subtitle: "Zone volunteers & ID cards",
-          icon: "🦺",
+          icon: Award,
           href: "/dashboard/volunteers",
           highlight: true,
         },
         {
           name: "Zone Settings",
           subtitle: "Registration Dates & Config",
-          icon: "⚙️",
+          icon: Settings,
           href: "/dashboard/settings",
         },
         {
           name: "Inst. Attendance Sheet",
           subtitle: "Team manager sign & attendance",
-          icon: "📝",
+          icon: ClipboardList,
           href: "/print/institution-attendance",
           highlight: true,
         },
         {
           name: "Zonal Merit Certificates",
           subtitle: "1st, 2nd, 3rd overprint",
-          icon: "🎓",
+          icon: GraduationCap,
           href: "/dashboard/certificates",
           highlight: true,
         },
@@ -475,14 +504,14 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         {
           name: "Poster Branding",
           subtitle: "Design result posters",
-          icon: "🎨",
+          icon: Image,
           href: "/dashboard/media",
           highlight: true,
         },
         {
           name: "View Results",
           subtitle: "Browse published results",
-          icon: "🏆",
+          icon: Trophy,
           href: "/dashboard/scoring",
         },
       ],
@@ -496,25 +525,25 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         {
           name: "Student Roster",
           subtitle: "View & register candidates",
-          icon: "👤",
+          icon: UserCheck,
           href: "/dashboard/candidates",
         },
         {
           name: "Program Allocations",
           subtitle: "Assign students to programs",
-          icon: "📜",
+          icon: BookOpen,
           href: "/dashboard/assignments",
         },
         {
           name: "Reports & Print Hub",
           subtitle: "Printable ID cards & timetable",
-          icon: "🖨️",
+          icon: FileText,
           href: "/dashboard/reports",
         },
         {
           name: "Entry Passes & Schedule",
           subtitle: "Printable ID cards & timetable",
-          icon: "🖨️",
+          icon: CalendarDays,
           href: "/dashboard/schedule",
         },
       ],
@@ -528,26 +557,26 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
         {
           name: "Mark Entry",
           subtitle: "Consensus evaluation entry",
-          icon: "✍️",
+          icon: PenLine,
           href: "/dashboard/scoring",
           highlight: true,
         },
         {
           name: "Stage Valuation Sheet",
           subtitle: "Official valuation print",
-          icon: "📄",
+          icon: FileText,
           href: "/print/valuation",
         },
         {
           name: "Tabulation Sheet",
           subtitle: "Master calculation print",
-          icon: "📊",
+          icon: TableProperties,
           href: "/print/tabulation",
         },
         {
           name: "Results & Champions",
           subtitle: "Final announcement sheet",
-          icon: "🏆",
+          icon: Trophy,
           href: "/print/results-summary",
           highlight: true,
         },
@@ -558,22 +587,12 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
   return groups;
 }
 
-function roleColor(role: string) {
-  switch (role) {
-    case "SUPER_ADMIN":
-      return "#f59e0b";
-    case "ADMIN":
-      return "#A5003A";
-    case "JUDGE":
-      return "#10b981";
-    case "MEDIA":
-      return "#0ea5e9";
-    case "MANAGER":
-    case "INSTITUTION_MANAGER":
-      return "#f43f5e";
-    default:
-      return "#98a2b3";
-  }
+function roleLabel(role: string): string {
+  return role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function roleInitials(username: string): string {
+  return username.slice(0, 2).toUpperCase();
 }
 
 export default function DashboardSidebar({
@@ -592,7 +611,9 @@ export default function DashboardSidebar({
   const isActive = useCallback(
     (href: string) => {
       if (href === "/dashboard") return pathname === "/dashboard";
-      return pathname.startsWith(href);
+      // Strip query string for comparison
+      const hrefPath = href.split("?")[0];
+      return pathname.startsWith(hrefPath);
     },
     [pathname]
   );
@@ -603,18 +624,18 @@ export default function DashboardSidebar({
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Logo Area */}
       <div className="sidebar-logo-area">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div
             style={{
-              width: "42px",
-              height: "42px",
-              borderRadius: "10px",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
               background: "#FFFFFF",
+              border: "1px solid var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "4px",
-              boxShadow: "0 1px 4px rgba(0, 0, 0, 0.12)",
+              padding: "3px",
               flexShrink: 0,
             }}
           >
@@ -624,18 +645,21 @@ export default function DashboardSidebar({
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontWeight: 700,
-                fontSize: "1rem",
-                color: "var(--text-primary)",
+                fontWeight: 600,
+                fontSize: "0.875rem",
+                color: "var(--text)",
                 lineHeight: 1.2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {festName}
             </div>
-            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "2px" }}>
+            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "1px", lineHeight: 1.2 }}>
               {festMoto}
             </div>
           </div>
@@ -644,41 +668,41 @@ export default function DashboardSidebar({
 
       {/* User Area */}
       <div className="sidebar-user-area">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div
             style={{
-              width: "36px",
-              height: "36px",
+              width: "28px",
+              height: "28px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${roleColor(role)}, ${roleColor(role)}aa)`,
+              background: "var(--brand-tint)",
+              border: "1px solid rgba(122,31,61,0.2)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              fontSize: "0.875rem",
-              fontWeight: 700,
-              color: "white",
+              fontSize: "10px",
+              fontWeight: 600,
+              color: "var(--brand)",
             }}
           >
-            {username.charAt(0).toUpperCase()}
+            {roleInitials(username)}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                color: "var(--text-primary)",
+                fontWeight: 500,
+                fontSize: "0.8125rem",
+                color: "var(--text)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                maxWidth: "160px",
               }}
               title={displayName || username}
             >
               {displayName || username}
             </div>
-            <div style={{ marginTop: "2px" }}>
-              <span className="role-badge">{role.replace("_", " ").toLowerCase()}</span>
+            <div style={{ marginTop: "1px" }}>
+              <span className="role-badge">{roleLabel(role)}</span>
             </div>
           </div>
         </div>
@@ -689,38 +713,37 @@ export default function DashboardSidebar({
         {navGroups.map((group) => (
           <div key={group.section}>
             <div className="nav-section-title">{group.section}</div>
-            {group.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={close}
-                className={`nav-link-wrapper ${isActive(item.href) ? "active" : ""}`}
-                style={item.highlight && !isActive(item.href) ? { borderLeftColor: "rgba(14,165,233,0.3)" } : undefined}
-              >
-                <div className="nav-icon">
-                  <span style={{ fontSize: "0.95rem" }}>{item.icon}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    className="nav-link-main"
-                    style={
-                      item.highlight && !isActive(item.href)
-                        ? { color: "#0ea5e9", fontWeight: 600 }
-                        : undefined
-                    }
-                  >
-                    {item.name}
-                  </span>
-                  <span className="nav-link-subtitle">{item.subtitle}</span>
-                </div>
-              </Link>
-            ))}
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={close}
+                  className={`nav-link-wrapper ${active ? "active" : ""}`}
+                  title={item.subtitle}
+                >
+                  <div className="nav-icon">
+                    <Icon
+                      size={18}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span className="nav-link-main">{item.name}</span>
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
       {/* Footer */}
-      <div className="sidebar-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        className="sidebar-footer"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
         <LogoutButton />
         <ThemeToggle />
       </div>
@@ -731,29 +754,29 @@ export default function DashboardSidebar({
     <>
       {/* Mobile Top Header */}
       <header className="mobile-header no-print">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
+              width: "30px",
+              height: "30px",
+              borderRadius: "6px",
               background: "#FFFFFF",
+              border: "1px solid var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               padding: "3px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
               flexShrink: 0,
             }}
           >
             <img src="/icon.png" alt="CSWC Fiesta Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
-          <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text)" }}>
             {festName}
           </span>
         </div>
         <button onClick={toggle} className="burger-btn" aria-label="Toggle menu">
-          {isOpen ? "✕" : "☰"}
+          {isOpen ? <X size={16} strokeWidth={1.5} /> : <Menu size={16} strokeWidth={1.5} />}
         </button>
       </header>
 

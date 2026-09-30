@@ -500,7 +500,10 @@ export async function getCertificateWinners(params: {
     const grade = hasGrade ? rawGrade : null;
     const gradeText = hasGrade ? `${rawGrade} Grade` : null;
 
-    const categoryName = prog.category?.name || cand?.category?.name || "General";
+    // For GENERAL-type programs, always show "General" — never the student's own category
+    const categoryName = prog.type === "GENERAL"
+      ? "General"
+      : (prog.category?.name || cand?.category?.name || "General");
     const zoneName = event.zone?.name || cand?.institution?.zone?.name || team?.institution?.zone?.name || "Zonal Fest";
 
     const isPublished = Boolean(res.isPublished);
@@ -536,7 +539,10 @@ export async function getCertificateWinners(params: {
             programName: prog.name,
             programCode: prog.programCode || undefined,
             categoryId: prog.categoryId || undefined,
-            categoryName: prog.category?.name || assignedCand.category?.name || "General",
+            // For GENERAL-type programs, always show "General" — never the student's own category
+            categoryName: prog.type === "GENERAL"
+              ? "General"
+              : (prog.category?.name || assignedCand.category?.name || "General"),
             rank,
             placeText: placeOrdinal,
             grade,

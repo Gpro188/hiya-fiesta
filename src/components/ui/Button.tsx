@@ -7,35 +7,70 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
+  ({ className = '', variant = 'primary', size = 'md', isLoading, children, disabled, style, ...props }, ref) => {
     
-    const baseStyles = "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
-    
-    const variants = {
-      primary: "bg-[#800000] text-white hover:bg-[#5A0000] shadow-sm",
-      secondary: "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-[#E0E0E0]",
-      outline: "border border-[#800000] text-[#800000] hover:bg-[#800000] hover:text-white",
-      ghost: "hover:bg-[#F5F5F5] text-[#424242]",
-      danger: "bg-[#ef4444] text-white hover:bg-[#dc2626]"
+    const baseStyle: React.CSSProperties = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 500,
+      fontFamily: 'inherit',
+      transition: 'all 0.15s ease',
+      cursor: 'pointer',
+      border: '1px solid transparent',
+      borderRadius: 'var(--radius)',
+      lineHeight: '1.25',
+      whiteSpace: 'nowrap',
+      gap: '0.375rem',
     }
-    
-    const sizes = {
-      sm: "h-8 px-3 text-sm",
-      md: "h-10 px-4 py-2",
-      lg: "h-12 px-8 text-lg"
-    }
+
+    const variantStyle: React.CSSProperties = (() => {
+      switch (variant) {
+        case 'primary':
+          return { background: 'var(--brand)', color: '#fff', borderColor: 'var(--brand)' }
+        case 'secondary':
+          return { background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }
+        case 'outline':
+          return { background: 'transparent', color: 'var(--brand)', borderColor: 'var(--brand)' }
+        case 'ghost':
+          return { background: 'transparent', color: 'var(--text-muted)', borderColor: 'transparent' }
+        case 'danger':
+          return { background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }
+        default:
+          return {}
+      }
+    })()
+
+    const sizeStyle: React.CSSProperties = (() => {
+      switch (size) {
+        case 'sm': return { height: '30px', padding: '0 0.625rem', fontSize: 'var(--text-xs)' }
+        case 'md': return { height: '36px', padding: '0 0.875rem', fontSize: 'var(--text-base)' }
+        case 'lg': return { height: '44px', padding: '0 1.25rem', fontSize: 'var(--text-md)' }
+        default:   return { height: '36px', padding: '0 0.875rem', fontSize: 'var(--text-base)' }
+      }
+    })()
+
+    const disabledStyle: React.CSSProperties = (disabled || isLoading)
+      ? { opacity: 0.5, pointerEvents: 'none' }
+      : {}
 
     return (
       <button
         ref={ref}
-        className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+        style={{ ...baseStyle, ...variantStyle, ...sizeStyle, ...disabledStyle, ...style }}
+        className={className}
         disabled={disabled || isLoading}
         {...props}
       >
         {isLoading && (
-          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg
+            style={{ animation: 'spin 1s linear infinite', width: '14px', height: '14px', marginRight: '4px' }}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
         )}
         {children}
