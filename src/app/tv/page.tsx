@@ -147,6 +147,8 @@ export default async function TVDisplayPage(props: {
   const overallStar = champions.overallTopStar || topStars[0] || null;
 
   // Process published programs in published order
+  const isStateFest = eventObj?.type === "STATE";
+
   const publishedPrograms = publishedProgramsRaw.map((prog: any) => {
     const isGeneral = isProgramGeneral(prog);
     const catName = (prog.category?.name || "").toUpperCase();
@@ -178,6 +180,27 @@ export default async function TVDisplayPage(props: {
       })
       .map((r: any) => {
         const isIndiv = Boolean(r.candidate);
+
+        if (isStateFest) {
+          // STATE fest: zones are the "teams". Show zone name as identifier.
+          // For individual results, the candidate's team IS the zone-team.
+          // For group/team results, r.team is the zone-team.
+          const zoneName = isIndiv
+            ? (r.candidate.team?.name || r.candidate.institution?.name || "Zone")
+            : (r.team?.name || "Zone");
+          const candidateName = isIndiv ? r.candidate.name : (r.team?.name || "Zone");
+          return {
+            rank: r.rank,
+            name: candidateName,
+            college: zoneName,
+            place: "",
+            chestNumber: r.candidate?.chestNumber || null,
+            grade: r.grade || null,
+            points: r.points || 0
+          };
+        }
+
+        // ZONE/regular event: show individual candidate + institution
         const name = isIndiv
           ? r.candidate.name
           : (r.team?.institution?.name || r.team?.name || "Institution");
@@ -208,6 +231,7 @@ export default async function TVDisplayPage(props: {
       winners
     };
   }).filter((p: any) => p.winners.length > 0);
+
 
   return (
     <TVDisplayClient

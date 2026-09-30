@@ -106,8 +106,8 @@ export default async function ScoringPage(props: {
     prisma.program.findMany({
       where: { 
         eventId: programsEventId,
-        // If a JUDGE is logged in, only show programs at their assigned venue
-        ...(judgeVenue ? { venue: judgeVenue } : {})
+        // If a JUDGE is logged in, only show programs at their assigned venue (case-insensitive)
+        ...(judgeVenue ? { venue: { equals: judgeVenue, mode: "insensitive" } } : {})
       },
       select: {
         id: true,
