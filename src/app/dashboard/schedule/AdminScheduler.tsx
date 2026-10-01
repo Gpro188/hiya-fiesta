@@ -70,11 +70,18 @@ export default function AdminScheduler({
   // Venue start time configuration: { [venue]: "09:30" }
   const [venueStartTimes, setVenueStartTimes] = useState<Record<string, string>>({});
 
+  // Venue break configuration: { [venue]: { enabled: boolean; start: string; end: string } }
+  const [venueBreaks, setVenueBreaks] = useState<Record<string, { enabled: boolean; start: string; end: string }>>({});
+
   // -- Global Schedule Timing Settings ------------------------------------------
   const [globalTimingOpen, setGlobalTimingOpen] = useState(false);
   const [globalMinPerCandidate, setGlobalMinPerCandidate] = useState(10);
   const [globalBufferMinutes, setGlobalBufferMinutes] = useState(2);
   const [globalGroupFixedMin, setGlobalGroupFixedMin] = useState(30);
+  const [globalStartTime, setGlobalStartTime] = useState("09:30");
+  const [globalEnableBreak, setGlobalEnableBreak] = useState(true);
+  const [globalBreakStart, setGlobalBreakStart] = useState("13:00");
+  const [globalBreakEnd, setGlobalBreakEnd] = useState("13:45");
   const [globalTimingSaving, setGlobalTimingSaving] = useState(false);
   const [globalTimingMsg, setGlobalTimingMsg] = useState<string | null>(null);
 
@@ -101,6 +108,13 @@ export default function AdminScheduler({
         const parsedTimes = JSON.parse(savedTimes);
         if (parsedTimes && typeof parsedTimes === "object") {
           setVenueStartTimes(parsedTimes);
+        }
+      }
+      const savedBreaks = localStorage.getItem(`venue_breaks_${eventId}`);
+      if (savedBreaks) {
+        const parsedBreaks = JSON.parse(savedBreaks);
+        if (parsedBreaks && typeof parsedBreaks === "object") {
+          setVenueBreaks(parsedBreaks);
         }
       }
     } catch (e) {
@@ -130,6 +144,10 @@ export default function AdminScheduler({
         bufferMinutes: globalBufferMinutes,
         groupFixedMin: globalGroupFixedMin,
         applyToAllZones,
+        defaultStartTime: globalStartTime,
+        enableBreak: globalEnableBreak,
+        breakStartTime: globalBreakStart,
+        breakEndTime: globalBreakEnd,
       });
       if (res.success) {
         const anyRes = res as any;
@@ -258,13 +276,46 @@ export default function AdminScheduler({
     return "09:30"; // Default 09:30 AM
   };
 
-  // Helper to get predicted sequential timeline starting from 09:30 AM IST (or venue start time)
-  const getPredictedVenueTimeline = (venue: string, venuePrograms: any[], bufferMinutes: number = 5, customStartTime?: string) => {
+  // Helper to get active break config for a venue
+  const getVenueBreak = (venue: string): { enabled: boolean; start: string; end: string } => {
+    if (venueBreaks[venue]) {
+      return venueBreaks[venue];
+    }
+    return { enabled: true, start: "13:00", end: "13:45" };
+  };
+
+  // Helper to get predicted sequential timeline starting from 09:30 AM IST (or venue start time) and respecting breaks
+  const getPredictedVenueTimeline = (
+    venue: string, 
+    venuePrograms: any[], 
+    bufferMinutes: number = 5, 
+    customStartTime?: string,
+    customBreak?: { enabled: boolean; start: string; end: string }
+  ) => {
     const startTimeStr = customStartTime || getVenueStartTime(venue, venuePrograms);
     const [sh, sm] = startTimeStr.split(":").map(Number);
     const baseDate = getFestivalBaseDate(eventStartDate, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
     let currentCursor = new Date(baseDate.getTime());
     let totalCandidates = 0;
+
+    const breakConfig = customBreak || getVenueBreak(venue);
+    let breakStartDate: Date | null = null;
+    let breakEndDate: Date | null = null;
+
+    if (breakConfig.enabled && breakConfig.start && breakConfig.end) {
+      const [bsh, bsm] = breakConfig.start.split(":").map(Number);
+      const [beh, bem] = breakConfig.end.split(":").map(Number);
+
+      breakStartDate = new Date(baseDate.getTime());
+      breakStartDate.setHours(isNaN(bsh) ? 13 : bsh, isNaN(bsm) ? 0 : bsm, 0, 0);
+
+      breakEndDate = new Date(baseDate.getTime());
+      breakEndDate.setHours(isNaN(beh) ? 13 : beh, isNaN(bem) ? 45 : bem, 0, 0);
+
+      if (breakEndDate.getTime() <= breakStartDate.getTime()) {
+        breakEndDate = new Date(breakStartDate.getTime() + 45 * 60000);
+      }
+    }
 
     const predictedList = venuePrograms.map((p, idx) => {
       const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
@@ -272,6 +323,18 @@ export default function AdminScheduler({
 
       totalCandidates += calcInfo.candidateCount;
       const effectiveDuration = p.duration && p.duration > 0 ? p.duration : (calcInfo.duration > 0 ? calcInfo.duration : 10);
+
+      // Check if this program needs to jump across the break window
+      let isFirstAfterBreak = false;
+      if (breakConfig.enabled && breakStartDate && breakEndDate) {
+        if (currentCursor >= breakStartDate && currentCursor < breakEndDate) {
+          currentCursor = new Date(breakEndDate.getTime());
+          isFirstAfterBreak = true;
+        } else if (currentCursor < breakStartDate && (currentCursor.getTime() + effectiveDuration * 60000) > breakStartDate.getTime()) {
+          currentCursor = new Date(breakEndDate.getTime());
+          isFirstAfterBreak = true;
+        }
+      }
 
       const start = new Date(currentCursor.getTime());
       const end = new Date(start.getTime() + effectiveDuration * 60000);
@@ -287,7 +350,8 @@ export default function AdminScheduler({
         teamCount: calcInfo.teamCount,
         durationPerItem: calcInfo.durationPerItem,
         durationMode: p.durationMode || calcInfo.durationMode,
-        filteredAssignments: zoneCandidates
+        filteredAssignments: zoneCandidates,
+        isFirstAfterBreak
       };
     });
 
@@ -302,6 +366,9 @@ export default function AdminScheduler({
       totalCandidates,
       predictedStart: baseDate,
       predictedEnd: finalEndTime,
+      breakStartDate,
+      breakEndDate,
+      breakEnabled: breakConfig.enabled
     };
   };
 
@@ -331,7 +398,9 @@ export default function AdminScheduler({
     // Also update start times in state with the new buffer so live preview updates immediately
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length > 0) {
-      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, newBuffer);
+      const startTimeStr = getVenueStartTime(venue, venueProgs);
+      const breakConfig = getVenueBreak(venue);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, newBuffer, startTimeStr, breakConfig);
       const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
       setPrograms(prev => prev.map(p => {
         if (updateMap.has(p.id)) {
@@ -355,7 +424,33 @@ export default function AdminScheduler({
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length > 0) {
       const buf = getVenueBuffer(venue, venueProgs);
-      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, newTime);
+      const breakConfig = getVenueBreak(venue);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, newTime, breakConfig);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+      setPrograms(prev => prev.map(p => {
+        if (updateMap.has(p.id)) {
+          return { ...p, startTime: updateMap.get(p.id) };
+        }
+        return p;
+      }));
+    }
+  };
+
+  // Change break configuration for a venue, persist to localStorage, and recalculate
+  const handleVenueBreakChange = (venue: string, newBreak: { enabled: boolean; start: string; end: string }) => {
+    setVenueBreaks(prev => {
+      const updated = { ...prev, [venue]: newBreak };
+      try {
+        localStorage.setItem(`venue_breaks_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length > 0) {
+      const buf = getVenueBuffer(venue, venueProgs);
+      const startTimeStr = getVenueStartTime(venue, venueProgs);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, newBreak);
       const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
       setPrograms(prev => prev.map(p => {
         if (updateMap.has(p.id)) {
@@ -373,11 +468,12 @@ export default function AdminScheduler({
       const vProgs = groupedPrograms[v] || [];
       const buf = getVenueBuffer(v, vProgs);
       const startTimeStr = getVenueStartTime(v, vProgs);
-      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf, startTimeStr);
+      const breakConfig = getVenueBreak(v);
+      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf, startTimeStr, breakConfig);
       timelines[v] = predictedList;
     }
     return timelines;
-  }, [groupedPrograms, allVenues, venueBuffers, venueStartTimes, eventStartDate, targetZoneId]);
+  }, [groupedPrograms, allVenues, venueBuffers, venueStartTimes, venueBreaks, eventStartDate, targetZoneId]);
 
   // Live Real-Time Candidate Clash Detection
   const { clashes, clashesByProgramId, clashCandidateCount } = useMemo(() => {
@@ -537,13 +633,15 @@ export default function AdminScheduler({
 
     const buf = getVenueBuffer(venue, venueProgs);
     const startTimeStr = getVenueStartTime(venue, venueProgs);
-    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr);
+    const breakConfig = getVenueBreak(venue);
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, breakConfig);
 
     setLoadingId(`apply-${venue}`);
     try {
       try {
         localStorage.setItem(`venue_buffers_${eventId}`, JSON.stringify({ ...venueBuffers, [venue]: buf }));
         localStorage.setItem(`venue_start_times_${eventId}`, JSON.stringify({ ...venueStartTimes, [venue]: startTimeStr }));
+        localStorage.setItem(`venue_breaks_${eventId}`, JSON.stringify({ ...venueBreaks, [venue]: breakConfig }));
       } catch (e) {}
 
       const updates = predictedList.map(item => ({
@@ -951,6 +1049,64 @@ export default function AdminScheduler({
                 Default slot duration for group, general, or fixed-duration events.
               </p>
             </div>
+
+            {/* Field 4: Festival Start Time */}
+            <div style={{ backgroundColor: "#ffffff", padding: "14px", borderRadius: "10px", border: "1px solid #c7d2fe" }}>
+              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#3730a3", marginBottom: "6px" }}>
+                🚩 Default Venue Start Time
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <input
+                  type="time"
+                  value={globalStartTime}
+                  onChange={e => setGlobalStartTime(e.target.value)}
+                  className="form-input"
+                  style={{ width: "120px", fontSize: "0.95rem", fontWeight: 700, textAlign: "center", backgroundColor: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}
+                />
+              </div>
+              <p style={{ margin: "6px 0 0 0", fontSize: "0.72rem", color: "#64748b" }}>
+                Standard starting time for venues across festival zones (default 09:30 AM).
+              </p>
+            </div>
+
+            {/* Field 5: Lunch / Prayer Break Window */}
+            <div style={{ backgroundColor: "#ffffff", padding: "14px", borderRadius: "10px", border: "1px solid #c7d2fe" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#3730a3", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={globalEnableBreak}
+                    onChange={e => setGlobalEnableBreak(e.target.checked)}
+                    style={{ cursor: "pointer" }}
+                  />
+                  🍽️ Lunch / Prayer Break
+                </label>
+              </div>
+              {globalEnableBreak ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <input
+                    type="time"
+                    value={globalBreakStart}
+                    onChange={e => setGlobalBreakStart(e.target.value)}
+                    className="form-input"
+                    style={{ width: "100px", fontSize: "0.85rem", fontWeight: 700, textAlign: "center" }}
+                  />
+                  <span style={{ fontSize: "0.75rem", color: "#64748b" }}>to</span>
+                  <input
+                    type="time"
+                    value={globalBreakEnd}
+                    onChange={e => setGlobalBreakEnd(e.target.value)}
+                    className="form-input"
+                    style={{ width: "100px", fontSize: "0.85rem", fontWeight: 700, textAlign: "center" }}
+                  />
+                </div>
+              ) : (
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>Break disabled</span>
+              )}
+              <p style={{ margin: "6px 0 0 0", fontSize: "0.72rem", color: "#64748b" }}>
+                Automatic pause window for lunch & prayer. Programs resume after break.
+              </p>
+            </div>
           </div>
 
           {globalTimingMsg && (
@@ -1332,16 +1488,8 @@ export default function AdminScheduler({
         const isUnassigned = venue === "Unassigned";
         const buf = getVenueBuffer(venue, venueProgs);
         const startTimeStr = getVenueStartTime(venue, venueProgs);
-        const [sh, sm] = startTimeStr.split(":").map(Number);
-        const baseDate = getFestivalBaseDate(eventStartDate, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
-
-        const timeline = allVenueTimelines[venue] ? {
-          predictedList: allVenueTimelines[venue],
-          totalDurationMinutes: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.duration, 0) + Math.max(0, allVenueTimelines[venue].length - 1) * buf,
-          totalCandidates: allVenueTimelines[venue].reduce((acc: number, p: any) => acc + p.candidateCount, 0),
-          predictedStart: baseDate,
-          predictedEnd: allVenueTimelines[venue].length > 0 ? allVenueTimelines[venue][allVenueTimelines[venue].length - 1].predictedEnd : baseDate
-        } : getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr);
+        const venueBreak = getVenueBreak(venue);
+        const timeline = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, venueBreak);
 
         const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = timeline;
 
@@ -1425,6 +1573,8 @@ export default function AdminScheduler({
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                    
+                    {/* Starts (Preset + Custom Time Picker) */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#15803d", margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
                         <span>🕒</span>
@@ -1432,12 +1582,16 @@ export default function AdminScheduler({
                       </label>
                       <select 
                         className="form-input" 
-                        value={startTimeStr}
-                        onChange={(e) => handleVenueStartTimeChange(venue, e.target.value)}
+                        value={[ "09:30", "09:00", "08:30", "10:00", "10:30" ].includes(startTimeStr) ? startTimeStr : "CUSTOM"}
+                        onChange={(e) => {
+                          if (e.target.value !== "CUSTOM") {
+                            handleVenueStartTimeChange(venue, e.target.value);
+                          }
+                        }}
                         style={{ 
                           fontSize: "0.80rem", 
                           padding: "3px 8px", 
-                          width: "125px", 
+                          width: "115px", 
                           fontWeight: 800,
                           backgroundColor: "#f0fdf4",
                           borderColor: "#bbf7d0",
@@ -1449,12 +1603,27 @@ export default function AdminScheduler({
                         <option value="08:30">08:30 AM</option>
                         <option value="10:00">10:00 AM</option>
                         <option value="10:30">10:30 AM</option>
-                        {![ "09:30", "09:00", "08:30", "10:00", "10:30" ].includes(startTimeStr) && (
-                          <option value={startTimeStr}>{startTimeStr} (IST)</option>
-                        )}
+                        <option value="CUSTOM">Custom Time...</option>
                       </select>
+                      <input
+                        type="time"
+                        value={startTimeStr}
+                        onChange={(e) => handleVenueStartTimeChange(venue, e.target.value)}
+                        className="form-input"
+                        style={{
+                          fontSize: "0.80rem",
+                          padding: "2px 6px",
+                          width: "95px",
+                          fontWeight: 800,
+                          backgroundColor: "#f0fdf4",
+                          borderColor: "#bbf7d0",
+                          color: "#15803d"
+                        }}
+                        title="Pick or type custom stage start time"
+                      />
                     </div>
 
+                    {/* Buffer Gap */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
                         Buffer Gap:
@@ -1463,7 +1632,7 @@ export default function AdminScheduler({
                         className="form-input" 
                         value={buf}
                         onChange={(e) => handleVenueBufferChange(venue, parseInt(e.target.value) || 0)}
-                        style={{ fontSize: "0.80rem", padding: "3px 6px", width: "125px" }}
+                        style={{ fontSize: "0.80rem", padding: "3px 6px", width: "110px" }}
                       >
                         <option value={0}>0 min (Direct)</option>
                         <option value={5}>5 mins gap</option>
@@ -1475,6 +1644,42 @@ export default function AdminScheduler({
                           <option value={buf}>{buf} mins gap</option>
                         )}
                       </select>
+                    </div>
+
+                    {/* Break Option (NEW!) */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", borderLeft: "1.5px solid #cbd5e1", paddingLeft: "10px" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#b45309", margin: 0, display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={venueBreak.enabled}
+                          onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, enabled: e.target.checked })}
+                          style={{ cursor: "pointer" }}
+                        />
+                        <span>🍽️ Break:</span>
+                      </label>
+                      {venueBreak.enabled ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <input
+                            type="time"
+                            value={venueBreak.start}
+                            onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, start: e.target.value })}
+                            className="form-input"
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            title="Break Start Time"
+                          />
+                          <span style={{ fontSize: "0.72rem", color: "#64748b" }}>–</span>
+                          <input
+                            type="time"
+                            value={venueBreak.end}
+                            onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, end: e.target.value })}
+                            className="form-input"
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            title="Break End Time"
+                          />
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>None</span>
+                      )}
                     </div>
                   </div>
 
@@ -1519,19 +1724,51 @@ export default function AdminScheduler({
                     ((!program.durationMode || program.durationMode === 'AUTO') && (program.type === 'GROUP' || program.type === 'GENERAL' || (program.candidateLimitPerTeam && program.candidateLimitPerTeam > 1)));
 
                   return (
-                    <div 
-                      key={program.id} 
-                      style={{ 
-                        padding: "12px 16px", 
-                        border: itemClashes.length > 0 ? "2px solid #ef4444" : "1px solid var(--border-color)", 
-                        borderRadius: "10px",
-                        backgroundColor: itemClashes.length > 0 ? "#fff5f5" : isBreak ? "rgba(245, 158, 11, 0.08)" : "#ffffff",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                        boxShadow: itemClashes.length > 0 ? "0 2px 8px rgba(239, 68, 68, 0.15)" : "0 1px 3px rgba(0,0,0,0.03)"
-                      }}
-                    >
+                    <div key={program.id} style={{ display: "contents" }}>
+                      {item.isFirstAfterBreak && timeline.breakStartDate && timeline.breakEndDate && (
+                        <div style={{
+                          padding: "10px 16px",
+                          borderRadius: "10px",
+                          backgroundColor: "#fffbeb",
+                          border: "1.5px dashed #f59e0b",
+                          color: "#b45309",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          boxShadow: "0 1px 4px rgba(245, 158, 11, 0.12)"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "0.85rem" }}>
+                            <span style={{ fontSize: "1.1rem" }}>🍽️</span>
+                            <span>LUNCH / PRAYER BREAK</span>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#92400e" }}>
+                              (Stage paused for prayer & lunch)
+                            </span>
+                          </div>
+                          <div style={{
+                            backgroundColor: "#fef3c7",
+                            padding: "3px 10px",
+                            borderRadius: "8px",
+                            fontWeight: 800,
+                            fontSize: "0.80rem",
+                            border: "1px solid #fde68a"
+                          }}>
+                            {formatTimeAmPm(timeline.breakStartDate)} – {formatTimeAmPm(timeline.breakEndDate)}
+                          </div>
+                        </div>
+                      )}
+
+                      <div 
+                        style={{ 
+                          padding: "12px 16px", 
+                          border: itemClashes.length > 0 ? "2px solid #ef4444" : "1px solid var(--border-color)", 
+                          borderRadius: "10px",
+                          backgroundColor: itemClashes.length > 0 ? "#fff5f5" : isBreak ? "rgba(245, 158, 11, 0.08)" : "#ffffff",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          boxShadow: itemClashes.length > 0 ? "0 2px 8px rgba(239, 68, 68, 0.15)" : "0 1px 3px rgba(0,0,0,0.03)"
+                        }}
+                      >
                       {/* Top Program Card Row */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                         
@@ -1870,7 +2107,8 @@ export default function AdminScheduler({
                         </button>
                       </div>
                     </div>
-                  );
+                  </div>
+                );
                 })
               )}
             </div>

@@ -39,10 +39,13 @@ export default function ZoneScheduleAnalyzer({
   const [fixingClashes, setFixingClashes] = useState(false);
 
   // Timing & Constraints Configuration State
-  const [startTimeMode, setStartTimeMode] = useState<"SAVED" | "FIXED_930">("SAVED");
+  const [startTimeMode, setStartTimeMode] = useState<"SAVED" | "FIXED_930" | "CUSTOM">("SAVED");
+  const [customStartTime, setCustomStartTime] = useState<string>("09:30");
   const [maxBuffer, setMaxBuffer] = useState<number>(60);
   const [enableBreak, setEnableBreak] = useState<boolean>(true);
   const [breakWindow, setBreakWindow] = useState<string>("13:00-13:45");
+  const [customBreakStart, setCustomBreakStart] = useState<string>("13:00");
+  const [customBreakEnd, setCustomBreakEnd] = useState<string>("13:45");
 
   // Type 2: Venue Transfer Simulation State
   const [testingTransfers, setTestingTransfers] = useState(false);
@@ -98,9 +101,31 @@ export default function ZoneScheduleAnalyzer({
 
   // Helper to extract break hours
   const getBreakHours = () => {
+    if (breakWindow === "CUSTOM") {
+      const [bStartH, bStartM] = customBreakStart.split(":").map(Number);
+      const [bEndH, bEndM] = customBreakEnd.split(":").map(Number);
+      return {
+        bStartH: isNaN(bStartH) ? 13 : bStartH,
+        bStartM: isNaN(bStartM) ? 0 : bStartM,
+        bEndH: isNaN(bEndH) ? 13 : bEndH,
+        bEndM: isNaN(bEndM) ? 45 : bEndM,
+      };
+    }
     const [bStartH, bStartM] = [13, 0];
-    const [bEndH, bEndM] = breakWindow === "13:00-14:00" ? [14, 0] : [13, 45];
+    const [bEndH, bEndM] = breakWindow === "13:00-14:00" ? [14, 0] : (breakWindow === "12:30-13:30" ? [13, 30] : [13, 45]);
     return { bStartH, bStartM, bEndH, bEndM };
+  };
+
+  // Helper to extract start hours
+  const getStartHours = () => {
+    if (startTimeMode === "CUSTOM") {
+      const [sH, sM] = customStartTime.split(":").map(Number);
+      return {
+        startHour: isNaN(sH) ? 9 : sH,
+        startMinute: isNaN(sM) ? 30 : sM
+      };
+    }
+    return { startHour: 9, startMinute: 30 };
   };
 
   // TYPE 1: Safe Auto-Fix (Order Change & Buffer up to 60m - Same Venue)
@@ -109,13 +134,22 @@ export default function ZoneScheduleAnalyzer({
     if (!targetId) return;
 
     const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+    const { startHour, startMinute } = getStartHours();
+
+    const startSummary = startTimeMode === "CUSTOM"
+      ? `Custom ${customStartTime}`
+      : (startTimeMode === "SAVED" ? "Saved Start / 9:30 AM" : "Fixed 9:30 AM");
+
+    const breakSummary = breakWindow === "CUSTOM"
+      ? `${customBreakStart} – ${customBreakEnd}`
+      : (breakWindow === "13:00-14:00" ? "01:00 PM – 02:00 PM" : (breakWindow === "12:30-13:30" ? "12:30 PM – 01:30 PM" : "01:00 PM – 01:45 PM"));
 
     if (!confirm(
       "Run Auto-Clash Resolver (Same Venue)?\n\n" +
-      `• Preserves Venue Start Time (${startTimeMode === "SAVED" ? "Saved Start / 9:30 AM" : "Fixed 9:30 AM"})\n` +
+      `• Start Time Mode: ${startSummary}\n` +
       "• Reorders candidate slots (1st vs Last) across venues\n" +
       `• Tunes buffer gaps up to ${maxBuffer} minutes\n` +
-      (enableBreak ? `• Honors Break (${breakWindow === "13:00-14:00" ? "01:00 PM – 02:00 PM" : "01:00 PM – 01:45 PM"})\n` : "") +
+      (enableBreak ? `• Honors Break (${breakSummary})\n` : "") +
       "• Closes by 5:00 PM (Hard Limit: 6:00 PM)\n\n" +
       "🛡️ GUARANTEE: Program durations and assigned venues are 100% PRESERVED."
     )) return;
@@ -127,8 +161,8 @@ export default function ZoneScheduleAnalyzer({
         minBuffer: 5,
         maxBuffer,
         startTimeMode,
-        startHour: 9,
-        startMinute: 30,
+        startHour,
+        startMinute,
         enableBreak,
         breakStartHour: bStartH,
         breakStartMinute: bStartM,
@@ -156,6 +190,7 @@ export default function ZoneScheduleAnalyzer({
     if (!targetId) return;
 
     const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+    const { startHour, startMinute } = getStartHours();
 
     setTestingTransfers(true);
     setFixMessage(null);
@@ -164,8 +199,8 @@ export default function ZoneScheduleAnalyzer({
         minBuffer: 5,
         maxBuffer,
         startTimeMode,
-        startHour: 9,
-        startMinute: 30,
+        startHour,
+        startMinute,
         enableBreak,
         breakStartHour: bStartH,
         breakStartMinute: bStartM,
@@ -194,6 +229,7 @@ export default function ZoneScheduleAnalyzer({
     if (!targetId || !transferReport?.proposals || transferReport.proposals.length === 0) return;
 
     const { bStartH, bStartM, bEndH, bEndM } = getBreakHours();
+    const { startHour, startMinute } = getStartHours();
 
     if (!confirm(
       "⚠️ JURY SITTING & VALUATION VERIFICATION:\n\n" +
@@ -211,8 +247,8 @@ export default function ZoneScheduleAnalyzer({
       }));
       const res = await applyCrossVenueTransfers(targetId, transfers, {
         startTimeMode,
-        startHour: 9,
-        startMinute: 30,
+        startHour,
+        startMinute,
         enableBreak,
         breakStartHour: bStartH,
         breakStartMinute: bStartM,
@@ -474,7 +510,28 @@ export default function ZoneScheduleAnalyzer({
                     >
                       <option value="SAVED">Preserve Saved Start Time (or 09:30 AM)</option>
                       <option value="FIXED_930">Fixed 09:30 AM (Standard Start)</option>
+                      <option value="CUSTOM">Custom Start Time (Pick Time)</option>
                     </select>
+                    {startTimeMode === "CUSTOM" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                        <span style={{ fontSize: "0.72rem", color: "#475569", fontWeight: 700 }}>Starts at:</span>
+                        <input
+                          type="time"
+                          value={customStartTime}
+                          onChange={e => setCustomStartTime(e.target.value)}
+                          className="form-input"
+                          style={{
+                            fontSize: "0.8rem",
+                            padding: "2px 6px",
+                            fontWeight: 800,
+                            color: "#15803d",
+                            backgroundColor: "#f0fdf4",
+                            borderColor: "#bbf7d0",
+                            width: "110px"
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Option 2: Max Buffer Gap */}
@@ -523,7 +580,28 @@ export default function ZoneScheduleAnalyzer({
                     >
                       <option value="13:00-13:45">01:00 PM – 01:45 PM (45m Break)</option>
                       <option value="13:00-14:00">01:00 PM – 02:00 PM (60m Break)</option>
+                      <option value="12:30-13:30">12:30 PM – 01:30 PM (60m Break)</option>
+                      <option value="CUSTOM">Custom Break Time Range...</option>
                     </select>
+                    {enableBreak && breakWindow === "CUSTOM" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                        <input
+                          type="time"
+                          value={customBreakStart}
+                          onChange={e => setCustomBreakStart(e.target.value)}
+                          className="form-input"
+                          style={{ fontSize: "0.75rem", padding: "2px 4px", width: "95px", fontWeight: 700 }}
+                        />
+                        <span style={{ fontSize: "0.72rem", color: "#64748b" }}>to</span>
+                        <input
+                          type="time"
+                          value={customBreakEnd}
+                          onChange={e => setCustomBreakEnd(e.target.value)}
+                          className="form-input"
+                          style={{ fontSize: "0.75rem", padding: "2px 4px", width: "95px", fontWeight: 700 }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Option 4: Close Time Window */}

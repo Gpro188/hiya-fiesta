@@ -1,3 +1,4 @@
+import React from "react";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
@@ -274,27 +275,71 @@ export default async function PrintSchedulePage(props: {
                   ? formatTimeAmPm(new Date(new Date(p.startTime).getTime() + p.duration * 60000))
                   : null;
 
+                if (p.type === "BREAK") {
+                  return (
+                    <tr key={p.id} style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
+                      <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}>-</td>
+                      <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
+                        {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
+                      </td>
+                      <td colSpan={4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
+                        🍽️ {p.name?.toUpperCase() || 'BREAK'} ({p.duration || 45} mins)
+                      </td>
+                    </tr>
+                  );
+                }
+
+                const prevProg = idx > 0 ? venueProgs[idx - 1] : null;
+                let showBreakRow = false;
+                let gapStartStr = "";
+                let gapEndStr = "";
+                let gapMins = 0;
+                if (prevProg && prevProg.startTime && prevProg.duration && p.startTime && prevProg.type !== "BREAK") {
+                  const prevEnd = new Date(new Date(prevProg.startTime).getTime() + prevProg.duration * 60000);
+                  const curStart = new Date(p.startTime);
+                  gapMins = Math.round((curStart.getTime() - prevEnd.getTime()) / 60000);
+                  const prevHour = prevEnd.getHours();
+                  if (gapMins >= 25 && prevHour >= 12 && prevHour <= 15) {
+                    showBreakRow = true;
+                    gapStartStr = formatTimeAmPm(prevEnd);
+                    gapEndStr = formatTimeAmPm(curStart);
+                  }
+                }
+
                 return (
-                  <tr key={p.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#64748b' }}>
-                      {idx + 1}
-                    </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#047857' }}>
-                      {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
-                    </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
-                      {p.programCode || '-'}
-                    </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 10px', fontWeight: 800, color: '#0f172a' }}>
-                      {p.name}
-                    </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' }}>
-                      {p.category?.name || 'General'}
-                    </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>
-                      {p.duration ? `${p.duration}m` : '-'}
-                    </td>
-                  </tr>
+                  <React.Fragment key={p.id}>
+                    {showBreakRow && (
+                      <tr style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
+                        <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}>-</td>
+                        <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
+                          {gapStartStr} - {gapEndStr}
+                        </td>
+                        <td colSpan={4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
+                          🍽️ LUNCH & PRAYER BREAK ({gapMins} mins)
+                        </td>
+                      </tr>
+                    )}
+                    <tr style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#64748b' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#047857' }}>
+                        {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
+                      </td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
+                        {p.programCode || '-'}
+                      </td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 10px', fontWeight: 800, color: '#0f172a' }}>
+                        {p.name}
+                      </td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' }}>
+                        {p.category?.name || 'General'}
+                      </td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>
+                        {p.duration ? `${p.duration}m` : '-'}
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 );
               })}
             </tbody>

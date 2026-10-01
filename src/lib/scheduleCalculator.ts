@@ -264,6 +264,9 @@ export function calculateVenueTimeline(
   let baseDate: Date;
   if (options.baseStartTime) {
     baseDate = getFestivalBaseDate(options.baseStartTime, options.startHour ?? 9, options.startMinute ?? 30);
+  } else if (options.startTimeMode === "CUSTOM") {
+    const sampleDate = programs.find(p => p.startTime)?.startTime;
+    baseDate = getFestivalBaseDate(sampleDate, options.startHour ?? 9, options.startMinute ?? 30);
   } else if (options.startTimeMode === "SAVED") {
     // Check if any program in this venue has a saved startTime
     const validSavedTimes = programs

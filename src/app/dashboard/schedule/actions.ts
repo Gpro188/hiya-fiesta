@@ -937,7 +937,19 @@ export async function getZoneScheduleAnalysis(sourceEventId?: string) {
 
 export async function applyRegistrationBasedScheduleToZone(
   zoneEventId: string,
-  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number; groupFixedMin?: number }
+  options?: {
+    bufferMinutes?: number;
+    defaultMinPerCandidate?: number;
+    groupFixedMin?: number;
+    startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM";
+    startHour?: number;
+    startMinute?: number;
+    enableBreak?: boolean;
+    breakStartHour?: number;
+    breakStartMinute?: number;
+    breakEndHour?: number;
+    breakEndMinute?: number;
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1022,7 +1034,15 @@ export async function applyRegistrationBasedScheduleToZone(
         targetZoneId,
         bufferMinutes: options?.bufferMinutes ?? 2,
         minutesPerCandidate: options?.defaultMinPerCandidate,
-        groupFixedMin: options?.groupFixedMin
+        groupFixedMin: options?.groupFixedMin,
+        startTimeMode: options?.startTimeMode,
+        startHour: options?.startHour,
+        startMinute: options?.startMinute,
+        enableBreak: options?.enableBreak,
+        breakStartHour: options?.breakStartHour,
+        breakStartMinute: options?.breakStartMinute,
+        breakEndHour: options?.breakEndHour,
+        breakEndMinute: options?.breakEndMinute
       });
 
       for (const slot of timeline.programs) {
@@ -1092,7 +1112,19 @@ export async function applyRegistrationBasedScheduleToZone(
 }
 
 export async function applyRegistrationBasedScheduleToAllZones(
-  options?: { bufferMinutes?: number; defaultMinPerCandidate?: number; groupFixedMin?: number }
+  options?: {
+    bufferMinutes?: number;
+    defaultMinPerCandidate?: number;
+    groupFixedMin?: number;
+    startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM";
+    startHour?: number;
+    startMinute?: number;
+    enableBreak?: boolean;
+    breakStartHour?: number;
+    breakStartMinute?: number;
+    breakEndHour?: number;
+    breakEndMinute?: number;
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1376,6 +1408,10 @@ export async function saveGlobalScheduleSettings(data: {
   bufferMinutes: number;
   groupFixedMin: number;
   applyToAllZones: boolean;
+  defaultStartTime?: string;
+  enableBreak?: boolean;
+  breakStartTime?: string;
+  breakEndTime?: string;
 }) {
   try {
     const session = await getServerSession(authOptions);
@@ -1395,10 +1431,22 @@ export async function saveGlobalScheduleSettings(data: {
     let applyResult: { updatedZones?: number; totalPrograms?: number } = {};
 
     if (data.applyToAllZones) {
+      const [sh, sm] = (data.defaultStartTime || "09:30").split(":").map(Number);
+      const [bsh, bsm] = (data.breakStartTime || "13:00").split(":").map(Number);
+      const [beh, bem] = (data.breakEndTime || "13:45").split(":").map(Number);
+
       const res = await applyRegistrationBasedScheduleToAllZones({
         bufferMinutes: data.bufferMinutes,
         defaultMinPerCandidate: data.minPerCandidate,
         groupFixedMin: data.groupFixedMin,
+        startTimeMode: "CUSTOM",
+        startHour: isNaN(sh) ? 9 : sh,
+        startMinute: isNaN(sm) ? 30 : sm,
+        enableBreak: data.enableBreak ?? true,
+        breakStartHour: isNaN(bsh) ? 13 : bsh,
+        breakStartMinute: isNaN(bsm) ? 0 : bsm,
+        breakEndHour: isNaN(beh) ? 13 : beh,
+        breakEndMinute: isNaN(bem) ? 45 : bem,
       });
       if (res.success) {
         applyResult = { updatedZones: (res as any).updatedZones, totalPrograms: (res as any).totalPrograms };
@@ -1626,7 +1674,7 @@ export async function resolveClashesSafe(
   options?: {
     minBuffer?: number;
     maxBuffer?: number;
-    startTimeMode?: "SAVED" | "FIXED_930";
+    startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM";
     startHour?: number;
     startMinute?: number;
     enableBreak?: boolean;
@@ -1906,7 +1954,7 @@ export async function testCrossVenueTransfers(
   options?: {
     minBuffer?: number;
     maxBuffer?: number;
-    startTimeMode?: "SAVED" | "FIXED_930";
+    startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM";
     startHour?: number;
     startMinute?: number;
     enableBreak?: boolean;
@@ -2109,7 +2157,7 @@ export async function applyCrossVenueTransfers(
   eventId: string,
   transfers: { programId: string; toVenue: string }[],
   options?: {
-    startTimeMode?: "SAVED" | "FIXED_930";
+    startTimeMode?: "SAVED" | "FIXED_930" | "CUSTOM";
     startHour?: number;
     startMinute?: number;
     enableBreak?: boolean;
