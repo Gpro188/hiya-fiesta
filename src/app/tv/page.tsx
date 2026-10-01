@@ -65,7 +65,6 @@ export default async function TVDisplayPage(props: {
           some: {
             isPublished: true,
             OR: [
-              { program: { eventId: eventObj.id } },
               { team: { eventId: eventObj.id } },
               { candidate: { team: { eventId: eventObj.id } } }
             ]
@@ -78,7 +77,6 @@ export default async function TVDisplayPage(props: {
           where: {
             isPublished: true,
             OR: [
-              { program: { eventId: eventObj.id } },
               { team: { eventId: eventObj.id } },
               { candidate: { team: { eventId: eventObj.id } } }
             ]
