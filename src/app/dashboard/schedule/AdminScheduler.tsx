@@ -306,16 +306,19 @@ export default function AdminScheduler({
       const [bsh, bsm] = breakConfig.start.split(":").map(Number);
       const [beh, bem] = breakConfig.end.split(":").map(Number);
 
-      breakStartDate = new Date(baseDate.getTime());
-      breakStartDate.setHours(isNaN(bsh) ? 13 : bsh, isNaN(bsm) ? 0 : bsm, 0, 0);
-
-      breakEndDate = new Date(baseDate.getTime());
-      breakEndDate.setHours(isNaN(beh) ? 13 : beh, isNaN(bem) ? 45 : bem, 0, 0);
+      breakStartDate = getFestivalBaseDate(baseDate, isNaN(bsh) ? 13 : bsh, isNaN(bsm) ? 0 : bsm);
+      breakEndDate = getFestivalBaseDate(baseDate, isNaN(beh) ? 13 : beh, isNaN(bem) ? 45 : bem);
 
       if (breakEndDate.getTime() <= breakStartDate.getTime()) {
         breakEndDate = new Date(breakStartDate.getTime() + 45 * 60000);
       }
     }
+
+    const isBreakBeforeStart = Boolean(
+      breakConfig.enabled && 
+      breakStartDate && 
+      breakStartDate.getTime() < baseDate.getTime()
+    );
 
     const predictedList = venuePrograms.map((p, idx) => {
       const zoneCandidates = getZoneCandidatesForProgram(p.assignments, targetZoneId);
@@ -368,7 +371,8 @@ export default function AdminScheduler({
       predictedEnd: finalEndTime,
       breakStartDate,
       breakEndDate,
-      breakEnabled: breakConfig.enabled
+      breakEnabled: breakConfig.enabled,
+      isBreakBeforeStart
     };
   };
 
@@ -1493,8 +1497,7 @@ export default function AdminScheduler({
 
         const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = timeline;
 
-        const eveningCutoff = new Date(predictedStart.getTime());
-        eveningCutoff.setHours(18, 0, 0, 0);
+        const eveningCutoff = getFestivalBaseDate(predictedStart, 18, 0);
         const isExceedingEvening = predictedEnd.getTime() > eveningCutoff.getTime();
         const diffMinutes = Math.abs(Math.round((predictedEnd.getTime() - eveningCutoff.getTime()) / 60000));
 
@@ -1575,14 +1578,14 @@ export default function AdminScheduler({
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                     
                     {/* Starts (Preset + Custom Time Picker) */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                       <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#15803d", margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
                         <span>🕒</span>
                         <span>Starts:</span>
                       </label>
                       <select 
                         className="form-input" 
-                        value={[ "09:30", "09:00", "08:30", "10:00", "10:30" ].includes(startTimeStr) ? startTimeStr : "CUSTOM"}
+                        value={[ "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "13:00" ].includes(startTimeStr) ? startTimeStr : "CUSTOM"}
                         onChange={(e) => {
                           if (e.target.value !== "CUSTOM") {
                             handleVenueStartTimeChange(venue, e.target.value);
@@ -1598,11 +1601,16 @@ export default function AdminScheduler({
                           color: "#15803d"
                         }}
                       >
-                        <option value="09:30">09:30 AM</option>
-                        <option value="09:00">09:00 AM</option>
+                        <option value="08:00">08:00 AM</option>
                         <option value="08:30">08:30 AM</option>
+                        <option value="09:00">09:00 AM</option>
+                        <option value="09:30">09:30 AM</option>
                         <option value="10:00">10:00 AM</option>
                         <option value="10:30">10:30 AM</option>
+                        <option value="11:00">11:00 AM</option>
+                        <option value="11:30">11:30 AM</option>
+                        <option value="12:00">12:00 PM</option>
+                        <option value="13:00">01:00 PM</option>
                         <option value="CUSTOM">Custom Time...</option>
                       </select>
                       <input
@@ -1613,7 +1621,7 @@ export default function AdminScheduler({
                         style={{
                           fontSize: "0.80rem",
                           padding: "2px 6px",
-                          width: "95px",
+                          width: "105px",
                           fontWeight: 800,
                           backgroundColor: "#f0fdf4",
                           borderColor: "#bbf7d0",
@@ -1621,6 +1629,35 @@ export default function AdminScheduler({
                         }}
                         title="Pick or type custom stage start time"
                       />
+                      {(() => {
+                        const [hStr, mStr] = startTimeStr.split(":");
+                        const h = parseInt(hStr, 10);
+                        const isPm = !isNaN(h) && h >= 12;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const curH = isNaN(h) ? 9 : h;
+                              const targetH = isPm ? (curH - 12) : (curH + 12);
+                              const newTime = `${String(targetH).padStart(2, "0")}:${mStr || "00"}`;
+                              handleVenueStartTimeChange(venue, newTime);
+                            }}
+                            title={`Currently ${isPm ? "PM (Afternoon/Night)" : "AM (Morning)"}. Click to toggle.`}
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 800,
+                              padding: "2px 7px",
+                              borderRadius: "4px",
+                              border: isPm ? "1px solid #f87171" : "1px solid #86efac",
+                              backgroundColor: isPm ? "#fee2e2" : "#dcfce7",
+                              color: isPm ? "#dc2626" : "#15803d",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {isPm ? "PM 🌙" : "AM ☀️"}
+                          </button>
+                        );
+                      })()}
                     </div>
 
                     {/* Buffer Gap */}
@@ -1664,7 +1701,7 @@ export default function AdminScheduler({
                             value={venueBreak.start}
                             onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, start: e.target.value })}
                             className="form-input"
-                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "105px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
                             title="Break Start Time"
                           />
                           <span style={{ fontSize: "0.72rem", color: "#64748b" }}>–</span>
@@ -1673,7 +1710,7 @@ export default function AdminScheduler({
                             value={venueBreak.end}
                             onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, end: e.target.value })}
                             className="form-input"
-                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "105px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
                             title="Break End Time"
                           />
                         </div>
@@ -1702,6 +1739,56 @@ export default function AdminScheduler({
                     </span>
                   </div>
                 </div>
+
+                {/* Warning if Break is set before Stage Start */}
+                {timeline.isBreakBeforeStart && (
+                  <div style={{
+                    backgroundColor: "#fff7ed",
+                    border: "1.5px solid #fdba74",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    color: "#c2410c",
+                    fontSize: "0.82rem",
+                    gap: "10px",
+                    flexWrap: "wrap"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "1.1rem" }}>⚠️</span>
+                      <span>
+                        <strong>Break Time Mismatch:</strong> The break ({venueBreak.start} – {venueBreak.end}) is set earlier than the stage start time ({formatTimeAmPm(predictedStart)}). If this stage starts in the morning, switch to AM!
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const [h, m] = startTimeStr.split(":").map(Number);
+                        const morningH = h >= 12 ? h - 12 : h;
+                        const fixedTime = `${String(morningH).padStart(2, "0")}:${String(isNaN(m) ? 0 : m).padStart(2, "0")}`;
+                        handleVenueStartTimeChange(venue, fixedTime);
+                      }}
+                      style={{
+                        padding: "4px 12px",
+                        backgroundColor: "#ea580c",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        fontSize: "0.78rem",
+                        borderRadius: "6px",
+                        border: "none",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      ⚡ Switch Start to {(() => {
+                        const [h, m] = startTimeStr.split(":").map(Number);
+                        const morningH = h >= 12 ? h - 12 : h;
+                        return formatTimeAmPm(getFestivalBaseDate(predictedStart, morningH, m));
+                      })()}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

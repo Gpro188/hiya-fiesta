@@ -298,8 +298,12 @@ export default async function PrintSchedulePage(props: {
                   const prevEnd = new Date(new Date(prevProg.startTime).getTime() + prevProg.duration * 60000);
                   const curStart = new Date(p.startTime);
                   gapMins = Math.round((curStart.getTime() - prevEnd.getTime()) / 60000);
-                  const prevHour = prevEnd.getHours();
-                  if (gapMins >= 25 && prevHour >= 12 && prevHour <= 15) {
+                  const istHour = (prevEnd.getUTCHours() + 5 + Math.floor((prevEnd.getUTCMinutes() + 30) / 60)) % 24;
+                  if (gapMins >= 20 && istHour >= 11 && istHour <= 16) {
+                    showBreakRow = true;
+                    gapStartStr = formatTimeAmPm(prevEnd);
+                    gapEndStr = formatTimeAmPm(curStart);
+                  } else if (gapMins >= 30) {
                     showBreakRow = true;
                     gapStartStr = formatTimeAmPm(prevEnd);
                     gapEndStr = formatTimeAmPm(curStart);

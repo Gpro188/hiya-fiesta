@@ -302,11 +302,8 @@ export function calculateVenueTimeline(
     const eH = options.breakEndHour ?? 13;
     const eM = options.breakEndMinute ?? 45; // 1:45 PM (or 14:00 if 2:00 PM)
 
-    breakStart = new Date(baseDate.getTime());
-    breakStart.setHours(sH, sM, 0, 0);
-
-    breakEnd = new Date(baseDate.getTime());
-    breakEnd.setHours(eH, eM, 0, 0);
+    breakStart = getFestivalBaseDate(baseDate, sH, sM);
+    breakEnd = getFestivalBaseDate(baseDate, eH, eM);
 
     if (breakEnd.getTime() <= breakStart.getTime()) {
       breakEnd = new Date(breakStart.getTime() + 45 * 60000);
