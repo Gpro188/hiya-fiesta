@@ -103,6 +103,7 @@ export default async function PrintVenueControlPage(props: {
         stageType: "ON_STAGE"
       },
       include: {
+        category: true,
         results: {
           select: {
             id: true,
@@ -131,7 +132,8 @@ export default async function PrintVenueControlPage(props: {
     const parentMap = new Map<string, { assignments: any[]; results: any[] }>();
     for (const pp of parentPrograms) {
       const codeKey = pp.programCode ? `code_${pp.programCode.trim()}` : null;
-      const nameKey = `name_${pp.name.trim().toLowerCase()}_${pp.categoryId || ''}`;
+      const catName = pp.category?.name?.trim().toLowerCase() || '';
+      const nameKey = `name_${pp.name.trim().toLowerCase()}_${catName}`;
       const payload = { assignments: pp.assignments, results: pp.results };
       if (codeKey) parentMap.set(codeKey, payload);
       parentMap.set(nameKey, payload);
@@ -139,11 +141,29 @@ export default async function PrintVenueControlPage(props: {
 
     for (const zp of rawPrograms) {
       const codeKey = zp.programCode ? `code_${zp.programCode.trim()}` : null;
-      const nameKey = `name_${zp.name.trim().toLowerCase()}_${zp.categoryId || ''}`;
+      const catName = zp.category?.name?.trim().toLowerCase() || '';
+      const nameKey = `name_${zp.name.trim().toLowerCase()}_${catName}`;
       const match = (codeKey && parentMap.get(codeKey)) || parentMap.get(nameKey);
       if (match) {
-        if (zp.assignments.length === 0) zp.assignments = match.assignments;
-        if (zp.results.length === 0) zp.results = match.results;
+        const combined = [...(zp.assignments || []), ...match.assignments];
+        const seenCandidateIds = new Set<string>();
+        zp.assignments = combined.filter((a: any) => {
+          const cId = a.candidate?.id || a.candidateId;
+          if (!cId || seenCandidateIds.has(cId)) return false;
+          seenCandidateIds.add(cId);
+          return true;
+        });
+
+        if (zp.results.length === 0) {
+          zp.results = match.results;
+        } else {
+          const existingResultIds = new Set(zp.results.map((r: any) => r.id));
+          for (const r of match.results) {
+            if (!existingResultIds.has(r.id)) {
+              zp.results.push(r);
+            }
+          }
+        }
       }
     }
   }
@@ -169,7 +189,7 @@ export default async function PrintVenueControlPage(props: {
           c?.institution?.zone?.id ||
           c?.team?.institution?.zoneId ||
           c?.team?.event?.zoneId;
-        return zId === targetZoneId;
+        return zId === targetZoneId || (eventId && c?.team?.eventId === eventId);
       });
     }
 

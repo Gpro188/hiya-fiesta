@@ -99,7 +99,11 @@ export default function ScoringForm({
   // Auto-populate based on URL programId
   useEffect(() => {
     if (urlProgramId && allPrograms.length > 0) {
-      const p = allPrograms.find((p: any) => p.id === urlProgramId);
+      const p = allPrograms.find((p: any) => 
+        p.id === urlProgramId || 
+        p.childId === urlProgramId || 
+        (p.programCode && p.programCode.toString() === urlProgramId)
+      );
       if (p) {
         if (p.venue) setSelectedVenue(p.venue);
         setCategoryId(p.categoryId || "general-cat");
@@ -184,6 +188,16 @@ export default function ScoringForm({
           grade: res?.grade || "",
           points: res?.points || 0
         };
+      });
+
+      initialEntries.sort((a, b) => {
+        if (a.chestNumber && b.chestNumber) {
+          const numA = parseInt(a.chestNumber, 10);
+          const numB = parseInt(b.chestNumber, 10);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return a.chestNumber.localeCompare(b.chestNumber);
+        }
+        return 0;
       });
     } else {
       // For general / group / team programs: extract unique teams from registered candidate assignments

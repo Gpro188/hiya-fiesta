@@ -102,6 +102,17 @@ export default async function ScoringPage(props: {
 
   const judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
 
+  const candidateZoneFilter: any[] = [
+    { team: { eventId: activeEventId } }
+  ];
+  if (activeEvent.zoneId) {
+    candidateZoneFilter.push(
+      { institution: { zoneId: activeEvent.zoneId } },
+      { team: { institution: { zoneId: activeEvent.zoneId } } },
+      { team: { event: { zoneId: activeEvent.zoneId } } }
+    );
+  }
+
   const [programsForScoring, availableJudges, childProgramsWithAssignments] = await Promise.all([
     prisma.program.findMany({
       where: { 
@@ -115,6 +126,7 @@ export default async function ScoringPage(props: {
         programCode: true,
         stageType: true,
         venue: true,
+        startTime: true,
         type: true,
         categoryId: true,
         candidateLimitPerTeam: true,
@@ -150,7 +162,9 @@ export default async function ScoringPage(props: {
         },
         assignments: {
           where: {
-            candidate: { team: { eventId: activeEventId } }
+            candidate: {
+              OR: candidateZoneFilter
+            }
           },
           select: {
             id: true,
@@ -181,13 +195,24 @@ export default async function ScoringPage(props: {
       ? prisma.program.findMany({
           where: {
             eventId: activeEvent.id,
-            assignments: { some: { candidate: { team: { eventId: activeEventId } } } }
           },
           select: {
+            id: true,
             programCode: true,
+            name: true,
+            venue: true,
+            startTime: true,
+            judges: {
+              select: {
+                id: true,
+                username: true,
+              }
+            },
             assignments: {
               where: {
-                candidate: { team: { eventId: activeEventId } }
+                candidate: {
+                  OR: candidateZoneFilter
+                }
               },
               select: {
                 id: true,
@@ -212,28 +237,58 @@ export default async function ScoringPage(props: {
       : Promise.resolve([])
   ]);
 
-  // Index child program assignments by programCode so any candidate assigned on child event is never omitted
-  const childAssignmentsByCode = new Map<string, any[]>();
+  // Index child programs by programCode and name so child data (assignments, venue, judges) merges smoothly
+  const childProgramsByCode = new Map<string, any>();
+  const childProgramsByName = new Map<string, any>();
   for (const cp of childProgramsWithAssignments) {
     if (cp.programCode) {
-      if (!childAssignmentsByCode.has(cp.programCode)) {
-        childAssignmentsByCode.set(cp.programCode, []);
-      }
-      childAssignmentsByCode.get(cp.programCode)!.push(...cp.assignments);
+      childProgramsByCode.set(cp.programCode.trim(), cp);
     }
+    childProgramsByName.set(cp.name.trim().toLowerCase(), cp);
   }
 
   const mergedProgramsForScoring = programsForScoring.map(p => {
-    if (!p.programCode || !childAssignmentsByCode.has(p.programCode)) {
-      return p;
+    const codeKey = p.programCode ? p.programCode.trim() : null;
+    const nameKey = p.name.trim().toLowerCase();
+    const childProg = (codeKey && childProgramsByCode.get(codeKey)) || childProgramsByName.get(nameKey);
+
+    let updatedAssignments = [...p.assignments];
+    let updatedVenue = p.venue;
+    let updatedStartTime = p.startTime;
+    let updatedJudges = [...(p.judges || [])];
+
+    if (childProg) {
+      if (childProg.venue) updatedVenue = childProg.venue;
+      if (childProg.startTime) updatedStartTime = childProg.startTime;
+      if (childProg.judges && childProg.judges.length > 0 && updatedJudges.length === 0) {
+        updatedJudges = childProg.judges;
+      }
+
+      const existingCandidateIds = new Set(p.assignments.map((a: any) => a.candidate.id));
+      const extraAssignments = (childProg.assignments || []).filter((a: any) => !existingCandidateIds.has(a.candidate.id));
+      updatedAssignments = [...updatedAssignments, ...extraAssignments];
     }
-    const extraAssignments = childAssignmentsByCode.get(p.programCode) || [];
-    const existingCandidateIds = new Set(p.assignments.map(a => a.candidate.id));
-    const toAdd = extraAssignments.filter(a => !existingCandidateIds.has(a.candidate.id));
-    if (toAdd.length === 0) return p;
+
+    // Sort candidates by numeric chest number
+    updatedAssignments.sort((a: any, b: any) => {
+      const cA = a.candidate?.chestNumber;
+      const cB = b.candidate?.chestNumber;
+      if (cA && cB) {
+        const numA = parseInt(cA, 10);
+        const numB = parseInt(cB, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return cA.localeCompare(cB);
+      }
+      return 0;
+    });
+
     return {
       ...p,
-      assignments: [...p.assignments, ...toAdd]
+      venue: updatedVenue,
+      startTime: updatedStartTime,
+      judges: updatedJudges,
+      assignments: updatedAssignments,
+      childId: childProg?.id || null
     };
   });
 
@@ -276,7 +331,13 @@ export default async function ScoringPage(props: {
     prisma.program.findMany({
       where: { 
         eventId: programsEventId, 
-        assignments: { some: { candidate: { team: { eventId: activeEventId } } } } 
+        assignments: {
+          some: {
+            candidate: {
+              OR: candidateZoneFilter
+            }
+          }
+        } 
       },
       select: {
         id: true,
@@ -294,7 +355,17 @@ export default async function ScoringPage(props: {
           select: { id: true } 
         },
         category: { select: { id: true, name: true } },
-        _count: { select: { assignments: { where: { candidate: { team: { eventId: activeEventId } } } } } }
+        _count: {
+          select: {
+            assignments: {
+              where: {
+                candidate: {
+                  OR: candidateZoneFilter
+                }
+              }
+            }
+          }
+        }
       }
     }),
     prisma.result.findMany({
