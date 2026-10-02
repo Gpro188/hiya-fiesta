@@ -100,7 +100,16 @@ export default async function ScoringPage(props: {
 
   const programsEventId = activeEvent.parentId || activeEvent.id;
 
-  const judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
+  let judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
+  if (session.user.role === "JUDGE" && !judgeVenue) {
+    const dbJudge = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { place: true }
+    });
+    if (dbJudge?.place) {
+      judgeVenue = dbJudge.place;
+    }
+  }
 
   const candidateZoneFilter: any[] = [
     { team: { eventId: activeEventId } }
@@ -117,8 +126,6 @@ export default async function ScoringPage(props: {
     prisma.program.findMany({
       where: { 
         eventId: programsEventId,
-        // If a JUDGE is logged in, only show programs at their assigned venue (case-insensitive)
-        ...(judgeVenue ? { venue: { equals: judgeVenue, mode: "insensitive" } } : {})
       },
       select: {
         id: true,
@@ -292,9 +299,43 @@ export default async function ScoringPage(props: {
     };
   });
 
+  // Also include any standalone child programs that didn't exist in parent event
+  const matchedChildIds = new Set(mergedProgramsForScoring.map(p => p.childId).filter(Boolean));
+  for (const cp of childProgramsWithAssignments) {
+    if (!matchedChildIds.has(cp.id)) {
+      mergedProgramsForScoring.push({
+        ...cp,
+        stageType: (cp as any).stageType || "STAGE",
+        type: (cp as any).type || "INDIVIDUAL",
+        categoryId: (cp as any).categoryId || null,
+        candidateLimitPerTeam: (cp as any).candidateLimitPerTeam || 1,
+        category: (cp as any).category || null,
+        results: [],
+        assignments: cp.assignments || [],
+        childId: cp.id
+      } as any);
+    }
+  }
+
+  // Filter programs by judge's assigned venue (case-insensitive & trimmed)
+  const finalProgramsForScoring = judgeVenue
+    ? mergedProgramsForScoring.filter(p => {
+        if (!p.venue) return false;
+        return p.venue.trim().toLowerCase() === judgeVenue.trim().toLowerCase();
+      })
+    : mergedProgramsForScoring;
+
+  const venueProgramIdSet = new Set<string>();
+  if (judgeVenue) {
+    for (const p of finalProgramsForScoring) {
+      if (p.id) venueProgramIdSet.add(p.id);
+      if (p.childId) venueProgramIdSet.add(p.childId);
+    }
+  }
+
   const activeEventWithPrograms = {
     ...activeEvent,
-    programs: mergedProgramsForScoring
+    programs: finalProgramsForScoring
   };
 
   if (!activeEvent) redirect("/dashboard/scoring");
@@ -308,7 +349,7 @@ export default async function ScoringPage(props: {
           { candidate: { team: { eventId: activeEventId } } }
         ],
         // If JUDGE: only show results for their venue's programs
-        ...(judgeVenue ? { program: { venue: judgeVenue } } : {})
+        ...(judgeVenue && venueProgramIdSet.size > 0 ? { programId: { in: Array.from(venueProgramIdSet) } } : {})
       },
       select: {
         id: true,
@@ -426,7 +467,10 @@ export default async function ScoringPage(props: {
     })
   ]);
 
-  const pendingPrograms = allPrograms.filter(p => p.results.length === 0);
+  let pendingPrograms = allPrograms.filter(p => p.results.length === 0);
+  if (judgeVenue && venueProgramIdSet.size > 0) {
+    pendingPrograms = pendingPrograms.filter(p => venueProgramIdSet.has(p.id));
+  }
 
   const detectCategory = (progCatName?: string | null, candCatName?: string | null): "FADHILA" | "FADHEELA" | "OTHER" => {
     const raw = `${progCatName || ""} ${candCatName || ""}`.toLowerCase().trim();
@@ -721,7 +765,7 @@ export default async function ScoringPage(props: {
                   events={[activeEventWithPrograms]} 
                   availableJudges={availableJudges}
                   userRole={session.user.role}
-                  userVenue={(session.user as any).venue || null}
+                  userVenue={judgeVenue}
                   isCompleted={isScoringLocked}
                   completedFestName={activeEvent.name}
                 />

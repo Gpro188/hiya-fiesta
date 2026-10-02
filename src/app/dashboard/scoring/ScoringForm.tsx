@@ -85,7 +85,7 @@ export default function ScoringForm({
 
   // Filter programs by selected venue
   const venuePrograms = selectedVenue
-    ? allPrograms.filter((p: any) => (p.venue || "Main Stage") === selectedVenue)
+    ? allPrograms.filter((p: any) => (p.venue || "Main Stage").trim().toLowerCase() === selectedVenue.trim().toLowerCase())
     : allPrograms;
 
   // Chronologically sort programs for this venue
@@ -105,7 +105,7 @@ export default function ScoringForm({
         (p.programCode && p.programCode.toString() === urlProgramId)
       );
       if (p) {
-        if (p.venue) setSelectedVenue(p.venue);
+        if (p.venue && !userVenue) setSelectedVenue(p.venue);
         setCategoryId(p.categoryId || "general-cat");
         setProgramId(p.id);
         
@@ -494,7 +494,7 @@ export default function ScoringForm({
                 <option value="">-- All Stages / Venues --</option>
                 {allVenues.map(v => (
                   <option key={v} value={v}>
-                    {v} ({allPrograms.filter((p: any) => (p.venue || "Main Stage") === v).length} Programs)
+                    {v} ({allPrograms.filter((p: any) => (p.venue || "Main Stage").trim().toLowerCase() === v.trim().toLowerCase()).length} Programs)
                   </option>
                 ))}
               </>
