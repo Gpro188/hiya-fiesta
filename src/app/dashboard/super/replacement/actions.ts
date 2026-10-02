@@ -261,6 +261,87 @@ export async function superAdminToggleMagazine(teamId: string, participating: bo
   }
 }
 
+// ── Helper: Synchronize twin program assignments across parent and zonal events ──
+async function syncTwinProgramAssignments(
+  tx: any,
+  params: {
+    primaryProgramId: string;
+    fromCandidateId?: string | null;
+    toCandidateId: string;
+    replacedFromChest?: string | null;
+    replacementNote?: string | null;
+    candidateTeamEventId?: string | null;
+  }
+) {
+  const { primaryProgramId, fromCandidateId, toCandidateId, replacedFromChest, replacementNote, candidateTeamEventId } = params;
+
+  const prog = await tx.program.findUnique({
+    where: { id: primaryProgramId },
+    include: { event: true, category: true }
+  });
+  if (!prog) return;
+
+  const progCode = prog.programCode?.trim();
+  const progName = prog.name?.trim();
+
+  // Find all relevant event IDs: parent event, child events, candidate's team event
+  const relevantEventIds = Array.from(new Set([
+    prog.eventId,
+    prog.event?.parentId,
+    candidateTeamEventId
+  ].filter(Boolean))) as string[];
+
+  if (!prog.event?.parentId) {
+    const childEvents = await tx.event.findMany({
+      where: { parentId: prog.eventId },
+      select: { id: true }
+    });
+    for (const ce of childEvents) relevantEventIds.push(ce.id);
+  }
+
+  const twinProgs = await tx.program.findMany({
+    where: {
+      id: { not: prog.id },
+      eventId: { in: relevantEventIds },
+      OR: [
+        ...(progCode ? [{ programCode: progCode }] : []),
+        { name: { equals: progName, mode: "insensitive" } }
+      ]
+    }
+  });
+
+  for (const tp of twinProgs) {
+    if (fromCandidateId) {
+      await tx.programAssignment.deleteMany({
+        where: { programId: tp.id, candidateId: fromCandidateId }
+      });
+    }
+
+    const existing = await tx.programAssignment.findFirst({
+      where: { programId: tp.id, candidateId: toCandidateId }
+    });
+
+    if (existing) {
+      await tx.programAssignment.update({
+        where: { id: existing.id },
+        data: {
+          replacedFromChest: replacedFromChest || existing.replacedFromChest,
+          replacementNote: replacementNote || existing.replacementNote
+        }
+      });
+    } else {
+      await tx.programAssignment.create({
+        data: {
+          programId: tp.id,
+          candidateId: toCandidateId,
+          replacedFromChest: replacedFromChest || null,
+          replacementNote: replacementNote || null
+        }
+      });
+    }
+  }
+}
+
 // ── Super Admin Assign Existing Candidate to Program ─────────────────────
 export async function superAdminAssignExistingCandidate(data: {
   candidateId: string;
@@ -317,11 +398,24 @@ export async function superAdminAssignExistingCandidate(data: {
       return { success: false, error: "Candidate is already assigned to this program" };
     }
 
-    await prisma.programAssignment.create({
-      data: {
-        candidateId: candidate.id,
-        programId: actualProgramId
-      }
+    await prisma.$transaction(async (tx) => {
+      await tx.programAssignment.deleteMany({
+        where: { candidateId: candidate.id, programId: actualProgramId }
+      });
+
+      await tx.programAssignment.create({
+        data: {
+          candidateId: candidate.id,
+          programId: actualProgramId
+        }
+      });
+
+      // Synchronize to twin program in zonal event so mark entry stays aligned
+      await syncTwinProgramAssignments(tx, {
+        primaryProgramId: actualProgramId,
+        toCandidateId: candidate.id,
+        candidateTeamEventId: candidate.team?.eventId
+      });
     });
 
     // Audit log
@@ -336,11 +430,14 @@ export async function superAdminAssignExistingCandidate(data: {
       }
     }).catch(() => {});
 
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/super/replacement");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
     revalidatePath("/print/stage-manager");
     revalidatePath("/print/tabulation");
+    revalidatePath("/print/assignments");
+    revalidatePath("/print/chest-numbers");
 
     return { success: true };
   } catch (e: any) {
@@ -390,6 +487,24 @@ export async function addAndAssignNewCandidate(data: {
     let chestNumber: string | null = null;
 
     await prisma.$transaction(async (tx) => {
+      // Find fromCandidate details if this is a replacement
+      let fromChest: string | null = null;
+      let fromName: string | null = null;
+      if (data.fromCandidateId) {
+        const fromCand = await tx.candidate.findUnique({
+          where: { id: data.fromCandidateId },
+          select: { name: true, chestNumber: true }
+        });
+        if (fromCand) {
+          fromChest = fromCand.chestNumber;
+          fromName = fromCand.name;
+        }
+      }
+
+      const repNote = fromChest
+        ? `Replaced from Chest #${fromChest} (${fromName || ''}). Reason: ${data.reason || 'Zonal replacement'}`
+        : (data.reason || null);
+
       // Check if candidate with this UID already exists in team
       if (uid) {
         const existing = await tx.candidate.findFirst({
@@ -399,6 +514,16 @@ export async function addAndAssignNewCandidate(data: {
           // Reuse existing candidate
           candidateId = existing.id;
           chestNumber = existing.chestNumber;
+
+          if (fromChest) {
+            await tx.candidate.update({
+              where: { id: candidateId },
+              data: {
+                replacedFromChest: fromChest,
+                replacementNote: repNote
+              }
+            });
+          }
 
           // Before assigning: delete any pre-existing duplicate for this candidate+program
           await tx.programAssignment.deleteMany({
@@ -412,13 +537,24 @@ export async function addAndAssignNewCandidate(data: {
           if (data.programAssignmentId) {
             await tx.programAssignment.update({
               where: { id: data.programAssignmentId },
-              data: { candidateId }
+              data: { candidateId, replacedFromChest: fromChest, replacementNote: repNote }
             });
           } else {
             await tx.programAssignment.create({
-              data: { candidateId, programId: data.programId }
+              data: { candidateId, programId: data.programId, replacedFromChest: fromChest, replacementNote: repNote }
             });
           }
+
+          // Twin program sync
+          await syncTwinProgramAssignments(tx, {
+            primaryProgramId: data.programId,
+            fromCandidateId: data.fromCandidateId,
+            toCandidateId: candidateId,
+            replacedFromChest: fromChest,
+            replacementNote: repNote,
+            candidateTeamEventId: team.eventId
+          });
+
           return;
         }
       }
@@ -467,8 +603,8 @@ export async function addAndAssignNewCandidate(data: {
           institutionId: instId,
           isApproved: true,
           chestNumber: newChest,
-          replacedFromChest: data.fromCandidateId ? undefined : undefined,
-          replacementNote: data.reason || null
+          replacedFromChest: fromChest,
+          replacementNote: repNote
         }
       });
       candidateId = created.id;
@@ -485,13 +621,23 @@ export async function addAndAssignNewCandidate(data: {
       if (data.programAssignmentId) {
         await tx.programAssignment.update({
           where: { id: data.programAssignmentId },
-          data: { candidateId }
+          data: { candidateId, replacedFromChest: fromChest, replacementNote: repNote }
         });
       } else {
         await tx.programAssignment.create({
-          data: { candidateId, programId: data.programId }
+          data: { candidateId, programId: data.programId, replacedFromChest: fromChest, replacementNote: repNote }
         });
       }
+
+      // Synchronize to twin program(s)
+      await syncTwinProgramAssignments(tx, {
+        primaryProgramId: data.programId,
+        fromCandidateId: data.fromCandidateId,
+        toCandidateId: candidateId,
+        replacedFromChest: fromChest,
+        replacementNote: repNote,
+        candidateTeamEventId: team.eventId
+      });
     });
 
     // Audit log
@@ -506,6 +652,7 @@ export async function addAndAssignNewCandidate(data: {
       }
     }).catch(() => {});
 
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
     revalidatePath("/print/stage-manager");
@@ -538,21 +685,63 @@ export async function zonalTransferProgram(data: {
     const assignment = await prisma.programAssignment.findUnique({
       where: { id: data.programAssignmentId },
       include: {
-        program: true,
+        program: { include: { event: true, category: true } },
         candidate: { include: { team: { include: { event: { include: { zone: true } } } } } }
       }
     });
     if (!assignment) return { success: false, error: "Assignment not found" };
 
-    // Check target isn't already assigned
-    const already = await prisma.programAssignment.findUnique({
-      where: { candidateId_programId: { candidateId: data.toCandidateId, programId: assignment.programId } }
+    const toCandidate = await prisma.candidate.findUnique({
+      where: { id: data.toCandidateId },
+      include: { team: { include: { event: true } } }
     });
-    if (already) return { success: false, error: "Target candidate is already assigned to this program" };
+    if (!toCandidate) return { success: false, error: "Target candidate not found" };
 
-    await prisma.programAssignment.update({
-      where: { id: data.programAssignmentId },
-      data: { candidateId: data.toCandidateId }
+    const fromCandidate = assignment.candidate;
+    const oldChestNumber = fromCandidate.chestNumber || "N/A";
+    const oldCandidateName = fromCandidate.name;
+    const programName = assignment.program.name;
+
+    const repNote = `Replaced from Chest #${oldChestNumber} (${oldCandidateName}). Reason: ${data.reason || "Zonal replacement"}`;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete any duplicate target assignment on this program (prevent unique conflict)
+      await tx.programAssignment.deleteMany({
+        where: {
+          candidateId: data.toCandidateId,
+          programId: assignment.programId,
+          id: { not: data.programAssignmentId }
+        }
+      });
+
+      // 2. Update primary assignment with replaced candidate and replacement note
+      await tx.programAssignment.update({
+        where: { id: data.programAssignmentId },
+        data: {
+          candidateId: data.toCandidateId,
+          replacedFromChest: oldChestNumber,
+          replacementNote: repNote
+        }
+      });
+
+      // 3. Update target candidate with replacement note
+      await tx.candidate.update({
+        where: { id: data.toCandidateId },
+        data: {
+          replacedFromChest: oldChestNumber,
+          replacementNote: repNote
+        }
+      });
+
+      // 4. Synchronize to twin program(s) across parent and zonal events
+      await syncTwinProgramAssignments(tx, {
+        primaryProgramId: assignment.programId,
+        fromCandidateId: data.fromCandidateId,
+        toCandidateId: data.toCandidateId,
+        replacedFromChest: oldChestNumber,
+        replacementNote: repNote,
+        candidateTeamEventId: toCandidate.team?.eventId || fromCandidate.team?.eventId
+      });
     });
 
     await prisma.systemAuditLog.create({
@@ -562,15 +751,18 @@ export async function zonalTransferProgram(data: {
         action: "ZONAL_REPLACEMENT_TRANSFER",
         entityType: "PROGRAM_ASSIGNMENT",
         entityId: data.programAssignmentId,
-        reason: `Zonal: Transferred program "${assignment.program.name}" from candidate ${assignment.candidate.name} to another. Reason: ${data.reason || "Zonal replacement"}`
+        reason: `Zonal: Transferred program "${programName}" from ${oldCandidateName} (Chest #${oldChestNumber}) to ${toCandidate.name} (Chest #${toCandidate.chestNumber || "None"}). Reason: ${data.reason || "Zonal replacement"}`
       }
     }).catch(() => {});
 
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
     revalidatePath("/print/stage-manager");
     revalidatePath("/print/tabulation");
     revalidatePath("/print/assignments");
+    revalidatePath("/print/chest-numbers");
+    revalidatePath("/print/id-cards");
     revalidatePath("/dashboard/super/replacement");
 
     return { success: true };

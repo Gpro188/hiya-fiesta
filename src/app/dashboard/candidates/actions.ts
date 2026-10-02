@@ -299,6 +299,11 @@ export async function deleteCandidate(id: string) {
     await prisma.candidate.delete({ where: { id } });
 
     revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/super/replacement");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete candidate:", error);
@@ -874,6 +879,7 @@ export async function directProgramWiseCandidateReplacement(data: {
       }
     }).catch(err => console.warn("Audit log non-fatal error:", err));
 
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
     revalidatePath("/dashboard/super/zones");
@@ -1069,11 +1075,15 @@ export async function removeProgramFromCandidate(data: {
     }).catch(err => console.warn("Audit log non-fatal error:", err));
 
     // Revalidate paths
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/super/replacement");
     revalidatePath("/print/id-cards");
     revalidatePath("/print/programs-registration");
     revalidatePath("/print/assignments");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
 
     return {
       success: true,
@@ -1304,20 +1314,34 @@ export async function transferProgramToAnotherCandidate(data: {
           where: { id: assignment.programId },
           include: { event: true }
         });
-        if (assignedProg?.programCode) {
+        if (assignedProg?.programCode || assignedProg?.name) {
           const candInfo = await tx.candidate.findUnique({
             where: { id: targetCandidateId },
-            include: { institution: true, team: { include: { institution: true } } }
+            include: { team: true }
           });
-          const candZoneId = candInfo?.institution?.zoneId || candInfo?.team?.institution?.zoneId || null;
+
+          const relevantEventIds = Array.from(new Set([
+            assignedProg.eventId,
+            assignedProg.event.parentId,
+            candInfo?.team?.eventId,
+            fromCandidate.team?.eventId
+          ].filter(Boolean))) as string[];
+
+          if (!assignedProg.event.parentId) {
+            const childEvents = await tx.event.findMany({
+              where: { parentId: assignedProg.eventId },
+              select: { id: true }
+            });
+            for (const ce of childEvents) relevantEventIds.push(ce.id);
+          }
 
           const twinProgs = await tx.program.findMany({
             where: {
-              programCode: assignedProg.programCode,
               id: { not: assignedProg.id },
+              eventId: { in: relevantEventIds },
               OR: [
-                ...(assignedProg.event.parentId ? [{ eventId: assignedProg.event.parentId }] : []),
-                ...(candZoneId ? [{ event: { parentId: assignedProg.eventId, zoneId: candZoneId } }] : [])
+                ...(assignedProg.programCode ? [{ programCode: assignedProg.programCode }] : []),
+                { name: { equals: assignedProg.name.trim(), mode: "insensitive" } }
               ]
             }
           });
@@ -1336,6 +1360,14 @@ export async function transferProgramToAnotherCandidate(data: {
                 data: {
                   candidateId: targetCandidateId,
                   programId: tp.id,
+                  replacedFromChest: oldChestNumber,
+                  replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName})`,
+                }
+              });
+            } else {
+              await tx.programAssignment.update({
+                where: { id: existingTwin.id },
+                data: {
                   replacedFromChest: oldChestNumber,
                   replacementNote: `Replaced from Chest #${oldChestNumber} (${oldCandidateName})`,
                 }
@@ -1367,11 +1399,16 @@ export async function transferProgramToAnotherCandidate(data: {
     }).catch(err => console.warn("Audit log non-fatal error:", err));
 
     // Revalidate paths
+    revalidatePath("/dashboard/scoring");
     revalidatePath("/dashboard/candidates");
     revalidatePath("/dashboard/assignments");
+    revalidatePath("/dashboard/super/replacement");
     revalidatePath("/print/id-cards");
     revalidatePath("/print/programs-registration");
     revalidatePath("/print/assignments");
+    revalidatePath("/print/stage-manager");
+    revalidatePath("/print/tabulation");
+    revalidatePath("/print/chest-numbers");
 
     return {
       success: true,

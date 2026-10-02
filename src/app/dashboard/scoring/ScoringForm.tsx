@@ -17,6 +17,8 @@ interface ScoringEntry {
   rank: string;
   grade: string;
   points: number;
+  replacedFromChest?: string | null;
+  replacementNote?: string | null;
 }
 
 export default function ScoringForm({ 
@@ -177,12 +179,16 @@ export default function ScoringForm({
       initialEntries = assignments.map((a: any) => {
         const cand = a.candidate;
         const res = existingResults.find((r: any) => r.candidateId === cand.id);
+        const repChest = a.replacedFromChest || cand.replacedFromChest || null;
+        const repNote = a.replacementNote || cand.replacementNote || null;
         return {
           participantId: cand.id,
           candidateId: cand.id,
           name: cand.name,
           chestNumber: cand.chestNumber,
           teamName: cand.team?.name,
+          replacedFromChest: repChest,
+          replacementNote: repNote,
           marks: res ? res.marks.toString() : "",
           rank: res?.rank ? res.rank.toString() : "",
           grade: res?.grade || "",
@@ -910,7 +916,25 @@ export default function ScoringForm({
                       {isIndividual ? (
                         <>
                           <td style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420' }}>
-                            {entry.name}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>{entry.name}</span>
+                              {entry.replacedFromChest && (
+                                <span 
+                                  title={entry.replacementNote || `Replaced from Chest #${entry.replacedFromChest}`}
+                                  style={{
+                                    fontSize: '0.70rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#fef3c7',
+                                    color: '#b45309',
+                                    border: '1px solid #fde68a'
+                                  }}
+                                >
+                                  🔄 Replaced (#{entry.replacedFromChest})
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '12px 16px', color: '#4b5563', fontWeight: 600, fontSize: '0.82rem' }}>
                             {entry.teamName || '-'}

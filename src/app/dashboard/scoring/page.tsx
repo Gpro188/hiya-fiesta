@@ -178,11 +178,16 @@ export default async function ScoringPage(props: {
           },
           select: {
             id: true,
+            createdAt: true,
+            replacedFromChest: true,
+            replacementNote: true,
             candidate: {
               select: {
                 id: true,
                 name: true,
                 chestNumber: true,
+                replacedFromChest: true,
+                replacementNote: true,
                 team: {
                   select: {
                     id: true,
@@ -226,11 +231,16 @@ export default async function ScoringPage(props: {
               },
               select: {
                 id: true,
+                createdAt: true,
+                replacedFromChest: true,
+                replacementNote: true,
                 candidate: {
                   select: {
                     id: true,
                     name: true,
                     chestNumber: true,
+                    replacedFromChest: true,
+                    replacementNote: true,
                     team: {
                       select: {
                         id: true,
@@ -277,6 +287,37 @@ export default async function ScoringPage(props: {
       const existingCandidateIds = new Set(p.assignments.map((a: any) => a.candidate.id));
       const extraAssignments = (childProg.assignments || []).filter((a: any) => !existingCandidateIds.has(a.candidate.id));
       updatedAssignments = [...updatedAssignments, ...extraAssignments];
+    }
+
+    // For individual programs with candidate limit per team == 1,
+    // ensure no team has multiple conflicting candidates due to legacy twin discrepancies.
+    // Give priority to replacement candidates (with replacedFromChest) or newer assignments.
+    if (p.type === "INDIVIDUAL" || p.candidateLimitPerTeam === 1) {
+      const assignmentsByTeam = new Map<string, any[]>();
+      for (const asgn of updatedAssignments) {
+        const teamId = asgn.candidate?.team?.id;
+        if (!teamId) continue;
+        if (!assignmentsByTeam.has(teamId)) assignmentsByTeam.set(teamId, []);
+        assignmentsByTeam.get(teamId)!.push(asgn);
+      }
+
+      const dedupedAssignments: any[] = [];
+      for (const [_, teamAsgns] of assignmentsByTeam.entries()) {
+        if (teamAsgns.length <= 1) {
+          dedupedAssignments.push(...teamAsgns);
+        } else {
+          teamAsgns.sort((a, b) => {
+            const aHasRep = (a.replacedFromChest || a.candidate?.replacedFromChest) ? 1 : 0;
+            const bHasRep = (b.replacedFromChest || b.candidate?.replacedFromChest) ? 1 : 0;
+            if (aHasRep !== bHasRep) return bHasRep - aHasRep;
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          dedupedAssignments.push(teamAsgns[0]);
+        }
+      }
+      updatedAssignments = dedupedAssignments;
     }
 
     // Sort candidates by numeric chest number
