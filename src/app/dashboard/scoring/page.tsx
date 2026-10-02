@@ -11,6 +11,9 @@ import PendingProgramsList from "./PendingProgramsList";
 import EventSwitcher from "@/app/components/EventSwitcher";
 import { isProgramGeneral } from "@/lib/programUtils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ScoringPage(props: {
   searchParams: Promise<{ eventId?: string, session?: string }>;
 }) {
