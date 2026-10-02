@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 /* â”€â”€â”€ Custom Font-Faces: Neulis & Neulis Alt (kept for print/public pages) â”€â”€â”€ */
 @font-face {
@@ -467,7 +467,7 @@ img, picture, video, canvas, svg {
 
 /* â”€â”€â”€ Sidebar â”€â”€â”€ */
 .dashboard-sidebar {
-  width: 248px;
+  width: 250px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -475,10 +475,48 @@ img, picture, video, canvas, svg {
   height: 100vh;
   position: sticky;
   top: 0;
-  transition: transform 0.25s ease;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease, box-shadow 0.24s ease, margin-right 0.24s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+/* Mini (collapsed) desktop state */
+.dashboard-sidebar.mini {
+  width: 68px;
+}
+
+/* When in mini mode and hovered, expand over the page smoothly */
+.dashboard-sidebar.mini.hover-expanded {
+  width: 260px;
+  margin-right: -192px; /* 260px - 68px = 192px floating overlay */
+  box-shadow: 6px 0 28px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.08);
+  z-index: 1050;
+  background: var(--surface);
+}
+
+/* Desktop Sidebar Toggle Button */
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg);
+  color: var(--brand);
+  border-color: var(--brand);
+  transform: scale(1.05);
 }
 
 .mobile-header {
@@ -513,15 +551,33 @@ img, picture, video, canvas, svg {
 }
 
 .sidebar-logo-area {
-  padding: 16px 12px;
+  padding: 14px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  transition: padding var(--transition-fast);
+}
+
+.dashboard-sidebar.mini:not(.hover-expanded) .sidebar-logo-area {
+  padding: 14px 0;
+  justify-content: center;
 }
 
 .sidebar-user-area {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  transition: padding var(--transition-fast);
+}
+
+.dashboard-sidebar.mini:not(.hover-expanded) .sidebar-user-area {
+  padding: 10px 0;
+  justify-content: center;
 }
 
 .role-badge {
@@ -538,18 +594,29 @@ img, picture, video, canvas, svg {
 }
 
 .nav-section-title {
-  padding: 16px 12px 4px 12px;
+  padding: 14px 12px 4px 12px;
   font-size: 11px;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.06em;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: fadeIn 0.2s ease;
+}
+
+.nav-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 14px;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 4px 0 8px;
+  padding: 6px 0 12px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -558,23 +625,27 @@ img, picture, video, canvas, svg {
   display: none;
 }
 
-.sidebar-footer {
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
 .nav-link-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
-  margin: 1px 8px;
-  height: 36px;
+  gap: 10px;
+  padding: 0 10px;
+  margin: 2px 8px;
+  height: 38px;
   border-radius: var(--radius);
   text-decoration: none;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), width var(--transition-fast), transform var(--transition-fast);
   position: relative;
+  overflow: hidden;
+}
+
+.nav-link-wrapper.mini-link {
+  padding: 0;
+  margin: 4px auto;
+  width: 42px;
+  height: 42px;
+  justify-content: center;
+  border-radius: 10px;
 }
 
 .nav-link-wrapper:hover {
@@ -587,19 +658,28 @@ img, picture, video, canvas, svg {
 
 .nav-link-wrapper.active .nav-link-main {
   color: var(--brand);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .nav-link-wrapper.active .nav-icon {
   color: var(--brand);
 }
 
+.nav-link-text-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+  animation: fadeIn 0.18s ease;
+}
+
 .nav-link-main {
   display: block;
   color: var(--text-muted);
-  font-weight: 400;
+  font-weight: 500;
   font-size: var(--text-sm);
-  line-height: 1;
+  line-height: 1.2;
   transition: color var(--transition-fast);
   white-space: nowrap;
   overflow: hidden;
@@ -610,9 +690,90 @@ img, picture, video, canvas, svg {
   color: var(--text);
 }
 
-/* Subtitle is hidden by default per spec; keep for potential tooltip use */
-.nav-link-subtitle {
-  display: none;
+.nav-link-tag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--brand-tint);
+  color: var(--brand);
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* Tooltip for mini icon mode (desktop only) */
+.dashboard-sidebar.mini:not(.hover-expanded) .nav-link-wrapper:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 100%;
+  margin-left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e293b;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  animation: fadeIn 0.15s ease forwards;
+}
+
+.dashboard-sidebar.mini:not(.hover-expanded) .nav-link-wrapper:hover::before {
+  content: "";
+  position: absolute;
+  left: 100%;
+  margin-left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent #1e293b transparent transparent;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+/* Setting toggle row in sidebar */
+.sidebar-menu-setting-row {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.menu-setting-toggle-btn {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  width: calc(100% - 16px);
+}
+
+.menu-setting-toggle-btn.mini-link {
+  width: 42px;
+  height: 42px;
+  margin: 4px auto;
+  border: 1px dashed var(--border);
+}
+
+.menu-setting-toggle-btn:hover {
+  background: var(--bg);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.menu-setting-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 .nav-icon {
@@ -628,6 +789,61 @@ img, picture, video, canvas, svg {
 
 .nav-link-wrapper:hover .nav-icon {
   color: var(--text);
+}
+
+/* Footer in Mini vs Full */
+.sidebar-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-footer.mini-footer {
+  padding: 10px 0;
+  justify-content: center;
+}
+
+.mini-expand-action-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  border: 1px solid rgba(122, 31, 61, 0.25);
+  color: var(--brand);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mini-expand-action-btn:hover {
+  background: var(--brand);
+  color: white;
+  transform: scale(1.08);
+}
+
+.mini-logout-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mini-logout-btn:hover {
+  background: var(--error);
+  color: white;
+  transform: scale(1.08);
 }
 
 .sidebar-overlay {
@@ -886,14 +1102,23 @@ img, picture, video, canvas, svg {
   .dashboard-container {
     flex-direction: column;
   }
-  .dashboard-sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
+  .dashboard-sidebar,
+  .dashboard-sidebar.mini,
+  .dashboard-sidebar.mini.hover-expanded {
+    width: 280px !important;
+    margin-right: 0 !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
     transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+    z-index: 1200;
   }
   .dashboard-sidebar.open {
     transform: translateX(0);
+  }
+  .no-mobile {
+    display: none !important;
   }
   .mobile-header {
     display: flex;

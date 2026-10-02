@@ -43,6 +43,31 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [sidebarMode, setSidebarMode] = useState<"full" | "mini">("full");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cswc_sidebar_collapsed");
+      if (saved === "true") setSidebarMode("mini");
+    } catch (e) {}
+
+    const handleCustom = () => {
+      try {
+        const saved = localStorage.getItem("cswc_sidebar_collapsed");
+        setSidebarMode(saved === "true" ? "mini" : "full");
+      } catch (e) {}
+    };
+    window.addEventListener("cswc_sidebar_change", handleCustom);
+    return () => window.removeEventListener("cswc_sidebar_change", handleCustom);
+  }, []);
+
+  const handleSidebarModeChange = (mode: "full" | "mini") => {
+    setSidebarMode(mode);
+    try {
+      localStorage.setItem("cswc_sidebar_collapsed", mode === "mini" ? "true" : "false");
+      window.dispatchEvent(new Event("cswc_sidebar_change"));
+    } catch (e) {}
+  };
 
   // Helper to format Date in local input format YYYY-MM-DDTHH:mm
   const toLocalISOString = (dateInput: any) => {
@@ -201,6 +226,55 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
           <hr style={{ margin: 'var(--spacing-lg) 0', borderColor: 'var(--border-color)' }} />
         </>
       )}
+
+      {/* Sidebar Navigation Mode Setting */}
+      <div className="glass-panel" style={{ padding: '20px', marginBottom: '28px', border: '1px solid var(--border)' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>Sidebar Navigation Layout (Mini-to-Expanded)</span>
+        </h3>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+          Choose how the dashboard navigation menu behaves. In Mini mode, hovering over the thin icon bar expands it to full text, and clicking expands it to full type.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+          <div
+            onClick={() => handleSidebarModeChange("full")}
+            style={{
+              padding: '16px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${sidebarMode === "full" ? "var(--brand)" : "var(--border)"}`,
+              background: sidebarMode === "full" ? "var(--brand-tint)" : "var(--surface)",
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: sidebarMode === "full" ? "var(--brand)" : "var(--text)", marginBottom: '4px' }}>
+              Full Type Menu (Expanded)
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Always display the full sidebar with icons, names, and section titles visible.
+            </div>
+          </div>
+
+          <div
+            onClick={() => handleSidebarModeChange("mini")}
+            style={{
+              padding: '16px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${sidebarMode === "mini" ? "var(--brand)" : "var(--border)"}`,
+              background: sidebarMode === "mini" ? "var(--brand-tint)" : "var(--surface)",
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: sidebarMode === "mini" ? "var(--brand)" : "var(--text)", marginBottom: '4px' }}>
+              Mini Icon Bar (Auto-Expand)
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Thin icon-only sidebar. Expands to full text when hovered or clicked.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Event Timelines & Deadlines</h3>
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import LogoutButton from "./LogoutButton";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import {
@@ -33,6 +34,10 @@ import {
   X,
   Menu,
   ChevronRight,
+  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
+  LogOut,
   Ticket,
 } from "lucide-react";
 
@@ -602,16 +607,77 @@ export default function DashboardSidebar({
   festName,
   festMoto,
 }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // Mobile drawer open state
+  const [isCollapsed, setIsCollapsed] = useState(false); // Desktop mini mode
+  const [isHovered, setIsHovered] = useState(false); // Desktop hover-expand mode
   const pathname = usePathname();
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cswc_sidebar_collapsed");
+      if (saved === "true") {
+        setIsCollapsed(true);
+      }
+    } catch (e) {}
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "cswc_sidebar_collapsed") {
+        setIsCollapsed(e.newValue === "true");
+      }
+    };
+    const handleCustom = () => {
+      try {
+        const current = localStorage.getItem("cswc_sidebar_collapsed");
+        setIsCollapsed(current === "true");
+      } catch (e) {}
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("cswc_sidebar_change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("cswc_sidebar_change", handleCustom);
+    };
+  }, []);
+
+  const toggleCollapse = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("cswc_sidebar_collapsed", String(next));
+        window.dispatchEvent(new Event("cswc_sidebar_change"));
+      } catch (err) {}
+      return next;
+    });
+  }, []);
+
+  const expandToFull = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsCollapsed(false);
+    try {
+      localStorage.setItem("cswc_sidebar_collapsed", "false");
+      window.dispatchEvent(new Event("cswc_sidebar_change"));
+    } catch (err) {}
+  }, []);
+
+  const collapseToMini = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsCollapsed(true);
+    try {
+      localStorage.setItem("cswc_sidebar_collapsed", "true");
+      window.dispatchEvent(new Event("cswc_sidebar_change"));
+    } catch (err) {}
+  }, []);
+
   const toggle = () => setIsOpen(!isOpen);
-  const close = () => setIsOpen(false);
+  const close = () => {
+    setIsOpen(false);
+    setIsHovered(false);
+  };
 
   const isActive = useCallback(
     (href: string) => {
       if (href === "/dashboard") return pathname === "/dashboard";
-      // Strip query string for comparison
       const hrefPath = href.split("?")[0];
       return pathname.startsWith(hrefPath);
     },
@@ -620,59 +686,128 @@ export default function DashboardSidebar({
 
   const navGroups = getNavItems(role);
 
-  const SidebarContent = () => (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+  // Desktop visual state:
+  // If collapsed and hovered -> hover-expanded (shows full text floating)
+  // If collapsed and not hovered -> mini icon-only bar
+  // If not collapsed -> full expanded type
+  const isMini = isCollapsed && !isHovered;
+  const isHoverExpanded = isCollapsed && isHovered;
+
+  const renderContent = () => (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
       {/* Logo Area */}
       <div className="sidebar-logo-area">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isMini ? "center" : "space-between",
+            width: "100%",
+            gap: "8px",
+          }}
+        >
           <div
             style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              background: "#FFFFFF",
-              border: "1px solid var(--border)",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              padding: "3px",
-              flexShrink: 0,
+              gap: "10px",
+              minWidth: 0,
+              cursor: isMini ? "pointer" : "default",
             }}
+            onClick={isMini ? expandToFull : undefined}
+            title={isMini ? "Click to expand full menu" : undefined}
           >
-            <img
-              src="/icon.png"
-              alt="CSWC Fiesta Logo"
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          </div>
-          <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontWeight: 600,
-                fontSize: "0.875rem",
-                color: "var(--text)",
-                lineHeight: 1.2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+                width: "34px",
+                height: "34px",
+                borderRadius: "8px",
+                background: "#FFFFFF",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "3px",
+                flexShrink: 0,
+                boxShadow: "var(--shadow-sm)",
               }}
             >
-              {festName}
+              <img
+                src="/icon.png"
+                alt="CSWC Fiesta Logo"
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
             </div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "1px", lineHeight: 1.2 }}>
-              {festMoto}
-            </div>
+            {!isMini && (
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.875rem",
+                    color: "var(--text)",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {festName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.6875rem",
+                    color: "var(--text-muted)",
+                    marginTop: "2px",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {festMoto}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Desktop Toggle Button (Expand / Collapse) */}
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="sidebar-toggle-btn no-mobile"
+            title={
+              isCollapsed
+                ? isHovered
+                  ? "Click to Lock Full Menu"
+                  : "Click to Expand to Full Menu"
+                : "Click to Collapse to Mini Bar"
+            }
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen size={17} strokeWidth={2} />
+            ) : (
+              <PanelLeftClose size={17} strokeWidth={2} />
+            )}
+          </button>
         </div>
       </div>
 
       {/* User Area */}
       <div className="sidebar-user-area">
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isMini ? "center" : "flex-start",
+            gap: "10px",
+            width: "100%",
+          }}
+        >
           <div
             style={{
-              width: "28px",
-              height: "28px",
+              width: "32px",
+              height: "32px",
               borderRadius: "50%",
               background: "var(--brand-tint)",
               border: "1px solid rgba(122,31,61,0.2)",
@@ -680,39 +815,48 @@ export default function DashboardSidebar({
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              fontSize: "10px",
-              fontWeight: 600,
+              fontSize: "11px",
+              fontWeight: 700,
               color: "var(--brand)",
+              cursor: isMini ? "pointer" : "default",
             }}
+            onClick={isMini ? expandToFull : undefined}
+            title={isMini ? `${displayName || username} (${roleLabel(role)}) — Click to expand` : undefined}
           >
             {roleInitials(username)}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 500,
-                fontSize: "0.8125rem",
-                color: "var(--text)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={displayName || username}
-            >
-              {displayName || username}
+          {!isMini && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: "0.8125rem",
+                  color: "var(--text)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={displayName || username}
+              >
+                {displayName || username}
+              </div>
+              <div style={{ marginTop: "2px" }}>
+                <span className="role-badge">{roleLabel(role)}</span>
+              </div>
             </div>
-            <div style={{ marginTop: "1px" }}>
-              <span className="role-badge">{roleLabel(role)}</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="sidebar-nav no-scrollbar">
         {navGroups.map((group) => (
-          <div key={group.section}>
-            <div className="nav-section-title">{group.section}</div>
+          <div key={group.section} className="nav-group-container">
+            {isMini ? (
+              <div className="nav-section-divider" title={group.section} />
+            ) : (
+              <div className="nav-section-title">{group.section}</div>
+            )}
             {group.items.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -721,31 +865,89 @@ export default function DashboardSidebar({
                   key={item.href}
                   href={item.href}
                   onClick={close}
-                  className={`nav-link-wrapper ${active ? "active" : ""}`}
-                  title={item.subtitle}
+                  className={`nav-link-wrapper ${active ? "active" : ""} ${isMini ? "mini-link" : ""}`}
+                  title={item.name + (item.subtitle ? ` — ${item.subtitle}` : "")}
+                  data-tooltip={item.name}
                 >
                   <div className="nav-icon">
                     <Icon
                       size={18}
-                      strokeWidth={1.5}
+                      strokeWidth={1.75}
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="nav-link-main">{item.name}</span>
+                  {!isMini && (
+                    <div className="nav-link-text-block">
+                      <span className="nav-link-main">{item.name}</span>
+                      {item.highlight && <span className="nav-link-tag">Hot</span>}
+                    </div>
+                  )}
                 </Link>
               );
             })}
           </div>
         ))}
+
+        {/* Dedicated "Menu Mode" Quick Toggle Handle */}
+        <div className="sidebar-menu-setting-row no-mobile">
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className={`nav-link-wrapper menu-setting-toggle-btn ${isMini ? "mini-link" : ""}`}
+            title={isCollapsed ? "Click to Expand to Full Menu" : "Click to Collapse to Mini Bar"}
+          >
+            <div className="nav-icon">
+              {isCollapsed ? (
+                <ChevronRight size={18} strokeWidth={2} />
+              ) : (
+                <ChevronLeft size={18} strokeWidth={2} />
+              )}
+            </div>
+            {!isMini && (
+              <div className="nav-link-text-block">
+                <span className="nav-link-main" style={{ fontWeight: 600, color: "var(--text)" }}>
+                  {isCollapsed ? "Expand to Full Type" : "Collapse to Mini Bar"}
+                </span>
+                <span className="menu-setting-badge">
+                  {isCollapsed ? "Mini" : "Full"}
+                </span>
+              </div>
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* Footer */}
-      <div
-        className="sidebar-footer"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-      >
-        <LogoutButton />
-        <ThemeToggle />
+      <div className={`sidebar-footer ${isMini ? "mini-footer" : ""}`}>
+        {isMini ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", width: "100%" }}>
+            <button
+              type="button"
+              onClick={expandToFull}
+              className="mini-expand-action-btn no-mobile"
+              title="Click to Expand Full Type"
+              aria-label="Expand sidebar"
+            >
+              <ChevronRight size={18} strokeWidth={2.5} />
+            </button>
+            <ThemeToggle />
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="mini-logout-btn"
+              title="Sign Out"
+              aria-label="Sign Out"
+            >
+              <LogOut size={16} strokeWidth={1.75} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: "8px" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LogoutButton />
+            </div>
+            <ThemeToggle />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -784,8 +986,16 @@ export default function DashboardSidebar({
       {isOpen && <div className="sidebar-overlay" onClick={close} />}
 
       {/* Sidebar */}
-      <aside className={`dashboard-sidebar no-print ${isOpen ? "open" : ""}`}>
-        <SidebarContent />
+      <aside
+        className={`dashboard-sidebar no-print ${isCollapsed ? "mini" : "expanded"} ${isHoverExpanded ? "hover-expanded" : ""} ${isOpen ? "open" : ""}`}
+        onMouseEnter={() => {
+          if (isCollapsed) setIsHovered(true);
+        }}
+        onMouseLeave={() => {
+          if (isCollapsed) setIsHovered(false);
+        }}
+      >
+        {renderContent()}
       </aside>
     </>
   );
