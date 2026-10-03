@@ -25,7 +25,16 @@ export default async function ScoringPage(props: {
   }
 
   // Scope events strictly to logged in Admin's main event and its sub-events
-  const userEventId = session.user.eventId;
+  let userEventId = session.user.eventId;
+  if (!userEventId && (session.user as any).zoneId) {
+    const zoneEv = await prisma.event.findFirst({
+      where: { zoneId: (session.user as any).zoneId, type: "ZONE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true }
+    });
+    if (zoneEv) userEventId = zoneEv.id;
+  }
+
   let eventWhere: any = userEventId ? {
     OR: [
       { id: userEventId },
@@ -99,7 +108,17 @@ export default async function ScoringPage(props: {
     }
   });
 
-  if (!activeEvent) redirect("/dashboard/scoring");
+  if (!activeEvent) {
+    return (
+      <div className="animate-fade-in" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+        <h2>Event Not Found</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+          The requested festival event could not be found.
+        </p>
+        <a href="/dashboard" className="btn btn-primary">Go to Dashboard</a>
+      </div>
+    );
+  }
 
   const programsEventId = activeEvent.parentId || activeEvent.id;
 
@@ -381,8 +400,6 @@ export default async function ScoringPage(props: {
     ...activeEvent,
     programs: finalProgramsForScoring
   };
-
-  if (!activeEvent) redirect("/dashboard/scoring");
 
   // Fetch results, pending programs, and flat results for standings in PARALLEL
   const [results, allPrograms, allResultsForScore] = await Promise.all([
