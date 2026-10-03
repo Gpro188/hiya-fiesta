@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import PrintButton from "@/components/PrintButton";
+import ZoneFilterSelector from "./ZoneFilterSelector";
 
 import Link from "next/link";
 
@@ -81,6 +82,13 @@ export default async function PrintResultsPage({
 
   if (!program) notFound();
 
+  const activeEventObj = requestedEventId
+    ? await prisma.event.findUnique({
+        where: { id: requestedEventId },
+        include: { zone: true },
+      })
+    : null;
+
   // Helper to extract zone from result
   const getResultZone = (res: any) => {
     return res.candidate?.institution?.zone ||
@@ -134,7 +142,7 @@ export default async function PrintResultsPage({
     }
   }
 
-  const settings = await getSettings(program.eventId);
+  const settings = await getSettings(requestedEventId || program.eventId);
   const isGeneral = program.type === "GENERAL" || program.type === "GROUP" || (program.category?.name || "").toUpperCase().includes("GENERAL");
 
   // Build helper URL for switcher toolbar
@@ -214,33 +222,10 @@ export default async function PrintResultsPage({
 
           {/* Zone filter if multiple zones exist */}
           {allZones.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#94a3b8' }}>ZONE:</span>
-              <select
-                defaultValue={requestedZoneId || ''}
-                onChange={(e) => {
-                  const targetZone = e.target.value;
-                  const newUrl = buildUrl({ zoneId: targetZone ? targetZone : undefined });
-                  window.location.href = newUrl;
-                }}
-                style={{
-                  padding: '5px 8px',
-                  backgroundColor: '#1e293b',
-                  color: '#ffffff',
-                  border: '1px solid #334155',
-                  borderRadius: '5px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600
-                }}
-              >
-                <option value="">All Zones</option>
-                {allZones.map(z => (
-                  <option key={z.id} value={z.id}>{z.name}</option>
-                ))}
-              </select>
-            </div>
+            <ZoneFilterSelector allZones={allZones} activeZoneId={requestedZoneId} />
           )}
         </div>
+
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {program.stageType === 'OFF_STAGE' && (
@@ -283,9 +268,9 @@ export default async function PrintResultsPage({
         <div style={{ display: 'inline-block', padding: '2px 14px', borderRadius: '4px', backgroundColor: activeStatus === 'unpublished' ? '#fef3c7' : '#0f172a', color: activeStatus === 'unpublished' ? '#92400e' : '#ffffff', fontSize: '0.82rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
           {activeStatus === 'unpublished' ? '📢 STAGE 1 ANNOUNCEMENT SHEET (PENDING VERIFICATION)' : (activeStatus === 'all' ? 'TABULATION & RESULTS AUDIT NOTIFICATION' : 'OFFICIAL RESULT NOTIFICATION')}
         </div>
-        {program.event && (
+        {(activeEventObj || program.event) && (
           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginTop: '2px' }}>
-            {program.event.name} {program.event.zone ? `(${program.event.zone.name})` : ''}
+            {(activeEventObj || program.event)?.name} {(activeEventObj || program.event)?.zone ? `(${((activeEventObj || program.event)?.zone)?.name})` : ''}
             {requestedZoneId && (
               <span style={{ color: '#0284c7', marginLeft: '6px' }}>
                 • Showing {allZones.find(z => z.id === requestedZoneId)?.name || 'Selected'} Zone

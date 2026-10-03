@@ -163,7 +163,7 @@ export default function ResultList({
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
                    <a 
-                    href={`/print/results/${pid}?status=${isFullyPublished ? 'published' : 'unpublished'}`}
+                    href={`/print/results/${pid}?status=${isFullyPublished ? 'published' : 'unpublished'}${activeEventId ? `&eventId=${activeEventId}` : ''}`}
                     target="_blank"
                     className="btn btn-secondary"
                     style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', borderColor: 'var(--accent)', color: 'var(--accent)' }}
