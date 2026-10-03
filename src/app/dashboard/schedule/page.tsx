@@ -142,10 +142,13 @@ export default async function SchedulePage(props: {
       } else {
         const existing = mergedMap.get(key);
         const existingIds = new Set(existing.assignments.map((a: any) => a.id));
+        const existingCandidateIds = new Set(existing.assignments.map((a: any) => a.candidateId || a.candidate?.id).filter(Boolean));
         for (const a of p.assignments) {
-          if (!existingIds.has(a.id)) {
+          const cId = a.candidateId || a.candidate?.id;
+          if (!existingIds.has(a.id) && (!cId || !existingCandidateIds.has(cId))) {
             existing.assignments.push(a);
             existingIds.add(a.id);
+            if (cId) existingCandidateIds.add(cId);
           }
         }
         if (p.eventId === activeEventId) {

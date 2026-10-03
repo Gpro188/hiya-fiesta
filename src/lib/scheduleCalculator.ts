@@ -444,9 +444,11 @@ export function detectCandidateScheduleClashes(
       if (slot.program.type === "BREAK") continue;
 
       const zoneCandidates = getZoneCandidatesForProgram(slot.program.assignments, targetZoneId);
+      const seenCandIdsInSlot = new Set<string>();
       for (const assignment of zoneCandidates) {
         const cand = assignment.candidate;
-        if (!cand || !cand.id) continue;
+        if (!cand || !cand.id || seenCandIdsInSlot.has(cand.id)) continue;
+        seenCandIdsInSlot.add(cand.id);
 
         const list = candidateAppearances.get(cand.id) || [];
         list.push({
@@ -643,10 +645,12 @@ export function detectClashesBySeverity(
       const progType = (slot.program.type || "INDIVIDUAL").toUpperCase();
       const durMode = (slot.program.durationMode || "AUTO").toUpperCase();
       const zoneCands = getZoneCandidatesForProgram(slot.program.assignments || [], targetZoneId);
+      const seenCandIdsInSlot = new Set<string>();
 
       for (const asn of zoneCands) {
         const cand = asn.candidate;
-        if (!cand?.id) continue;
+        if (!cand?.id || seenCandIdsInSlot.has(cand.id)) continue;
+        seenCandIdsInSlot.add(cand.id);
 
         const list = candidateAppearances.get(cand.id) || [];
         // Calculate slot timing: for individual programs, stagger based on slotNumber if scheduledTime not stored
