@@ -67,6 +67,7 @@ export default function ReplacementClient({ zones }: Props) {
   // New candidate form
   const [newName, setNewName] = useState("");
   const [newUid, setNewUid] = useState("");
+  const [newStream, setNewStream] = useState("");
   const [newPhoto, setNewPhoto] = useState("");
   const [reason, setReason] = useState("Zonal replacement approved by Super Admin");
 
@@ -110,7 +111,7 @@ export default function ReplacementClient({ zones }: Props) {
   const resetPanel = () => {
     setActiveProgram(null);
     setActiveAssignment(null);
-    setNewName(""); setNewUid(""); setNewPhoto("");
+    setNewName(""); setNewUid(""); setNewPhoto(""); setNewStream("");
     setTargetCandidateId("");
     setReason("Zonal replacement approved by Super Admin");
   };
@@ -176,7 +177,8 @@ export default function ReplacementClient({ zones }: Props) {
           uid: newUid || undefined,
           photo: newPhoto || undefined,
           teamId: selectedInst.teamId,
-          categoryId: activeProgram.category?.id || activeProgram.categoryId,
+          categoryId: activeProgram.category?.id || activeProgram.categoryId || activeAssignment?.candidate?.categoryId || activeAssignment?.candidate?.category?.id || undefined,
+          stream: newStream || undefined,
           programId: activeProgram.id,
           programAssignmentId: activeAssignment?.id,
           fromCandidateId: activeAssignment?.candidate?.id,
@@ -662,7 +664,11 @@ export default function ReplacementClient({ zones }: Props) {
                                 defaultValue=""
                                 onChange={e => {
                                   const s = masterStudents.find((m: any) => m.uid === e.target.value);
-                                  if (s) { setNewName(s.name); setNewUid(s.uid); }
+                                  if (s) {
+                                    setNewName(s.name);
+                                    setNewUid(s.uid);
+                                    setNewStream(s.stream || "");
+                                  }
                                 }}
                                 style={{
                                   width: "100%", padding: "10px 14px", borderRadius: 10,

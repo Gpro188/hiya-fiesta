@@ -113,6 +113,8 @@ export async function getProgramAssignmentsByInstitution(teamId: string, eventId
           select: {
             id: true, name: true, uid: true, chestNumber: true,
             photoUrl: true, photo: true, isApproved: true,
+            categoryId: true,
+            category: { select: { id: true, name: true } },
             replacedFromChest: true, replacementNote: true
           }
         },
@@ -451,10 +453,11 @@ export async function addAndAssignNewCandidate(data: {
   uid?: string;
   photo?: string;
   teamId: string;
-  categoryId: string;
+  categoryId?: string | null;
   programId: string;
   programAssignmentId?: string; // if replacing existing assignment
   fromCandidateId?: string;
+  stream?: string;
   reason?: string;
 }) {
   try {
@@ -475,8 +478,86 @@ export async function addAndAssignNewCandidate(data: {
     });
     if (!team) return { success: false, error: "Team not found" };
 
+    const eventIds = [team.eventId, team.event?.parentId].filter(Boolean) as string[];
+
+    let resolvedCategoryId = data.categoryId || null;
+
+    // 1. If categoryId not provided, check the replaced candidate (fromCandidateId)
+    if (!resolvedCategoryId && data.fromCandidateId) {
+      const fromCand = await prisma.candidate.findUnique({
+        where: { id: data.fromCandidateId },
+        select: { categoryId: true }
+      });
+      if (fromCand?.categoryId) {
+        resolvedCategoryId = fromCand.categoryId;
+      }
+    }
+
+    // 2. If still not found, check stream passed or directory student stream
+    const targetStream = data.stream?.trim() || null;
+    if (!resolvedCategoryId && targetStream) {
+      const streamCat = await prisma.category.findFirst({
+        where: {
+          eventId: { in: eventIds },
+          name: { equals: targetStream, mode: "insensitive" }
+        },
+        select: { id: true }
+      });
+      if (streamCat) {
+        resolvedCategoryId = streamCat.id;
+      }
+    }
+
+    // 3. If still not found and UID provided, lookup masterStudent stream
+    if (!resolvedCategoryId && data.uid) {
+      const student = await prisma.masterStudent.findFirst({
+        where: { uid: data.uid.trim().toUpperCase() },
+        select: { stream: true }
+      });
+      if (student?.stream) {
+        const streamCat = await prisma.category.findFirst({
+          where: {
+            eventId: { in: eventIds },
+            name: { equals: student.stream.trim(), mode: "insensitive" }
+          },
+          select: { id: true }
+        });
+        if (streamCat) {
+          resolvedCategoryId = streamCat.id;
+        }
+      }
+    }
+
+    // 4. If still not found, check program categoryId
+    if (!resolvedCategoryId && data.programId) {
+      const prog = await prisma.program.findUnique({
+        where: { id: data.programId },
+        select: { categoryId: true }
+      });
+      if (prog?.categoryId) {
+        resolvedCategoryId = prog.categoryId;
+      }
+    }
+
+    // 5. Fallback: pick GENERAL or first category in event
+    if (!resolvedCategoryId) {
+      const eventCats = await prisma.category.findMany({
+        where: {
+          eventId: { in: eventIds }
+        },
+        orderBy: { chestNumberOffset: "asc" },
+        select: { id: true, name: true }
+      });
+      const genCat = eventCats.find(c => c.name.toUpperCase() === "GENERAL");
+      resolvedCategoryId = genCat ? genCat.id : (eventCats[0]?.id || null);
+    }
+
+    if (!resolvedCategoryId) {
+      return { success: false, error: "Category not found for candidate assignment" };
+    }
+
     const category = await prisma.category.findUnique({
-      where: { id: data.categoryId },
+      where: { id: resolvedCategoryId },
       select: { id: true, name: true, chestNumberOffset: true }
     });
     if (!category) return { success: false, error: "Category not found" };
@@ -565,7 +646,7 @@ export async function addAndAssignNewCandidate(data: {
 
       const existingInCategory = await tx.candidate.findMany({
         where: {
-          categoryId: data.categoryId,
+          categoryId: resolvedCategoryId,
           chestNumber: { not: null },
           team: { eventId: team.eventId }
         },
@@ -599,7 +680,7 @@ export async function addAndAssignNewCandidate(data: {
           photo: data.photo || null,
           photoUrl: data.photo || null,
           teamId: data.teamId,
-          categoryId: data.categoryId,
+          categoryId: resolvedCategoryId,
           institutionId: instId,
           isApproved: true,
           chestNumber: newChest,
