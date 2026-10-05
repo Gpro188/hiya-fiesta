@@ -214,7 +214,7 @@ export default async function InstitutionStateSelectedPage(props: {
     const gradeUpper = res.grade ? res.grade.trim().toUpperCase() : "";
     const hasAGrade = gradeUpper === "A" || gradeUpper === "A+";
 
-    if (res.rank !== 1 || !hasAGrade) continue;
+    if (res.rank !== 1) continue;
 
     const progCode = p.programCode ? p.programCode.trim() : "-";
     const progKey = getProgramKey(p.programCode, p.name, normalizedCat);
@@ -230,8 +230,8 @@ export default async function InstitutionStateSelectedPage(props: {
         isGeneral,
         isMagazine,
         qualificationRule: isMagazine 
-          ? "1st Place with 'A' Grade (Institution)" 
-          : "1st Place with 'A' Grade Only",
+          ? "1st Place Winner (Institution)" 
+          : "1st Place Winner",
         winners: []
       });
     }

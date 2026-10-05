@@ -39,11 +39,49 @@ export default function OffStageInvigilationSheet({
   institutionsData,
   festName,
   festMoto,
+  stageType = "OFF_STAGE",
+  groupBy = "institution",
+  eventId,
+  zoneId,
+  allZones = [],
+  isStateEvent = false,
 }: {
   institutionsData: InstitutionOffStageData[];
   festName: string;
   festMoto?: string;
+  stageType?: string;
+  groupBy?: string;
+  eventId?: string;
+  zoneId?: string;
+  allZones?: Array<{ id: string; name: string }>;
+  isStateEvent?: boolean;
 }) {
+  const isAll = stageType === "ALL";
+  const isOnStage = stageType === "ON_STAGE";
+  const sheetTitle = isOnStage
+    ? "ON-STAGE COMPETITIONS — INVIGILATION & ATTENDANCE RECORD"
+    : isAll
+    ? "COMPETITIONS — INVIGILATION & ATTENDANCE RECORD"
+    : "OFF-STAGE COMPETITIONS — INVIGILATION & ATTENDANCE RECORD";
+
+  const pageHeading = isOnStage
+    ? "🎤 On-Stage Invigilation & Attendance Sheets"
+    : isAll
+    ? "📋 Invigilation & Attendance Sheets (All Programs)"
+    : "📝 Off-Stage Invigilation & Attendance Sheets";
+
+  const buildFilterUrl = (overrides: { stageType?: string; groupBy?: string; zoneId?: string }) => {
+    const params = new URLSearchParams();
+    if (eventId) params.set("eventId", eventId);
+    const st = overrides.stageType !== undefined ? overrides.stageType : stageType;
+    if (st && st !== "OFF_STAGE") params.set("stageType", st);
+    const gb = overrides.groupBy !== undefined ? overrides.groupBy : groupBy;
+    if (gb && gb !== "institution") params.set("groupBy", gb);
+    const zid = overrides.zoneId !== undefined ? overrides.zoneId : zoneId;
+    if (zid && zid !== "ALL") params.set("zoneId", zid);
+    return `/print/off-stage-invigilation?${params.toString()}`;
+  };
+
   return (
     <div className="offstage-print-wrapper" style={{ backgroundColor: "#f8fafc", minHeight: "100vh", padding: "20px" }}>
       {/* Top Action Bar (hidden when printing) */}
@@ -52,9 +90,6 @@ export default function OffStageInvigilationSheet({
         style={{
           maxWidth: "1050px",
           margin: "0 auto 20px auto",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           backgroundColor: "#ffffff",
           padding: "16px 24px",
           borderRadius: "12px",
@@ -62,16 +97,140 @@ export default function OffStageInvigilationSheet({
           border: "1px solid #e2e8f0",
         }}
       >
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#1e1b4b", fontWeight: 800 }}>
-            📝 Off-Stage Invigilation & Attendance Sheets
-          </h2>
-          <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-            Each category prints on a separate sheet with blank organiser details and candidate signature boxes.
-          </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#1e1b4b", fontWeight: 800 }}>
+              {pageHeading}
+            </h2>
+            <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
+              {isStateEvent ? "State Festival Official Printout • Showing 1st Place Qualified Finalists" : "Each category prints on a separate sheet with organiser details and candidate signature boxes."}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <PrintButton label="🖨️ Print Sheets" />
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <PrintButton />
+
+        {/* Filter Controls Bar */}
+        <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+          {/* Stage Type Toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Stage Type:</span>
+            <div style={{ display: "inline-flex", borderRadius: "6px", backgroundColor: "#f1f5f9", padding: "2px" }}>
+              <a
+                href={buildFilterUrl({ stageType: "OFF_STAGE" })}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "4px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  backgroundColor: stageType === "OFF_STAGE" ? "#8E0033" : "transparent",
+                  color: stageType === "OFF_STAGE" ? "#ffffff" : "#475569",
+                  transition: "all 0.15s"
+                }}
+              >
+                📝 Off-Stage
+              </a>
+              <a
+                href={buildFilterUrl({ stageType: "ON_STAGE" })}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "4px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  backgroundColor: stageType === "ON_STAGE" ? "#0284c7" : "transparent",
+                  color: stageType === "ON_STAGE" ? "#ffffff" : "#475569",
+                  transition: "all 0.15s"
+                }}
+              >
+                🎤 On-Stage
+              </a>
+              <a
+                href={buildFilterUrl({ stageType: "ALL" })}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "4px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  backgroundColor: stageType === "ALL" ? "#475569" : "transparent",
+                  color: stageType === "ALL" ? "#ffffff" : "#475569",
+                  transition: "all 0.15s"
+                }}
+              >
+                📋 All
+              </a>
+            </div>
+          </div>
+
+          {/* Group By Toggle (State Event) */}
+          {isStateEvent && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Group By:</span>
+              <div style={{ display: "inline-flex", borderRadius: "6px", backgroundColor: "#f1f5f9", padding: "2px" }}>
+                <a
+                  href={buildFilterUrl({ groupBy: "institution" })}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "4px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                    backgroundColor: groupBy === "institution" ? "#8E0033" : "transparent",
+                    color: groupBy === "institution" ? "#ffffff" : "#475569",
+                    transition: "all 0.15s"
+                  }}
+                >
+                  🏛️ By College
+                </a>
+                <a
+                  href={buildFilterUrl({ groupBy: "zone" })}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "4px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                    backgroundColor: groupBy === "zone" ? "#8E0033" : "transparent",
+                    color: groupBy === "zone" ? "#ffffff" : "#475569",
+                    transition: "all 0.15s"
+                  }}
+                >
+                  📍 By Zone
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Zone Selector */}
+          {allZones.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Filter Zone:</span>
+              <select
+                value={zoneId || "ALL"}
+                onChange={(e) => {
+                  window.location.href = buildFilterUrl({ zoneId: e.target.value });
+                }}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  backgroundColor: "#ffffff",
+                  color: "#1e293b",
+                  outline: "none"
+                }}
+              >
+                <option value="ALL">All Completed Zones ({institutionsData.length} sheets)</option>
+                {allZones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -162,7 +321,7 @@ export default function OffStageInvigilationSheet({
                     marginTop: "4px",
                   }}
                 >
-                  OFF-STAGE COMPETITIONS — INVIGILATION & ATTENDANCE RECORD
+                  {sheetTitle}
                 </div>
               </div>
 

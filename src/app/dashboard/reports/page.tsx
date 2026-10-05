@@ -390,10 +390,22 @@ export default async function ReportsPage(props: {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Strictly on-stage programs. Assign code letters and verify candidate photos before performance.</p>
           </a>
 
-          <a href={`/print/off-stage-invigilation?eventId=${activeEventId}${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid #8E0033' }}>
+          <a href={`/print/off-stage-invigilation?eventId=${activeEventId}&stageType=OFF_STAGE${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1px solid #8E0033' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-            <h4 style={{ margin: '0 0 5px 0', color: '#8E0033' }}>Off-Stage Invigilation Sheets</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print category-wise institution exam sheets with blank invigilator details and candidate sign boxes.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033' }}>Off-Stage Invigilation Sheets</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.1)', color: '#8E0033', fontWeight: 800 }}>EXAM HALL</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print category-wise exam sheets with blank invigilator details, candidate photos, and signature boxes.</p>
+          </a>
+
+          <a href={`/print/off-stage-invigilation?eventId=${activeEventId}&stageType=ON_STAGE${role === 'ZONE_ADMIN' && userZoneId ? `&zoneId=${userZoneId}` : ''}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #0284c7' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎤</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7' }}>On-Stage Invigilation &amp; Attendance</h4>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 800 }}>STAGE CALL</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official on-stage candidate roll sheets with photos, chest numbers, and verification signatures.</p>
           </a>
         </div>
 
