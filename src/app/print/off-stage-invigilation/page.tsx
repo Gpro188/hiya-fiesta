@@ -339,7 +339,7 @@ export default async function PrintOffStageInvigilationPage(props: {
         } else if (targetEvId) {
           teamWhere.eventId = targetEvId;
         }
-      } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
+      } else {
         if (searchParams.teamId) {
           teamWhere.id = searchParams.teamId;
         } else if (searchParams.institutionId) {
