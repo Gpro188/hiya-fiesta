@@ -21,21 +21,14 @@ export default async function PrintOffStageInvigilationPage(props: {
     const searchParams = await props.searchParams;
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      redirect("/login");
-    }
+    const role = session?.user?.role;
+    const userId = session?.user?.id;
 
-    const { role, id: userId } = session.user;
-
-    // Strict access control: Available to ZONE_ADMIN, ADMIN, and SUPER_ADMIN ONLY!
-    if (!["ZONE_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role)) {
-      redirect("/dashboard");
-    }
-
-    const fullUser = await prisma.user.findUnique({
+    // Optional user context
+    const fullUser = userId ? await prisma.user.findUnique({
       where: { id: userId },
       select: { eventId: true, zoneId: true, institutionId: true },
-    });
+    }) : null;
 
     // 1. Resolve target event
     let targetEventId = searchParams.eventId;
@@ -489,6 +482,9 @@ export default async function PrintOffStageInvigilationPage(props: {
       />
     );
   } catch (err: any) {
+    if (err?.digest?.startsWith?.('NEXT_REDIRECT') || err?.message === 'NEXT_REDIRECT') {
+      throw err;
+    }
     console.error("Invigilation sheet error:", err);
     return (
       <div style={{ padding: "40px", textAlign: "center", fontFamily: "sans-serif" }}>
