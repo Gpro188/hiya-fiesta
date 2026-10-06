@@ -89,13 +89,22 @@ export default async function InstitutionStateSelectedPage(props: {
       },
       candidate: {
         include: {
-          team: { include: { institution: true } },
+          team: { 
+            include: { 
+              institution: { include: { zone: true } }, 
+              event: { include: { zone: true } } 
+            } 
+          },
           category: true,
-          masterStudent: true
+          masterStudent: true,
+          institution: { include: { zone: true } }
         }
       },
       team: {
-        include: { institution: true }
+        include: { 
+          institution: { include: { zone: true } },
+          event: { include: { zone: true } }
+        }
       }
     },
     orderBy: [
@@ -115,9 +124,15 @@ export default async function InstitutionStateSelectedPage(props: {
     include: {
       candidate: {
         include: {
-          team: { include: { institution: true } },
+          team: { 
+            include: { 
+              institution: { include: { zone: true } },
+              event: { include: { zone: true } }
+            } 
+          },
           category: true,
-          masterStudent: true
+          masterStudent: true,
+          institution: { include: { zone: true } }
         }
       },
       program: {
@@ -253,6 +268,13 @@ export default async function InstitutionStateSelectedPage(props: {
       }
     }
 
+    const resolvedZoneName = 
+      team?.institution?.zone?.name || 
+      team?.event?.zone?.name || 
+      res.candidate?.institution?.zone?.name || 
+      activeEv?.zone?.name || 
+      null;
+
     const winner: StateWinner = {
       rank: res.rank,
       grade: res.grade,
@@ -264,6 +286,7 @@ export default async function InstitutionStateSelectedPage(props: {
       institutionCode: instCode,
       teamId: currentTeamId,
       teamName,
+      zoneName: resolvedZoneName,
       participants
     };
 
@@ -313,6 +336,13 @@ export default async function InstitutionStateSelectedPage(props: {
     const instName = team?.institution?.name || teamName;
     const instCode = team?.institution?.code || team?.prefixCode || "-";
 
+    const resolvedZoneName = 
+      team?.institution?.zone?.name || 
+      team?.event?.zone?.name || 
+      c.institution?.zone?.name || 
+      activeEv?.zone?.name || 
+      null;
+
     const winner: StateWinner = {
       rank: sq.originalRank || 1,
       grade: null,
@@ -323,7 +353,8 @@ export default async function InstitutionStateSelectedPage(props: {
       institutionName: instName,
       institutionCode: instCode,
       teamId: currentTeamId,
-      teamName
+      teamName,
+      zoneName: resolvedZoneName
     };
 
     const existing = programsMap.get(progKey)!.winners;

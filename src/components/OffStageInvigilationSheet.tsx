@@ -17,6 +17,8 @@ export interface OffStageCandidateRow {
   startTime: string | null;
   endTime: string | null;
   venue?: string | null;
+  institutionName?: string | null;
+  zoneName?: string | null;
 }
 
 export interface CategoryOffStageGroup {
@@ -341,16 +343,19 @@ export default function OffStageInvigilationSheet({
               >
                 <div>
                   <div style={{ marginBottom: "4px" }}>
+                    <strong>TEAM (ZONE):</strong>{" "}
+                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#8E0033" }}>
+                      📍 {inst.zoneName ? `${inst.zoneName} ZONE` : "Regional Zone"}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: "4px" }}>
                     <strong>INSTITUTION:</strong>{" "}
-                    <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#1e1b4b" }}>
-                      {inst.institutionName}
+                    <span style={{ fontSize: "0.92rem", fontWeight: 700, color: "#1e1b4b" }}>
+                      🏛️ {inst.institutionName}
                     </span>
                     {inst.institutionCode && (
                       <span style={{ color: "#64748b", marginLeft: "6px" }}>({inst.institutionCode})</span>
                     )}
-                  </div>
-                  <div>
-                    <strong>ZONE:</strong> <span style={{ fontWeight: 700 }}>{inst.zoneName || "Regional Zone"}</span>
                   </div>
                   <div style={{ marginTop: "4px" }}>
                     <strong>STATUS:</strong>{" "}
@@ -458,7 +463,7 @@ export default function OffStageInvigilationSheet({
                       Photo
                     </th>
                     <th style={{ border: "1px solid #0f172a", padding: "8px 8px", textAlign: "left" }}>
-                      Candidate Name
+                      Candidate Name / Team (Zone) & Institution
                     </th>
                     <th style={{ border: "1px solid #0f172a", padding: "8px 4px", width: "80px", textAlign: "center" }}>
                       UID
@@ -554,8 +559,16 @@ export default function OffStageInvigilationSheet({
                             </div>
                           )}
                         </td>
-                        <td style={{ border: "1px solid #0f172a", padding: "6px 8px", fontWeight: 700 }}>
-                          {row.candidateName}
+                        <td style={{ border: "1px solid #0f172a", padding: "6px 8px" }}>
+                          <div style={{ fontWeight: 800, color: "#0f172a" }}>{row.candidateName}</div>
+                          <div style={{ fontSize: "0.70rem", fontWeight: 800, color: "#8E0033", marginTop: "1px" }}>
+                            📍 {row.zoneName ? `${row.zoneName} ZONE` : (inst.zoneName ? `${inst.zoneName} ZONE` : "")}
+                          </div>
+                          {(row.institutionName || inst.institutionName) && (
+                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                              🏛️ {row.institutionName || inst.institutionName}
+                            </div>
+                          )}
                         </td>
                         <td style={{ border: "1px solid #0f172a", padding: "6px 4px", textAlign: "center", fontFamily: "monospace", fontSize: "0.8rem", color: "#334155" }}>
                           {row.candidateUid || "—"}

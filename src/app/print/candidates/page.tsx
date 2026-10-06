@@ -39,7 +39,12 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
   const candidates = await prisma.candidate.findMany({
     where: whereClause,
     include: {
-      team: { include: { institution: true, event: { include: { zone: true } } } },
+      team: { 
+        include: { 
+          institution: { include: { zone: true } }, 
+          event: { include: { zone: true } } 
+        } 
+      },
       category: true,
       programs: {
         include: {
@@ -95,12 +100,14 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.9rem' }}>
           <div>
-            <strong style={{ color: '#374151' }}>Institution: </strong>
-            <span style={{ fontWeight: 700 }}>{team?.institution?.name || team?.name || "All Participating Institutions"}</span>
+            <strong style={{ color: '#374151' }}>Team (Zone): </strong>
+            <span style={{ fontWeight: 800, color: '#8E0033' }}>
+              📍 {team?.institution?.zone?.name || team?.event?.zone?.name ? `${team?.institution?.zone?.name || team?.event?.zone?.name} ZONE` : (team?.name || "All Zones")}
+            </span>
           </div>
           <div>
-            <strong style={{ color: '#374151' }}>Zone / Event: </strong>
-            <span>{team?.event?.zone?.name || team?.institution?.zone?.name || team?.event?.name || "State / Zonal Fest"}</span>
+            <strong style={{ color: '#374151' }}>Institution: </strong>
+            <span style={{ fontWeight: 700 }}>{team?.institution?.name || team?.name || "All Participating Institutions"}</span>
           </div>
           <div>
             <strong style={{ color: '#374151' }}>Registration Status: </strong>
@@ -138,7 +145,7 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
             <th style={{ border: '1px solid #d1d5db', padding: '8px 6px', width: '85px', textAlign: 'center', fontWeight: 800 }}>Chest No</th>
             <th style={{ border: '1px solid #d1d5db', padding: '8px 6px', width: '55px', textAlign: 'center' }}>Photo</th>
             <th style={{ border: '1px solid #d1d5db', padding: '8px 10px', textAlign: 'left' }}>Candidate Name & UID</th>
-            {!team && <th style={{ border: '1px solid #d1d5db', padding: '8px 10px', textAlign: 'left' }}>Team</th>}
+            {!team && <th style={{ border: '1px solid #d1d5db', padding: '8px 10px', textAlign: 'left' }}>Team (Zone) / Institution</th>}
             <th style={{ border: '1px solid #d1d5db', padding: '8px 8px', textAlign: 'left', width: '110px' }}>Category</th>
             <th style={{ border: '1px solid #d1d5db', padding: '8px 10px', textAlign: 'left' }}>Allocated Programs</th>
             <th style={{ border: '1px solid #d1d5db', padding: '8px 6px', width: '100px', textAlign: 'center' }}>Remarks / Sign</th>
@@ -206,7 +213,12 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
                 </td>
                 {!team && (
                   <td style={{ border: '1px solid #d1d5db', padding: '6px 8px', fontSize: '0.8rem' }}>
-                    {c.team?.name}
+                    <div style={{ fontWeight: 800, color: '#8E0033' }}>
+                      📍 {c.team?.institution?.zone?.name || c.team?.event?.zone?.name ? `${c.team?.institution?.zone?.name || c.team?.event?.zone?.name} ZONE` : c.team?.name}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#4b5563', marginTop: '1px' }}>
+                      🏛️ {c.team?.institution?.name || c.team?.name}
+                    </div>
                   </td>
                 )}
                 <td style={{ border: '1px solid #d1d5db', padding: '6px 8px', fontWeight: 600, color: '#374151' }}>

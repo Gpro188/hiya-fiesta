@@ -14,6 +14,7 @@ export interface StateWinner {
   institutionCode: string;
   teamId: string;
   teamName: string;
+  zoneName?: string | null;
   participants?: { name: string; chestNumber: string }[];
 }
 
@@ -478,7 +479,7 @@ export default function ProgramStateSelectedView({
                           <th style={{ padding: "8px 12px" }}>
                             {prog.isMagazine ? "Participating Entry" : (prog.type === "INDIVIDUAL" ? "Candidate Name" : "Winning Candidate(s) / Participants")}
                           </th>
-                          <th style={{ padding: "8px 12px" }}>Institution / College</th>
+                          <th style={{ padding: "8px 12px" }}>Team (Zone) &amp; Institution</th>
                           <th style={{ padding: "8px 12px", width: "70px", textAlign: "center" }}>Grade</th>
                           <th style={{ padding: "8px 12px", width: "130px", textAlign: "center" }}>Status</th>
                         </tr>
@@ -577,12 +578,17 @@ export default function ProgramStateSelectedView({
                                 )}
                               </td>
 
-                              {/* Institution */}
+                              {/* Team (Zone) & Institution */}
                               <td style={{ padding: "10px 12px" }}>
-                                <div style={{ fontWeight: 800, color: "#0f172a" }}>
-                                  {winner.institutionName}
+                                {winner.zoneName && (
+                                  <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#8E0033" }}>
+                                    📍 {winner.zoneName} ZONE
+                                  </div>
+                                )}
+                                <div style={{ fontWeight: 800, color: "#0f172a", marginTop: winner.zoneName ? "1px" : "0" }}>
+                                  🏛️ {winner.institutionName}
                                 </div>
-                                <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>
+                                <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700, marginTop: "1px" }}>
                                   Code: <span style={{ fontFamily: "monospace", color: "#8E0033" }}>{winner.institutionCode}</span>
                                 </div>
                               </td>

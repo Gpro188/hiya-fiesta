@@ -48,10 +48,10 @@ export default async function PrintInstitutionAttendancePage(props: {
     orderBy: [{ name: "asc" }],
     include: {
       institution: {
-        select: { id: true, name: true, place: true, district: true, stream: true, code: true }
+        include: { zone: true }
       },
       event: {
-        select: { id: true, name: true }
+        include: { zone: true }
       },
       candidates: {
         where: { isApproved: true },
@@ -285,8 +285,11 @@ export default async function PrintInstitutionAttendancePage(props: {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: "1.05rem", color: "#8E0033" }}>
-                    {inst?.name || team.name}
+                  <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#8E0033" }}>
+                    📍 {team.institution?.zone?.name || activeEvent?.zone?.name ? `${team.institution?.zone?.name || activeEvent?.zone?.name} ZONE` : team.name}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginTop: "2px" }}>
+                    🏛️ {inst?.name || team.name}
                   </div>
                   {inst?.place && (
                     <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "2px" }}>

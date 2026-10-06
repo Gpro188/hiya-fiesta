@@ -125,7 +125,7 @@ export default async function PrintTabulationPage(props: {
         include: {
           candidate: {
             include: {
-              team: { include: { institution: true } },
+              team: { include: { institution: { include: { zone: true } }, event: { include: { zone: true } } } },
               institution: { include: { zone: true } },
             },
           },
@@ -156,7 +156,7 @@ export default async function PrintTabulationPage(props: {
           include: {
             candidate: {
               include: {
-                team: { include: { institution: true } },
+                team: { include: { institution: { include: { zone: true } }, event: { include: { zone: true } } } },
                 institution: { include: { zone: true } },
               },
             },
@@ -508,6 +508,7 @@ export default async function PrintTabulationPage(props: {
             id: string;
             teamId: string;
             teamName: string;
+            zoneName: string;
             slotNumber?: number;
             chestNumbers: string;
             memberNames: string;
@@ -522,11 +523,13 @@ export default async function PrintTabulationPage(props: {
               const t = c.team;
               const tId = t?.id || c.teamId || c.institutionId || c.name;
               const tName = t?.name || c.institution?.name || c.team?.institution?.name || "Team";
+              const zName = c.institution?.zone?.name || c.team?.institution?.zone?.name || c.team?.event?.zone?.name || "";
               if (!teamMap.has(tId)) {
                 teamMap.set(tId, {
                   id: a.id,
                   teamId: tId,
                   teamName: tName,
+                  zoneName: zName,
                   slotNumber: a.slotNumber ?? undefined,
                   chestNumbers: c.chestNumber || "",
                   memberNames: c.name || "",
@@ -534,6 +537,7 @@ export default async function PrintTabulationPage(props: {
                 });
               } else {
                 const existing = teamMap.get(tId)!;
+                if (!existing.zoneName && zName) existing.zoneName = zName;
                 existing.candidates.push(c);
                 if (c.chestNumber && !existing.chestNumbers.includes(c.chestNumber)) {
                   existing.chestNumbers = existing.chestNumbers
@@ -674,7 +678,7 @@ export default async function PrintTabulationPage(props: {
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "36px" }}>Sl</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "75px", backgroundColor: "#1e293b" }}>Code Letter</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 4px", width: "115px" }}>Chest Nos.</th>
-                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Team / Institution Name</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Team (Zone) & Institution</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px" }}>Total (200)</th>
@@ -697,7 +701,12 @@ export default async function PrintTabulationPage(props: {
                             {tRow.chestNumbers || "-"}
                           </td>
                           <td style={{ border: "1px solid #cbd5e1", padding: "3px 6px", textAlign: "left" }}>
-                            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>🏛️ {tRow.teamName}</div>
+                            <div style={{ fontWeight: 800, color: "#8E0033", fontSize: "0.82rem", lineHeight: 1.2 }}>
+                              📍 {tRow.zoneName ? `${tRow.zoneName} ZONE` : tRow.teamName}
+                            </div>
+                            <div style={{ fontSize: "0.70rem", color: "#334155", fontWeight: 700, marginTop: "1px" }}>
+                              🏛️ {tRow.teamName}
+                            </div>
                             {tRow.memberNames && (
                               <div style={{ 
                                 fontSize: "0.66rem", 
@@ -737,7 +746,7 @@ export default async function PrintTabulationPage(props: {
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "36px" }}>Sl</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "75px", backgroundColor: "#1e293b" }}>Code Letter</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 4px", width: "85px" }}>Chest No.</th>
-                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Candidate Name / Institution</th>
+                      <th style={{ border: "1px solid #334155", padding: "4px 8px", textAlign: "left" }}>Candidate Name / Team (Zone) & Institution</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 1 (100)</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px", backgroundColor: "#1e293b" }}>Jury 2 (100)</th>
                       <th style={{ border: "1px solid #334155", padding: "4px 2px", width: "95px" }}>Total (200)</th>
@@ -750,6 +759,7 @@ export default async function PrintTabulationPage(props: {
                     {candidateAssignments.map((assignment: any, index: number) => {
                       const c = assignment.candidate;
                       const instName = c.institution?.name || c.team?.institution?.name || c.team?.name || "-";
+                      const zoneName = c.institution?.zone?.name || c.team?.institution?.zone?.name || c.team?.event?.zone?.name || "";
 
                       return (
                         <tr key={assignment.id} style={{ backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc", height: "34px" }}>
@@ -764,7 +774,12 @@ export default async function PrintTabulationPage(props: {
                           </td>
                           <td style={{ border: "1px solid #cbd5e1", padding: "3px 6px", textAlign: "left" }}>
                             <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", lineHeight: 1.2 }}>{c.name}</div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.15 }}>{instName}</div>
+                            <div style={{ fontSize: "0.70rem", fontWeight: 800, color: "#8E0033", marginTop: "1px" }}>
+                              📍 {zoneName ? `${zoneName} ZONE` : "Team"}
+                            </div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.15 }}>
+                              🏛️ {instName}
+                            </div>
                           </td>
                           {/* Jury 1 Marks */}
                           <td style={{ border: "1px solid #cbd5e1", padding: "2px", backgroundColor: "#f8fafc", textAlign: "center" }}></td>

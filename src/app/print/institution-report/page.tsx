@@ -122,13 +122,19 @@ export default async function PrintInstitutionReportPage(props: {
       }}>
         <div>
           <div style={{ marginBottom: '4px' }}>
-            <strong style={{ color: '#475569' }}>Institution:</strong>{" "}
-            <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
-              {team.institution?.name || team.name}
+            <strong style={{ color: '#475569' }}>Team (Zone):</strong>{" "}
+            <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#8E0033' }}>
+              📍 {team.institution?.zone?.name || team.event?.zone?.name ? `${team.institution?.zone?.name || team.event?.zone?.name} ZONE` : (team.name || 'All Zones')}
             </span>
           </div>
-          <div style={{ color: '#475569' }}>
-            <strong>Institution Code:</strong> {team.institution?.code || team.prefixCode || 'N/A'} • <strong>Zone:</strong> {team.institution?.zone?.name || team.event?.zone?.name || 'N/A'}
+          <div style={{ marginBottom: '4px' }}>
+            <strong style={{ color: '#475569' }}>Institution:</strong>{" "}
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>
+              🏛️ {team.institution?.name || team.name}
+            </span>
+          </div>
+          <div style={{ color: '#475569', fontSize: '0.8rem' }}>
+            <strong>Institution Code:</strong> {team.institution?.code || team.prefixCode || 'N/A'}
           </div>
         </div>
         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>

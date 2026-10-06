@@ -63,9 +63,9 @@ export default function StageRegistrationClient({
     let text = `🌟 *${festName.toUpperCase()}* 🌟\n`;
     text += `📋 *REGISTRATION STATUS REPORT*\n`;
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `📍 *Team (Zone):* ${zoneName} ZONE\n`;
     text += `🏛️ *Institution:* ${institutionName}\n`;
     if (team.institution?.place) text += `📍 *Place:* ${team.institution.place}\n`;
-    text += `🗺️ *Zone:* ${zoneName}\n`;
     text += `👥 *Total Candidates:* ${totalCandidates}\n`;
     text += `🔒 *Overall Status:* ${isConfirmed ? "✅ CONFIRMED" : "⏳ IN PROGRESS"}\n`;
     text += `📝 *Off-Stage Programs:* ${offStageItems.length} registrations\n`;
@@ -304,12 +304,15 @@ export default function StageRegistrationClient({
           <h2 style={{ margin: "0 0 8px 0", fontSize: "1.15rem", textTransform: "uppercase", letterSpacing: "1px", color: "#1e293b", fontWeight: 700 }}>
             Off-Stage & On-Stage Registration Status Report
           </h2>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a" }}>
-            {institutionName}
+          <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#8E0033", marginTop: "4px" }}>
+            📍 {zoneName} ZONE
+          </div>
+          <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+            🏛️ {institutionName}
           </div>
           {team.institution?.place && (
-            <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
-              {team.institution.place} • Zone: {zoneName}
+            <div style={{ fontSize: "0.85rem", color: "#64748b", marginTop: "1px" }}>
+              📍 {team.institution.place}
             </div>
           )}
         </div>

@@ -113,7 +113,7 @@ export default async function PrintStageManagerPage(props: {
         include: {
           candidate: {
             include: { 
-              team: { include: { institution: true } },
+              team: { include: { institution: { include: { zone: true } }, event: { include: { zone: true } } } },
               institution: { include: { zone: true } }
             }
           }
@@ -137,7 +137,7 @@ export default async function PrintStageManagerPage(props: {
           include: {
             candidate: {
               include: {
-                team: { include: { institution: true } },
+                team: { include: { institution: { include: { zone: true } }, event: { include: { zone: true } } } },
                 institution: { include: { zone: true } }
               }
             }
@@ -370,6 +370,7 @@ export default async function PrintStageManagerPage(props: {
                 id: string;
                 teamId: string;
                 teamName: string;
+                zoneName: string;
                 slotNumber?: number;
                 candidates: Array<{
                   id: string;
@@ -389,16 +390,20 @@ export default async function PrintStageManagerPage(props: {
                   const t = c.team;
                   const tId = t?.id || c.teamId || c.institutionId || c.name;
                   const tName = t?.name || c.institution?.name || c.team?.institution?.name || "Team";
+                  const zName = c.institution?.zone?.name || c.team?.institution?.zone?.name || c.team?.event?.zone?.name || "";
                   if (!teamMap.has(tId)) {
                     teamMap.set(tId, {
                       id: a.id,
                       teamId: tId,
                       teamName: tName,
+                      zoneName: zName,
                       slotNumber: a.slotNumber,
                       candidates: [c]
                     });
                   } else {
-                    teamMap.get(tId)!.candidates.push(c);
+                    const existing = teamMap.get(tId)!;
+                    if (!existing.zoneName && zName) existing.zoneName = zName;
+                    existing.candidates.push(c);
                   }
                 }
                 teamGroups = Array.from(teamMap.values());
@@ -504,8 +509,13 @@ export default async function PrintStageManagerPage(props: {
 
                                   {/* Team Name */}
                                   <div>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Team / Institution</div>
-                                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>🏛️ {group.teamName}</div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Team (Zone) / Institution</div>
+                                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#8E0033' }}>
+                                      📍 {group.zoneName ? `${group.zoneName} ZONE` : group.teamName}
+                                    </div>
+                                    <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 700, marginTop: '2px' }}>
+                                      🏛️ {group.teamName}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -587,7 +597,7 @@ export default async function PrintStageManagerPage(props: {
                             <th style={{ border: '1px solid #334155', padding: '8px 6px', width: '60px', textAlign: 'center' }}>Photo</th>
                             <th style={{ border: '1px solid #334155', padding: '8px 6px', width: '90px', textAlign: 'center' }}>Chest No.</th>
                             <th style={{ border: '1px solid #334155', padding: '8px 8px' }}>Candidate Name</th>
-                            <th style={{ border: '1px solid #334155', padding: '8px 8px' }}>Institution / Team</th>
+                            <th style={{ border: '1px solid #334155', padding: '8px 8px' }}>Team (Zone) / Institution</th>
                             <th style={{ border: '1px solid #334155', padding: '8px 6px', width: '70px', textAlign: 'center' }}>Present</th>
                             <th style={{ border: '1px solid #334155', padding: '8px 6px', width: '90px', textAlign: 'center' }}>Remarks</th>
                           </tr>
@@ -597,6 +607,7 @@ export default async function PrintStageManagerPage(props: {
                             const c = assignment.candidate;
                             const photoSrc = c.photo || c.photoUrl;
                             const instName = c.institution?.name || c.team?.institution?.name || c.team?.name || '-';
+                            const zoneName = c.institution?.zone?.name || c.team?.institution?.zone?.name || c.team?.event?.zone?.name || '';
 
                             return (
                               <tr key={assignment.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc', height: '48px' }}>
@@ -626,8 +637,13 @@ export default async function PrintStageManagerPage(props: {
                                   <div style={{ fontWeight: 800, color: '#0f172a' }}>{c.name}</div>
                                   <div style={{ fontSize: '0.72rem', color: '#64748b' }}>UID: {c.uid || '-'}</div>
                                 </td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', fontSize: '0.78rem', color: '#334155' }}>
-                                  {instName}
+                                <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px' }}>
+                                  <div style={{ fontWeight: 800, color: '#8E0033', fontSize: '0.82rem' }}>
+                                    📍 {zoneName ? `${zoneName} ZONE` : 'Team'}
+                                  </div>
+                                  <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: '1px' }}>
+                                    🏛️ {instName}
+                                  </div>
                                 </td>
                                 <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center' }}>
                                   <div style={{ width: '22px', height: '22px', border: '1.5px solid #475569', borderRadius: '3px', margin: '0 auto' }}></div>

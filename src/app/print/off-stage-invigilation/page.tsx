@@ -176,7 +176,7 @@ export default async function PrintOffStageInvigilationPage(props: {
               categoryMap.get(catId)!.rows.push({
                 assignmentId: assignment.id,
                 candidateId: candidate.id,
-                candidateName: `${candidate.name} (${inst?.name || 'Institution'})`,
+                candidateName: candidate.name,
                 candidateUid: candidate.uid,
                 candidatePhoto: candidate.photo || candidate.photoUrl || null,
                 chestNumber: candidate.chestNumber,
@@ -187,6 +187,8 @@ export default async function PrintOffStageInvigilationPage(props: {
                 startTime: startTimeIso,
                 endTime: endTimeIso,
                 venue: program.venue || (program.stageType === "ON_STAGE" ? "Main Stage" : "Examination Hall"),
+                institutionName: inst?.name || null,
+                zoneName: zName,
               });
             }
           }
@@ -285,6 +287,8 @@ export default async function PrintOffStageInvigilationPage(props: {
                 startTime: startTimeIso,
                 endTime: endTimeIso,
                 venue: program.venue || (program.stageType === "ON_STAGE" ? "Main Stage" : "Examination Hall"),
+                institutionName: instName,
+                zoneName: bucket.zoneName,
               });
             }
           }
@@ -417,6 +421,8 @@ export default async function PrintOffStageInvigilationPage(props: {
               startTime: startTimeIso,
               endTime: endTimeIso,
               venue: program.venue || (program.stageType === "ON_STAGE" ? "Main Stage" : "Institution Examination Hall"),
+              institutionName: team.institution?.name || team.name,
+              zoneName: team.event?.zone?.name || null,
             });
           }
         }

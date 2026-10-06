@@ -307,14 +307,14 @@ export default async function PrintResultsPage({
             <th style={{ border: '1.5px solid #0f172a', padding: '10px 8px', width: '75px', textAlign: 'center' }}>Grade</th>
             {isGeneral ? (
               <>
-                <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left', minWidth: '220px' }}>Winning Institution</th>
+                <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left', minWidth: '220px' }}>Team (Zone) &amp; Institution</th>
                 <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left' }}>Registered Participants (Students)</th>
               </>
             ) : (
               <>
                 <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left' }}>Candidate Name</th>
                 <th style={{ border: '1.5px solid #0f172a', padding: '10px 8px', width: '90px', textAlign: 'center' }}>Chest #</th>
-                <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left' }}>Institution &amp; Zone</th>
+                <th style={{ border: '1.5px solid #0f172a', padding: '10px 12px', textAlign: 'left' }}>Team (Zone) &amp; Institution</th>
               </>
             )}
             <th style={{ border: '1.5px solid #0f172a', padding: '10px 8px', width: '80px', textAlign: 'center' }}>Points</th>
@@ -350,15 +350,17 @@ export default async function PrintResultsPage({
                 {isGeneral ? (
                   <>
                     <td style={{ border: '1.5px solid #0f172a', padding: '10px 12px', fontWeight: 800 }}>
-                      <div style={{ fontSize: '1rem', color: '#0f172a' }}>{instName}</div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px', fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
-                        {instPlace && <span>📍 {instPlace}</span>}
-                        {zoneObj && (
-                          <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 6px', borderRadius: '3px', fontSize: '0.72rem', fontWeight: 700 }}>
-                            {zoneObj.name}
-                          </span>
-                        )}
+                      <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#8E0033' }}>
+                        📍 {zoneObj?.name ? `${zoneObj.name} ZONE` : 'STATE TEAM'}
                       </div>
+                      <div style={{ fontSize: '0.88rem', color: '#0f172a', fontWeight: 800, marginTop: '2px' }}>
+                        🏛️ {instName}
+                      </div>
+                      {instPlace && (
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>
+                          📍 {instPlace}
+                        </div>
+                      )}
                     </td>
                     <td style={{ border: '1.5px solid #0f172a', padding: '10px 12px' }}>
                       {teamAssignments.length > 0 ? (
@@ -400,15 +402,17 @@ export default async function PrintResultsPage({
                       {cand?.chestNumber || '-'}
                     </td>
                     <td style={{ border: '1.5px solid #0f172a', padding: '10px 12px' }}>
-                      <div style={{ fontWeight: 700 }}>{instName}</div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px', fontSize: '0.78rem', color: '#64748b' }}>
-                        {instPlace && <span>📍 {instPlace}</span>}
-                        {zoneObj && (
-                          <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 6px', borderRadius: '3px', fontSize: '0.72rem', fontWeight: 700 }}>
-                            {zoneObj.name}
-                          </span>
-                        )}
+                      <div style={{ fontSize: '0.88rem', fontWeight: 900, color: '#8E0033' }}>
+                        📍 {zoneObj?.name ? `${zoneObj.name} ZONE` : 'STATE TEAM'}
                       </div>
+                      <div style={{ fontSize: '0.84rem', color: '#0f172a', fontWeight: 800, marginTop: '2px' }}>
+                        🏛️ {instName}
+                      </div>
+                      {instPlace && (
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>
+                          📍 {instPlace}
+                        </div>
+                      )}
                     </td>
                   </>
                 )}

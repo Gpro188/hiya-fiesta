@@ -286,9 +286,12 @@ export default async function InstitutionResultsBreakdownPage(props: {
         {/* Institution Banner Card */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff1f2', border: '1.5px solid #fecdd3', padding: '12px 18px', borderRadius: '8px', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ textAlign: 'left' }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#9f1239', fontWeight: 800 }}>Institution / College:</span>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#881337' }}>
-              {instName} <span style={{ fontFamily: 'monospace', color: '#be123c', marginLeft: '6px' }}>({instCode})</span>
+            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#9f1239', fontWeight: 800 }}>Team (Zone) &amp; Institution:</span>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#881337' }}>
+              📍 {zoneName} ZONE
+            </div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
+              🏛️ {instName} <span style={{ fontFamily: 'monospace', color: '#be123c', marginLeft: '6px' }}>({instCode})</span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '20px', textAlign: 'right' }}>
