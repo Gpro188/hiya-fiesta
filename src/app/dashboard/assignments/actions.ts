@@ -160,15 +160,15 @@ export async function assignProgram(candidateId: string, programId: string) {
       }
     }
 
-    // Resolve to master program if it has a programCode and a master counterpart
+    // Resolve to master program if it has a programCode and a master counterpart (skip for standalone zone events like Fadheela PG)
     let actualProgramId = programId;
-    if (program.programCode) {
+    const isStandaloneFest = candidate.team?.event?.type === "ZONE" && !candidate.team?.event?.parentId;
+    if (!isStandaloneFest && program.programCode) {
       const masterProg = await prisma.program.findFirst({
         where: {
           programCode: program.programCode,
           event: {
             OR: [
-              { parentId: null },
               { type: "STATE" },
               { name: { contains: "State Final" } }
             ]
@@ -183,7 +183,7 @@ export async function assignProgram(candidateId: string, programId: string) {
 
     // Check if candidate is already assigned to this program or another program with same programCode
     const alreadyAssigned = candidate.programs.some(
-      p => p.programId === actualProgramId || (program.programCode && p.program?.programCode === program.programCode)
+      p => p.programId === actualProgramId || (!isStandaloneFest && program.programCode && p.program?.programCode === program.programCode)
     );
     if (alreadyAssigned) {
       return { success: false, error: `Candidate is already assigned to program #${program.programCode || ''} (${program.name}).` };
@@ -192,7 +192,7 @@ export async function assignProgram(candidateId: string, programId: string) {
     // Validation 3: Per Team Limit
     const teamLimit = program.candidateLimitPerTeam || 1;
     let matchingProgIds = [actualProgramId];
-    if (program.programCode) {
+    if (!isStandaloneFest && program.programCode) {
       const matching = await prisma.program.findMany({
         where: { programCode: program.programCode },
         select: { id: true }

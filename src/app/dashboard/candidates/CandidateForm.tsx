@@ -52,7 +52,15 @@ export default function CandidateForm({
       setError("Please select a team for this candidate.");
       return;
     }
-    if (!photo) {
+    const selectedTeam = teams.find(t => t.id === selectedTeamId);
+    const selectedCat = categories.find(c => c.id === categoryId);
+    const isPg = categories.some(c => c.name?.toUpperCase().includes("PG")) ||
+      (teams || []).some(t => t.prefixCode?.startsWith("PG") || t.name?.includes("PG Team") || (t.event as any)?.zone?.code === "FPG") ||
+      selectedTeam?.prefixCode?.startsWith("PG") ||
+      selectedTeam?.name?.includes("PG Team") ||
+      selectedCat?.name?.toUpperCase().includes("PG");
+
+    if (!photo && !isPg) {
       setError("Candidate photo is mandatory.");
       return;
     }
@@ -358,7 +366,7 @@ export default function CandidateForm({
         </div>
 
         <ImageUpload 
-          label="Candidate Photo (Compulsory)" 
+          label={(categories.some(c => c.name?.toUpperCase().includes("PG")) || (teams || []).some(t => t.prefixCode?.startsWith("PG") || t.name?.includes("PG Team"))) ? "Candidate Photo (Optional for PG Fest)" : "Candidate Photo (Compulsory)"} 
           folder="candidates" 
           initialUrl={photo}
           maxSizeKb={500}

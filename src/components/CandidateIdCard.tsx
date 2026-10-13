@@ -270,14 +270,14 @@ export default function CandidateIdCard({
           overflow: "hidden",
           border: "3px solid #ffffff",
           boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          backgroundColor: photoSrc ? "#f43f5e" : "transparent",
+          backgroundColor: photoSrc ? "#f43f5e" : "#e0e7ff",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           zIndex: 2,
         }}
       >
-        {photoSrc && (
+        {photoSrc ? (
           <img
             src={photoSrc}
             alt=""
@@ -290,6 +290,20 @@ export default function CandidateIdCard({
               objectFit: "cover",
             }}
           />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "2.2rem",
+              background: "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)",
+            }}
+          >
+            👤
+          </div>
         )}
       </div>
 
