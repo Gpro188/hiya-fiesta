@@ -298,18 +298,35 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
               {/* Top Row: Zone Name & Arrow */}
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: "1.15rem",
-                      fontWeight: 800,
-                      color: "var(--ink, #1e293b)",
-                      lineHeight: 1.25,
-                      paddingRight: "10px",
-                    }}
-                  >
-                    {ev.name}
-                  </h3>
+                  <div>
+                    {ev.zone?.code === "FPG" && (
+                      <div style={{
+                        display: "inline-block",
+                        fontSize: "0.68rem",
+                        fontWeight: 800,
+                        backgroundColor: "#4f46e5",
+                        color: "#ffffff",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        marginBottom: "5px",
+                        letterSpacing: "0.5px"
+                      }}>
+                        🎓 PG FEST (2-TEAM BATTLE)
+                      </div>
+                    )}
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "1.15rem",
+                        fontWeight: 800,
+                        color: "var(--ink, #1e293b)",
+                        lineHeight: 1.25,
+                        paddingRight: "10px",
+                      }}
+                    >
+                      {ev.name}
+                    </h3>
+                  </div>
                   <span
                     className="go"
                     style={{

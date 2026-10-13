@@ -6,6 +6,7 @@ import CandidateForm from "./CandidateForm";
 import CandidateList from "./CandidateList";
 import CandidateFilter from "./CandidateFilter";
 import CandidateBulkActions from "./CandidateBulkActions";
+import PgCandidateBulkActions from "./PgCandidateBulkActions";
 import GenerateChestNumbersButton from "./GenerateChestNumbersButton";
 import InstitutionStudentDirectory from "./InstitutionStudentDirectory";
 import { getRegistrationLockStatus } from "@/lib/registrationLockUtils";
@@ -74,6 +75,19 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
             parent: { include: { categories: true } }
           }
         });
+
+        if (!zoneEvent) {
+          zoneEvent = await prisma.event.findFirst({
+            where: { 
+              type: 'ZONE', 
+              zoneId: institution.zone.id
+            },
+            include: { 
+              categories: true, 
+              parent: { include: { categories: true } }
+            }
+          });
+        }
       }
 
       if (zoneEvent) {
@@ -182,6 +196,24 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
   
   if (filterCategoryId) whereClause.categoryId = filterCategoryId;
 
+  const pgZone = await prisma.zone.findFirst({
+    where: { OR: [{ code: 'FPG' }, { name: { contains: 'PG' } }] },
+    select: { id: true, code: true, name: true }
+  });
+
+  const pgTeams = pgZone ? await prisma.team.findMany({
+    where: { event: { zoneId: pgZone.id } },
+    select: { id: true, name: true, prefixCode: true },
+    orderBy: { name: 'asc' }
+  }) : [];
+
+  const isPgUser = Boolean(
+    session.user.username?.startsWith("pg_") ||
+    (fullUser?.zoneId && pgZone && fullUser.zoneId === pgZone.id) ||
+    (userTeam?.prefixCode?.startsWith("PG")) ||
+    (filterZoneId && pgZone && filterZoneId === pgZone.id)
+  );
+
   const candidates = await prisma.candidate.findMany({
     where: whereClause,
     select: {
@@ -191,6 +223,9 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
       chestNumber: true,
       photoUrl: true,
       photo: true,
+      department: true,
+      email: true,
+      phone: true,
       isApproved: true,
       createdAt: true,
       team: { select: { id: true, name: true, prefixCode: true, flagColor: true, event: { select: { name: true } } } },
@@ -340,7 +375,16 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
         </div>
       )}
       
-      {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && (
+      {/* Fadheela PG Excel Import (Shown for PG Admin, PG Teams, and Super Admins) */}
+      {(isPgUser || ["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) && pgTeams.length > 0 && (
+        <PgCandidateBulkActions 
+          teams={pgTeams} 
+          userRole={session.user.role} 
+          defaultTeamId={userTeamId || undefined} 
+        />
+      )}
+
+      {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role) && !isPgUser && (
         <CandidateBulkActions teams={teams} categories={categories} />
       )}
 

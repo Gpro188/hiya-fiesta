@@ -45,8 +45,13 @@ export default async function ProgramsPage() {
     }
   }
 
+  const isPgAdmin = isZoneAdmin && (zoneInfo?.code === "FPG" || zoneInfo?.name?.includes("PG"));
+  const canManagePrograms = !isZoneAdmin || isPgAdmin;
+
   // Events list for filters & categories
-  const eventWhere = isZoneAdmin
+  const eventWhere = isPgAdmin
+    ? { id: zoneEventId || undefined }
+    : isZoneAdmin
     ? {
         OR: [
           ...(zoneEventId ? [{ id: zoneEventId }] : []),
@@ -70,7 +75,9 @@ export default async function ProgramsPage() {
   });
 
   // Allowed event IDs for program query
-  const targetEventIds = Array.from(new Set([stateEventId, zoneEventId, session.user.eventId].filter(Boolean))) as string[];
+  const targetEventIds = isPgAdmin
+    ? [zoneEventId].filter(Boolean) as string[]
+    : Array.from(new Set([stateEventId, zoneEventId, session.user.eventId].filter(Boolean))) as string[];
 
   const rawPrograms = await prisma.program.findMany({
     where: isZoneAdmin 
@@ -283,7 +290,7 @@ export default async function ProgramsPage() {
         </div>
       ) : (
         <>
-          {!isZoneAdmin && (
+          {canManagePrograms && (
             <div data-tour="programs-bulk">
               <ProgramBulkActions 
                 events={events} 
@@ -293,8 +300,8 @@ export default async function ProgramsPage() {
             </div>
           )}
           
-          <div style={{ display: 'grid', gridTemplateColumns: isZoneAdmin ? '1fr' : '1fr 2fr', gap: 'var(--spacing-lg)' }}>
-            {!isZoneAdmin && (
+          <div style={{ display: 'grid', gridTemplateColumns: canManagePrograms ? '1fr 2fr' : '1fr', gap: 'var(--spacing-lg)' }}>
+            {canManagePrograms && (
               <div>
                 <div data-tour="programs-form" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
                   <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Create New Program</h3>
@@ -306,7 +313,7 @@ export default async function ProgramsPage() {
             <div>
               <div data-tour="programs-list" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
                 <h3 style={{ marginBottom: 'var(--spacing-md)' }}>
-                  {isZoneAdmin ? "Competition Programs & Candidate Rosters" : "All Programs"}
+                  {isZoneAdmin && !isPgAdmin ? "Competition Programs & Candidate Rosters" : "All Programs"}
                 </h3>
                 <ProgramList 
                   programs={programsWithCounts as any} 

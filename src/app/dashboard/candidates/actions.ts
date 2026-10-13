@@ -414,6 +414,175 @@ export async function bulkImportCandidates(candidatesList: Array<{ name: string,
   }
 }
 
+export async function bulkImportPgCandidates(candidatesList: Array<{
+  uid: string;
+  name: string;
+  department: string;
+  email?: string;
+  phone?: string;
+  teamIdentifier?: string;
+  teamId?: string;
+}>) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    const pgZone = await prisma.zone.findFirst({
+      where: { OR: [{ code: 'FPG' }, { name: { contains: 'PG' } }] }
+    });
+    if (!pgZone) return { success: false, error: "Fadheela PG zone not found." };
+
+    const pgEvent = await prisma.event.findFirst({
+      where: { zoneId: pgZone.id }
+    });
+    if (!pgEvent) return { success: false, error: "Fadheela PG event not found." };
+
+    const pgCategory = await prisma.category.findFirst({
+      where: { eventId: pgEvent.id }
+    });
+    if (!pgCategory) return { success: false, error: "Fadheela PG category not found." };
+
+    const pgTeams = await prisma.team.findMany({
+      where: { eventId: pgEvent.id },
+      include: { institution: true }
+    });
+
+    if (pgTeams.length === 0) {
+      return { success: false, error: "No teams found for Fadheela PG Fest." };
+    }
+
+    let userAllowedTeamId: string | null = null;
+    if (["MANAGER", "INSTITUTION_MANAGER"].includes(session.user.role)) {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { institutionId: true }
+      });
+      const myTeam = pgTeams.find(t => t.institutionId === fullUser?.institutionId);
+      if (!myTeam) {
+        return { success: false, error: "Your institution is not registered for Fadheela PG Fest." };
+      }
+      userAllowedTeamId = myTeam.id;
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    const errors: string[] = [];
+
+    for (let index = 0; index < candidatesList.length; index++) {
+      const row = candidatesList[index];
+      const uid = (row.uid || "").toString().trim();
+      const name = (row.name || "").toString().trim();
+      const department = (row.department || "").toString().trim();
+      const email = row.email ? row.email.toString().trim() : null;
+      const phone = row.phone ? row.phone.toString().trim() : null;
+
+      if (!uid || !name || !department) {
+        errors.push(`Row ${index + 1}: UID, Name, and Department are required.`);
+        continue;
+      }
+
+      let targetTeam = null;
+      if (userAllowedTeamId) {
+        targetTeam = pgTeams.find(t => t.id === userAllowedTeamId);
+      } else {
+        const rawTeam = (row.teamIdentifier || "").toString().toLowerCase().trim();
+        if (rawTeam.includes("2") || rawTeam.includes("pg02") || rawTeam.includes("beta")) {
+          targetTeam = pgTeams.find(t => t.prefixCode === "PG02" || t.name.includes("2")) || pgTeams[1];
+        } else if (rawTeam.includes("1") || rawTeam.includes("pg01") || rawTeam.includes("alpha")) {
+          targetTeam = pgTeams.find(t => t.prefixCode === "PG01" || t.name.includes("1")) || pgTeams[0];
+        } else if (row.teamId) {
+          targetTeam = pgTeams.find(t => t.id === row.teamId);
+        } else {
+          targetTeam = pgTeams[0];
+        }
+      }
+
+      if (!targetTeam) {
+        errors.push(`Row ${index + 1} (${name}): Could not determine team.`);
+        continue;
+      }
+
+      if (targetTeam.institutionId) {
+        try {
+          await prisma.masterStudent.upsert({
+            where: {
+              institutionId_uid: {
+                institutionId: targetTeam.institutionId,
+                uid: uid
+              }
+            },
+            create: {
+              uid: uid,
+              name: name,
+              institutionId: targetTeam.institutionId,
+              stream: department,
+              phone: phone
+            },
+            update: {
+              name: name,
+              stream: department,
+              phone: phone
+            }
+          });
+        } catch {
+          // ignore master student constraint if any
+        }
+      }
+
+      const existing = await prisma.candidate.findFirst({
+        where: {
+          teamId: targetTeam.id,
+          uid: uid
+        }
+      });
+
+      if (existing) {
+        await prisma.candidate.update({
+          where: { id: existing.id },
+          data: {
+            name: name,
+            department: department,
+            email: email,
+            phone: phone,
+            categoryId: pgCategory.id,
+            isApproved: true
+          }
+        });
+        updatedCount++;
+      } else {
+        await prisma.candidate.create({
+          data: {
+            name: name,
+            uid: uid,
+            department: department,
+            email: email,
+            phone: phone,
+            teamId: targetTeam.id,
+            institutionId: targetTeam.institutionId,
+            categoryId: pgCategory.id,
+            isApproved: true
+          }
+        });
+        createdCount++;
+      }
+    }
+
+    revalidatePath("/dashboard/candidates");
+    revalidatePath("/dashboard/assignments");
+
+    return {
+      success: true,
+      createdCount,
+      updatedCount,
+      totalProcessed: createdCount + updatedCount,
+      errors: errors.slice(0, 10)
+    };
+  } catch (error: any) {
+    console.error("Failed to bulk import PG candidates:", error);
+    return { success: false, error: error.message || "Failed to import PG candidates" };
+  }
+}
+
 export async function generateChestNumbers(eventId: string) {
   try {
     const session = await getServerSession(authOptions);

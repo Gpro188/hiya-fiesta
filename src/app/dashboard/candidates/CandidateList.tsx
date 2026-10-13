@@ -18,6 +18,9 @@ type CandidateType = {
   photo?: string | null;
   team: { name: string, prefixCode: string, event: { name: string } };
   _count: { programs: number };
+  department?: string | null;
+  email?: string | null;
+  phone?: string | null;
   replacedFromChest?: string | null;
   replacementNote?: string | null;
 };
@@ -148,18 +151,42 @@ export default function CandidateList({
                 {/* Candidate Name & UID */}
                 <td style={{ padding: 'var(--spacing-sm)' }}>
                   <div style={{ fontWeight: 600 }}>{candidate.name}</div>
-                  {candidate.uid && (
-                    <span style={{ 
-                      fontSize: '0.72rem', 
-                      color: 'var(--text-secondary)',
-                      backgroundColor: 'rgba(255,255,255,0.05)',
-                      padding: '1px 5px',
-                      borderRadius: '3px',
-                      fontFamily: 'monospace'
-                    }}>
-                      UID: {candidate.uid}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '3px' }}>
+                    {candidate.uid && (
+                      <span style={{ 
+                        fontSize: '0.72rem', 
+                        color: 'var(--text-secondary)',
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        fontFamily: 'monospace'
+                      }}>
+                        UID: {candidate.uid}
+                      </span>
+                    )}
+                    {candidate.department && (
+                      <span style={{ 
+                        fontSize: '0.72rem', 
+                        color: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                        fontWeight: 600
+                      }}>
+                        🏢 {candidate.department}
+                      </span>
+                    )}
+                    {candidate.phone && (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        📞 {candidate.phone}
+                      </span>
+                    )}
+                    {candidate.email && (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        ✉️ {candidate.email}
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* Team / Institution */}

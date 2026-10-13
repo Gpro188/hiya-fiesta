@@ -52,10 +52,17 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     });
 
     if (institution?.zone) {
-      const zoneEvent = await prisma.event.findFirst({
+      let zoneEvent = await prisma.event.findFirst({
         where: { type: 'ZONE', zoneId: institution.zone.id, NOT: { parentId: null } },
         include: { parent: true }
       });
+
+      if (!zoneEvent) {
+        zoneEvent = await prisma.event.findFirst({
+          where: { type: 'ZONE', zoneId: institution.zone.id },
+          include: { parent: true }
+        });
+      }
 
       if (zoneEvent) {
         zoneEventId = zoneEvent.id;
@@ -87,9 +94,14 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
   } else {
     // Admin / Zone Admin / Super Admin
     if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
-      const zoneEvent = await prisma.event.findFirst({
+      let zoneEvent = await prisma.event.findFirst({
         where: { type: 'ZONE', zoneId: fullUser.zoneId, NOT: { parentId: null } }
       });
+      if (!zoneEvent) {
+        zoneEvent = await prisma.event.findFirst({
+          where: { type: 'ZONE', zoneId: fullUser.zoneId }
+        });
+      }
       if (zoneEvent) {
         zoneEventId = zoneEvent.id;
         parentEventId = zoneEvent.parentId;

@@ -8,8 +8,8 @@ import { authOptions } from "@/lib/auth";
 export async function createProgram(data: { programCode?: string | null, name: string, type: string, categoryId: string | null, eventId: string, candidateLimitPerTeam?: number, duration?: number, durationMode?: string, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized — only Admin can create programs" };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized — only authorized admins can create programs" };
     }
     await prisma.program.create({
       data: {
@@ -38,8 +38,8 @@ export async function createProgram(data: { programCode?: string | null, name: s
 export async function updateProgram(id: string, data: { programCode?: string | null, name: string, type: string, categoryId: string | null, candidateLimitPerTeam?: number, duration?: number, durationMode?: string, description?: string | null, evaluationCriteria?: string | null, stageType?: string }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized — only Admin can edit programs" };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized — only authorized admins can edit programs" };
     }
     await prisma.program.update({
       where: { id },
@@ -67,9 +67,10 @@ export async function updateProgram(id: string, data: { programCode?: string | n
 
 export async function bulkImportPrograms(eventId: string, programs: any[]) {
   try {
-    // We do this in a transaction or loop
-    // To make it safer, we'll create them one by one or use createMany
-    // Note: SQLite doesn't support nested createMany if we were doing that, but here it's flat.
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
     
     const results = await prisma.program.createMany({
       data: programs.map(p => ({
@@ -94,8 +95,8 @@ export async function bulkImportPrograms(eventId: string, programs: any[]) {
 export async function deleteProgram(id: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized — only Admin can delete programs" };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized — only authorized admins can delete programs" };
     }
     await prisma.program.delete({ where: { id } });
     revalidatePath("/dashboard/programs");

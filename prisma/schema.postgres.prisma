@@ -199,6 +199,9 @@ model Candidate {
   stateQualifications StateQualification[]
   replacedFromChest        String?
   replacementNote          String?
+  department               String?
+  email                    String?
+  phone                    String?
 
   @@index([categoryId])
   @@index([teamId])

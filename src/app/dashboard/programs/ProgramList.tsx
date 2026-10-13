@@ -374,7 +374,7 @@ export default function ProgramList({
                   <span>👥</span> Participants ({program.candidateCount ?? program._count.assignments})
                 </button>
 
-                {isZoneAdmin ? (
+                {isZoneAdmin && (
                   <>
                     <button 
                       onClick={() => setAssigningProgram(program)}
@@ -400,28 +400,26 @@ export default function ProgramList({
                       Tabulation Sheet
                     </a>
                   </>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => setEditingProgram(program)}
-                      className="btn btn-secondary" 
-                      style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this program?')) {
-                          deleteProgram(program.id);
-                        }
-                      }}
-                      className="btn btn-secondary" 
-                      style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', color: 'var(--error)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                    >
-                      Delete
-                    </button>
-                  </>
                 )}
+
+                <button 
+                  onClick={() => setEditingProgram(program)}
+                  className="btn btn-secondary" 
+                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                >
+                  Edit
+                </button>
+                <button 
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this program?')) {
+                      deleteProgram(program.id);
+                    }
+                  }}
+                  className="btn btn-secondary" 
+                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', color: 'var(--error)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
