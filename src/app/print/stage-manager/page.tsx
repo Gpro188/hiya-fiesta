@@ -67,12 +67,15 @@ export default async function PrintStageManagerPage(props: {
     });
   }
 
-  // Fetch only ON_STAGE programs that are SCHEDULED for this target event
+  // Fetch ON_STAGE programs for this target event
   const programWhere: any = {
     stageType: 'ON_STAGE',
-    venue: { not: null },
-    startTime: { not: null }
   };
+
+  if (!programId) {
+    programWhere.venue = { not: null };
+    programWhere.startTime = { not: null };
+  }
 
   if (eventId) {
     programWhere.eventId = eventId;
@@ -176,8 +179,9 @@ export default async function PrintStageManagerPage(props: {
 
   const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
 
-  // Filter ONLY programs that are legitimately scheduled on a stage with a start time
+  // Filter programs: include scheduled programs or explicitly requested programId
   let deduplicatedPrograms = zonePrograms.filter(p => {
+    if (programId && (p.id === programId || (requestedProgCode && p.programCode === requestedProgCode))) return true;
     return Boolean(p.venue && p.venue.trim() && p.venue !== "Unassigned" && p.startTime);
   });
 

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
 import { isProgramGeneral } from "@/lib/programUtils";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,34 @@ export default async function PrintTabulationPage(props: {
   }>;
 }) {
   const searchParams = await props.searchParams;
-  const eventId = searchParams.eventId;
+  let eventId = searchParams.eventId;
+
+  if (!eventId && searchParams.programId) {
+    const targetProg = await prisma.program.findUnique({
+      where: { id: searchParams.programId },
+      select: { eventId: true }
+    });
+    if (targetProg?.eventId) eventId = targetProg.eventId;
+  }
+
+  if (!eventId) {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const fullUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { eventId: true, zoneId: true }
+      });
+      if (fullUser?.eventId) {
+        eventId = fullUser.eventId;
+      } else if (fullUser?.zoneId) {
+        const zoneEv = await prisma.event.findFirst({
+          where: { zoneId: fullUser.zoneId }
+        });
+        if (zoneEv) eventId = zoneEv.id;
+      }
+    }
+  }
+
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
   const activeStageType = searchParams.stageType || "ALL";
   const activeVenue = searchParams.venue || "ALL";

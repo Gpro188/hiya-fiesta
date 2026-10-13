@@ -28,6 +28,21 @@ export default async function PrintAssignmentsPage(props: { searchParams: Promis
     }
   }
 
+  if (!eventId && session?.user?.role === "ZONE_ADMIN") {
+    const fullUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { eventId: true, zoneId: true }
+    });
+    if (fullUser?.eventId) {
+      eventId = fullUser.eventId;
+    } else if (fullUser?.zoneId) {
+      const zoneEv = await prisma.event.findFirst({
+        where: { zoneId: fullUser.zoneId }
+      });
+      if (zoneEv) eventId = zoneEv.id;
+    }
+  }
+
   let teamName = "All Teams";
   let magazineCode: string | null = null;
   if (!eventId && teamId) {
@@ -60,6 +75,8 @@ export default async function PrintAssignmentsPage(props: { searchParams: Promis
     whereClause.programs = {
       some: {}
     };
+  } else if (eventId) {
+    whereClause.team = { eventId };
   }
 
   // Fetch all candidates with their programs

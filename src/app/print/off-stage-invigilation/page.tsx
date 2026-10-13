@@ -51,7 +51,7 @@ export default async function PrintOffStageInvigilationPage(props: {
       include: { zone: true, parent: true }
     }) : null;
 
-    const isStateEvent = activeEv ? (activeEv.parentId === null || !activeEv.zoneId) : false;
+    const isStateEvent = activeEv ? (activeEv.type === 'STATE' || (!activeEv.zoneId && activeEv.type !== 'ZONE')) : false;
     const activeStageType = searchParams.stageType || "OFF_STAGE"; // "OFF_STAGE", "ON_STAGE", or "ALL"
     const activeGroupBy = searchParams.groupBy || (isStateEvent ? "institution" : "institution");
 

@@ -16,6 +16,7 @@ type ProgramType = {
   stageType?: string | null;
   categoryId: string | null;
   category: { name: string } | null;
+  eventId?: string;
   event: { name: string };
   judges?: { id: string; username: string }[];
   _count: { assignments: number };
@@ -384,20 +385,31 @@ export default function ProgramList({
                       Assign Judges
                     </button>
                     <a 
-                      href={`/dashboard/programs/${program.id}/print-score-sheet`}
+                      href={`/print/valuation?programId=${program.id}${program.eventId ? `&eventId=${program.eventId}` : ''}`}
                       target="_blank"
                       className="btn btn-secondary" 
                       style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                      title="Jury / Valuation Sheet"
                     >
-                      Score Sheet
+                      Jury Sheet
                     </a>
                     <a 
-                      href={`/dashboard/programs/${program.id}/print-tabulation`}
+                      href={`/print/tabulation?programId=${program.id}${program.eventId ? `&eventId=${program.eventId}` : ''}`}
                       target="_blank"
                       className="btn btn-secondary" 
                       style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                      title="Official Judgement Tabulation Sheet"
                     >
                       Tabulation Sheet
+                    </a>
+                    <a 
+                      href={`/print/stage-manager?programId=${program.id}${program.eventId ? `&eventId=${program.eventId}` : ''}`}
+                      target="_blank"
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                      title="Stage Call Sheet"
+                    >
+                      Call Sheet
                     </a>
                   </>
                 )}
