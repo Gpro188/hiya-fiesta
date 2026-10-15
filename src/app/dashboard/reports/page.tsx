@@ -152,6 +152,73 @@ export default async function ReportsPage(props: {
           </div>
         </div>
 
+        {/* Zonal Total Results Compendium & Full Gazette */}
+        <div className="glass-panel" style={{
+          padding: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+          borderRadius: '16px',
+          border: '2px solid #8E0033',
+          background: 'linear-gradient(135deg, rgba(142, 0, 51, 0.08) 0%, rgba(112, 0, 40, 0.04) 100%)',
+          boxShadow: '0 10px 25px -5px rgba(142, 0, 51, 0.12)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 450px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.5rem' }}>📜</span>
+                <h3 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>
+                  Zone Total Results Compendium &amp; Official Gazette (PDF)
+                </h3>
+                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#fce7f3', color: '#9f1239', fontWeight: 800, border: '1px solid #fbcfe8' }}>
+                  COMPLETE TOTAL RESULTS
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Master official festival results compendium: <strong>Championship Podium &amp; Standings</strong> &bull; <strong>Category Points Breakdown</strong> (Fadhila, Fadheela, General) &bull; <strong>Kalaathilakam</strong> (Individual Champions &bull; Joint if tied) &bull; <strong>All Announced Program Results in Natural Order of Program Code</strong> with rank, candidate, chest number, institution, grade, and points.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(142,0,51,0.12)', color: '#8E0033', fontSize: '0.82rem', fontWeight: 700 }}>
+                  🏆 Champion Points &amp; Podium
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(99,102,241,0.12)', color: '#4338ca', fontSize: '0.82rem', fontWeight: 700 }}>
+                  📊 Category Points (Fadhila/Fadheela)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(217,119,6,0.12)', color: '#b45309', fontSize: '0.82rem', fontWeight: 700 }}>
+                  👑 Kalaathilakam Titles
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(5,150,105,0.12)', color: '#047857', fontSize: '0.82rem', fontWeight: 700 }}>
+                  📋 All Programs in Program Code Order
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'center' }}>
+              <a
+                href={`/print/zonal-total-results?eventId=${activeEventId || ''}`}
+                target="_blank"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 22px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #8E0033 0%, #700028 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(142, 0, 51, 0.3)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>🖨️</span> Open Total Results Gazette
+              </a>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                Full Print Ready Gazette &bull; Complete Program-wise Order
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Finished Zone Results, Trophy & Certificate Audit Download */}
         <div className="glass-panel" style={{
           padding: 'var(--spacing-lg)',
