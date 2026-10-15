@@ -38,6 +38,7 @@ export default function AdminScheduler({
   isSuperAdmin = false,
   eventStatusOverride = "AUTO",
   eventStartDate = null,
+  eventEndDate = null,
   isCollab = false
 }: { 
   initialPrograms: any[], 
@@ -47,6 +48,7 @@ export default function AdminScheduler({
   isSuperAdmin?: boolean,
   eventStatusOverride?: string,
   eventStartDate?: string | null,
+  eventEndDate?: string | null,
   isCollab?: boolean
 }) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
@@ -80,6 +82,9 @@ export default function AdminScheduler({
 
   // Venue break configuration: { [venue]: { enabled: boolean; start: string; end: string } }
   const [venueBreaks, setVenueBreaks] = useState<Record<string, { enabled: boolean; start: string; end: string }>>({});
+
+  // Venue date configuration: { [venue]: "2026-10-20" }
+  const [venueDates, setVenueDates] = useState<Record<string, string>>({});
 
   // -- Global Schedule Timing Settings ------------------------------------------
   const [globalTimingOpen, setGlobalTimingOpen] = useState(false);
@@ -123,6 +128,13 @@ export default function AdminScheduler({
         const parsedBreaks = JSON.parse(savedBreaks);
         if (parsedBreaks && typeof parsedBreaks === "object") {
           setVenueBreaks(parsedBreaks);
+        }
+      }
+      const savedDates = localStorage.getItem(`venue_dates_${eventId}`);
+      if (savedDates) {
+        const parsedDates = JSON.parse(savedDates);
+        if (parsedDates && typeof parsedDates === "object") {
+          setVenueDates(parsedDates);
         }
       }
     } catch (e) {
@@ -251,6 +263,93 @@ export default function AdminScheduler({
     return map;
   }, [programs, allVenues, selectedCategory, selectedFest]);
 
+  // Derive available festival days (e.g. Day 1, Day 2)
+  const festivalDays = useMemo(() => {
+    const parseToIstDate = (dInput: string | Date | null | undefined) => {
+      if (!dInput) return null;
+      const d = typeof dInput === "string" ? new Date(dInput) : dInput;
+      if (isNaN(d.getTime())) return null;
+      return d;
+    };
+
+    const startD = parseToIstDate(eventStartDate) || new Date("2026-10-20T09:00:00+05:30");
+    const endD = parseToIstDate(eventEndDate) || startD;
+
+    const getIstYmd = (d: Date) => {
+      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+    };
+
+    const days: Array<{ dayNumber: number; dateStr: string; label: string; shortLabel: string }> = [];
+    const cur = new Date(startD.getTime());
+    let dayNum = 1;
+    const seenYmd = new Set<string>();
+
+    for (let i = 0; i < 7; i++) {
+      const ymd = getIstYmd(cur);
+      if (!seenYmd.has(ymd)) {
+        seenYmd.add(ymd);
+        const weekday = cur.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short" });
+        const dayMonth = cur.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" });
+        days.push({
+          dayNumber: dayNum,
+          dateStr: ymd,
+          label: `Day ${dayNum} (${weekday}, ${dayMonth})`,
+          shortLabel: `Day ${dayNum} (${dayMonth})`
+        });
+        dayNum++;
+      }
+
+      if (getIstYmd(cur) >= getIstYmd(endD) && i >= 1) {
+        break;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    if (days.length === 1) {
+      const nextDay = new Date(cur.getTime());
+      const ymd2 = getIstYmd(nextDay);
+      const weekday2 = nextDay.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short" });
+      const dayMonth2 = nextDay.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" });
+      days.push({
+        dayNumber: 2,
+        dateStr: ymd2,
+        label: `Day 2 (${weekday2}, ${dayMonth2})`,
+        shortLabel: `Day 2 (${dayMonth2})`
+      });
+    }
+
+    return days;
+  }, [eventStartDate, eventEndDate]);
+
+  // Helper to detect saved venue date from scheduled programs
+  const detectVenueSavedDate = (venuePrograms: any[]): string | null => {
+    if (!venuePrograms || venuePrograms.length === 0) return null;
+    const progsWithTime = venuePrograms
+      .filter(p => p.startTime)
+      .slice()
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    if (progsWithTime.length > 0) {
+      const firstTime = new Date(progsWithTime[0].startTime);
+      if (!isNaN(firstTime.getTime())) {
+        return firstTime.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      }
+    }
+    return null;
+  };
+
+  const getVenueDate = (venue: string, venuePrograms?: any[]): string => {
+    if (venueDates[venue]) {
+      return venueDates[venue];
+    }
+    const progs = venuePrograms || groupedPrograms[venue] || [];
+    const detected = detectVenueSavedDate(progs);
+    if (detected) {
+      return detected;
+    }
+    return festivalDays[0]?.dateStr || "2026-10-20";
+  };
+
   // Helper to detect saved venue start time from the first scheduled program
   const detectVenueSavedStartTime = (venuePrograms: any[]): string | null => {
     if (!venuePrograms || venuePrograms.length === 0) return null;
@@ -294,17 +393,19 @@ export default function AdminScheduler({
     return { enabled: true, start: "13:00", end: "13:45" };
   };
 
-  // Helper to get predicted sequential timeline starting from 09:30 AM IST (or venue start time) and respecting breaks
+  // Helper to get predicted sequential timeline starting from venue start time and respecting breaks and festival day
   const getPredictedVenueTimeline = (
     venue: string, 
     venuePrograms: any[], 
     bufferMinutes: number = 5, 
     customStartTime?: string,
-    customBreak?: { enabled: boolean; start: string; end: string }
+    customBreak?: { enabled: boolean; start: string; end: string },
+    customDate?: string
   ) => {
+    const targetDateStr = customDate || getVenueDate(venue, venuePrograms);
     const startTimeStr = customStartTime || getVenueStartTime(venue, venuePrograms);
     const [sh, sm] = startTimeStr.split(":").map(Number);
-    const baseDate = getFestivalBaseDate(eventStartDate, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
+    const baseDate = getFestivalBaseDate(targetDateStr, isNaN(sh) ? 9 : sh, isNaN(sm) ? 30 : sm);
     let currentCursor = new Date(baseDate.getTime());
     let totalCandidates = 0;
 
@@ -475,6 +576,32 @@ export default function AdminScheduler({
     }
   };
 
+  // Change date (Day 1 vs Day 2) for a venue, persist to localStorage, and recalculate
+  const handleVenueDateChange = (venue: string, newDateStr: string) => {
+    setVenueDates(prev => {
+      const updated = { ...prev, [venue]: newDateStr };
+      try {
+        localStorage.setItem(`venue_dates_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const venueProgs = groupedPrograms[venue] || [];
+    if (venueProgs.length > 0) {
+      const buf = getVenueBuffer(venue, venueProgs);
+      const startTimeStr = getVenueStartTime(venue, venueProgs);
+      const breakConfig = getVenueBreak(venue);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, breakConfig, newDateStr);
+      const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
+      setPrograms(prev => prev.map(p => {
+        if (updateMap.has(p.id)) {
+          return { ...p, startTime: updateMap.get(p.id) };
+        }
+        return p;
+      }));
+    }
+  };
+
   // Compute calculated timelines for all venues
   const allVenueTimelines = useMemo(() => {
     const timelines: Record<string, any[]> = {};
@@ -487,7 +614,7 @@ export default function AdminScheduler({
       timelines[v] = predictedList;
     }
     return timelines;
-  }, [groupedPrograms, allVenues, venueBuffers, venueStartTimes, venueBreaks, eventStartDate, targetZoneId]);
+  }, [groupedPrograms, allVenues, venueBuffers, venueStartTimes, venueBreaks, venueDates, eventStartDate, eventEndDate, targetZoneId]);
 
   // Live Real-Time Candidate Clash Detection
   const { clashes, clashesByProgramId, clashCandidateCount } = useMemo(() => {
@@ -645,10 +772,11 @@ export default function AdminScheduler({
     const venueProgs = groupedPrograms[venue] || [];
     if (venueProgs.length === 0) return;
 
+    const targetDateStr = getVenueDate(venue, venueProgs);
     const buf = getVenueBuffer(venue, venueProgs);
     const startTimeStr = getVenueStartTime(venue, venueProgs);
     const breakConfig = getVenueBreak(venue);
-    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, breakConfig);
+    const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, breakConfig, targetDateStr);
 
     setLoadingId(`apply-${venue}`);
     try {
@@ -656,6 +784,7 @@ export default function AdminScheduler({
         localStorage.setItem(`venue_buffers_${eventId}`, JSON.stringify({ ...venueBuffers, [venue]: buf }));
         localStorage.setItem(`venue_start_times_${eventId}`, JSON.stringify({ ...venueStartTimes, [venue]: startTimeStr }));
         localStorage.setItem(`venue_breaks_${eventId}`, JSON.stringify({ ...venueBreaks, [venue]: breakConfig }));
+        localStorage.setItem(`venue_dates_${eventId}`, JSON.stringify({ ...venueDates, [venue]: targetDateStr }));
       } catch (e) {}
 
       const updates = predictedList.map(item => ({
@@ -677,7 +806,9 @@ export default function AdminScheduler({
             return p;
           });
         });
-        alert(`✅ Successfully saved schedule starting at ${formatTimeAmPm(predictedList[0]?.predictedStart)} for ${venueProgs.length} programs in ${venue}!`);
+        const dayInfo = festivalDays.find(d => d.dateStr === targetDateStr);
+        const dayLabel = dayInfo ? dayInfo.shortLabel : targetDateStr;
+        alert(`✅ Successfully saved schedule for ${venue} on ${dayLabel} starting at ${formatTimeAmPm(predictedList[0]?.predictedStart)} (${venueProgs.length} programs)!`);
       } else {
         alert("Failed to save schedule: " + (res.error || "Unknown error"));
       }
@@ -1558,7 +1689,8 @@ export default function AdminScheduler({
         const buf = getVenueBuffer(venue, venueProgs);
         const startTimeStr = getVenueStartTime(venue, venueProgs);
         const venueBreak = getVenueBreak(venue);
-        const timeline = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, venueBreak);
+        const venueDateStr = getVenueDate(venue, venueProgs);
+        const timeline = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, venueBreak, venueDateStr);
 
         const { predictedList, totalDurationMinutes, totalCandidates, predictedStart, predictedEnd } = timeline;
 
@@ -1642,6 +1774,35 @@ export default function AdminScheduler({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                     
+                    {/* Day Selector (Day 1 / Day 2) */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", borderRight: "1.5px solid #cbd5e1", paddingRight: "10px" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#4338ca", margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <span>📅</span>
+                        <span>Day:</span>
+                      </label>
+                      <select
+                        className="form-input"
+                        value={venueDateStr}
+                        onChange={(e) => handleVenueDateChange(venue, e.target.value)}
+                        style={{
+                          fontSize: "0.80rem",
+                          padding: "3px 8px",
+                          fontWeight: 800,
+                          backgroundColor: "#eef2ff",
+                          borderColor: "#c7d2fe",
+                          color: "#4338ca",
+                          borderRadius: "6px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {festivalDays.map((d) => (
+                          <option key={d.dateStr} value={d.dateStr}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Starts (Preset + Custom Time Picker) */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                       <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#15803d", margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
@@ -1785,7 +1946,21 @@ export default function AdminScheduler({
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.82rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "0.82rem", flexWrap: "wrap" }}>
+                    <span style={{ 
+                      backgroundColor: "#e0e7ff", 
+                      color: "#3730a3", 
+                      padding: "2px 8px", 
+                      borderRadius: "6px", 
+                      fontWeight: 800,
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      <span>📅</span>
+                      <span>{predictedStart.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })}</span>
+                    </span>
                     <span style={{ color: "#475569" }}>
                       Total Runtime: <strong>{Math.floor(totalDurationMinutes / 60)}h {totalDurationMinutes % 60}m</strong>
                     </span>
@@ -2090,7 +2265,7 @@ export default function AdminScheduler({
 
                         {/* Timing Badge */}
                         {!isUnassigned && (
-                          <div style={{ textAlign: "right" }}>
+                          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "3px" }}>
                             <div style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -2108,6 +2283,9 @@ export default function AdminScheduler({
                                 {formatTimeAmPm(item.predictedStart)} – {formatTimeAmPm(item.predictedEnd)}
                               </span>
                             </div>
+                            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700 }}>
+                              📅 {item.predictedStart.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })}
+                            </span>
                           </div>
                         )}
                       </div>

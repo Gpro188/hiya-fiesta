@@ -301,6 +301,7 @@ export default async function SchedulePage(props: {
             isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
             eventStatusOverride={activeEv?.statusOverride || "AUTO"}
             eventStartDate={activeEv?.startDate ? activeEv.startDate.toISOString() : null}
+            eventEndDate={activeEv?.endDate ? activeEv.endDate.toISOString() : null}
             isCollab={isCollab}
           />
         </div>
