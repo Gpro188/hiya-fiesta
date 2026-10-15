@@ -21,8 +21,10 @@ export default async function PrintStageManagerPage(props: {
   const activeVenue = searchParams.venue || "ALL";
   const activeCategory = searchParams.categoryId || "ALL";
 
+  const isCollab = eventId === "collab_state_pg" || eventId === "collab";
+
   // Resolve target event if not provided in searchParams
-  if (!eventId) {
+  if (!eventId && !isCollab) {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) {
       const fullUser = await prisma.user.findUnique({
@@ -57,10 +59,19 @@ export default async function PrintStageManagerPage(props: {
     }
   }
 
-  const settings = await getSettings(eventId);
+  let stateEv: any = null;
+  let pgEv: any = null;
+  if (isCollab) {
+    stateEv = await prisma.event.findFirst({ where: { type: 'STATE' } });
+    pgEv = await prisma.event.findFirst({ where: { name: { contains: 'Fadheela' } } });
+  }
+
+  const settings = await getSettings(isCollab ? stateEv?.id : eventId);
 
   let activeEv: any = null;
-  if (eventId) {
+  if (isCollab) {
+    activeEv = stateEv;
+  } else if (eventId) {
     activeEv = await prisma.event.findUnique({
       where: { id: eventId },
       include: { zone: true },
@@ -77,7 +88,10 @@ export default async function PrintStageManagerPage(props: {
     programWhere.startTime = { not: null };
   }
 
-  if (eventId) {
+  if (isCollab) {
+    const targetIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    programWhere.eventId = { in: targetIds };
+  } else if (eventId) {
     programWhere.eventId = eventId;
   }
   let requestedProgCode: string | null = null;
@@ -126,9 +140,19 @@ export default async function PrintStageManagerPage(props: {
     }
   });
 
+  // Tag programs with fest type in collab mode
+  if (isCollab) {
+    for (const p of zonePrograms) {
+      const festType = (pgEv && p.eventId === pgEv.id) ? "PG" : "STATE";
+      const festName = festType === "PG" ? "Fadheela PG" : "State Final";
+      (p as any).festType = festType;
+      (p as any).festName = festName;
+    }
+  }
+
   // If assignments are stored under parent event programs (e.g. statewide registrations),
   // merge candidate assignments into the zone's programs by programCode or name
-  if (activeEv?.parentId) {
+  if (!isCollab && activeEv?.parentId) {
     const parentPrograms = await prisma.program.findMany({
       where: {
         eventId: activeEv.parentId,
@@ -177,7 +201,7 @@ export default async function PrintStageManagerPage(props: {
     }
   }
 
-  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+  const targetZoneId = isCollab ? null : (activeEv?.zoneId || activeEv?.zone?.id);
 
   // Filter programs: include scheduled programs or explicitly requested programId
   let deduplicatedPrograms = zonePrograms.filter(p => {
@@ -444,10 +468,23 @@ export default async function PrintStageManagerPage(props: {
                   <div>
                     <div style={{ border: '1.5px solid #0f172a', backgroundColor: '#f8fafc', borderRadius: '4px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <span style={{ backgroundColor: '#8E0033', color: '#fff', padding: '2px 8px', borderRadius: '3px', fontWeight: 900, fontSize: '0.85rem', fontFamily: 'monospace' }}>
                             CODE: {program.programCode || 'P'}
                           </span>
+                          {(program as any).festType && (
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: (program as any).festType === 'PG' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(37, 99, 235, 0.15)',
+                              color: (program as any).festType === 'PG' ? '#7e22ce' : '#1d4ed8',
+                              border: `1px solid ${(program as any).festType === 'PG' ? '#c084fc' : '#93c5fd'}`
+                            }}>
+                              {(program as any).festType === 'PG' ? '🎓 Fadheela PG' : '🏆 State Final'}
+                            </span>
+                          )}
                           <h4 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>
                             {program.name}
                           </h4>

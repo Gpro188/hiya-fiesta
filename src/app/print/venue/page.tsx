@@ -29,10 +29,21 @@ export default async function PrintVenuePage(props: {
     }
   }
 
-  const settings = await getSettings(eventId);
+  const isCollab = eventId === "collab_state_pg" || eventId === "collab";
+
+  let stateEv: any = null;
+  let pgEv: any = null;
+  if (isCollab) {
+    stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+    pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+  }
+
+  const settings = await getSettings(isCollab ? stateEv?.id : eventId);
 
   let activeEv: any = null;
-  if (eventId) {
+  if (isCollab) {
+    activeEv = stateEv;
+  } else if (eventId) {
     activeEv = await prisma.event.findUnique({
       where: { id: eventId },
       include: { zone: true },
@@ -45,7 +56,10 @@ export default async function PrintVenuePage(props: {
     startTime: { not: null }
   };
 
-  if (eventId) {
+  if (isCollab) {
+    const targetIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    programWhere.eventId = { in: targetIds };
+  } else if (eventId) {
     programWhere.eventId = eventId;
   }
 
@@ -74,8 +88,18 @@ export default async function PrintVenuePage(props: {
     },
   });
 
+  // Tag programs with fest type in collab mode
+  if (isCollab) {
+    for (const p of rawPrograms) {
+      const festType = (pgEv && p.eventId === pgEv.id) ? "PG" : "STATE";
+      const festName = festType === "PG" ? "Fadheela PG" : "State Final";
+      (p as any).festType = festType;
+      (p as any).festName = festName;
+    }
+  }
+
   // If candidate assignments are stored in parent event, merge assignments into zone programs
-  if (activeEv?.parentId) {
+  if (!isCollab && activeEv?.parentId) {
     const parentPrograms = await prisma.program.findMany({
       where: {
         eventId: activeEv.parentId,
@@ -123,7 +147,7 @@ export default async function PrintVenuePage(props: {
     }
   }
 
-  const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+  const targetZoneId = isCollab ? null : (activeEv?.zoneId || activeEv?.zone?.id);
 
   // Filter ONLY scheduled programs
   const deduplicatedPrograms = rawPrograms.filter(p => {
@@ -195,7 +219,9 @@ export default async function PrintVenuePage(props: {
     });
   });
 
-  const zoneName = activeEv?.zone?.name || activeEv?.name || "Zonal Festival";
+  const zoneName = isCollab
+    ? "State Final & Fadheela PG (Collab)"
+    : (activeEv?.zone?.name || activeEv?.name || "Zonal Festival");
   
   // Compute event date from activeEv.startDate or the scheduled programs' first startTime
   let eventDateStr = null;
@@ -573,7 +599,23 @@ export default async function PrintVenuePage(props: {
                               color: "#111827",
                             }}
                           >
-                            <div>{p.name}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span>{p.name}</span>
+                              {(p as any).festType && (
+                                <span style={{
+                                  fontSize: "0.68rem",
+                                  fontWeight: 800,
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  backgroundColor: (p as any).festType === "PG" ? "rgba(168, 85, 247, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                  color: (p as any).festType === "PG" ? "#7e22ce" : "#1d4ed8",
+                                  border: `1px solid ${(p as any).festType === "PG" ? "#c084fc" : "#93c5fd"}`,
+                                  display: "inline-block"
+                                }}>
+                                  {(p as any).festType === "PG" ? "🎓 Fadheela PG" : "🏆 State Final"}
+                                </span>
+                              )}
+                            </div>
                             {p.type && p.type !== "INDIVIDUAL" && (
                               <span
                                 style={{

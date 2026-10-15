@@ -24,7 +24,8 @@ export async function updateProgramSchedule(
     if (!currentProg) return { success: false, error: "Program not found" };
 
     let targetId = id;
-    if (targetEventId && currentProg.eventId !== targetEventId) {
+    const isCollab = targetEventId === "collab_state_pg" || targetEventId === "collab";
+    if (targetEventId && !isCollab && currentProg.eventId !== targetEventId) {
       // Trying to update a parent program while on a zonal event view
       let zoneProg = await prisma.program.findFirst({
         where: {
@@ -152,6 +153,12 @@ export async function addBreak(data: { name: string, venue: string, duration: nu
   if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) return { success: false, error: "Unauthorized" };
 
   try {
+    let targetEventId = data.eventId;
+    if (data.eventId === "collab_state_pg" || data.eventId === "collab") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      if (stateEv) targetEventId = stateEv.id;
+    }
+
     await prisma.program.create({
       data: {
         name: data.name,
@@ -159,7 +166,7 @@ export async function addBreak(data: { name: string, venue: string, duration: nu
         venue: data.venue,
         duration: data.duration,
         stageType: "BREAK",
-        eventId: data.eventId,
+        eventId: targetEventId,
         categoryId: "break" // Assuming categoryId is required, we may need a generic or nullable. If it's required, we can point to the first category.
       }
     });
@@ -176,15 +183,23 @@ export async function autoGenerateSchedule(eventId: string, venues: string[]) {
   if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) return { success: false, error: "Unauthorized" };
 
   try {
-    const event = await prisma.event.findUnique({ where: { id: eventId } });
-    if (!event) return { success: false, error: "Event not found" };
+    let targetEventIds: string[] = [eventId];
+    let event: any = null;
+    const isCollab = eventId === "collab_state_pg" || eventId === "collab";
+    if (isCollab) {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+      targetEventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+      event = stateEv;
+    } else {
+      event = await prisma.event.findUnique({ where: { id: eventId } });
+      if (!event) return { success: false, error: "Event not found" };
+      if (event.parentId) targetEventIds.push(event.parentId);
+    }
 
     const programs = await prisma.program.findMany({ 
       where: { 
-        OR: [
-          { eventId: eventId },
-          ...(event.parentId ? [{ eventId: event.parentId }] : [])
-        ],
+        eventId: { in: targetEventIds },
         stageType: "ON_STAGE",
         type: { not: "BREAK" } 
       },
@@ -530,9 +545,15 @@ export async function renameVenue(eventId: string, oldVenueName: string, newVenu
     }
     const cleanNewName = newVenueName.trim();
 
-    const event = await prisma.event.findUnique({ where: { id: eventId } });
-    const eventIds = [eventId];
-    if (event?.parentId) eventIds.push(event.parentId);
+    let eventIds = [eventId];
+    if (eventId === "collab_state_pg" || eventId === "collab") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+      eventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    } else {
+      const event = await prisma.event.findUnique({ where: { id: eventId } });
+      if (event?.parentId) eventIds.push(event.parentId);
+    }
 
     const result = await prisma.program.updateMany({
       where: {
@@ -563,9 +584,15 @@ export async function deleteVenue(eventId: string, venueName: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const event = await prisma.event.findUnique({ where: { id: eventId } });
-    const eventIds = [eventId];
-    if (event?.parentId) eventIds.push(event.parentId);
+    let eventIds = [eventId];
+    if (eventId === "collab_state_pg" || eventId === "collab") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+      eventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    } else {
+      const event = await prisma.event.findUnique({ where: { id: eventId } });
+      if (event?.parentId) eventIds.push(event.parentId);
+    }
 
     // Delete any breaks created specifically for this venue
     await prisma.program.deleteMany({
@@ -1617,17 +1644,25 @@ export async function getScheduleClashAnalysis(eventId: string) {
 
     const { calculateVenueTimeline, detectClashesBySeverity } = await import("@/lib/scheduleCalculator");
 
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: { zone: true, parent: true }
-    });
-    if (!event) return { success: false, error: "Event not found", clashes: [] };
-
-    const targetZoneId = event.zoneId || event.zone?.id;
-    const parentId = event.parentId;
+    let targetEventIds: string[] = [eventId];
+    let targetZoneId: string | undefined = undefined;
+    const isCollab = eventId === "collab_state_pg" || eventId === "collab";
+    if (isCollab) {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+      targetEventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    } else {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        include: { zone: true, parent: true }
+      });
+      if (!event) return { success: false, error: "Event not found", clashes: [] };
+      targetZoneId = event.zoneId || event.zone?.id;
+      if (event.parentId) targetEventIds.push(event.parentId);
+    }
 
     const rawPrograms = await prisma.program.findMany({
-      where: parentId ? { OR: [{ eventId }, { eventId: parentId }] } : { eventId },
+      where: { eventId: { in: targetEventIds } },
       include: {
         assignments: {
           include: {

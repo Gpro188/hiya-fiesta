@@ -53,8 +53,10 @@ export default async function PrintSchedulePage(props: {
     }
   }
 
+  const isCollab = eventId === "collab_state_pg" || eventId === "collab";
+
   // If eventId is not provided, resolve it
-  if (!eventId) {
+  if (!eventId && !isCollab) {
     const latestScheduledProg = await prisma.program.findFirst({
       where: { stageType: 'ON_STAGE', venue: { not: null }, startTime: { not: null } },
       orderBy: { updatedAt: 'desc' },
@@ -71,10 +73,19 @@ export default async function PrintSchedulePage(props: {
     }
   }
 
-  const settings = await getSettings(eventId);
+  let stateEv: any = null;
+  let pgEv: any = null;
+  if (isCollab) {
+    stateEv = await prisma.event.findFirst({ where: { type: 'STATE' } });
+    pgEv = await prisma.event.findFirst({ where: { name: { contains: 'Fadheela' } } });
+  }
+
+  const settings = await getSettings(isCollab ? stateEv?.id : eventId);
 
   let activeEv: any = null;
-  if (eventId) {
+  if (isCollab) {
+    activeEv = stateEv;
+  } else if (eventId) {
     activeEv = await prisma.event.findUnique({ 
       where: { id: eventId },
       include: { zone: true }
@@ -83,7 +94,7 @@ export default async function PrintSchedulePage(props: {
 
   // Check if this event has its own scheduled on-stage programs
   let targetEventId = eventId;
-  if (eventId && activeEv?.parentId) {
+  if (!isCollab && eventId && activeEv?.parentId) {
     const ownCount = await prisma.program.count({
       where: {
         eventId,
@@ -97,13 +108,19 @@ export default async function PrintSchedulePage(props: {
     }
   }
 
-  // Fetch only legitimately SCHEDULED ON_STAGE programs for this specific event
+  // Fetch only legitimately SCHEDULED ON_STAGE programs for this specific event or both in collab
   const programWhere: any = {
     stageType: "ON_STAGE",
     venue: { not: null },
     startTime: { not: null },
-    ...(targetEventId ? { eventId: targetEventId } : {})
   };
+
+  if (isCollab) {
+    const targetEventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    programWhere.eventId = { in: targetEventIds };
+  } else if (targetEventId) {
+    programWhere.eventId = targetEventId;
+  }
 
   const rawPrograms = await prisma.program.findMany({
     where: programWhere,
@@ -128,8 +145,18 @@ export default async function PrintSchedulePage(props: {
     }
   });
 
+  // Tag programs with fest details in collab mode
+  if (isCollab) {
+    for (const p of rawPrograms) {
+      const festType = (pgEv && p.eventId === pgEv.id) ? "PG" : "STATE";
+      const festName = festType === "PG" ? "Fadheela PG" : "State Final";
+      (p as any).festType = festType;
+      (p as any).festName = festName;
+    }
+  }
+
   // If candidate assignments are in parent event, merge assignments into zone programs
-  if (activeEv?.parentId) {
+  if (!isCollab && activeEv?.parentId) {
     const parentPrograms = await prisma.program.findMany({
       where: {
         eventId: activeEv.parentId,
@@ -208,20 +235,30 @@ export default async function PrintSchedulePage(props: {
     venueGroups[v].push(p);
   }
 
-  const zoneName = activeEv?.zone?.name || activeEv?.name || team?.event?.zone?.name || "";
+  const zoneName = isCollab
+    ? "State Final & Fadheela PG Fest (Collab)"
+    : (activeEv?.zone?.name || activeEv?.name || team?.event?.zone?.name || "");
 
   return (
     <div style={{ padding: '30px 40px', backgroundColor: 'white', color: 'black', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
       {/* Official Header */}
       <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2.5px solid #8E0033', paddingBottom: '16px' }}>
-        <h1 style={{ margin: '0 0 4px 0', fontSize: '1.8rem', fontWeight: 900, color: '#8E0033' }}>{settings.festName}</h1>
+        <h1 style={{ margin: '0 0 4px 0', fontSize: '1.8rem', fontWeight: 900, color: '#8E0033' }}>
+          {isCollab ? "CSWC Hiya Fiesta 2026 Grand Finale" : settings.festName}
+        </h1>
         <h2 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#1e293b' }}>
-          Official On-Stage Program Schedule {zoneName ? `• ${zoneName}` : ""}
+          {isCollab 
+            ? "Grand Finale Program Schedule • State Final & Fadheela PG Fest (Collab)" 
+            : `Official On-Stage Program Schedule ${zoneName ? `• ${zoneName}` : ""}`}
         </h2>
         {team ? (
           <p style={{ margin: '4px 0 0 0', fontWeight: 700, color: '#475569', fontSize: '0.9rem' }}>
             Institution / Team: {team.institution?.name || team.name} ({team.prefixCode})
+          </p>
+        ) : isCollab ? (
+          <p style={{ margin: '4px 0 0 0', fontWeight: 700, color: '#b45309', fontSize: '0.88rem' }}>
+            🌟 Combined Timeline for State Fest & Fadheela PG Programs Across All Stages
           </p>
         ) : (
           <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', fontSize: '0.85rem', color: '#64748b' }}>
@@ -262,10 +299,13 @@ export default async function PrintSchedulePage(props: {
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1.5px solid #cbd5e1' }}>
                 <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '50px', textAlign: 'center' }}>#</th>
                 <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '130px', textAlign: 'center' }}>Time (IST)</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '90px', textAlign: 'center' }}>Code</th>
+                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '85px', textAlign: 'center' }}>Code</th>
+                {isCollab && (
+                  <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '125px', textAlign: 'center' }}>Fest</th>
+                )}
                 <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', textAlign: 'left' }}>Program Name</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '130px' }}>Category</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '80px', textAlign: 'center' }}>Duration</th>
+                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '120px' }}>Category</th>
+                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '75px', textAlign: 'center' }}>Duration</th>
               </tr>
             </thead>
             <tbody>
@@ -282,7 +322,7 @@ export default async function PrintSchedulePage(props: {
                       <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
                         {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
                       </td>
-                      <td colSpan={4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
+                      <td colSpan={isCollab ? 5 : 4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
                         🍽️ {p.name?.toUpperCase() || 'BREAK'} ({p.duration || 45} mins)
                       </td>
                     </tr>
@@ -318,7 +358,7 @@ export default async function PrintSchedulePage(props: {
                         <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
                           {gapStartStr} - {gapEndStr}
                         </td>
-                        <td colSpan={4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
+                        <td colSpan={isCollab ? 5 : 4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
                           🍽️ LUNCH & PRAYER BREAK ({gapMins} mins)
                         </td>
                       </tr>
@@ -333,6 +373,23 @@ export default async function PrintSchedulePage(props: {
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
                         {p.programCode || '-'}
                       </td>
+                      {isCollab && (
+                        <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center' }}>
+                          <span style={{
+                            fontSize: '0.70rem',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: (p as any).festType === 'PG' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(37, 99, 235, 0.15)',
+                            color: (p as any).festType === 'PG' ? '#7e22ce' : '#1d4ed8',
+                            border: `1px solid ${(p as any).festType === 'PG' ? '#c084fc' : '#93c5fd'}`,
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {(p as any).festType === 'PG' ? '🎓 Fadheela PG' : '🏆 State Final'}
+                          </span>
+                        </td>
+                      )}
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px 10px', fontWeight: 800, color: '#0f172a' }}>
                         {p.name}
                       </td>

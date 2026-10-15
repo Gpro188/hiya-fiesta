@@ -41,6 +41,15 @@ export default function EventSwitcher({ events, activeEventId }: { events: any[]
             data-active={activeEventId === event.id}
             onClick={() => handleSwitch(event.id)}
             className={`event-switch-btn ${activeEventId === event.id ? 'active' : ''}`}
+            style={event.isCollab ? {
+              background: activeEventId === event.id 
+                ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' 
+                : 'rgba(245, 158, 11, 0.12)',
+              color: activeEventId === event.id ? '#ffffff' : '#d97706',
+              border: activeEventId === event.id ? '1.5px solid #b45309' : '1.5px solid rgba(245, 158, 11, 0.4)',
+              fontWeight: 800,
+              boxShadow: activeEventId === event.id ? '0 4px 14px rgba(217, 119, 6, 0.35)' : 'none'
+            } : undefined}
           >
             {event.name}
           </button>

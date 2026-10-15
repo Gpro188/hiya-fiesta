@@ -48,6 +48,22 @@ export default async function SchedulePage(props: {
       return true;
     });
 
+    // Detect State Fest & Fadheela PG Fest to build the Collaborative Finale option
+    const stateEv = rawEvents.find(e => (e as any).type === "STATE") || await prisma.event.findFirst({ where: { type: "STATE" } });
+    const pgEv = rawEvents.find(e => e.name?.toLowerCase().includes("fadheela") || e.name?.toLowerCase().includes("pg")) || await prisma.event.findFirst({ where: { name: { contains: "Fadheela" } } });
+
+    const hasCollab = Boolean(stateEv && pgEv) && ["ADMIN", "SUPER_ADMIN"].includes(role);
+    const displayEvents = [...events];
+    if (hasCollab) {
+      displayEvents.unshift({
+        id: "collab_state_pg",
+        name: "🌟 Grand Finale (State Fest + Fadheela PG Collab)",
+        isCollab: true,
+        type: "COLLAB",
+        createdAt: new Date()
+      } as any);
+    }
+
     let defaultEventId = events[0]?.id;
     if (!searchParams.eventId) {
       const latestScheduledProg = await prisma.program.findFirst({
@@ -65,21 +81,29 @@ export default async function SchedulePage(props: {
       }
     }
 
-    const activeEventId = (searchParams.eventId && events.some(e => e.id === searchParams.eventId)) 
+    const activeEventId = (searchParams.eventId && displayEvents.some(e => e.id === searchParams.eventId)) 
       ? searchParams.eventId 
       : defaultEventId;
+
+    const isCollab = activeEventId === "collab_state_pg" || activeEventId === "collab";
 
     let programWhere: any = {
       stageType: "ON_STAGE"
     };
-    if (activeEventId) {
-      const activeEv = await prisma.event.findUnique({ where: { id: activeEventId } });
-      if (activeEv?.parentId) {
+
+    if (isCollab && stateEv && pgEv) {
+      programWhere = {
+        stageType: "ON_STAGE",
+        eventId: { in: [stateEv.id, pgEv.id] }
+      };
+    } else if (activeEventId) {
+      const activeEvCheck = await prisma.event.findUnique({ where: { id: activeEventId } });
+      if (activeEvCheck?.parentId) {
         programWhere = {
           stageType: "ON_STAGE",
           OR: [
             { eventId: activeEventId },
-            { eventId: activeEv.parentId }
+            { eventId: activeEvCheck.parentId }
           ]
         };
       } else {
@@ -119,7 +143,16 @@ export default async function SchedulePage(props: {
 
     let zoneJudges: any[] = [];
     let activeEv: any = null;
-    if (activeEventId) {
+    if (isCollab && stateEv) {
+      activeEv = await prisma.event.findUnique({
+        where: { id: stateEv.id },
+        include: {
+          zone: true,
+          selectedJudges: { select: { id: true, username: true } }
+        }
+      });
+      zoneJudges = activeEv?.selectedJudges || [];
+    } else if (activeEventId) {
       activeEv = await prisma.event.findUnique({
         where: { id: activeEventId },
         include: { 
@@ -130,15 +163,22 @@ export default async function SchedulePage(props: {
       zoneJudges = activeEv?.selectedJudges || [];
     }
 
-    const targetZoneId = activeEv?.zoneId || activeEv?.zone?.id;
+    const targetZoneId = isCollab ? null : (activeEv?.zoneId || activeEv?.zone?.id);
 
     // Deduplicate programs across parent and child events
-    // Zone event programs (activeEventId) ALWAYS override schedule & metadata
+    // In collab mode, State and PG programs each keep their independent entries
     const mergedMap = new Map<string, any>();
     for (const p of rawPrograms) {
-      const key = p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`;
+      const festType = (pgEv && p.eventId === pgEv.id) ? "PG" : "STATE";
+      const festName = festType === "PG" ? "Fadheela PG" : "State Final";
+      const decoratedProg = { ...p, festType, festName };
+
+      const key = isCollab
+        ? `${p.eventId}_${p.id}`
+        : (p.programCode ? `code_${p.programCode.trim()}` : `name_${p.name.trim()}_${p.categoryId || ''}`);
+
       if (!mergedMap.has(key)) {
-        mergedMap.set(key, { ...p, assignments: [...p.assignments] });
+        mergedMap.set(key, { ...decoratedProg, assignments: [...p.assignments] });
       } else {
         const existing = mergedMap.get(key);
         const existingIds = new Set(existing.assignments.map((a: any) => a.id));
@@ -166,7 +206,7 @@ export default async function SchedulePage(props: {
     }
 
     // If active event is a zone event, ensure programs that only belong to parent do not keep parent's old venue/timing
-    if (activeEv?.parentId) {
+    if (!isCollab && activeEv?.parentId) {
       for (const prog of mergedMap.values()) {
         if (prog.eventId !== activeEventId) {
           prog.venue = null;
@@ -209,28 +249,47 @@ export default async function SchedulePage(props: {
 
     return (
       <div className="animate-fade-in">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>Global Festival Schedule</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: '0 0 var(--spacing-xs) 0' }}>
+                {isCollab ? "🌟 Grand Finale Schedule (State Fest + Fadheela PG Collab)" : "Global Festival Schedule"}
+              </h1>
+              {isCollab && (
+                <span style={{
+                  padding: '3px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)'
+                }}>
+                  ✨ COLLABORATIVE FINALE
+                </span>
+              )}
+            </div>
             <p className="page-description" style={{ marginBottom: 0 }}>
-              Plan and manage the festival timeline. Assign time slots and venues for each program.
+              {isCollab
+                ? "Unified stage timeline combining CSWC Hiya Fiesta 2026 State Final and Fadheela PG Fest programs into shared venues."
+                : "Plan and manage the festival timeline. Assign time slots and venues for each program."}
             </p>
           </div>
-          <div data-tour="schedule-print" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <a href={`/print/schedule?eventId=${activeEventId}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Print Schedule
+          <div data-tour="schedule-print" style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+            <a href={`/print/schedule?eventId=${activeEventId}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', fontWeight: 700 }}>
+              {isCollab ? "🖨️ Print Combined Schedule" : "Print Schedule"}
             </a>
             <a href={`/print/venue?eventId=${activeEventId}`} target="_blank" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Print Venue List
+              {isCollab ? "📍 Combined Venue List" : "Print Venue List"}
             </a>
             <a href={`/print/stage-manager?eventId=${activeEventId}`} target="_blank" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Stage Manager Sheet
+              {isCollab ? "📋 Combined Stage Manager Sheet" : "Stage Manager Sheet"}
             </a>
           </div>
         </div>
 
         <div data-tour="schedule-switcher">
-          <EventSwitcher events={events} activeEventId={activeEventId || ""} />
+          <EventSwitcher events={displayEvents} activeEventId={activeEventId || ""} />
         </div>
 
         <div data-tour="schedule-grid">
@@ -242,6 +301,7 @@ export default async function SchedulePage(props: {
             isSuperAdmin={["ADMIN", "SUPER_ADMIN"].includes(role)}
             eventStatusOverride={activeEv?.statusOverride || "AUTO"}
             eventStartDate={activeEv?.startDate ? activeEv.startDate.toISOString() : null}
+            isCollab={isCollab}
           />
         </div>
       </div>

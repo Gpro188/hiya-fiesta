@@ -37,7 +37,8 @@ export default function AdminScheduler({
   targetZoneId = null,
   isSuperAdmin = false,
   eventStatusOverride = "AUTO",
-  eventStartDate = null
+  eventStartDate = null,
+  isCollab = false
 }: { 
   initialPrograms: any[], 
   eventId: string, 
@@ -45,7 +46,8 @@ export default function AdminScheduler({
   allJudges?: any[],
   isSuperAdmin?: boolean,
   eventStatusOverride?: string,
-  eventStartDate?: string | null
+  eventStartDate?: string | null,
+  isCollab?: boolean
 }) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
   const [statusOverride, setStatusOverride] = useState(eventStatusOverride);
@@ -63,6 +65,12 @@ export default function AdminScheduler({
   // Filters
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categoryOrder = ["All", "FADHILA", "FADHEELA", "GENERAL PROGRAMS"];
+
+  // Collaborative Fest Filter (All / State Final / Fadheela PG)
+  const isCollabMode = Boolean(isCollab || eventId === "collab_state_pg" || eventId === "collab");
+  const [selectedFest, setSelectedFest] = useState<"ALL" | "STATE" | "PG">("ALL");
+  const stateProgCount = useMemo(() => programs.filter(p => p.festType === "STATE").length, [programs]);
+  const pgProgCount = useMemo(() => programs.filter(p => p.festType === "PG").length, [programs]);
 
   // Venue buffer configuration: { [venue]: bufferMinutes }
   const [venueBuffers, setVenueBuffers] = useState<Record<string, number>>({});
@@ -229,7 +237,9 @@ export default function AdminScheduler({
       let cat = "GENERAL PROGRAMS";
       if (p.type === "GENERAL") cat = "GENERAL PROGRAMS";
       else if (p.category?.name) cat = p.category.name.toUpperCase();
-      return selectedCategory === "All" || cat === selectedCategory;
+      const matchCat = selectedCategory === "All" || cat === selectedCategory;
+      const matchFest = selectedFest === "ALL" || (p.festType ? p.festType === selectedFest : true);
+      return matchCat && matchFest;
     });
 
     filtered.forEach(p => {
@@ -239,7 +249,7 @@ export default function AdminScheduler({
     });
 
     return map;
-  }, [programs, allVenues, selectedCategory]);
+  }, [programs, allVenues, selectedCategory, selectedFest]);
 
   // Helper to detect saved venue start time from the first scheduled program
   const detectVenueSavedStartTime = (venuePrograms: any[]): string | null => {
@@ -1415,6 +1425,61 @@ export default function AdminScheduler({
           </button>
         </div>
 
+        {/* Collaborative Fest Filters */}
+        {isCollabMode && (
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginRight: "12px", paddingRight: "12px", borderRight: "1.5px solid #e2e8f0" }}>
+            <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700 }}>Fest:</span>
+            <button
+              onClick={() => setSelectedFest("ALL")}
+              style={{
+                padding: "3px 10px",
+                fontSize: "0.75rem",
+                borderRadius: "14px",
+                border: "1px solid",
+                borderColor: selectedFest === "ALL" ? "#f59e0b" : "#cbd5e1",
+                backgroundColor: selectedFest === "ALL" ? "#f59e0b" : "#ffffff",
+                color: selectedFest === "ALL" ? "#ffffff" : "#475569",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              🌟 All Combined ({programs.length})
+            </button>
+            <button
+              onClick={() => setSelectedFest("STATE")}
+              style={{
+                padding: "3px 10px",
+                fontSize: "0.75rem",
+                borderRadius: "14px",
+                border: "1px solid",
+                borderColor: selectedFest === "STATE" ? "#2563eb" : "#cbd5e1",
+                backgroundColor: selectedFest === "STATE" ? "#2563eb" : "#ffffff",
+                color: selectedFest === "STATE" ? "#ffffff" : "#475569",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              🏆 State Final ({stateProgCount})
+            </button>
+            <button
+              onClick={() => setSelectedFest("PG")}
+              style={{
+                padding: "3px 10px",
+                fontSize: "0.75rem",
+                borderRadius: "14px",
+                border: "1px solid",
+                borderColor: selectedFest === "PG" ? "#7e22ce" : "#cbd5e1",
+                backgroundColor: selectedFest === "PG" ? "#7e22ce" : "#ffffff",
+                color: selectedFest === "PG" ? "#ffffff" : "#475569",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              🎓 Fadheela PG ({pgProgCount})
+            </button>
+          </div>
+        )}
+
         {/* Category filters */}
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700 }}>Category:</span>
@@ -1958,14 +2023,32 @@ export default function AdminScheduler({
 
                           {/* Program Name & Badge Details */}
                           <div>
-                            <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: isBreak ? "var(--warning)" : "#0f172a" }}>
-                              {isBreak ? `☕ ${program.name}` : program.name}
-                              {program.programCode && (
-                                <span style={{ marginLeft: "6px", fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>
-                                  ({program.programCode})
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: isBreak ? "var(--warning)" : "#0f172a" }}>
+                                {isBreak ? `☕ ${program.name}` : program.name}
+                                {program.programCode && (
+                                  <span style={{ marginLeft: "6px", fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>
+                                    ({program.programCode})
+                                  </span>
+                                )}
+                              </h4>
+                              {program.festType && (
+                                <span style={{
+                                  fontSize: "0.68rem",
+                                  fontWeight: 800,
+                                  padding: "1px 7px",
+                                  borderRadius: "4px",
+                                  backgroundColor: program.festType === "PG" ? "rgba(168, 85, 247, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                  color: program.festType === "PG" ? "#7e22ce" : "#1d4ed8",
+                                  border: `1px solid ${program.festType === "PG" ? "#c084fc" : "#93c5fd"}`,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px"
+                                }}>
+                                  {program.festType === "PG" ? "🎓 Fadheela PG" : "🏆 State Final"}
                                 </span>
                               )}
-                            </h4>
+                            </div>
                             
                             {!isBreak && (
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "3px" }}>
