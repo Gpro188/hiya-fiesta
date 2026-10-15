@@ -6,6 +6,7 @@ import Link from "next/link";
 export type ZoneEventData = {
   id: string;
   name: string;
+  type?: string;
   startDate?: string | Date | null;
   endDate?: string | Date | null;
   zoneActiveStartTime?: string | Date | null;
@@ -45,6 +46,11 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
 
   const nextUpcoming = upcomingZones[0] || null;
 
+  // Check if both State Fest and PG Fest are upcoming at the same time
+  const stateUpcoming = upcomingZones.find(u => (u.ev as any).type === "STATE" || u.ev.name.includes("State"));
+  const pgUpcoming = upcomingZones.find(u => u.ev.zone?.code === "FPG" || u.ev.name.includes("Fadheela"));
+  const isCollabFinale = Boolean(stateUpcoming && pgUpcoming && Math.abs(stateUpcoming.diff - pgUpcoming.diff) < 3600000 * 24);
+
   let nextUpcomingCount: { days: number; hours: number; minutes: number; seconds: number } | null = null;
   if (nextUpcoming) {
     const diff = nextUpcoming.diff;
@@ -65,10 +71,12 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
             marginBottom: "28px",
             padding: "24px 28px",
             borderRadius: "22px",
-            background: "linear-gradient(135deg, #1e1b4b 0%, #311029 55%, #4a0429 100%)",
+            background: isCollabFinale 
+              ? "linear-gradient(135deg, #1e1b4b 0%, #2a0845 50%, #4a0429 100%)" 
+              : "linear-gradient(135deg, #1e1b4b 0%, #311029 55%, #4a0429 100%)",
             color: "#ffffff",
             boxShadow: "0 14px 35px rgba(142, 0, 51, 0.22)",
-            border: "2px solid #8E0033",
+            border: isCollabFinale ? "2px solid #a855f7" : "2px solid #8E0033",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -84,9 +92,9 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                 gap: "8px",
                 padding: "5px 14px",
                 borderRadius: "9999px",
-                backgroundColor: "rgba(244, 63, 94, 0.18)",
-                border: "1px solid rgba(244, 63, 94, 0.4)",
-                color: "#fbcfe8",
+                backgroundColor: isCollabFinale ? "rgba(234, 179, 8, 0.18)" : "rgba(244, 63, 94, 0.18)",
+                border: isCollabFinale ? "1px solid rgba(234, 179, 8, 0.4)" : "1px solid rgba(244, 63, 94, 0.4)",
+                color: isCollabFinale ? "#fef08a" : "#fbcfe8",
                 fontSize: "0.76rem",
                 fontWeight: 800,
                 textTransform: "uppercase",
@@ -94,13 +102,15 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                 marginBottom: "10px",
               }}
             >
-              <span>⏳ FESTIVAL BEGINS IN</span>
+              <span>{isCollabFinale ? "🌟 GRAND FINALE · SIMULTANEOUS COUNTDOWN" : "⏳ FESTIVAL BEGINS IN"}</span>
             </div>
             <h3 style={{ margin: "0 0 6px 0", fontSize: "1.5rem", fontWeight: 900, color: "#ffffff" }}>
-              {nextUpcoming.ev.name}
+              {isCollabFinale ? "State Final & Fadheela PG Fest 2026" : nextUpcoming.ev.name}
             </h3>
             <p style={{ margin: 0, fontSize: "0.88rem", color: "#cbd5e1" }}>
-              Regional Fest scheduled to commence on{" "}
+              {isCollabFinale 
+                ? "State Grand Finale & Fadheela PG Festival scheduled to commence on "
+                : "Regional Fest scheduled to commence on "}
               <strong style={{ color: "#fecdd3" }}>
                 {new Date(nextUpcoming.startTime!).toLocaleDateString([], {
                   weekday: "long",
@@ -111,6 +121,46 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                 })}
               </strong>
             </p>
+            {isCollabFinale && (
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
+                <Link
+                  href={`/fest/${stateUpcoming!.ev.id}/results`}
+                  style={{
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(255, 255, 255, 0.15)",
+                    color: "#ffffff",
+                    textDecoration: "none",
+                    border: "1px solid rgba(255, 255, 255, 0.25)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  🏆 State Final Portal →
+                </Link>
+                <Link
+                  href={`/fest/${pgUpcoming!.ev.id}/results`}
+                  style={{
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(168, 85, 247, 0.2)",
+                    color: "#f3e8ff",
+                    textDecoration: "none",
+                    border: "1px solid rgba(168, 85, 247, 0.4)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  🎓 Fadheela PG Portal →
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* 4-Box Digital Countdown Tiles */}
@@ -299,6 +349,21 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
+                    {(ev as any).type === "STATE" && (
+                      <div style={{
+                        display: "inline-block",
+                        fontSize: "0.68rem",
+                        fontWeight: 800,
+                        backgroundColor: "#8E0033",
+                        color: "#ffffff",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        marginBottom: "5px",
+                        letterSpacing: "0.5px"
+                      }}>
+                        🏆 STATE GRAND FINALE
+                      </div>
+                    )}
                     {ev.zone?.code === "FPG" && (
                       <div style={{
                         display: "inline-block",

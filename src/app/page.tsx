@@ -24,9 +24,13 @@ export default async function HomePage() {
       select: { 
         id: true, 
         name: true,
+        type: true,
         startDate: true,
         endDate: true,
+        zoneActiveStartTime: true,
+        zoneActiveEndTime: true,
         statusOverride: true,
+        _count: { select: { teams: true, programs: true } }
       }
     });
 
@@ -78,6 +82,7 @@ export default async function HomePage() {
       select: {
         id: true,
         name: true,
+        type: true,
         registrationStart: true,
         registrationEnd: true,
         startDate: true,
@@ -147,9 +152,19 @@ export default async function HomePage() {
   const highlightedItems = allGalleryItems.filter((g: any) => g.isHighlighted !== false);
   const galleryTiles = highlightedItems.length > 0 ? highlightedItems : allGalleryItems;
 
-  // ── Compute per-zone badge data (shared between marquee + zone grid) ──
+  // ── Compute per-zone & state fest badge data (shared between marquee + zone grid) ──
   const now = new Date();
-  const zonesWithStatus = zoneEvents.map(ev => {
+  const allEventsForTracker = stateFest ? [stateFest, ...zoneEvents] : zoneEvents;
+
+  const anyZoneLive = zoneEvents.some(ev => {
+    if (ev.statusOverride === 'LIVE') return true;
+    if (ev.statusOverride === 'AUTO' && ev.startDate && ev.endDate) {
+      return now >= ev.startDate && now <= ev.endDate;
+    }
+    return false;
+  });
+
+  const eventsWithStatus = allEventsForTracker.map(ev => {
     let badgeText = "PENDING";
     let badgeClass = "hf-badge-pending";
 
@@ -227,8 +242,8 @@ export default async function HomePage() {
 
         <div className="wrap hero-inner">
           <span className="pill">
-            <span className="live-dot"></span> 
-            {isStateLive ? "State Fest · Live Now" : "Zone Fest · Live Now"}
+            <span className={`live-dot ${!isStateLive && !anyZoneLive ? 'pulse-amber' : ''}`}></span> 
+            {isStateLive ? "State Fest · Live Now" : anyZoneLive ? "Zone Fest · Live Now" : "⏳ Grand Finale Countdown · Oct 20"}
           </span>
           <h1>
             Hiya Fiesta<br />
@@ -240,11 +255,11 @@ export default async function HomePage() {
           <div className="hero-actions">
             {isStateLive && stateFest ? (
               <Link className="btn btn-solid" href={`/fest/${stateFest.id}/results`}>
-                View State Status
+                View State Live Results
               </Link>
             ) : (
               <a className="btn btn-solid" href="#zones">
-                View Zone Status
+                View Grand Finale Countdown
               </a>
             )}
             <Link className="btn btn-ghost" href="/gallery">
@@ -257,10 +272,10 @@ export default async function HomePage() {
       {/* ── TICKER ──────────────────────────────────────────────── */}
       <div className="ticker" aria-hidden="false">
         <div className="ticker-track">
-          {[...zonesWithStatus, ...zonesWithStatus].map((z, idx) => (
+          {[...eventsWithStatus, ...eventsWithStatus].map((z, idx) => (
             <div className="tick-item" key={idx}>
               <span className={`status-dot ${z.badgeText === 'LIVE NOW' ? 'live' : z.badgeText === 'COMPLETED' ? 'done' : 'pending'}`}></span>
-              <span className="zname">{z.name.toUpperCase()} ZONE</span>
+              <span className="zname">{(z as any).type === 'STATE' ? 'STATE FINAL' : `${z.name.toUpperCase()} ZONE`}</span>
               <span className="zstatus">— {z.badgeText}</span>
             </div>
           ))}
@@ -362,7 +377,7 @@ export default async function HomePage() {
             <div className="finial"></div>
             <h2>Zone Status & Schedules</h2>
           </div>
-          <ZoneStatusGrid zones={zonesWithStatus as any} />
+          <ZoneStatusGrid zones={eventsWithStatus as any} />
         </div>
       </section>
 
