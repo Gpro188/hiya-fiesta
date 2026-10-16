@@ -98,7 +98,7 @@ export default async function SettingsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xl)' }}>
         {["ADMIN", "SUPER_ADMIN"].includes(role) && (
           <div data-tour="settings-limits">
-            <RegistrationLimitsCard initialSettings={settings} role={role} />
+            <RegistrationLimitsCard initialSettings={settings} events={events as any} role={role} />
           </div>
         )}
 

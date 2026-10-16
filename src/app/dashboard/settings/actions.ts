@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcrypt";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { clearSettingsCache } from "@/lib/settings";
+import { clearSettingsCache, getSettings } from "@/lib/settings";
 
 export async function updateSettings(data: { 
   festName: string, 
@@ -102,7 +102,7 @@ export async function updateRegistrationLimits(data: {
       maxGeneralOffStage: Number(data.maxGeneralOffStage) || 1,
     };
 
-    if (eventId) {
+    if (eventId && eventId !== "default") {
       const existing = await prisma.globalSetting.findFirst({
         where: { OR: [{ eventId }, { id: eventId }] }
       });
@@ -144,6 +144,26 @@ export async function updateRegistrationLimits(data: {
   } catch (error) {
     console.error("Failed to update registration limits:", error);
     return { success: false, error: "Failed to update registration limits" };
+  }
+}
+
+export async function getRegistrationLimitsSettings(eventId?: string | null) {
+  try {
+    const s = await getSettings(eventId === "default" ? null : eventId);
+    return {
+      success: true,
+      data: {
+        maxIndividualPrograms: s?.maxIndividualPrograms ?? 4,
+        maxIndividualOnStage: s?.maxIndividualOnStage ?? 2,
+        maxIndividualOffStage: s?.maxIndividualOffStage ?? 2,
+        maxGeneralTotal: s?.maxGeneralTotal ?? 2,
+        maxGeneralOnStage: s?.maxGeneralOnStage ?? 1,
+        maxGeneralOffStage: s?.maxGeneralOffStage ?? 1,
+      }
+    };
+  } catch (error: any) {
+    console.error("Failed to get registration limits:", error);
+    return { success: false, error: "Failed to get registration limits" };
   }
 }
 

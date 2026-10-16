@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { updateRegistrationLimits } from "./actions";
+import { useState, useEffect } from "react";
+import { updateRegistrationLimits, getRegistrationLimitsSettings } from "./actions";
 
 interface Props {
   initialSettings: any;
+  events?: Array<{ id: string; name: string }>;
   role: string;
 }
 
-export default function RegistrationLimitsCard({ initialSettings, role }: Props) {
+export default function RegistrationLimitsCard({ initialSettings, events = [], role }: Props) {
+  const [selectedEventId, setSelectedEventId] = useState<string>(
+    initialSettings?.eventId || (events.length > 0 ? events[0].id : "default")
+  );
+  const [fetchingLimits, setFetchingLimits] = useState<boolean>(false);
+
   const [maxIndividualPrograms, setMaxIndividualPrograms] = useState<number>(
     initialSettings?.maxIndividualPrograms ?? 4
   );
@@ -31,6 +37,27 @@ export default function RegistrationLimitsCard({ initialSettings, role }: Props)
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Load limits whenever selected event changes
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setFetchingLimits(true);
+      setStatus(null);
+      const res = await getRegistrationLimitsSettings(selectedEventId);
+      if (active && res.success && res.data) {
+        setMaxIndividualPrograms(res.data.maxIndividualPrograms);
+        setMaxIndividualOnStage(res.data.maxIndividualOnStage);
+        setMaxIndividualOffStage(res.data.maxIndividualOffStage);
+        setMaxGeneralTotal(res.data.maxGeneralTotal);
+        setMaxGeneralOnStage(res.data.maxGeneralOnStage);
+        setMaxGeneralOffStage(res.data.maxGeneralOffStage);
+      }
+      if (active) setFetchingLimits(false);
+    };
+    load();
+    return () => { active = false; };
+  }, [selectedEventId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -44,6 +71,7 @@ export default function RegistrationLimitsCard({ initialSettings, role }: Props)
         maxGeneralTotal,
         maxGeneralOnStage,
         maxGeneralOffStage,
+        targetEventId: selectedEventId === "default" ? null : selectedEventId,
       });
 
       if (res.success) {
@@ -112,6 +140,45 @@ export default function RegistrationLimitsCard({ initialSettings, role }: Props)
           </p>
         </div>
       </div>
+
+      {/* Event / Festival Selector */}
+      {events && events.length > 0 && (
+        <div 
+          style={{ 
+            marginBottom: "var(--spacing-md)", 
+            padding: "12px 16px", 
+            backgroundColor: "var(--surface-color)", 
+            borderRadius: "var(--radius-md)", 
+            border: "1.5px solid rgba(16, 185, 129, 0.3)", 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "12px", 
+            flexWrap: "wrap" 
+          }}
+        >
+          <label style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span>🎪</span> Select Festival / Event to Configure Limits:
+          </label>
+          <select
+            className="form-select"
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            disabled={loading || fetchingLimits}
+            style={{ minWidth: "280px", fontWeight: 700, borderColor: "var(--success)" }}
+          >
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </select>
+          {fetchingLimits && (
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontStyle: "italic" }}>
+              ⏳ Loading event limits...
+            </span>
+          )}
+        </div>
+      )}
 
       {status && (
         <div
