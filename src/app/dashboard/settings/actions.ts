@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcrypt";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { clearSettingsCache } from "@/lib/settings";
 
 export async function updateSettings(data: { 
   festName: string, 
@@ -64,6 +65,7 @@ export async function updateSettings(data: {
       });
     }
 
+    clearSettingsCache();
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard/assignments");
@@ -81,14 +83,15 @@ export async function updateRegistrationLimits(data: {
   maxGeneralTotal: number;
   maxGeneralOnStage: number;
   maxGeneralOffStage: number;
+  targetEventId?: string | null;
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const { eventId } = session.user;
+    const eventId = data.targetEventId || session.user.eventId;
 
     const settingPayload = {
       maxIndividualPrograms: Number(data.maxIndividualPrograms) || 4,
@@ -100,18 +103,25 @@ export async function updateRegistrationLimits(data: {
     };
 
     if (eventId) {
-      await prisma.globalSetting.upsert({
-        where: { eventId },
-        update: settingPayload,
-        create: {
-          eventId,
-          id: `event-${eventId}`,
-          festName: "Arts Fest",
-          festMoto: "Celebrating Creativity",
-          festLogo: "",
-          ...settingPayload,
-        },
+      const existing = await prisma.globalSetting.findFirst({
+        where: { OR: [{ eventId }, { id: eventId }] }
       });
+      if (existing) {
+        await prisma.globalSetting.update({
+          where: { id: existing.id },
+          data: settingPayload
+        });
+      } else {
+        await prisma.globalSetting.create({
+          data: {
+            id: eventId,
+            eventId,
+            festName: "Festival",
+            festMoto: "Celebrating Creativity",
+            ...settingPayload
+          }
+        });
+      }
     } else {
       await prisma.globalSetting.upsert({
         where: { id: "default" },
@@ -126,6 +136,7 @@ export async function updateRegistrationLimits(data: {
       });
     }
 
+    clearSettingsCache();
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard/assignments");

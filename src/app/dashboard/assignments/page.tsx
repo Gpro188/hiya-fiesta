@@ -93,7 +93,12 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     }
   } else {
     // Admin / Zone Admin / Super Admin
-    if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
+    if (session.user.role === "SUPER_ADMIN") {
+      availableTeams = await prisma.team.findMany({
+        select: { id: true, name: true, event: { select: { name: true } } },
+        orderBy: [{ event: { name: 'asc' } }, { name: 'asc' }]
+      });
+    } else if (session.user.role === "ZONE_ADMIN" && fullUser?.zoneId) {
       let zoneEvent = await prisma.event.findFirst({
         where: { type: 'ZONE', zoneId: fullUser.zoneId, NOT: { parentId: null } }
       });
@@ -108,7 +113,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
       }
       availableTeams = await prisma.team.findMany({
         where: { event: { zoneId: fullUser.zoneId } },
-        select: { id: true, name: true },
+        select: { id: true, name: true, event: { select: { name: true } } },
         orderBy: { name: 'asc' }
       });
     } else if (fullUser?.eventId) {
@@ -117,13 +122,13 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
       if (ev) parentEventId = ev.parentId;
       availableTeams = await prisma.team.findMany({
         where: { OR: [{ eventId: zoneEventId }, { event: { parentId: zoneEventId } }] },
-        select: { id: true, name: true },
+        select: { id: true, name: true, event: { select: { name: true } } },
         orderBy: { name: 'asc' }
       });
     } else {
       // Super Admin without eventId/zoneId
       availableTeams = await prisma.team.findMany({
-        select: { id: true, name: true },
+        select: { id: true, name: true, event: { select: { name: true } } },
         orderBy: { name: 'asc' }
       });
     }
@@ -146,10 +151,8 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ c
     });
     if (currentTeam) {
       isAssignmentsConfirmed = currentTeam.isAssignmentsConfirmed;
-      if (!zoneEventId && currentTeam.eventId) {
-        zoneEventId = currentTeam.eventId;
-        parentEventId = currentTeam.event?.parentId || null;
-      }
+      zoneEventId = currentTeam.eventId;
+      parentEventId = currentTeam.event?.parentId || null;
     }
   }
 

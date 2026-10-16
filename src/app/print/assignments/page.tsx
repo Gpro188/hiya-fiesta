@@ -77,6 +77,16 @@ export default async function PrintAssignmentsPage(props: { searchParams: Promis
     };
   } else if (eventId) {
     whereClause.team = { eventId };
+    const ev = await prisma.event.findUnique({ where: { id: eventId } });
+    if (ev?.type === "STATE" || !ev?.parentId) {
+      whereClause.NOT = {
+        OR: [
+          { team: { event: { zone: { code: "KAR" } } } },
+          { team: { institution: { zone: { code: "KAR" } } } },
+          { institution: { zone: { code: "KAR" } } }
+        ]
+      };
+    }
   }
 
   // Fetch all candidates with their programs

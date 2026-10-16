@@ -68,6 +68,7 @@ export default async function ProgramsRegistrationReportPage() {
   };
 
   const allZones: ZoneItem[] = rawZones
+    .filter((z) => z.code !== "KAR" && !z.name.toUpperCase().includes("KARNATAKA"))
     .map((z) => ({
       id: z.id,
       name: z.name,

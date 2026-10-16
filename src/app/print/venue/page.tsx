@@ -170,6 +170,14 @@ export default async function PrintVenuePage(props: {
           c?.team?.event?.zoneId;
         return zId === targetZoneId;
       });
+    } else {
+      // State Fest: exclude Karnataka candidates
+      candidateAssignments = candidateAssignments.filter((a: any) => {
+        const c = a.candidate;
+        const zCode = (c?.institution?.zone?.code || c?.team?.institution?.zone?.code || c?.team?.event?.zone?.code || "").toUpperCase();
+        const zName = (c?.institution?.zone?.name || c?.team?.institution?.zone?.name || c?.team?.event?.zone?.name || "").toUpperCase();
+        return zCode !== "KAR" && !zName.includes("KARNATAKA");
+      });
     }
 
     const candidateCount = candidateAssignments.length;

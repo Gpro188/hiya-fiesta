@@ -23,7 +23,10 @@ export async function assignProgram(candidateId: string, programId: string) {
         team: {
           include: {
             event: {
-              include: { parent: true }
+              include: { parent: true, zone: true }
+            },
+            institution: {
+              include: { zone: true }
             }
           }
         }
@@ -160,10 +163,13 @@ export async function assignProgram(candidateId: string, programId: string) {
       }
     }
 
-    // Resolve to master program if it has a programCode and a master counterpart (skip for standalone zone events like Fadheela PG)
+    // Resolve to master program if it has a programCode and a master counterpart (skip for standalone zone events like Fadheela PG and Karnataka)
     let actualProgramId = programId;
     const isStandaloneFest = candidate.team?.event?.type === "ZONE" && !candidate.team?.event?.parentId;
-    if (!isStandaloneFest && program.programCode) {
+    const isKarnataka = candidate.team?.event?.zone?.code === "KAR" || 
+                        candidate.team?.institution?.zone?.code === "KAR" ||
+                        candidate.team?.event?.zoneId === "999b9575-ff33-4510-ba21-32c1c0a4670d";
+    if (!isStandaloneFest && !isKarnataka && program.programCode) {
       const masterProg = await prisma.program.findFirst({
         where: {
           programCode: program.programCode,
@@ -183,7 +189,7 @@ export async function assignProgram(candidateId: string, programId: string) {
 
     // Check if candidate is already assigned to this program or another program with same programCode
     const alreadyAssigned = candidate.programs.some(
-      p => p.programId === actualProgramId || (!isStandaloneFest && program.programCode && p.program?.programCode === program.programCode)
+      p => p.programId === actualProgramId || (!isStandaloneFest && !isKarnataka && program.programCode && p.program?.programCode === program.programCode)
     );
     if (alreadyAssigned) {
       return { success: false, error: `Candidate is already assigned to program #${program.programCode || ''} (${program.name}).` };
@@ -192,7 +198,7 @@ export async function assignProgram(candidateId: string, programId: string) {
     // Validation 3: Per Team Limit
     const teamLimit = program.candidateLimitPerTeam || 1;
     let matchingProgIds = [actualProgramId];
-    if (!isStandaloneFest && program.programCode) {
+    if (!isStandaloneFest && !isKarnataka && program.programCode) {
       const matching = await prisma.program.findMany({
         where: { programCode: program.programCode },
         select: { id: true }

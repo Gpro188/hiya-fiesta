@@ -224,6 +224,14 @@ export default async function PrintValuationPage(props: {
           c?.team?.event?.zoneId;
         return zId === targetZoneId || (eventId && c?.team?.eventId === eventId);
       });
+    } else {
+      // For State Fest: Karnataka does not participate in the State Fest; exclude any Karnataka participants
+      candidateAssignments = candidateAssignments.filter((a: any) => {
+        const c = a.candidate;
+        const zCode = (c?.institution?.zone?.code || c?.team?.institution?.zone?.code || c?.team?.event?.zone?.code || "").toUpperCase();
+        const zName = (c?.institution?.zone?.name || c?.team?.institution?.zone?.name || c?.team?.event?.zone?.name || "").toUpperCase();
+        return zCode !== "KAR" && !zName.includes("KARNATAKA");
+      });
     }
 
     // Sort by slotNumber or numeric chest number

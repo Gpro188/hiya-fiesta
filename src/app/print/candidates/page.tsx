@@ -36,6 +36,19 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
     whereClause.categoryId = searchParams.categoryId;
   }
 
+  if (!searchParams.teamId && eventId) {
+    const ev = await prisma.event.findUnique({ where: { id: eventId } });
+    if (ev?.type === "STATE" || !ev?.parentId) {
+      whereClause.NOT = {
+        OR: [
+          { team: { event: { zone: { code: "KAR" } } } },
+          { team: { institution: { zone: { code: "KAR" } } } },
+          { institution: { zone: { code: "KAR" } } }
+        ]
+      };
+    }
+  }
+
   const candidates = await prisma.candidate.findMany({
     where: whereClause,
     include: {

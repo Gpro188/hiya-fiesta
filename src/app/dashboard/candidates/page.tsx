@@ -187,6 +187,14 @@ export default async function CandidatesPage(props: { searchParams: Promise<{ te
     } else if (["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
       if (filterZoneId) {
         whereClause.team = { event: { zoneId: filterZoneId } };
+      } else {
+        whereClause.NOT = {
+          OR: [
+            { team: { event: { zone: { code: "KAR" } } } },
+            { team: { institution: { zone: { code: "KAR" } } } },
+            { institution: { zone: { code: "KAR" } } }
+          ]
+        };
       }
     } else if (session.user.eventId) {
       whereClause.team = { eventId: session.user.eventId };

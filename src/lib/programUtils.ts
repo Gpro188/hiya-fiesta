@@ -7,8 +7,9 @@ export const isProgramGeneral = (p: {
 } | null | undefined): boolean => {
   if (!p) return false;
   const type = (p.type || "").toUpperCase();
+  if (type === "INDIVIDUAL") return false;
   if (type === "GENERAL" || type === "GROUP") return true;
-  if (p.candidateLimitPerTeam && p.candidateLimitPerTeam > 1) return true;
+  if (p.candidateLimitPerTeam && p.candidateLimitPerTeam > 1 && type !== "INDIVIDUAL") return true;
   if (!p.category && !p.categoryId) return true;
   const catName = (p.category?.name || "").toUpperCase();
   if (catName.includes("GENERAL")) return true;
