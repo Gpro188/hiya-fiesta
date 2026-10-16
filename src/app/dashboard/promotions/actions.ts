@@ -211,12 +211,11 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
       };
     }
 
-    // 1. Fetch all published Rank 1 results WITH Grade 'A' for this zone
+    // 1. Fetch all published Rank 1 results for this zone (including Grade A, B, etc.)
     const rank1Results = await prisma.result.findMany({
       where: {
         isPublished: true,
         rank: 1,
-        grade: { in: ["A", "A+", "a", "a+"] },
         OR: [
           { candidate: { team: { eventId: zoneEventId } } },
           { team: { eventId: zoneEventId } }
@@ -230,7 +229,7 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
     });
 
     if (rank1Results.length === 0) {
-      return { success: false, error: "No published Rank 1 results with Grade 'A' found for this zone." };
+      return { success: false, error: "No published Rank 1 results found for this zone." };
     }
 
     // 2. Fetch master event programs
@@ -388,3 +387,146 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
     return { success: false, error: error.message || "Failed to auto-promote zone 1st places" };
   }
 }
+
+export async function unpromoteFromState(masterProgramId: string, zoneEventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Check if state confirm deadline has passed for Zone Admins
+    if (session.user.role === "ZONE_ADMIN") {
+      const zoneEvent = await prisma.event.findUnique({ where: { id: zoneEventId } });
+      const parentId = zoneEvent?.parentId;
+      if (parentId) {
+        const parentEvent = await prisma.event.findUnique({ where: { id: parentId } });
+        if (parentEvent?.stateConfirmEndDate && new Date() > parentEvent.stateConfirmEndDate) {
+          return { success: false, error: "State confirmation deadline has passed. Please contact fest administration." };
+        }
+      }
+    }
+
+    // 1. Find all current assignments for this master program from this specific zone
+    const existingZoneAssignments = await prisma.programAssignment.findMany({
+      where: {
+        programId: masterProgramId,
+        candidate: {
+          team: {
+            eventId: zoneEventId
+          }
+        }
+      },
+      select: { id: true, candidateId: true }
+    });
+
+    if (existingZoneAssignments.length === 0) {
+      return { success: true, message: "No active state assignments found to remove." };
+    }
+
+    // 2. Delete existing zone assignments from this master program
+    const removedCandidateIds = existingZoneAssignments.map(a => a.candidateId);
+    await prisma.programAssignment.deleteMany({
+      where: {
+        id: { in: existingZoneAssignments.map(a => a.id) }
+      }
+    });
+
+    // 3. Update qualification status for unpromoted candidates
+    if (removedCandidateIds.length > 0) {
+      const activeStateAssignments = await prisma.programAssignment.findMany({
+        where: {
+          candidateId: { in: removedCandidateIds },
+          program: { event: { type: "STATE" } }
+        },
+        select: { candidateId: true }
+      });
+      const stillActiveSet = new Set(activeStateAssignments.map(a => a.candidateId));
+      const toDeactivate = removedCandidateIds.filter(id => !stillActiveSet.has(id));
+
+      if (toDeactivate.length > 0) {
+        await prisma.candidate.updateMany({
+          where: { id: { in: toDeactivate } },
+          data: { isStateQualified: false }
+        });
+      }
+    }
+
+    revalidatePath("/dashboard/promotions");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/print/venue-control");
+    revalidatePath("/print/stage-manager");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to unpromote from state:", error);
+    return { success: false, error: error.message || "Failed to remove from state" };
+  }
+}
+
+export async function unpromoteAllFromZone(zoneEventId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (session.user.role === "ZONE_ADMIN") {
+      const zoneEvent = await prisma.event.findUnique({ where: { id: zoneEventId } });
+      const parentId = zoneEvent?.parentId;
+      if (parentId) {
+        const parentEvent = await prisma.event.findUnique({ where: { id: parentId } });
+        if (parentEvent?.stateConfirmEndDate && new Date() > parentEvent.stateConfirmEndDate) {
+          return { success: false, error: "State confirmation deadline has passed." };
+        }
+      }
+    }
+
+    const assignments = await prisma.programAssignment.findMany({
+      where: {
+        program: { event: { type: "STATE" } },
+        candidate: { team: { eventId: zoneEventId } }
+      },
+      select: { id: true, candidateId: true }
+    });
+
+    if (assignments.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const candidateIds = Array.from(new Set(assignments.map(a => a.candidateId)));
+
+    await prisma.programAssignment.deleteMany({
+      where: { id: { in: assignments.map(a => a.id) } }
+    });
+
+    const remaining = await prisma.programAssignment.findMany({
+      where: {
+        candidateId: { in: candidateIds },
+        program: { event: { type: "STATE" } }
+      },
+      select: { candidateId: true }
+    });
+    const remainingSet = new Set(remaining.map(r => r.candidateId));
+    const toDeactivate = candidateIds.filter(id => !remainingSet.has(id));
+
+    if (toDeactivate.length > 0) {
+      await prisma.candidate.updateMany({
+        where: { id: { in: toDeactivate } },
+        data: { isStateQualified: false }
+      });
+    }
+
+    revalidatePath("/dashboard/promotions");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/scoring");
+    revalidatePath("/print/venue-control");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true, count: assignments.length };
+  } catch (error: any) {
+    console.error("Failed to unpromote all from zone:", error);
+    return { success: false, error: error.message || "Failed to remove all from state" };
+  }
+}
+

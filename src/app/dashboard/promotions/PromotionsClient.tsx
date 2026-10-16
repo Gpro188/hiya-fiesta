@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { promoteToState, autoPromoteZoneFirstPlaces } from "./actions";
+import { promoteToState, autoPromoteZoneFirstPlaces, unpromoteFromState, unpromoteAllFromZone } from "./actions";
 
 interface PromotionsClientProps {
   zoneEvents: any[];
@@ -94,6 +94,14 @@ export default function PromotionsClient({
     message: string;
   } | null>(null);
 
+  // Modal for unconfirming / removing a state representative
+  const [removeModal, setRemoveModal] = useState<{
+    isOpen: boolean;
+    masterProg: any;
+    promotedName: string;
+    zoneEventId: string;
+  } | null>(null);
+
   // Modal for inspecting group/general program members with photos
   const [teamMembersModal, setTeamMembersModal] = useState<{
     isOpen: boolean;
@@ -146,9 +154,39 @@ export default function PromotionsClient({
     }
   };
 
+  const handleUnpromote = (masterProg: any, promotedResult: any, zoneEventId: string) => {
+    const name = promotedResult?.candidate?.name || promotedResult?.team?.name || "Participant";
+    setRemoveModal({
+      isOpen: true,
+      masterProg,
+      promotedName: name,
+      zoneEventId,
+    });
+  };
+
+  const executeUnpromote = async () => {
+    if (!removeModal) return;
+    const { masterProg, zoneEventId } = removeModal;
+    setRemoveModal(null);
+    setLoadingResultId(masterProg.id);
+    try {
+      const res = await unpromoteFromState(masterProg.id, zoneEventId);
+      if (!res.success) {
+        showToast("Failed to remove: " + res.error, "error");
+      } else {
+        showToast("State confirmation removed successfully!", "success");
+        window.location.reload();
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to remove state participant", "error");
+    } finally {
+      setLoadingResultId(null);
+    }
+  };
+
   const handleBulkPromote1stPlaces = async (zoneEvent: any) => {
     const ok = window.confirm(
-      `⚡ AUTO-CONFIRM 1ST PLACES TO STATE FINAL\n\nThis will automatically confirm all 1st place winners from ${zoneEvent.name} to participate in the State Final.\n\nAny existing non-1st place assignments from this zone will be replaced. You can still manually switch any program to 2nd or 3rd place anytime later.\n\nProceed?`
+      `⚡ AUTO-CONFIRM 1ST PLACES TO STATE FINAL\n\nThis will automatically confirm all published 1st place winners (including Grade A and Grade B) from ${zoneEvent.name} to participate in the State Final.\n\nAny existing non-1st place assignments from this zone will be replaced. You can still manually edit, switch, or remove any program anytime later.\n\nProceed?`
     );
     if (!ok) return;
 
@@ -159,13 +197,35 @@ export default function PromotionsClient({
         showToast("Failed to auto-promote: " + res.error, "error");
       } else {
         showToast(
-          `🎉 Successfully confirmed ${res.promotedCount} 1st-place participants to State Final!`,
+          `🎉 Successfully confirmed ${res.promotedCount} 1st-place participants (Grades A & B) to State Final!`,
           "success"
         );
         setTimeout(() => window.location.reload(), 1000);
       }
     } catch (err: any) {
       showToast(err.message || "Bulk auto-promotion failed", "error");
+    } finally {
+      setBulkLoadingZoneId(null);
+    }
+  };
+
+  const handleBulkUnpromote = async (zoneEvent: any) => {
+    const ok = window.confirm(
+      `⚠️ CLEAR ALL STATE CONFIRMATIONS FOR ${zoneEvent.name.toUpperCase()}?\n\nThis will remove ALL confirmed participants from this zone for the State Final.\n\nAll programs for this zone will return to Pending Confirmation.\n\nAre you sure you want to proceed?`
+    );
+    if (!ok) return;
+
+    setBulkLoadingZoneId(zoneEvent.id);
+    try {
+      const res = await unpromoteAllFromZone(zoneEvent.id);
+      if (!res.success) {
+        showToast("Failed to clear confirmations: " + res.error, "error");
+      } else {
+        showToast(`Cleared ${res.count || 0} state confirmations. All returned to pending.`, "success");
+        setTimeout(() => window.location.reload(), 800);
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to clear confirmations", "error");
     } finally {
       setBulkLoadingZoneId(null);
     }
@@ -297,6 +357,70 @@ export default function PromotionsClient({
                 }}
               >
                 Confirm State Representative
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Confirmation Modal */}
+      {removeModal?.isOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              maxWidth: "500px",
+              width: "100%",
+              padding: "24px",
+              borderRadius: "16px",
+              backgroundColor: "var(--bg-secondary)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+              <span style={{ fontSize: "1.5rem" }}>🗑️</span>
+              <h3 style={{ margin: 0, color: "#ef4444" }}>Remove State Confirmation</h3>
+            </div>
+            <p style={{ color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "20px" }}>
+              Are you sure you want to remove <strong>{removeModal.promotedName}</strong> from the State Final for{" "}
+              <strong>{removeModal.masterProg.name}</strong>?
+              <br /><br />
+              This will unassign them from the master program and return this slot to <em>Pending Confirmation</em>.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => setRemoveModal(null)}
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeUnpromote}
+                className="btn btn-primary"
+                style={{
+                  padding: "8px 18px",
+                  background: "linear-gradient(135deg, #dc2626, #ef4444)",
+                  borderColor: "#dc2626",
+                  color: "#ffffff",
+                }}
+              >
+                Yes, Remove Confirmation
               </button>
             </div>
           </div>
@@ -838,8 +962,8 @@ export default function PromotionsClient({
                   </div>
                 </div>
 
-                {/* Bulk Confirm 1st Place Button */}
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {/* Bulk Confirm 1st Place & Clear Actions */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     disabled={Boolean(bulkLoadingZoneId || (isLocked && isZoneAdmin))}
@@ -859,14 +983,43 @@ export default function PromotionsClient({
                       cursor: bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
                       opacity: isLocked && isZoneAdmin ? 0.6 : 1,
                     }}
+                    title="Automatically confirms all Rank 1 winners with Grade A or Grade B to the State Final"
                   >
                     <span>{bulkLoadingZoneId === event.id ? "⏳" : "⚡"}</span>
                     <span>
                       {bulkLoadingZoneId === event.id
                         ? "Confirming All 1st Places..."
-                        : "Auto-Confirm All 1st Places to State"}
+                        : "Auto-Confirm All 1st Places (Grades A & B)"}
                     </span>
                   </button>
+
+                  {confirmedCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={Boolean(bulkLoadingZoneId || (isLocked && isZoneAdmin))}
+                      onClick={() => handleBulkUnpromote(event)}
+                      className="btn"
+                      style={{
+                        padding: "10px 18px",
+                        fontSize: "0.85rem",
+                        fontWeight: 700,
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                        color: "#ef4444",
+                        border: "1px solid rgba(239, 68, 68, 0.35)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
+                        opacity: isLocked && isZoneAdmin ? 0.6 : 1,
+                        transition: "all 0.15s ease",
+                      }}
+                      title="Clear all state confirmations for this zone back to pending"
+                    >
+                      <span>✕</span>
+                      <span>Clear All Confirmations</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1007,7 +1160,7 @@ export default function PromotionsClient({
                         <th style={{ padding: "10px 14px", width: "34%" }}>Zonal Results (Top 3)</th>
                         <th style={{ padding: "10px 14px", width: "24%" }}>Confirmed to State</th>
                         <th style={{ padding: "10px 14px", width: "16%", textAlign: "right" }}>
-                          Selection / Actions
+                          Edit / Manage Selection
                         </th>
                       </tr>
                     </thead>
@@ -1138,6 +1291,27 @@ export default function PromotionsClient({
                                           >
                                             {r.rank === 1 ? "1st" : r.rank === 2 ? "2nd" : "3rd"}
                                           </span>
+                                          {r.grade && (
+                                            <span
+                                              style={{
+                                                fontSize: "0.7rem",
+                                                fontWeight: 800,
+                                                padding: "2px 6px",
+                                                borderRadius: "4px",
+                                                backgroundColor: r.grade.toUpperCase().startsWith("A")
+                                                  ? "rgba(16, 185, 129, 0.15)"
+                                                  : "rgba(59, 130, 246, 0.15)",
+                                                color: r.grade.toUpperCase().startsWith("A") ? "#10b981" : "#3b82f6",
+                                                border: `1px solid ${
+                                                  r.grade.toUpperCase().startsWith("A")
+                                                    ? "rgba(16, 185, 129, 0.3)"
+                                                    : "rgba(59, 130, 246, 0.3)"
+                                                }`,
+                                              }}
+                                            >
+                                              Grade {r.grade}
+                                            </span>
+                                          )}
                                           <div style={{ minWidth: 0 }}>
                                             <div
                                               style={{
@@ -1157,7 +1331,7 @@ export default function PromotionsClient({
                                                 <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                                                   (#{r.candidate.chestNumber})
                                                 </span>
-                                              )}
+                                          )}
                                               {/* Button to view photos for group/general program */}
                                               {isTeamResult && currentTeamId && (
                                                 <button
@@ -1244,10 +1418,27 @@ export default function PromotionsClient({
                                         display: "flex",
                                         alignItems: "center",
                                         gap: "6px",
+                                        flexWrap: "wrap",
                                       }}
                                     >
                                       <span>✓</span>
                                       <span>{promotedResult.candidate?.name || promotedResult.team?.name}</span>
+                                      {promotedResult.grade && (
+                                        <span
+                                          style={{
+                                            fontSize: "0.68rem",
+                                            fontWeight: 800,
+                                            padding: "1px 6px",
+                                            borderRadius: "4px",
+                                            backgroundColor: promotedResult.grade.toUpperCase().startsWith("A")
+                                              ? "rgba(16, 185, 129, 0.2)"
+                                              : "rgba(59, 130, 246, 0.2)",
+                                            color: promotedResult.grade.toUpperCase().startsWith("A") ? "var(--success)" : "#3b82f6",
+                                          }}
+                                        >
+                                          Grade {promotedResult.grade}
+                                        </span>
+                                      )}
                                       {/* View photos button on confirmed column */}
                                       {isGroup && (
                                         <button
@@ -1281,22 +1472,50 @@ export default function PromotionsClient({
                                       )}
                                       {promotedResult.candidate?.team?.name || promotedResult.team?.name}
                                     </div>
-                                    {isAlternate && (
-                                      <div
+
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginTop: "6px" }}>
+                                      {isAlternate ? (
+                                        <div
+                                          style={{
+                                            fontSize: "0.7rem",
+                                            fontWeight: 700,
+                                            color: "#d97706",
+                                            display: "inline-block",
+                                            padding: "2px 6px",
+                                            borderRadius: "4px",
+                                            backgroundColor: "rgba(217, 119, 6, 0.15)",
+                                          }}
+                                        >
+                                          ⚠️ Alternate Selection (Rank {promotedResult.rank})
+                                        </div>
+                                      ) : <div />}
+
+                                      <button
+                                        type="button"
+                                        disabled={Boolean(
+                                          loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
+                                        )}
+                                        onClick={() => handleUnpromote(masterProg, promotedResult, event.id)}
                                         style={{
-                                          marginTop: "6px",
-                                          fontSize: "0.7rem",
+                                          padding: "3px 8px",
+                                          borderRadius: "5px",
+                                          fontSize: "0.72rem",
                                           fontWeight: 700,
-                                          color: "#d97706",
-                                          display: "inline-block",
-                                          padding: "2px 6px",
-                                          borderRadius: "4px",
-                                          backgroundColor: "rgba(217, 119, 6, 0.15)",
+                                          backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                          color: "#ef4444",
+                                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                                          cursor: loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "4px",
+                                          transition: "all 0.15s ease",
                                         }}
+                                        title="Remove this confirmation from State Final"
                                       >
-                                        ⚠️ Alternate Selection (Rank {promotedResult.rank})
-                                      </div>
-                                    )}
+                                        <span>✕</span>
+                                        <span>Remove</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <div
@@ -1327,20 +1546,54 @@ export default function PromotionsClient({
                                         <div
                                           key={r.id}
                                           style={{
-                                            padding: "4px 10px",
-                                            borderRadius: "6px",
-                                            fontSize: "0.75rem",
-                                            fontWeight: 700,
-                                            backgroundColor: "rgba(16, 185, 129, 0.15)",
-                                            color: "var(--success)",
-                                            border: "1px solid rgba(16, 185, 129, 0.4)",
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: "4px",
+                                            gap: "6px",
                                           }}
                                         >
-                                          <span>✓</span>
-                                          <span>Confirmed (Rank {r.rank})</span>
+                                          <div
+                                            style={{
+                                              padding: "4px 10px",
+                                              borderRadius: "6px",
+                                              fontSize: "0.75rem",
+                                              fontWeight: 700,
+                                              backgroundColor: "rgba(16, 185, 129, 0.15)",
+                                              color: "var(--success)",
+                                              border: "1px solid rgba(16, 185, 129, 0.4)",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "4px",
+                                            }}
+                                          >
+                                            <span>✓</span>
+                                            <span>Confirmed (Rank {r.rank})</span>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            disabled={Boolean(
+                                              loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
+                                            )}
+                                            onClick={() => handleUnpromote(masterProg, promotedResult, event.id)}
+                                            style={{
+                                              padding: "4px 8px",
+                                              borderRadius: "6px",
+                                              fontSize: "0.75rem",
+                                              fontWeight: 700,
+                                              backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                              color: "#ef4444",
+                                              border: "1px solid rgba(239, 68, 68, 0.35)",
+                                              cursor: loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "3px",
+                                              transition: "all 0.15s ease",
+                                            }}
+                                            title="Remove this confirmation from State"
+                                          >
+                                            <span>✕</span>
+                                            <span>Remove</span>
+                                          </button>
                                         </div>
                                       );
                                     }
@@ -1373,9 +1626,13 @@ export default function PromotionsClient({
                                         }}
                                       >
                                         {isLoading
-                                          ? "Selecting..."
+                                          ? "Updating..."
+                                          : promotedResult
+                                          ? r.rank === 1
+                                            ? "🔄 Switch to Rank 1"
+                                            : `🔄 Switch to Rank ${r.rank} (Alternate)`
                                           : r.rank === 1
-                                          ? "Select Rank 1"
+                                          ? "✓ Confirm Rank 1"
                                           : `Select Rank ${r.rank} (Alternate)`}
                                       </button>
                                     );
