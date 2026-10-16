@@ -766,6 +766,30 @@ export default function PromotionsClient({
             );
           })}
         </div>
+
+        {/* State Facilities & Participants Register Link */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <a
+            href="/print/state-participants"
+            target="_blank"
+            style={{
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontSize: "0.84rem",
+              fontWeight: 800,
+              textDecoration: "none",
+              backgroundColor: "#8E0033",
+              color: "#ffffff",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 3px 8px rgba(142,0,51,0.25)",
+              border: "1px solid rgba(255,255,255,0.2)",
+            }}
+          >
+            🏢 State Facilities &amp; Participants List
+          </a>
+        </div>
       </div>
 
       {/* SELECTED ZONE DETAILS & PROGRAMS TABLE */}
