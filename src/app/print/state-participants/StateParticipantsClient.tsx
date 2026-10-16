@@ -285,11 +285,17 @@ export default function StateParticipantsClient({
           >
             🖨️ Print Full Roster
           </button>
+          <a
+            href="/api/reports/state-participants-excel"
+            style={{ backgroundColor: "#15803d", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
+          >
+            📊 Download Excel (.xlsx)
+          </a>
           <button
             onClick={handleExportCSV}
             style={{ backgroundColor: "#059669", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
           >
-            📥 Export to CSV
+            📥 Export CSV
           </button>
         </div>
       </div>

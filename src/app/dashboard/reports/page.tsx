@@ -599,14 +599,53 @@ export default async function ReportsPage(props: {
           </a>
 
           {/* State Participants & Facilities Summary List */}
-          <a href="/print/state-participants" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.05)' }}>
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.05)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🏢</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>State Participants &amp; Facilities Summary</h4>
               <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>FACILITIES &amp; ROSTER</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Zone-wise candidate headcounts to set all facilities (accommodation, meals, badges), plus full master registration list of State participants.</p>
-          </a>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Zone-wise candidate headcounts to set all facilities (accommodation, meals, badges), plus full master registration list of State participants.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a
+                href="/print/state-participants"
+                target="_blank"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#8E0033',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🖨️ View &amp; Print Hub
+              </a>
+              <a
+                href="/api/reports/state-participants-excel"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#15803d',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                📊 Download Excel (.xlsx)
+              </a>
+            </div>
+          </div>
 
           {/* Institution Results Breakdown */}
           <a href={`/print/institution-results-breakdown?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)' }}>
