@@ -767,8 +767,28 @@ export default function PromotionsClient({
           })}
         </div>
 
-        {/* State Facilities & Participants Register Link */}
-        <div style={{ display: "flex", alignItems: "center" }}>
+        {/* State Links: Facilities Register & 1st Place Grade B List */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <a
+            href="/print/zonal-first-place-b-grade"
+            target="_blank"
+            style={{
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontSize: "0.84rem",
+              fontWeight: 800,
+              textDecoration: "none",
+              backgroundColor: "#d97706",
+              color: "#ffffff",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 3px 8px rgba(217,119,6,0.25)",
+              border: "1px solid rgba(255,255,255,0.2)",
+            }}
+          >
+            🥇 1st Place with Grade B (33)
+          </a>
           <a
             href="/print/state-participants"
             target="_blank"
