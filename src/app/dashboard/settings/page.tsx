@@ -65,7 +65,7 @@ export default async function SettingsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+          {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
             <a 
               href="#registration-limits" 
               className="btn btn-secondary" 
@@ -96,7 +96,7 @@ export default async function SettingsPage() {
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xl)' }}>
-        {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+        {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
           <div data-tour="settings-limits">
             <RegistrationLimitsCard initialSettings={settings} events={events as any} role={role} />
           </div>
