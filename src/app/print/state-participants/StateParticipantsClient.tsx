@@ -10,6 +10,7 @@ export interface CandidateProgramInfo {
   stageType: string;
   type: string;
   slotNumber?: number | null;
+  isPg?: boolean;
 }
 
 export interface StateParticipant {
@@ -27,9 +28,13 @@ export interface StateParticipant {
   zoneId: string;
   zoneName: string;
   zoneCode: string;
+  isPg?: boolean;
   onStageCount: number;
   offStageCount: number;
   generalCount: number;
+  pgOnStageCount: number;
+  pgOffStageCount: number;
+  needsVenueFacilities: boolean;
   programs: CandidateProgramInfo[];
 }
 
@@ -43,6 +48,8 @@ export interface InstitutionFacilitiesSummary {
   onStageCount: number;
   offStageCount: number;
   generalCount: number;
+  venueFacilitiesCount: number;
+  completedOffStageOnlyCount: number;
   totalAssignmentsCount: number;
 }
 
@@ -50,8 +57,11 @@ export interface ZoneFacilitiesSummary {
   id: string;
   name: string;
   code: string;
+  isPgZone?: boolean;
   totalInstitutions: number;
   totalCandidates: number;
+  venueFacilitiesCandidates: number;
+  completedOffStageOnlyCandidates: number;
   onStageCandidates: number;
   offStageCandidates: number;
   bothStageCandidates: number;
@@ -59,6 +69,7 @@ export interface ZoneFacilitiesSummary {
   categoryBreakdown: {
     fadhila: number;
     fadheela: number;
+    pg: number;
     general: number;
   };
   totalAssignments: number;
@@ -75,6 +86,8 @@ export interface GrandFacilitiesTotals {
   totalZones: number;
   totalInstitutions: number;
   totalCandidates: number;
+  totalVenueFacilitiesCandidates: number;
+  totalCompletedOffStageOnlyCandidates: number;
   totalOnStageCandidates: number;
   totalOffStageCandidates: number;
   totalBothStageCandidates: number;
@@ -82,6 +95,7 @@ export interface GrandFacilitiesTotals {
   totalAssignments: number;
   totalFadhilaCandidates: number;
   totalFadheelaCandidates: number;
+  totalPgCandidates: number;
   totalGeneralCategoryCandidates: number;
   facilities: {
     recommendedBeds: number;
@@ -98,6 +112,7 @@ export default function StateParticipantsClient({
   participants,
   initialZoneId = "ALL",
   initialStageType = "ALL",
+  initialFacilityScope = "VENUE_ATTENDEES",
 }: {
   festName: string;
   zones: ZoneFacilitiesSummary[];
@@ -105,10 +120,12 @@ export default function StateParticipantsClient({
   participants: StateParticipant[];
   initialZoneId?: string;
   initialStageType?: string;
+  initialFacilityScope?: string;
 }) {
   const [activeTab, setActiveTab] = useState<"FACILITIES" | "ROSTER" | "ZONE_PACK">("FACILITIES");
   const [selectedZone, setSelectedZone] = useState<string>(initialZoneId);
   const [selectedStageType, setSelectedStageType] = useState<string>(initialStageType);
+  const [facilityScope, setFacilityScope] = useState<string>(initialFacilityScope);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedZone, setExpandedZone] = useState<string | null>(null);
@@ -116,22 +133,34 @@ export default function StateParticipantsClient({
   // Filtered Participants
   const filteredParticipants = useMemo(() => {
     return participants.filter((p) => {
+      // Facility scope filter
+      if (facilityScope === "VENUE_ATTENDEES" && !p.needsVenueFacilities) return false;
+      if (facilityScope === "COMPLETED_OFFSTAGE_ONLY" && p.needsVenueFacilities) return false;
+      if (facilityScope === "STATE_ON_STAGE" && p.onStageCount === 0) return false;
+      if (facilityScope === "PG_FEST" && !p.isPg) return false;
+
       // Zone filter
       if (selectedZone !== "ALL" && p.zoneName !== selectedZone && p.zoneId !== selectedZone) {
         return false;
       }
 
       // Stage type filter
-      if (selectedStageType === "ON_STAGE" && p.onStageCount === 0) return false;
-      if (selectedStageType === "OFF_STAGE" && p.offStageCount === 0) return false;
-      if (selectedStageType === "BOTH" && (p.onStageCount === 0 || p.offStageCount === 0)) return false;
+      if (selectedStageType === "ON_STAGE" && p.onStageCount === 0 && (p.pgOnStageCount ?? 0) === 0) return false;
+      if (selectedStageType === "OFF_STAGE" && p.offStageCount === 0 && (p.pgOffStageCount ?? 0) === 0) return false;
+      if (
+        selectedStageType === "BOTH" &&
+        ((p.onStageCount === 0 && (p.pgOnStageCount ?? 0) === 0) ||
+          (p.offStageCount === 0 && (p.pgOffStageCount ?? 0) === 0))
+      )
+        return false;
 
       // Category filter
       if (selectedCategory !== "ALL") {
         const cat = p.category.toUpperCase();
         if (selectedCategory === "FADHILA" && (!cat.includes("FADHILA") || cat.includes("FADHEELA"))) return false;
         if (selectedCategory === "FADHEELA" && !cat.includes("FADHEELA")) return false;
-        if (selectedCategory === "GENERAL" && (cat.includes("FADHILA") || cat.includes("FADHEELA"))) return false;
+        if (selectedCategory === "PG" && !p.isPg) return false;
+        if (selectedCategory === "GENERAL" && (cat.includes("FADHILA") || cat.includes("FADHEELA") || p.isPg)) return false;
       }
 
       // Search Query
@@ -152,7 +181,7 @@ export default function StateParticipantsClient({
 
       return true;
     });
-  }, [participants, selectedZone, selectedStageType, selectedCategory, searchQuery]);
+  }, [participants, facilityScope, selectedZone, selectedStageType, selectedCategory, searchQuery]);
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -163,6 +192,7 @@ export default function StateParticipantsClient({
       "UID",
       "Category",
       "Zone",
+      "Venue Facilities Required?",
       "Institution Code",
       "Institution Name",
       "District",
@@ -179,13 +209,14 @@ export default function StateParticipantsClient({
       p.uid || "",
       p.category,
       p.zoneName,
+      p.needsVenueFacilities ? "YES (VENUE ATTENDEE)" : "NO (COMPLETED OFF-STAGE ONLY)",
       p.institutionCode,
       `"${p.institutionName.replace(/"/g, '""')}"`,
       p.institutionDistrict || "",
-      p.onStageCount,
-      p.offStageCount,
+      p.onStageCount + (p.pgOnStageCount ?? 0),
+      p.offStageCount + (p.pgOffStageCount ?? 0),
       p.programs.length,
-      `"${p.programs.map((pr) => `[#${pr.code}] ${pr.name} (${pr.stageType})`).join("; ").replace(/"/g, '""')}"`,
+      `"${p.programs.map((pr) => `[#${pr.code}] ${pr.name} (${pr.stageType}${pr.isPg ? " PG" : ""})`).join("; ").replace(/"/g, '""')}"`,
     ]);
 
     const csvContent =
@@ -194,7 +225,7 @@ export default function StateParticipantsClient({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `State_Participants_Register_${festName.replace(/\s+/g, "_")}.csv`);
+    link.setAttribute("download", `State_Venue_Participants_Register_${festName.replace(/\s+/g, "_")}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -283,7 +314,7 @@ export default function StateParticipantsClient({
             onClick={() => handlePrint("ROSTER")}
             style={{ backgroundColor: "#0284c7", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
           >
-            🖨️ Print Full Roster
+            🖨️ Print Master Roster
           </button>
           <a
             href="/api/reports/state-participants-excel"
@@ -310,10 +341,36 @@ export default function StateParticipantsClient({
             {festName.toUpperCase()}
           </h1>
           <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#8E0033" }}>
-            STATE PARTICIPANTS REGISTER &amp; FACILITIES LOGISTICS SUMMARY
+            STATE FESTIVAL VENUE FACILITIES LOGISTICS &amp; PARTICIPANTS REGISTER
           </div>
           <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: "4px" }}>
-            Official Headcount for Accommodation, Meals, ID Badges &amp; Stage Scheduling • Karnataka Excluded (Central State Final)
+            Official Accommodation, Meals &amp; ID Badges Calculation • State On-Stage &amp; PG Fest Physical Attendees
+          </div>
+        </div>
+
+        {/* LOGISTICS ALLOCATION POLICY BANNER */}
+        <div
+          style={{
+            backgroundColor: "#fffbeb",
+            border: "1.5px solid #fde68a",
+            borderRadius: "10px",
+            padding: "14px 18px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "12px",
+          }}
+          className="page-break-inside-avoid"
+        >
+          <span style={{ fontSize: "1.4rem" }}>📌</span>
+          <div style={{ fontSize: "0.85rem", color: "#92400e", lineHeight: 1.5 }}>
+            <strong style={{ fontSize: "0.92rem", color: "#b45309" }}>Facilities Allocation Policy for State Festival:</strong><br />
+            • Regular State Off-Stage programs (23 programs) are <b>already completed</b> prior to the festival.<br />
+            • Bed accommodation, meal catering, and physical ID badges are strictly calculated for <b>Physical Venue Attendees:</b>
+            <span style={{ fontWeight: 800, color: "#8E0033", marginLeft: "4px" }}>
+              State On-Stage Performers ({grandTotals.totalOnStageCandidates}) + Fadheela PG Fest Participants ({grandTotals.totalPgCandidates}) = {grandTotals.totalVenueFacilitiesCandidates} Total Venue Attendees (Beds)
+            </span>.<br />
+            • The <b>{grandTotals.totalCompletedOffStageOnlyCandidates} candidates</b> who only participated in completed regular off-stage programs are excluded from bed and catering counts to ensure zero facility waste.
           </div>
         </div>
 
@@ -335,7 +392,6 @@ export default function StateParticipantsClient({
                 alignItems: "center",
                 gap: "8px",
                 boxShadow: activeTab === "FACILITIES" ? "0 4px 12px rgba(142,0,51,0.25)" : "none",
-                transition: "all 0.15s ease",
               }}
             >
               🏢 Zone Facilities &amp; Headcount Summary
@@ -355,10 +411,9 @@ export default function StateParticipantsClient({
                 alignItems: "center",
                 gap: "8px",
                 boxShadow: activeTab === "ROSTER" ? "0 4px 12px rgba(142,0,51,0.25)" : "none",
-                transition: "all 0.15s ease",
               }}
             >
-              📋 Master State Registration Roster ({filteredParticipants.length})
+              📋 Master Registration Roster ({filteredParticipants.length})
             </button>
             <button
               onClick={() => setActiveTab("ZONE_PACK")}
@@ -375,7 +430,6 @@ export default function StateParticipantsClient({
                 alignItems: "center",
                 gap: "8px",
                 boxShadow: activeTab === "ZONE_PACK" ? "0 4px 12px rgba(142,0,51,0.25)" : "none",
-                transition: "all 0.15s ease",
               }}
             >
               🗂️ Zone-Wise Registration Pack
@@ -384,298 +438,247 @@ export default function StateParticipantsClient({
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#64748b" }}>
-              Total Headcount: <strong style={{ color: "#8E0033", fontSize: "1.05rem" }}>{grandTotals.totalCandidates} Candidates</strong>
+              Active Venue Attendees: <strong style={{ color: "#059669", fontSize: "1.1rem" }}>{grandTotals.totalVenueFacilitiesCandidates} Beds Needed</strong>
             </span>
           </div>
         </div>
 
         {/* Executive KPI Metric Cards (Facilities Planning) */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", marginBottom: "24px" }} className="page-break-inside-avoid">
-          {/* Total Candidates (Headcount) */}
-          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #8E0033", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          {/* Active Venue Attendees (Beds) */}
+          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "2px solid #059669", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#8E0033", textTransform: "uppercase" }}>Candidate Headcount</span>
-              <span style={{ fontSize: "1.4rem" }}>👥</span>
-            </div>
-            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#8E0033", marginTop: "4px" }}>
-              {grandTotals.totalCandidates}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              Distinct candidates across {grandTotals.totalZones} zones
-            </div>
-          </div>
-
-          {/* Accommodation & Beds Required */}
-          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #0284c7", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#0284c7", textTransform: "uppercase" }}>Accommodation (Beds)</span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#059669", textTransform: "uppercase" }}>Venue Beds Required</span>
               <span style={{ fontSize: "1.4rem" }}>🛏️</span>
             </div>
-            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#0284c7", marginTop: "4px" }}>
-              {grandTotals.facilities.recommendedBeds}
+            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#059669", marginTop: "4px" }}>
+              {grandTotals.facilities.recommendedBeds} Beds
             </div>
             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              Candidate stay capacity (+ staff buffer)
+              {grandTotals.totalOnStageCandidates} State On-Stage + {grandTotals.totalPgCandidates} PG Fest
             </div>
           </div>
 
-          {/* Food / Daily Meals Estimate */}
-          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #059669", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          {/* Daily Meals Estimate */}
+          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #0284c7", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#059669", textTransform: "uppercase" }}>Estimated Daily Meals</span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#0284c7", textTransform: "uppercase" }}>Estimated Daily Meals</span>
               <span style={{ fontSize: "1.4rem" }}>🍱</span>
             </div>
-            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#059669", marginTop: "4px" }}>
-              {grandTotals.facilities.dailyMealsEstimate}
+            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#0284c7", marginTop: "4px" }}>
+              {grandTotals.facilities.dailyMealsEstimate} Meals
             </div>
             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              Breakfast + Lunch + Dinner plates/day
+              3 meals/day for {grandTotals.totalVenueFacilitiesCandidates} physical attendees
             </div>
           </div>
 
-          {/* Participating Institutions */}
-          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #d97706", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#d97706", textTransform: "uppercase" }}>Colleges Represented</span>
-              <span style={{ fontSize: "1.4rem" }}>🏛️</span>
-            </div>
-            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#d97706", marginTop: "4px" }}>
-              {grandTotals.totalInstitutions}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              Institutions qualifying to State Final
-            </div>
-          </div>
-
-          {/* On-Stage Performers */}
+          {/* State On-Stage Performers */}
           <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #7c3aed", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>On-Stage Performers</span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>State On-Stage</span>
               <span style={{ fontSize: "1.4rem" }}>🎭</span>
             </div>
             <div style={{ fontSize: "2rem", fontWeight: 900, color: "#7c3aed", marginTop: "4px" }}>
               {grandTotals.totalOnStageCandidates}
             </div>
             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-              {grandTotals.totalOffStageCandidates} Off-Stage • {grandTotals.totalBothStageCandidates} Both
+              Performers across 21 stage events
+            </div>
+          </div>
+
+          {/* Fadheela PG Fest */}
+          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #b45309", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#b45309", textTransform: "uppercase" }}>Fadheela PG Fest</span>
+              <span style={{ fontSize: "1.4rem" }}>🎓</span>
+            </div>
+            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#b45309", marginTop: "4px" }}>
+              {grandTotals.totalPgCandidates}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+              PG Off-Stage &amp; On-Stage participants
+            </div>
+          </div>
+
+          {/* Excluded: Completed Regular Off-Stage Only */}
+          <div style={{ backgroundColor: "#ffffff", padding: "16px 20px", borderRadius: "12px", border: "1.5px solid #94a3b8", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>Completed Offstage Only</span>
+              <span style={{ fontSize: "1.4rem" }}>🏁</span>
+            </div>
+            <div style={{ fontSize: "2rem", fontWeight: 900, color: "#64748b", marginTop: "4px" }}>
+              {grandTotals.totalCompletedOffStageOnlyCandidates}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "2px" }}>
+              Already completed • No beds needed
             </div>
           </div>
         </div>
 
-        {/* SECTION 1: ZONE FACILITIES & HEADCOUNT SUMMARY (Primary request) */}
-        {(activeTab === "FACILITIES" || activeTab === "ZONE_PACK") && (
-          <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #cbd5e1", padding: "20px", marginBottom: "28px", boxShadow: "0 4px 16px rgba(0,0,0,0.03)" }} className="page-break-after">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>🏢</span> Zone-Wise Facilities &amp; Candidate Arrival Summary
-                </h2>
-                <p style={{ margin: "3px 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-                  Exact physical candidate headcounts per zone for allocating dormitories, beds, catering counters, and delegate kit bags.
-                </p>
+        {/* TAB 1: FACILITIES HEADCOUNT SUMMARY */}
+        {activeTab === "FACILITIES" && (
+          <div>
+            <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", marginBottom: "30px" }}>
+              <div style={{ padding: "14px 20px", backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <span style={{ fontSize: "1rem", fontWeight: 800, color: "#8E0033" }}>
+                  🏢 Zone-Wise Facilities &amp; Bed Requirements (Venue Attendees)
+                </span>
+                <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                  Includes 7 Non-Karnataka Regular Zones + Fadheela PG Fest
+                </span>
               </div>
-              <div className="no-print" style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={() => handlePrint("FACILITIES")}
-                  style={{ padding: "6px 14px", borderRadius: "6px", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}
-                >
-                  🖨️ Print Facilities Table
-                </button>
-              </div>
-            </div>
 
-            {/* Zone Facilities Master Table */}
-            <div style={{ overflowX: "auto" }}>
-              <table className="table-print" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#8E0033", color: "#ffffff", fontSize: "0.85rem" }}>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028" }}>SL</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028" }}>ZONE / DISTRICT</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>COLLEGES</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center", backgroundColor: "#700028", fontWeight: 900 }}>TOTAL CANDIDATES (HEADCOUNT)</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>ON-STAGE</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>OFF-STAGE</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>BOTH</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>GENERAL</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>PROGRAM ENTRIES</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>BEDS NEEDED</th>
-                    <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>DAILY MEALS</th>
-                    <th className="no-print" style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {zones.map((z, idx) => (
-                    <tr
-                      key={z.id}
-                      style={{
-                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
-                        fontSize: "0.88rem",
-                        borderBottom: "1px solid #e2e8f0",
-                      }}
-                    >
-                      <td style={{ padding: "10px 12px", fontWeight: 700, border: "1px solid #cbd5e1", textAlign: "center" }}>
-                        {idx + 1}
-                      </td>
-                      <td style={{ padding: "10px 12px", fontWeight: 800, border: "1px solid #cbd5e1" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ color: "#8E0033" }}>{z.name}</span>
-                          <span style={{ fontSize: "0.7rem", padding: "1px 6px", borderRadius: "4px", backgroundColor: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", fontWeight: 700 }}>
-                            {z.code}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 700 }}>
-                        {z.totalInstitutions}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", backgroundColor: "rgba(142,0,51,0.06)", fontWeight: 900, color: "#8E0033", fontSize: "1.05rem" }}>
-                        {z.totalCandidates}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#7c3aed", fontWeight: 700 }}>
-                        {z.onStageCandidates}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#059669", fontWeight: 700 }}>
-                        {z.offStageCandidates}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#d97706", fontWeight: 700 }}>
-                        {z.bothStageCandidates}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#475569" }}>
-                        {z.generalCandidates}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 700 }}>
-                        {z.totalAssignments}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 800, color: "#0284c7" }}>
-                        {z.facilities.recommendedBeds} beds
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 800, color: "#059669" }}>
-                        {z.facilities.dailyMealsEstimate} plates
-                      </td>
-                      <td className="no-print" style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1" }}>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedZone(expandedZone === z.id ? null : z.id)}
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: "0.75rem",
-                            borderRadius: "4px",
-                            border: "1px solid #cbd5e1",
-                            backgroundColor: expandedZone === z.id ? "#8E0033" : "#f1f5f9",
-                            color: expandedZone === z.id ? "#ffffff" : "#0f172a",
-                            cursor: "pointer",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {expandedZone === z.id ? "Hide Colleges" : "View Colleges (" + z.institutions.length + ")"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ backgroundColor: "#1e293b", color: "#ffffff", fontWeight: 900, fontSize: "0.95rem" }}>
-                    <td colSpan={2} style={{ padding: "12px", textAlign: "right", border: "1px solid #0f172a" }}>
-                      GRAND TOTAL (ALL 7 ZONES):
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalInstitutions}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a", backgroundColor: "#8E0033", fontSize: "1.2rem", fontWeight: 900 }}>
-                      {grandTotals.totalCandidates}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalOnStageCandidates}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalOffStageCandidates}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalBothStageCandidates}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalGeneralCandidates}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.totalAssignments}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.facilities.recommendedBeds} beds
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
-                      {grandTotals.facilities.dailyMealsEstimate} plates
-                    </td>
-                    <td className="no-print" style={{ border: "1px solid #0f172a" }}></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Zone-by-Zone College Breakdown Details */}
-            {zones.map((z) => (
-              <div
-                key={`inst-list-${z.id}`}
-                style={{
-                  display: (expandedZone === z.id || activeTab === "ZONE_PACK") ? "block" : "none",
-                  marginTop: "16px",
-                  padding: "16px",
-                  backgroundColor: "#f8fafc",
-                  borderRadius: "10px",
-                  border: "1.5px solid #e2e8f0",
-                }}
-                className="page-break-inside-avoid"
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap" }}>
-                  <h4 style={{ margin: 0, color: "#8E0033", fontSize: "1rem", fontWeight: 800 }}>
-                    🏛️ {z.name} ZONE — Participating Institutions &amp; Headcount Breakdown
-                  </h4>
-                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                    {z.institutions.length} Colleges • {z.totalCandidates} Total Candidates
-                  </span>
-                </div>
-                <table className="table-print" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table className="table-print" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                   <thead>
-                    <tr style={{ backgroundColor: "#e2e8f0", color: "#1e293b" }}>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1" }}>Sl</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1" }}>College Code</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1" }}>College / Institution Name</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1" }}>Place / District</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>Candidates Headcount</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>On-Stage</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>Off-Stage</th>
-                      <th style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>Program Entries</th>
+                    <tr style={{ backgroundColor: "#8E0033", color: "#ffffff", fontSize: "0.78rem" }}>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", width: "40px", textAlign: "center" }}>#</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028" }}>ZONE / CONTINGENT</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>COLLEGES</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center", backgroundColor: "#059669" }}>VENUE BEDS NEEDED</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center", backgroundColor: "#0284c7" }}>DAILY MEALS</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>STATE ON-STAGE</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>PG FEST</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center", color: "#fca5a5" }}>COMPLETED OFFSTAGE ONLY</th>
+                      <th style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>TOTAL ENROLLED</th>
+                      <th className="no-print" style={{ padding: "10px 12px", border: "1px solid #700028", textAlign: "center" }}>COLLEGES</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {z.institutions.map((inst, iIdx) => (
-                      <tr key={inst.id} style={{ backgroundColor: iIdx % 2 === 0 ? "#ffffff" : "#f1f5f9" }}>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>{iIdx + 1}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", fontWeight: 700, color: "#8E0033" }}>{inst.code}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", fontWeight: 600 }}>{inst.name}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", color: "#475569" }}>{inst.place || inst.district || "-"}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center", fontWeight: 800, color: "#8E0033" }}>{inst.candidatesCount}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>{inst.onStageCount}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center" }}>{inst.offStageCount}</td>
-                        <td style={{ padding: "6px 8px", border: "1px solid #cbd5e1", textAlign: "center", fontWeight: 700 }}>{inst.totalAssignmentsCount}</td>
+                    {zones.map((z, idx) => (
+                      <tr
+                        key={z.id}
+                        style={{
+                          backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                          fontSize: "0.88rem",
+                          borderBottom: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <td style={{ padding: "10px 12px", fontWeight: 700, border: "1px solid #cbd5e1", textAlign: "center" }}>
+                          {idx + 1}
+                        </td>
+                        <td style={{ padding: "10px 12px", fontWeight: 800, border: "1px solid #cbd5e1" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ color: z.isPgZone ? "#b45309" : "#8E0033" }}>{z.name}</span>
+                            <span style={{ fontSize: "0.7rem", padding: "1px 6px", borderRadius: "4px", backgroundColor: z.isPgZone ? "#fef3c7" : "#f1f5f9", color: z.isPgZone ? "#b45309" : "#475569", border: "1px solid #cbd5e1", fontWeight: 700 }}>
+                              {z.code}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 700 }}>
+                          {z.totalInstitutions}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", backgroundColor: "rgba(5,150,105,0.08)", fontWeight: 900, color: "#059669", fontSize: "1.1rem" }}>
+                          {z.facilities.recommendedBeds} beds
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 800, color: "#0284c7" }}>
+                          {z.facilities.dailyMealsEstimate} plates
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#7c3aed", fontWeight: 700 }}>
+                          {z.isPgZone ? "-" : z.onStageCandidates}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#b45309", fontWeight: 700 }}>
+                          {z.isPgZone ? z.totalCandidates : "-"}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", color: "#64748b", fontWeight: 600 }}>
+                          {z.completedOffStageOnlyCandidates}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1", fontWeight: 700, color: "#334155" }}>
+                          {z.totalCandidates}
+                        </td>
+                        <td className="no-print" style={{ padding: "10px 12px", textAlign: "center", border: "1px solid #cbd5e1" }}>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedZone(expandedZone === z.id ? null : z.id)}
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "0.75rem",
+                              borderRadius: "4px",
+                              border: "1px solid #cbd5e1",
+                              backgroundColor: expandedZone === z.id ? "#8E0033" : "#f1f5f9",
+                              color: expandedZone === z.id ? "#ffffff" : "#0f172a",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {expandedZone === z.id ? "Hide" : `View (${z.institutions.length})`}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: "#1e293b", color: "#ffffff", fontWeight: 900, fontSize: "0.95rem" }}>
+                      <td colSpan={2} style={{ padding: "12px", textAlign: "right", border: "1px solid #0f172a" }}>
+                        GRAND TOTAL (VENUE LOGISTICS):
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
+                        {grandTotals.totalInstitutions}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a", backgroundColor: "#059669", fontSize: "1.25rem", fontWeight: 900 }}>
+                        {grandTotals.facilities.recommendedBeds} BEDS
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a", color: "#38bdf8" }}>
+                        {grandTotals.facilities.dailyMealsEstimate}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
+                        {grandTotals.totalOnStageCandidates}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
+                        {grandTotals.totalPgCandidates}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a", color: "#cbd5e1" }}>
+                        {grandTotals.totalCompletedOffStageOnlyCandidates}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", border: "1px solid #0f172a" }}>
+                        {grandTotals.totalCandidates}
+                      </td>
+                      <td className="no-print" style={{ border: "1px solid #0f172a" }} />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
-            ))}
+            </div>
+
+            {/* College breakdown for expanded zone */}
+            {expandedZone && (
+              <div className="no-print" style={{ backgroundColor: "#ffffff", padding: "18px 20px", borderRadius: "10px", border: "1.5px solid #8E0033", marginBottom: "24px" }}>
+                <h4 style={{ margin: "0 0 10px 0", color: "#8E0033", fontSize: "1rem" }}>
+                  🏛️ Participating Colleges Breakdown: {zones.find((z) => z.id === expandedZone)?.name}
+                </h4>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+                  {zones
+                    .find((z) => z.id === expandedZone)
+                    ?.institutions.map((inst) => (
+                      <div key={inst.id} style={{ padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", backgroundColor: "#f8fafc" }}>
+                        <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#1e293b" }}>{inst.name}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Code: {inst.code} • {inst.place}</div>
+                        <div style={{ marginTop: "6px", fontSize: "0.8rem", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <span style={{ color: "#059669", fontWeight: 700 }}>Venue Beds: {inst.venueFacilitiesCount}</span>
+                          <span style={{ color: "#7c3aed" }}>On-Stage: {inst.onStageCount}</span>
+                          <span style={{ color: "#64748b" }}>Total Cands: {inst.candidatesCount}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* SECTION 2: MASTER STATE REGISTRATION ROSTER */}
+        {/* TAB 2: MASTER PARTICIPANTS REGISTRATION ROSTER */}
         {(activeTab === "ROSTER" || activeTab === "ZONE_PACK") && (
-          <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #cbd5e1", padding: "20px", marginBottom: "28px", boxShadow: "0 4px 16px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            {/* Header info */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>📋</span> Master State Participant Registration Roster
-                </h2>
-                <p style={{ margin: "3px 0 0", fontSize: "0.85rem", color: "#64748b" }}>
-                  Complete list of all qualified and assigned candidates participating in the Central State Final.
-                </p>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#1e293b" }}>
+                  📋 Master State Participants Roster
+                </h3>
+                <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: "2px" }}>
+                  Showing <b>{filteredParticipants.length}</b> candidates (Filtered by venue facility attendance and zone)
+                </div>
               </div>
 
               {/* Action buttons (Screen) */}
@@ -684,7 +687,7 @@ export default function StateParticipantsClient({
                   onClick={() => handlePrint("ROSTER")}
                   style={{ padding: "6px 14px", borderRadius: "6px", backgroundColor: "#0284c7", color: "#ffffff", border: "none", fontSize: "0.8rem", fontWeight: 800, cursor: "pointer" }}
                 >
-                  🖨️ Print Participant List
+                  🖨️ Print List
                 </button>
                 <button
                   onClick={handleExportCSV}
@@ -697,11 +700,91 @@ export default function StateParticipantsClient({
 
             {/* Filter Controls Bar (Screen only) */}
             <div className="no-print" style={{ backgroundColor: "#f8fafc", padding: "14px 16px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "18px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+              {/* Facility Scope Filter Buttons */}
+              <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", width: "100%", paddingBottom: "8px", borderBottom: "1px solid #cbd5e1" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>Attendance Scope:</span>
+                <button
+                  onClick={() => setFacilityScope("VENUE_ATTENDEES")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    border: facilityScope === "VENUE_ATTENDEES" ? "2px solid #059669" : "1px solid #cbd5e1",
+                    backgroundColor: facilityScope === "VENUE_ATTENDEES" ? "#059669" : "#ffffff",
+                    color: facilityScope === "VENUE_ATTENDEES" ? "#ffffff" : "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  🎯 Active Venue Facilities Required ({grandTotals.totalVenueFacilitiesCandidates})
+                </button>
+                <button
+                  onClick={() => setFacilityScope("ALL")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    border: facilityScope === "ALL" ? "2px solid #1e293b" : "1px solid #cbd5e1",
+                    backgroundColor: facilityScope === "ALL" ? "#1e293b" : "#ffffff",
+                    color: facilityScope === "ALL" ? "#ffffff" : "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  All Registered Roster ({grandTotals.totalCandidates})
+                </button>
+                <button
+                  onClick={() => setFacilityScope("STATE_ON_STAGE")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    border: facilityScope === "STATE_ON_STAGE" ? "2px solid #7c3aed" : "1px solid #cbd5e1",
+                    backgroundColor: facilityScope === "STATE_ON_STAGE" ? "#7c3aed" : "#ffffff",
+                    color: facilityScope === "STATE_ON_STAGE" ? "#ffffff" : "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  🎭 State On-Stage ({grandTotals.totalOnStageCandidates})
+                </button>
+                <button
+                  onClick={() => setFacilityScope("PG_FEST")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    border: facilityScope === "PG_FEST" ? "2px solid #b45309" : "1px solid #cbd5e1",
+                    backgroundColor: facilityScope === "PG_FEST" ? "#b45309" : "#ffffff",
+                    color: facilityScope === "PG_FEST" ? "#ffffff" : "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  🎓 Fadheela PG Fest ({grandTotals.totalPgCandidates})
+                </button>
+                <button
+                  onClick={() => setFacilityScope("COMPLETED_OFFSTAGE_ONLY")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    border: facilityScope === "COMPLETED_OFFSTAGE_ONLY" ? "2px solid #64748b" : "1px solid #cbd5e1",
+                    backgroundColor: facilityScope === "COMPLETED_OFFSTAGE_ONLY" ? "#64748b" : "#ffffff",
+                    color: facilityScope === "COMPLETED_OFFSTAGE_ONLY" ? "#ffffff" : "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  🏁 Completed Off-Stage Only ({grandTotals.totalCompletedOffStageOnlyCandidates})
+                </button>
+              </div>
+
               {/* Search Box */}
               <div style={{ flex: "1 1 240px" }}>
                 <input
                   type="text"
-                  placeholder="🔍 Search name, chest no, college, program..."
+                  placeholder="🔍 Search candidate name, chest no, college, program..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -733,7 +816,7 @@ export default function StateParticipantsClient({
                   <option value="ALL">All Zones ({zones.length})</option>
                   {zones.map((z) => (
                     <option key={z.id} value={z.name}>
-                      {z.name} Zone ({z.totalCandidates})
+                      {z.name} ({z.totalCandidates})
                     </option>
                   ))}
                 </select>
@@ -761,36 +844,14 @@ export default function StateParticipantsClient({
                 </select>
               </div>
 
-              {/* Category Filter */}
-              <div>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1.5px solid #cbd5e1",
-                    fontSize: "0.88rem",
-                    fontWeight: 600,
-                    backgroundColor: "#ffffff",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="ALL">All Categories</option>
-                  <option value="FADHILA">Fadhila</option>
-                  <option value="FADHEELA">Fadheela</option>
-                  <option value="GENERAL">General</option>
-                </select>
-              </div>
-
               {/* Reset Filter Button */}
-              {(selectedZone !== "ALL" || selectedStageType !== "ALL" || selectedCategory !== "ALL" || searchQuery) && (
+              {(selectedZone !== "ALL" || selectedStageType !== "ALL" || facilityScope !== "VENUE_ATTENDEES" || searchQuery) && (
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedZone("ALL");
                     setSelectedStageType("ALL");
-                    setSelectedCategory("ALL");
+                    setFacilityScope("VENUE_ATTENDEES");
                     setSearchQuery("");
                   }}
                   style={{
@@ -798,160 +859,144 @@ export default function StateParticipantsClient({
                     borderRadius: "8px",
                     border: "1px solid #cbd5e1",
                     backgroundColor: "#ffffff",
-                    color: "#ef4444",
-                    fontSize: "0.8rem",
+                    fontSize: "0.82rem",
                     fontWeight: 700,
                     cursor: "pointer",
                   }}
                 >
-                  ✕ Clear Filters
+                  Reset Filters
                 </button>
               )}
-
-              <div style={{ marginLeft: "auto", fontSize: "0.82rem", color: "#64748b", fontWeight: 700 }}>
-                Showing <strong>{filteredParticipants.length}</strong> of {participants.length} Candidates
-              </div>
             </div>
 
-            {/* Master Roster Table */}
-            <div style={{ overflowX: "auto" }}>
-              <table className="table-print" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#1e293b", color: "#ffffff", fontSize: "0.82rem" }}>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", textAlign: "center", width: "40px" }}>SL</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", textAlign: "center", width: "80px" }}>CHEST NO</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", width: "220px" }}>CANDIDATE NAME</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", width: "90px" }}>CATEGORY</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", width: "120px" }}>ZONE</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155" }}>INSTITUTION / COLLEGE</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155" }}>ASSIGNED STATE PROGRAMS</th>
-                    <th style={{ padding: "8px 10px", border: "1px solid #334155", textAlign: "center", width: "60px" }}>ITEMS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredParticipants.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ padding: "30px", textAlign: "center", color: "#64748b", fontStyle: "italic" }}>
-                        No candidates match the selected filters.
-                      </td>
+            {/* Roster Table */}
+            <div style={{ backgroundColor: "#ffffff", borderRadius: "10px", border: "1px solid #cbd5e1", overflow: "hidden", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table className="table-print" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#f1f5f9", color: "#1e293b", fontSize: "0.78rem", borderBottom: "2px solid #cbd5e1" }}>
+                      <th style={{ padding: "8px 10px", border: "1px solid #cbd5e1", width: "40px", textAlign: "center" }}>#</th>
+                      <th style={{ padding: "8px 10px", border: "1px solid #cbd5e1", width: "80px", textAlign: "center" }}>CHEST NO</th>
+                      <th style={{ padding: "8px 12px", border: "1px solid #cbd5e1" }}>CANDIDATE NAME</th>
+                      <th style={{ padding: "8px 10px", border: "1px solid #cbd5e1", textAlign: "center" }}>ZONE</th>
+                      <th style={{ padding: "8px 12px", border: "1px solid #cbd5e1" }}>COLLEGE / INSTITUTION</th>
+                      <th style={{ padding: "8px 10px", border: "1px solid #cbd5e1", textAlign: "center" }}>VENUE ATTENDANCE</th>
+                      <th style={{ padding: "8px 12px", border: "1px solid #cbd5e1" }}>ASSIGNED PROGRAMS</th>
                     </tr>
-                  ) : (
-                    filteredParticipants.map((p, idx) => (
-                      <tr
-                        key={p.id}
-                        style={{
-                          backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
-                          fontSize: "0.85rem",
-                          borderBottom: "1px solid #e2e8f0",
-                        }}
-                        className="page-break-inside-avoid"
-                      >
-                        <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, border: "1px solid #cbd5e1" }}>
-                          {idx + 1}
-                        </td>
-                        <td style={{ padding: "8px 10px", textAlign: "center", border: "1px solid #cbd5e1" }}>
-                          {p.chestNumber ? (
-                            <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "4px", backgroundColor: "rgba(142,0,51,0.08)", color: "#8E0033", fontWeight: 900, border: "1px solid rgba(142,0,51,0.2)" }}>
-                              #{p.chestNumber}
-                            </span>
-                          ) : (
-                            <span style={{ color: "#94a3b8" }}>—</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "8px 10px", border: "1px solid #cbd5e1" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            {p.photoUrl && (
-                              <img
-                                src={p.photoUrl}
-                                alt={p.name}
-                                style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid #cbd5e1" }}
-                                className="no-print"
-                              />
-                            )}
-                            <div>
-                              <div style={{ fontWeight: 800, color: "#0f172a" }}>{p.name}</div>
-                              {p.uid && <div style={{ fontSize: "0.72rem", color: "#64748b" }}>UID: {p.uid}</div>}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "8px 10px", border: "1px solid #cbd5e1" }}>
-                          <span style={{ fontSize: "0.75rem", padding: "2px 6px", borderRadius: "4px", backgroundColor: "#f1f5f9", color: "#334155", fontWeight: 700 }}>
-                            {p.category}
-                          </span>
-                        </td>
-                        <td style={{ padding: "8px 10px", border: "1px solid #cbd5e1" }}>
-                          <span style={{ fontWeight: 700, color: "#8E0033" }}>{p.zoneName}</span>
-                        </td>
-                        <td style={{ padding: "8px 10px", border: "1px solid #cbd5e1" }}>
-                          <div style={{ fontWeight: 600, color: "#1e293b" }}>{p.institutionName}</div>
-                          <div style={{ fontSize: "0.72rem", color: "#64748b" }}>
-                            Code: <strong>{p.institutionCode}</strong> {p.institutionDistrict ? `• ${p.institutionDistrict}` : ""}
-                          </div>
-                        </td>
-                        <td style={{ padding: "8px 10px", border: "1px solid #cbd5e1" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                            {p.programs.map((pr) => {
-                              const isOnStage = pr.stageType === "ON_STAGE";
-                              return (
-                                <span
-                                  key={pr.id + pr.code}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    padding: "2px 6px",
-                                    borderRadius: "4px",
-                                    fontSize: "0.74rem",
-                                    fontWeight: 700,
-                                    backgroundColor: isOnStage ? "#f5f3ff" : "#ecfdf5",
-                                    color: isOnStage ? "#6d28d9" : "#047857",
-                                    border: `1px solid ${isOnStage ? "#ddd6fe" : "#a7f3d0"}`,
-                                  }}
-                                >
-                                  <span>#{pr.code}</span>
-                                  <span>{pr.name}</span>
-                                  <span style={{ fontSize: "0.65rem", opacity: 0.8 }}>({isOnStage ? "ON" : "OFF"})</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 800, border: "1px solid #cbd5e1" }}>
-                          {p.programs.length}
+                  </thead>
+                  <tbody>
+                    {filteredParticipants.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>
+                          No candidates found matching the selected filter criteria.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredParticipants.map((p, idx) => (
+                        <tr
+                          key={p.id}
+                          style={{
+                            backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fcfcfd",
+                            fontSize: "0.82rem",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <td style={{ padding: "7px 10px", border: "1px solid #cbd5e1", textAlign: "center", color: "#64748b", fontWeight: 700 }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ padding: "7px 10px", border: "1px solid #cbd5e1", textAlign: "center" }}>
+                            <span style={{ display: "inline-block", padding: "2px 8px", backgroundColor: "#f1f5f9", color: "#0f172a", borderRadius: "4px", fontWeight: 900, border: "1px solid #cbd5e1" }}>
+                              {p.chestNumber || "N/A"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "7px 12px", border: "1px solid #cbd5e1" }}>
+                            <div style={{ fontWeight: 800, color: "#0f172a" }}>{p.name}</div>
+                            <div style={{ fontSize: "0.7rem", color: "#64748b" }}>
+                              {p.category} {p.uid ? `• UID: ${p.uid}` : ""}
+                            </div>
+                          </td>
+                          <td style={{ padding: "7px 10px", border: "1px solid #cbd5e1", textAlign: "center", fontWeight: 700, color: p.isPg ? "#b45309" : "#8E0033" }}>
+                            {p.zoneName}
+                          </td>
+                          <td style={{ padding: "7px 12px", border: "1px solid #cbd5e1" }}>
+                            <div style={{ fontWeight: 700, color: "#1e293b" }}>{p.institutionName}</div>
+                            <div style={{ fontSize: "0.7rem", color: "#64748b" }}>{p.institutionPlace || p.institutionDistrict}</div>
+                          </td>
+                          <td style={{ padding: "7px 10px", border: "1px solid #cbd5e1", textAlign: "center" }}>
+                            {p.needsVenueFacilities ? (
+                              <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: "10px", fontSize: "0.7rem", fontWeight: 800, backgroundColor: "#ecfdf5", color: "#059669", border: "1px solid #a7f3d0" }}>
+                                🎪 Bed Required ({p.onStageCount + (p.pgOnStageCount ?? 0)} Stage)
+                              </span>
+                            ) : (
+                              <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: "10px", fontSize: "0.7rem", fontWeight: 700, backgroundColor: "#f1f5f9", color: "#64748b", border: "1px solid #cbd5e1" }}>
+                                🏁 Completed Offstage Only
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "7px 12px", border: "1px solid #cbd5e1" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                              {p.programs.map((pr) => (
+                                <span
+                                  key={pr.id}
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 700,
+                                    backgroundColor: pr.stageType === "ON_STAGE" ? "#fdf2f8" : "#f0fdf4",
+                                    color: pr.stageType === "ON_STAGE" ? "#8E0033" : "#15803d",
+                                    border: `1px solid ${pr.stageType === "ON_STAGE" ? "#fbcfe8" : "#bbf7d0"}`,
+                                  }}
+                                >
+                                  #{pr.code} {pr.name} ({pr.stageType === "ON_STAGE" ? "Stage" : "Off"})
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* SECTION 3: OFFICIAL SIGNATURES & VERIFICATION (Included in print) */}
-        <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "2px dashed #cbd5e1" }} className="page-break-inside-avoid">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", textAlign: "center" }}>
-            <div>
-              <div style={{ height: "45px" }}></div>
-              <div style={{ borderTop: "1px solid #94a3b8", paddingTop: "6px", fontWeight: 800, fontSize: "0.85rem", color: "#1e293b" }}>
-                Facilities &amp; Stay Convener
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>CSWC Hiya Fiesta 2026</div>
+        {/* Printable Official Signatory Block */}
+        <div
+          style={{
+            marginTop: "30px",
+            paddingTop: "20px",
+            borderTop: "1.5px dashed #cbd5e1",
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "20px",
+            textAlign: "center",
+          }}
+          className="page-break-inside-avoid"
+        >
+          <div>
+            <div style={{ height: "45px" }} />
+            <div style={{ borderTop: "1px solid #64748b", paddingTop: "6px", fontSize: "0.82rem", fontWeight: 700 }}>
+              Convenor / Reception Committee
             </div>
-            <div>
-              <div style={{ height: "45px" }}></div>
-              <div style={{ borderTop: "1px solid #94a3b8", paddingTop: "6px", fontWeight: 800, fontSize: "0.85rem", color: "#1e293b" }}>
-                Food &amp; Catering In-Charge
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>State Festival Committee</div>
+            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>CSWC Hiya Fiesta 2026</div>
+          </div>
+          <div>
+            <div style={{ height: "45px" }} />
+            <div style={{ borderTop: "1px solid #64748b", paddingTop: "6px", fontSize: "0.82rem", fontWeight: 700 }}>
+              General Secretary
             </div>
-            <div>
-              <div style={{ height: "45px" }}></div>
-              <div style={{ borderTop: "1px solid #94a3b8", paddingTop: "6px", fontWeight: 800, fontSize: "0.85rem", color: "#1e293b" }}>
-                General Convener / President
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Kerala State Wakf Board / CSWC</div>
+            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Council of Shariah Women Colleges</div>
+          </div>
+          <div>
+            <div style={{ height: "45px" }} />
+            <div style={{ borderTop: "1px solid #64748b", paddingTop: "6px", fontSize: "0.82rem", fontWeight: 700 }}>
+              State Festival Director
             </div>
+            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Hiya Fiesta State Finals</div>
           </div>
         </div>
       </div>

@@ -16,10 +16,12 @@ export default async function ZonalFirstPlaceBGradePage() {
   const festName = settings.festName || stateEvent?.name || "CSWC Hiya Fiesta 2026";
 
   // Fetch state program assignments to check confirmation status
-  const stateAssignments = await prisma.programAssignment.findMany({
-    where: { program: { eventId: stateEvent?.id } },
-    select: { candidateId: true, program: { select: { programCode: true } } },
-  });
+  const stateAssignments = stateEvent
+    ? await prisma.programAssignment.findMany({
+        where: { program: { eventId: stateEvent.id } },
+        select: { candidateId: true, program: { select: { programCode: true } } },
+      })
+    : [];
 
   const stateAssignedSet = new Set(
     stateAssignments.map((a) => `${a.program.programCode}_${a.candidateId}`)
@@ -28,12 +30,15 @@ export default async function ZonalFirstPlaceBGradePage() {
     stateAssignments.map((a) => a.candidateId).filter(Boolean)
   );
 
-  // Fetch all 1st place with Grade B results
+  // Fetch all 1st place results that did NOT get an "A" grade (B Grade, C Grade, No Grade)
   const results = await prisma.result.findMany({
     where: {
       rank: 1,
-      grade: "B",
       isPublished: true,
+      OR: [
+        { grade: { not: "A" } },
+        { grade: null },
+      ],
     },
     include: {
       program: {
@@ -57,6 +62,11 @@ export default async function ZonalFirstPlaceBGradePage() {
         include: {
           institution: { include: { zone: true } },
           event: { include: { zone: true } },
+          candidates: {
+            include: {
+              institution: { include: { zone: true } },
+            },
+          },
         },
       },
     },
@@ -70,20 +80,30 @@ export default async function ZonalFirstPlaceBGradePage() {
     zoneName: string;
     zoneCode: string;
     totalCount: number;
+    gradeBCount: number;
+    gradeCCount: number;
+    noGradeCount: number;
     confirmedCount: number;
     pendingCount: number;
   }>();
 
   for (const r of results) {
+    // Exclude State event results if any
+    if (r.program?.event?.type === "STATE") continue;
+
+    // Exclude Karnataka Zone
     const isKar =
       r.candidate?.team?.institution?.zone?.code === "KAR" ||
+      r.candidate?.institution?.zone?.code === "KAR" ||
       r.team?.institution?.zone?.code === "KAR" ||
-      r.program?.event?.zone?.code === "KAR";
+      r.program?.event?.zone?.code === "KAR" ||
+      (r.program?.event?.zone?.name || "").toUpperCase().includes("KARNATAKA");
     if (isKar) continue;
 
     const zoneNameRaw =
       r.candidate?.team?.institution?.zone?.name ||
       r.candidate?.team?.event?.zone?.name ||
+      r.candidate?.institution?.zone?.name ||
       r.team?.institution?.zone?.name ||
       r.team?.event?.zone?.name ||
       r.program?.event?.zone?.name ||
@@ -95,13 +115,14 @@ export default async function ZonalFirstPlaceBGradePage() {
     const zoneCode =
       r.candidate?.team?.institution?.zone?.code ||
       r.candidate?.team?.event?.zone?.code ||
+      r.candidate?.institution?.zone?.code ||
       r.team?.institution?.zone?.code ||
       r.team?.event?.zone?.code ||
       r.program?.event?.zone?.code ||
       zoneName.substring(0, 3).toUpperCase();
 
     const candidateName = r.candidate?.name || r.team?.name || "Team";
-    const chestNo = r.candidate?.chestNumber || null;
+    const chestNo = r.candidate?.chestNumber || r.team?.prefixCode || null;
     const uid = r.candidate?.uid || null;
     const photoUrl = r.candidate?.photoUrl || r.candidate?.photo || null;
 
@@ -115,10 +136,14 @@ export default async function ZonalFirstPlaceBGradePage() {
     const stageType = r.program?.stageType || "ON_STAGE";
     const category = r.program?.category?.name || "GENERAL";
 
-    const key = `${progCode}_${r.candidateId}`;
-    const isConfirmed = r.candidateId
-      ? stateAssignedSet.has(key) || stateAssignedCandSet.has(r.candidateId)
+    const targetCandId = r.candidateId || (r.team?.candidates && r.team.candidates[0]?.id) || null;
+    const key = `${progCode}_${targetCandId}`;
+    const isConfirmed = targetCandId
+      ? stateAssignedSet.has(key) || stateAssignedCandSet.has(targetCandId)
       : false;
+
+    const rawGrade = (r.grade || "").toUpperCase().trim();
+    const grade = rawGrade === "B" ? "B" : rawGrade === "C" ? "C" : rawGrade || "NO GRADE";
 
     items.push({
       id: r.id,
@@ -129,7 +154,7 @@ export default async function ZonalFirstPlaceBGradePage() {
       category,
       zoneName,
       zoneCode,
-      candidateId: r.candidateId,
+      candidateId: targetCandId,
       candidateName,
       chestNumber: chestNo,
       uid,
@@ -137,8 +162,8 @@ export default async function ZonalFirstPlaceBGradePage() {
       institutionName: college,
       institutionCode: collegeCode,
       district,
-      marks: r.marks || 0,
-      grade: "B",
+      marks: (r as any).marks || (r as any).totalMarks || 0,
+      grade,
       isConfirmed,
     });
 
@@ -147,6 +172,9 @@ export default async function ZonalFirstPlaceBGradePage() {
         zoneName,
         zoneCode,
         totalCount: 0,
+        gradeBCount: 0,
+        gradeCCount: 0,
+        noGradeCount: 0,
         confirmedCount: 0,
         pendingCount: 0,
       });
@@ -154,6 +182,10 @@ export default async function ZonalFirstPlaceBGradePage() {
 
     const zs = zoneSummaryMap.get(zoneName)!;
     zs.totalCount++;
+    if (grade === "B") zs.gradeBCount++;
+    else if (grade === "C") zs.gradeCCount++;
+    else zs.noGradeCount++;
+
     if (isConfirmed) zs.confirmedCount++;
     else zs.pendingCount++;
   }

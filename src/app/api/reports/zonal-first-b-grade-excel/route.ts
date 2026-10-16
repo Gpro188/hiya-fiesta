@@ -10,10 +10,12 @@ export async function GET(req: NextRequest) {
       where: { type: "STATE" },
     });
 
-    const stateAssignments = await prisma.programAssignment.findMany({
-      where: { program: { eventId: stateEvent?.id } },
-      select: { candidateId: true, program: { select: { programCode: true } } },
-    });
+    const stateAssignments = stateEvent
+      ? await prisma.programAssignment.findMany({
+          where: { program: { eventId: stateEvent.id } },
+          select: { candidateId: true, program: { select: { programCode: true } } },
+        })
+      : [];
 
     const stateAssignedSet = new Set(
       stateAssignments.map((a) => `${a.program.programCode}_${a.candidateId}`)
@@ -25,8 +27,11 @@ export async function GET(req: NextRequest) {
     const results = await prisma.result.findMany({
       where: {
         rank: 1,
-        grade: "B",
         isPublished: true,
+        OR: [
+          { grade: { not: "A" } },
+          { grade: null },
+        ],
       },
       include: {
         program: {
@@ -50,6 +55,11 @@ export async function GET(req: NextRequest) {
           include: {
             institution: { include: { zone: true } },
             event: { include: { zone: true } },
+            candidates: {
+              include: {
+                institution: { include: { zone: true } },
+              },
+            },
           },
         },
       },
@@ -59,108 +69,120 @@ export async function GET(req: NextRequest) {
     });
 
     const rows: any[] = [];
-    let sl = 1;
+    let slNo = 1;
 
     for (const r of results) {
+      if (r.program?.event?.type === "STATE") continue;
+
       const isKar =
         r.candidate?.team?.institution?.zone?.code === "KAR" ||
+        r.candidate?.institution?.zone?.code === "KAR" ||
         r.team?.institution?.zone?.code === "KAR" ||
-        r.program?.event?.zone?.code === "KAR";
+        r.program?.event?.zone?.code === "KAR" ||
+        (r.program?.event?.zone?.name || "").toUpperCase().includes("KARNATAKA");
       if (isKar) continue;
 
-      const zoneName =
+      const zoneNameRaw =
         r.candidate?.team?.institution?.zone?.name ||
         r.candidate?.team?.event?.zone?.name ||
+        r.candidate?.institution?.zone?.name ||
         r.team?.institution?.zone?.name ||
         r.team?.event?.zone?.name ||
         r.program?.event?.zone?.name ||
         r.program?.event?.name ||
         "Unknown Zone";
 
-      const zoneCode =
-        r.candidate?.team?.institution?.zone?.code ||
-        r.candidate?.team?.event?.zone?.code ||
-        r.team?.institution?.zone?.code ||
-        r.team?.event?.zone?.code ||
-        r.program?.event?.zone?.code ||
-        "";
-
+      const zoneName = zoneNameRaw.replace(/\s*Zone\s*$/i, "").trim() || "General";
       const candidateName = r.candidate?.name || r.team?.name || "Team";
-      const chestNo = r.candidate?.chestNumber || "N/A";
-      const college =
-        r.candidate?.institution?.name ||
-        r.candidate?.team?.institution?.name ||
-        r.team?.institution?.name ||
-        "-";
-      const collegeCode =
-        r.candidate?.institution?.code ||
-        r.candidate?.team?.institution?.code ||
-        r.team?.institution?.code ||
-        "-";
-      const district =
-        r.candidate?.institution?.district ||
-        r.candidate?.team?.institution?.district ||
-        r.team?.institution?.district ||
-        "-";
+      const chestNo = r.candidate?.chestNumber || r.team?.prefixCode || "-";
+      const uid = r.candidate?.uid || "-";
+
+      const inst = r.candidate?.institution || r.candidate?.team?.institution || r.team?.institution;
+      const college = inst?.name || "-";
+      const collegeCode = inst?.code || "-";
+      const district = inst?.district || "-";
 
       const progCode = r.program?.programCode || "-";
       const progName = r.program?.name || "-";
       const stageType = r.program?.stageType || "ON_STAGE";
       const category = r.program?.category?.name || "GENERAL";
 
-      const key = `${progCode}_${r.candidateId}`;
-      const isConfirmed = r.candidateId
-        ? stateAssignedSet.has(key) || stateAssignedCandSet.has(r.candidateId)
+      const targetCandId = r.candidateId || (r.team?.candidates && r.team.candidates[0]?.id) || null;
+      const key = `${progCode}_${targetCandId}`;
+      const isConfirmed = targetCandId
+        ? stateAssignedSet.has(key) || stateAssignedCandSet.has(targetCandId)
         : false;
 
+      const rawGrade = (r.grade || "").toUpperCase().trim();
+      const grade = rawGrade === "B" ? "B" : rawGrade === "C" ? "C" : rawGrade || "NO GRADE";
+
       rows.push({
-        "Sl No": sl++,
-        "Zone / District": zoneName.replace(/\s*Zone\s*$/i, ""),
-        "Zone Code": zoneCode,
+        "Sl No": slNo++,
+        "Zone": zoneName,
         "Program Code": progCode,
         "Program Name": progName,
         "Stage Type": stageType,
         "Category": category,
-        "1st Place Winner": candidateName,
+        "Winner Name": candidateName,
         "Chest No": chestNo,
+        "UID": uid,
         "College Code": collegeCode,
         "College Name": college,
         "District": district,
-        "Rank": 1,
-        "Grade": "B",
-        "Marks": r.marks || 0,
-        "State Confirmation Status": isConfirmed ? "CONFIRMED TO STATE" : "PENDING CONFIRMATION",
+        "Marks": (r as any).marks || (r as any).totalMarks || 0,
+        "Grade": grade,
+        "State Confirmation Status": isConfirmed ? "CONFIRMED TO STATE" : "PENDING REVIEW",
       });
     }
 
-    // Sort by Zone then Program Code
     rows.sort((a, b) => {
-      if (a["Zone / District"] !== b["Zone / District"]) {
-        return a["Zone / District"].localeCompare(b["Zone / District"]);
-      }
+      if (a["Zone"] !== b["Zone"]) return a["Zone"].localeCompare(b["Zone"]);
       return (parseInt(a["Program Code"]) || 0) - (parseInt(b["Program Code"]) || 0);
     });
 
-    // Re-index Sl No
-    rows.forEach((r, idx) => {
-      r["Sl No"] = idx + 1;
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(rows);
+
+    const colWidths = [
+      { wch: 8 },  // Sl No
+      { wch: 18 }, // Zone
+      { wch: 14 }, // Program Code
+      { wch: 32 }, // Program Name
+      { wch: 14 }, // Stage Type
+      { wch: 16 }, // Category
+      { wch: 28 }, // Winner Name
+      { wch: 12 }, // Chest No
+      { wch: 12 }, // UID
+      { wch: 14 }, // College Code
+      { wch: 38 }, // College Name
+      { wch: 16 }, // District
+      { wch: 10 }, // Marks
+      { wch: 12 }, // Grade
+      { wch: 28 }, // Status
+    ];
+    worksheet["!cols"] = colWidths;
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, "1st Place Pending Review");
+
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
     });
 
-    const wb = xlsx.utils.book_new();
-    const ws = xlsx.utils.json_to_sheet(rows);
-    xlsx.utils.book_append_sheet(wb, ws, "1st Place Grade B Winners");
-
-    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
-
-    return new NextResponse(buf, {
+    const timestamp = new Date().toISOString().split("T")[0];
+    return new NextResponse(excelBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Zonal_1st_Place_Grade_B_Total_List.xlsx"`,
+        "Content-Disposition": `attachment; filename="Zonal_1st_Place_Pending_Review_List_${timestamp}.xlsx"`,
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },
     });
-  } catch (err: any) {
-    console.error("Failed to generate 1st place Grade B excel:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error generating Excel report:", error);
+    return NextResponse.json(
+      { error: "Failed to generate Excel report", details: error.message },
+      { status: 500 }
+    );
   }
 }

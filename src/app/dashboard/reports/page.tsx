@@ -602,11 +602,11 @@ export default async function ReportsPage(props: {
           <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.05)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🏢</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
-              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>State Participants &amp; Facilities Summary</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>FACILITIES &amp; ROSTER</span>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>State Venue Facilities &amp; Participants Summary</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#059669', color: '#ffffff', fontWeight: 800 }}>238 VENUE BEDS</span>
             </div>
             <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Zone-wise candidate headcounts to set all facilities (accommodation, meals, badges), plus full master registration list of State participants.
+              Facilities headcount for active venue attendees (State On-Stage + Fadheela PG Fest = 238 beds &amp; 714 daily meals). Completed regular off-stage programs are excluded.
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <a
@@ -625,7 +625,7 @@ export default async function ReportsPage(props: {
                   gap: '4px'
                 }}
               >
-                🖨️ View &amp; Print Hub
+                🖨️ View &amp; Print Facilities
               </a>
               <a
                 href="/api/reports/state-participants-excel"
@@ -647,15 +647,15 @@ export default async function ReportsPage(props: {
             </div>
           </div>
 
-          {/* 1st Place with Grade B (All Zones) */}
+          {/* 1st Place with Grade B, C & No Grade (All Zones) */}
           <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #d97706', backgroundColor: 'rgba(217,119,6,0.05)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🥇</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
-              <h4 style={{ margin: 0, color: '#d97706', fontWeight: 800 }}>1st Place with Grade B (All Zones)</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#d97706', color: '#ffffff', fontWeight: 800 }}>33 WINNERS</span>
+              <h4 style={{ margin: 0, color: '#d97706', fontWeight: 800 }}>1st Place Pending (Grade B, C &amp; No Grade)</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#d97706', color: '#ffffff', fontWeight: 800 }}>27 PENDING WINNERS</span>
             </div>
             <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Complete list of all 33 programs across the 7 zones where the 1st place winner received Grade B, with State confirmation status.
+              Master register of all zonal 1st place winners who secured Grade B, Grade C, or No Grade across the zones, with State confirmation status.
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <a
@@ -674,7 +674,7 @@ export default async function ReportsPage(props: {
                   gap: '4px'
                 }}
               >
-                🖨️ View &amp; Print List
+                🖨️ View &amp; Print Register
               </a>
               <a
                 href="/api/reports/zonal-first-b-grade-excel"

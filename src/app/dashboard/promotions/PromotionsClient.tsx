@@ -787,7 +787,7 @@ export default function PromotionsClient({
               border: "1px solid rgba(255,255,255,0.2)",
             }}
           >
-            🥇 1st Place with Grade B (33)
+            🥇 1st Place Pending (Grade B, C &amp; No Grade)
           </a>
           <a
             href="/print/state-participants"
@@ -807,7 +807,7 @@ export default function PromotionsClient({
               border: "1px solid rgba(255,255,255,0.2)",
             }}
           >
-            🏢 State Facilities &amp; Participants List
+            🏢 State Venue Facilities (238 Beds)
           </a>
         </div>
       </div>
