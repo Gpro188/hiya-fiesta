@@ -93,7 +93,21 @@ export async function promoteToState(resultId: string, masterProgramId: string) 
         teamCandidateIds = assigns.map(a => a.candidateId);
       }
 
-      // Fallback if not found in zone program: find candidate belonging to that team (e.g. Magazine)
+      // Check if candidate members were printed/logged in SystemAuditLog
+      if (teamCandidateIds.length === 0) {
+        const logs = await prisma.systemAuditLog.findMany({
+          where: {
+            action: "CERTIFICATE_PRINTED",
+            entityId: { startsWith: `${result.id}_` }
+          }
+        });
+        const candIdsFromLog = Array.from(new Set(logs.map(l => l.entityId.split('_')[1]).filter(Boolean)));
+        if (candIdsFromLog.length > 0) {
+          teamCandidateIds = candIdsFromLog;
+        }
+      }
+
+      // Fallback if not found in zone program or audit log: find candidate belonging to that team (e.g. Magazine)
       if (teamCandidateIds.length === 0) {
         const teamCands = await prisma.candidate.findMany({
           where: { teamId: result.teamId },
@@ -262,7 +276,7 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
               }
             }
           },
-          select: { id: true, candidateId: true }
+          select: { id: true, candidateId: true, candidate: { select: { teamId: true } } }
         });
 
         if (existingZoneAssignments.length > 0) {
@@ -278,6 +292,30 @@ export async function autoPromoteZoneFirstPlaces(zoneEventId: string) {
         if (isGroup && r.teamId) {
           const zp = zoneProgByCode.get(masterProg.programCode);
           let teamCands = zp ? zp.assignments.filter(a => a.candidate?.teamId === r.teamId).map(a => a.candidateId) : [];
+
+          // If not in zone program, preserve existing master program assignments for this team
+          if (teamCands.length === 0) {
+            const currentMasterTeamCands = existingZoneAssignments
+              .filter(a => a.candidate?.teamId === r.teamId)
+              .map(a => a.candidateId);
+            if (currentMasterTeamCands.length > 0) {
+              teamCands = currentMasterTeamCands;
+            }
+          }
+
+          // If still empty, check SystemAuditLog for printed certificates
+          if (teamCands.length === 0) {
+            const logs = await prisma.systemAuditLog.findMany({
+              where: {
+                action: "CERTIFICATE_PRINTED",
+                entityId: { startsWith: `${r.id}_` }
+              }
+            });
+            const candIdsFromLog = Array.from(new Set(logs.map(l => l.entityId.split('_')[1]).filter(Boolean)));
+            if (candIdsFromLog.length > 0) {
+              teamCands = candIdsFromLog;
+            }
+          }
 
           if (teamCands.length === 0) {
             const cands = await prisma.candidate.findMany({
