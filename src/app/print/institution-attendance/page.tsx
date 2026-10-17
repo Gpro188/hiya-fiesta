@@ -77,10 +77,7 @@ export default async function PrintInstitutionAttendancePage(props: {
     const allStateCandidates = await prisma.candidate.findMany({
       where: {
         isApproved: true,
-        OR: [
-          { isStateQualified: true },
-          { programs: { some: { program: { eventId: activeEvent.id } } } },
-        ],
+        programs: { some: { program: { eventId: activeEvent.id } } },
         NOT: {
           OR: [
             { institution: { zone: { code: "KAR" } } },
@@ -127,9 +124,14 @@ export default async function PrintInstitutionAttendancePage(props: {
       return a.name.localeCompare(b.name);
     });
 
+    // Filter out candidates who do not have any state programs
+    const activeStateCandidates = allStateCandidates.filter(
+      (c) => c.programs && c.programs.length > 0
+    );
+
     // Group candidates by Zone
     let stateZoneGroups = keralaZones.map((z) => {
-      const zCands = allStateCandidates.filter(
+      const zCands = activeStateCandidates.filter(
         (c) =>
           c.institution?.zoneId === z.id ||
           c.team?.institution?.zoneId === z.id ||

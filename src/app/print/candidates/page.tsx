@@ -47,11 +47,7 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
   if (!searchParams.teamId && eventId) {
     const ev = await prisma.event.findUnique({ where: { id: eventId } });
     if (ev?.type === "STATE") {
-      delete whereClause.team;
-      whereClause.OR = [
-        { isStateQualified: true },
-        { assignments: { some: { program: { eventId } } } }
-      ];
+      whereClause.programs = { some: { program: { eventId } } };
       whereClause.isApproved = true;
       whereClause.NOT = {
         OR: [

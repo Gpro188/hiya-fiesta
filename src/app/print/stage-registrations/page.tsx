@@ -108,12 +108,7 @@ export default async function StageRegistrationPrintPage(props: {
       where: {
         isApproved: true,
         AND: [
-          {
-            OR: [
-              { isStateQualified: true },
-              { programs: { some: { program: { eventId: team.eventId } } } },
-            ],
-          },
+          { programs: { some: { program: { eventId: team.eventId } } } },
           {
             OR: [
               { institution: { zone: { name: { contains: team.name, mode: "insensitive" } } } },
