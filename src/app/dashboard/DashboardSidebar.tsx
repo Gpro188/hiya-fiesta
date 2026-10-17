@@ -188,6 +188,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           highlight: true,
         },
         {
+          name: "State Magazine Valuation",
+          subtitle: "New code & mark record",
+          icon: BookOpen,
+          href: "/print/state-magazine-valuation",
+          highlight: true,
+        },
+        {
           name: "Master Institutions",
           subtitle: "Upload & Zone mappings",
           icon: Building2,
@@ -372,6 +379,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           subtitle: "Photos & marks sheet",
           icon: PenLine,
           href: "/print/zonal-offstage-valuation",
+          highlight: true,
+        },
+        {
+          name: "State Magazine Valuation",
+          subtitle: "New code & mark record",
+          icon: BookOpen,
+          href: "/print/state-magazine-valuation",
           highlight: true,
         },
         {

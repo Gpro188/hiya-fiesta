@@ -543,9 +543,20 @@ export default async function ReportsPage(props: {
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📖</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
               <h4 style={{ margin: 0, color: '#7e22ce' }}>Zonal Magazine Valuation Sheet</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(126,34,206,0.12)', color: '#7e22ce', fontWeight: 800 }}>MAGAZINE CODES</span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(126,34,206,0.12)', color: '#7e22ce', fontWeight: 800 }}>ZONAL CODES</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official Magazine evaluation sheets for Zonal centers. Evaluates physical magazine copies by Magazine Code (MAG-01, MAG-02) with blind judging option.</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print official Magazine evaluation sheets for Zonal centers. Evaluates physical magazine copies by Zonal Magazine Code (MAG-01, MAG-02).</p>
+          </a>
+
+          {/* State Magazine Valuation Sheet (with New Code Option) */}
+          <a href="/print/state-magazine-valuation" target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2.5px solid #581c87', backgroundColor: '#faf5ff' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🌟📖</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#581c87', fontWeight: 900 }}>State Magazine Valuation Sheet</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#7e22ce', color: '#ffffff', fontWeight: 800 }}>NEW CODE OPTION</span>
+              <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e9d5ff', color: '#581c87', fontWeight: 800 }}>STATE FINAL</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official State Magazine evaluation sheet. Assigns distinct New State Codes (e.g. SMAG-01, SMAG-02) to prevent zonal code clashes, with blind judging, custom prefix, and print controls.</p>
           </a>
 
           {/* Off-Stage Results & Stage 1 Announcement Sheet */}

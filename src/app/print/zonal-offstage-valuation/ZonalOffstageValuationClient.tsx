@@ -263,7 +263,25 @@ export default function ZonalOffstageValuationClient({
                 </button>
               </div>
 
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                <a
+                  href="/print/state-magazine-valuation"
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "#7e22ce",
+                    color: "#ffffff",
+                    borderRadius: "6px",
+                    textDecoration: "none",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    boxShadow: "0 2px 6px rgba(126, 34, 206, 0.4)",
+                  }}
+                >
+                  📖 State Magazine Sheet (New Code) →
+                </a>
                 <PrintButton label={`Print Valuation Sheets (${visiblePrograms.length})`} />
                 <a
                   href="/dashboard/reports"
