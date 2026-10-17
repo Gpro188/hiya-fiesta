@@ -34,7 +34,23 @@ export default async function StageRegistrationPrintPage(props: {
     } else if (searchParams.zoneId) {
       teamWhere = { institution: { zoneId: searchParams.zoneId } };
     } else if (searchParams.eventId) {
-      teamWhere = { eventId: searchParams.eventId };
+      const ev = await prisma.event.findUnique({
+        where: { id: searchParams.eventId },
+        select: { type: true },
+      });
+      if (ev?.type === "STATE") {
+        teamWhere = {
+          eventId: searchParams.eventId,
+          NOT: {
+            OR: [
+              { prefixCode: "KAR" },
+              { name: { contains: "Karnataka", mode: "insensitive" } },
+            ],
+          },
+        };
+      } else {
+        teamWhere = { eventId: searchParams.eventId };
+      }
     }
 
     allTeams = await prisma.team.findMany({
@@ -75,7 +91,7 @@ export default async function StageRegistrationPrintPage(props: {
           zone: { select: { id: true, name: true } }
         }
       },
-      event: { select: { id: true, name: true } }
+      event: { select: { id: true, name: true, type: true } }
     }
   });
 
@@ -84,24 +100,69 @@ export default async function StageRegistrationPrintPage(props: {
   }
 
   const settings = await getSettings(team.eventId);
+  const isStateEvent = team.event?.type === "STATE";
 
-  const candidates = await prisma.candidate.findMany({
-    where: { teamId: targetTeamId },
-    include: {
-      category: true,
-      programs: {
-        include: { program: true },
-        orderBy: { program: { name: "asc" } }
-      }
-    },
-    orderBy: { name: "asc" }
-  });
+  let candidates: any[] = [];
+  if (isStateEvent) {
+    candidates = await prisma.candidate.findMany({
+      where: {
+        isApproved: true,
+        AND: [
+          {
+            OR: [
+              { isStateQualified: true },
+              { programs: { some: { program: { eventId: team.eventId } } } },
+            ],
+          },
+          {
+            OR: [
+              { institution: { zone: { name: { contains: team.name, mode: "insensitive" } } } },
+              { team: { institution: { zone: { name: { contains: team.name, mode: "insensitive" } } } } },
+              { team: { event: { zone: { name: { contains: team.name, mode: "insensitive" } } } } },
+            ],
+          },
+        ],
+        NOT: {
+          OR: [
+            { institution: { zone: { code: "KAR" } } },
+            { team: { institution: { zone: { code: "KAR" } } } },
+            { team: { event: { zone: { code: "KAR" } } } },
+            { institution: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } },
+            { team: { institution: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } } },
+            { team: { event: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } } },
+          ],
+        },
+      },
+      include: {
+        category: true,
+        programs: {
+          where: { program: { eventId: team.eventId } },
+          include: { program: true },
+          orderBy: { program: { name: "asc" } },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+  } else {
+    candidates = await prisma.candidate.findMany({
+      where: { teamId: targetTeamId },
+      include: {
+        category: true,
+        programs: {
+          include: { program: true },
+          orderBy: { program: { name: "asc" } },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+  }
+
 
   const offStageItems: any[] = [];
   const onStageItems: any[] = [];
 
-  candidates.forEach(candidate => {
-    candidate.programs.forEach(pa => {
+  candidates.forEach((candidate: any) => {
+    candidate.programs.forEach((pa: any) => {
       const prog = pa.program;
       const item = {
         id: pa.id,

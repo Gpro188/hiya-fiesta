@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import PrintButton from "@/components/PrintButton";
 import { formatTimeAmPm } from "@/lib/scheduleCalculator";
+import SchedulePrintClient from "./SchedulePrintClient";
 
 export const dynamic = 'force-dynamic';
 
@@ -239,215 +240,43 @@ export default async function PrintSchedulePage(props: {
     ? "State Final & Fadheela PG Fest (Collab)"
     : (activeEv?.zone?.name || activeEv?.name || team?.event?.zone?.name || "");
 
+  const festName = isCollab ? "CSWC Hiya Fiesta 2026 Grand Finale" : settings.festName;
+  const festSubtitle = isCollab
+    ? "Grand Finale Program Schedule • State Final & Fadheela PG Fest (Collab)"
+    : `Official On-Stage Program Schedule ${zoneName ? `• ${zoneName}` : ""}`;
+
+  const generatedDateStr = `Generated on: ${new Date().toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "long",
+  })} at ${new Date().toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    timeStyle: "short",
+  })}`;
+
+  const teamInfo = team
+    ? {
+        name: team.name,
+        institutionName: team.institution?.name,
+        prefixCode: team.prefixCode,
+      }
+    : null;
+
   return (
-    <div style={{ padding: '30px 40px', backgroundColor: 'white', color: 'black', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
-      {/* Official Header */}
-      <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2.5px solid #8E0033', paddingBottom: '16px' }}>
-        <h1 style={{ margin: '0 0 4px 0', fontSize: '1.8rem', fontWeight: 900, color: '#8E0033' }}>
-          {isCollab ? "CSWC Hiya Fiesta 2026 Grand Finale" : settings.festName}
-        </h1>
-        <h2 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#1e293b' }}>
-          {isCollab 
-            ? "Grand Finale Program Schedule • State Final & Fadheela PG Fest (Collab)" 
-            : `Official On-Stage Program Schedule ${zoneName ? `• ${zoneName}` : ""}`}
-        </h2>
-        {team ? (
-          <p style={{ margin: '4px 0 0 0', fontWeight: 700, color: '#475569', fontSize: '0.9rem' }}>
-            Institution / Team: {team.institution?.name || team.name} ({team.prefixCode})
-          </p>
-        ) : isCollab ? (
-          <p style={{ margin: '4px 0 0 0', fontWeight: 700, color: '#b45309', fontSize: '0.88rem' }}>
-            🌟 Combined Timeline for State Fest & Fadheela PG Programs Across All Stages
-          </p>
-        ) : (
-          <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', fontSize: '0.85rem', color: '#64748b' }}>
-            {settings.festMoto || "Official Festival Timeline"}
-          </p>
-        )}
-      </div>
-
-      {/* Venues Schedule Sections */}
-      {Object.keys(venueGroups).length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🗓️</div>
-          <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', fontSize: '1.2rem', fontWeight: 800 }}>No Programs Scheduled on Stages Yet</h3>
-          <p style={{ margin: 0, fontSize: '0.9rem' }}>
-            Only programs with assigned venues and start times appear on this official schedule print.
-          </p>
-        </div>
-      ) : (
-        Object.entries(venueGroups).map(([venueName, venueProgs]) => (
-        <div key={venueName} style={{ marginBottom: '28px', pageBreakInside: 'avoid' }}>
-          <div style={{ 
-            backgroundColor: '#8E0033', 
-            color: '#ffffff', 
-            padding: '6px 14px', 
-            borderRadius: '4px 4px 0 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontWeight: 800,
-            fontSize: '0.95rem'
-          }}>
-            <span>📍 {venueName}</span>
-            <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{venueProgs.length} Program(s)</span>
-          </div>
-
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1.5px solid #cbd5e1' }}>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '50px', textAlign: 'center' }}>#</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '130px', textAlign: 'center' }}>Time (IST)</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '85px', textAlign: 'center' }}>Code</th>
-                {isCollab && (
-                  <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '125px', textAlign: 'center' }}>Fest</th>
-                )}
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', textAlign: 'left' }}>Program Name</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '120px' }}>Category</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '8px 10px', width: '75px', textAlign: 'center' }}>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {venueProgs.map((p, idx) => {
-                const startTimeStr = formatTimeAmPm(p.startTime);
-                const endTimeStr = p.startTime && p.duration
-                  ? formatTimeAmPm(new Date(new Date(p.startTime).getTime() + p.duration * 60000))
-                  : null;
-
-                if (p.type === "BREAK") {
-                  return (
-                    <tr key={p.id} style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
-                      <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}>-</td>
-                      <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
-                        {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
-                      </td>
-                      <td colSpan={isCollab ? 5 : 4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
-                        🍽️ {p.name?.toUpperCase() || 'BREAK'} ({p.duration || 45} mins)
-                      </td>
-                    </tr>
-                  );
-                }
-
-                const prevProg = idx > 0 ? venueProgs[idx - 1] : null;
-                const curDate = p.startTime ? new Date(p.startTime) : null;
-                const prevDate = prevProg?.startTime ? new Date(prevProg.startTime) : null;
-                const curDateStr = curDate ? curDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
-                const prevDateStr = prevDate ? prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
-                const isNewDay = curDateStr && (idx === 0 || curDateStr !== prevDateStr);
-                const dayDisplayLabel = curDate ? curDate.toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  timeZone: 'Asia/Kolkata'
-                }) : '';
-
-                let showBreakRow = false;
-                let gapStartStr = "";
-                let gapEndStr = "";
-                let gapMins = 0;
-                if (prevProg && prevProg.startTime && prevProg.duration && p.startTime && prevProg.type !== "BREAK") {
-                  const prevEnd = new Date(new Date(prevProg.startTime).getTime() + prevProg.duration * 60000);
-                  const curStart = new Date(p.startTime);
-                  gapMins = Math.round((curStart.getTime() - prevEnd.getTime()) / 60000);
-                  const istHour = (prevEnd.getUTCHours() + 5 + Math.floor((prevEnd.getUTCMinutes() + 30) / 60)) % 24;
-                  if (gapMins >= 20 && istHour >= 11 && istHour <= 16) {
-                    showBreakRow = true;
-                    gapStartStr = formatTimeAmPm(prevEnd);
-                    gapEndStr = formatTimeAmPm(curStart);
-                  } else if (gapMins >= 30) {
-                    showBreakRow = true;
-                    gapStartStr = formatTimeAmPm(prevEnd);
-                    gapEndStr = formatTimeAmPm(curStart);
-                  }
-                }
-
-                return (
-                  <React.Fragment key={p.id}>
-                    {isNewDay && (
-                      <tr style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>
-                        <td colSpan={isCollab ? 7 : 6} style={{ border: '1px solid #1e293b', padding: '7px 12px', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                          📅 {dayDisplayLabel ? dayDisplayLabel.toUpperCase() : 'SCHEDULED DAY'}
-                        </td>
-                      </tr>
-                    )}
-                    {showBreakRow && (
-                      <tr style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
-                        <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}>-</td>
-                        <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#b45309' }}>
-                          {gapStartStr} - {gapEndStr}
-                        </td>
-                        <td colSpan={isCollab ? 5 : 4} style={{ border: '1px solid #fde68a', padding: '6px 12px', fontWeight: 800, letterSpacing: '0.5px' }}>
-                          🍽️ LUNCH & PRAYER BREAK ({gapMins} mins)
-                        </td>
-                      </tr>
-                    )}
-                    <tr style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#64748b' }}>
-                        {idx + 1}
-                      </td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, color: '#047857' }}>
-                        {startTimeStr} {endTimeStr ? ` - ${endTimeStr}` : ""}
-                      </td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
-                        {p.programCode || '-'}
-                      </td>
-                      {isCollab && (
-                        <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center' }}>
-                          <span style={{
-                            fontSize: '0.70rem',
-                            fontWeight: 800,
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            backgroundColor: (p as any).festType === 'PG' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(37, 99, 235, 0.15)',
-                            color: (p as any).festType === 'PG' ? '#7e22ce' : '#1d4ed8',
-                            border: `1px solid ${(p as any).festType === 'PG' ? '#c084fc' : '#93c5fd'}`,
-                            display: 'inline-block',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {(p as any).festType === 'PG' ? '🎓 Fadheela PG' : '🏆 State Final'}
-                          </span>
-                        </td>
-                      )}
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 10px', fontWeight: 800, color: '#0f172a' }}>
-                        {p.name}
-                      </td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' }}>
-                        {p.category?.name || 'General'}
-                      </td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>
-                        {p.duration ? `${p.duration}m` : '-'}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )))}
-
-      {/* Footer */}
-      <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.85rem' }}>
-        <div>
-          Generated on: {new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "long" })} at {new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" })}
-        </div>
-        <div style={{ borderTop: '1.5px solid black', width: '220px', textAlign: 'center', paddingTop: '6px', fontWeight: 700 }}>
-          General Convener / Stage Manager
-        </div>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; color: black !important; padding: 0 !important; }
-        }
-      `}} />
-      
-      <div className="no-print" style={{ position: 'fixed', bottom: '20px', right: '20px' }}>
-        <PrintButton label="🖨️ Print Schedule" />
-      </div>
-    </div>
+    <SchedulePrintClient
+      isCollab={isCollab}
+      festName={festName}
+      festSubtitle={festSubtitle}
+      teamInfo={teamInfo}
+      collabNote={
+        isCollab
+          ? "🌟 Combined Timeline for State Fest & Fadheela PG Programs Across All Stages"
+          : null
+      }
+      festMoto={settings.festMoto}
+      zoneName={zoneName}
+      venueGroups={venueGroups}
+      generatedDateStr={generatedDateStr}
+    />
   );
 }
+
