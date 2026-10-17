@@ -2297,3 +2297,116 @@ export async function applyCrossVenueTransfers(
     return { success: false, error: e.message || "Failed to apply venue transfers" };
   }
 }
+
+export async function addCustomVenue(eventId: string, venueName: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const cleanVenue = venueName.trim();
+    if (!cleanVenue) return { success: false, error: "Venue name cannot be empty" };
+
+    let targetEventId = eventId;
+    if (eventId === "collab_state_pg" || eventId === "collab") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      if (stateEv) targetEventId = stateEv.id;
+    }
+
+    const hp = await prisma.homepageSetting.findUnique({
+      where: { eventId: targetEventId }
+    });
+
+    const currentStats = (hp?.statsCounter as any) || {};
+    const currentVenues: string[] = Array.isArray(currentStats.configuredVenues)
+      ? [...currentStats.configuredVenues]
+      : [];
+
+    if (!currentVenues.includes(cleanVenue)) {
+      currentVenues.push(cleanVenue);
+    }
+
+    if (hp) {
+      await prisma.homepageSetting.update({
+        where: { id: hp.id },
+        data: {
+          statsCounter: {
+            ...currentStats,
+            configuredVenues: currentVenues
+          }
+        }
+      });
+    } else {
+      await prisma.homepageSetting.create({
+        data: {
+          eventId: targetEventId,
+          statsCounter: {
+            ...currentStats,
+            configuredVenues: currentVenues
+          }
+        }
+      });
+    }
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true, venues: currentVenues };
+  } catch (e: any) {
+    console.error("addCustomVenue error:", e);
+    return { success: false, error: e.message || "Failed to add custom venue" };
+  }
+}
+
+export async function deleteCustomVenue(eventId: string, venueName: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const cleanVenue = venueName.trim();
+
+    let targetEventId = eventId;
+    if (eventId === "collab_state_pg" || eventId === "collab") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" } });
+      if (stateEv) targetEventId = stateEv.id;
+    }
+
+    const hp = await prisma.homepageSetting.findUnique({
+      where: { eventId: targetEventId }
+    });
+
+    if (hp) {
+      const currentStats = (hp.statsCounter as any) || {};
+      const currentVenues: string[] = Array.isArray(currentStats.configuredVenues)
+        ? currentStats.configuredVenues.filter((v: string) => v !== cleanVenue)
+        : [];
+
+      await prisma.homepageSetting.update({
+        where: { id: hp.id },
+        data: {
+          statsCounter: {
+            ...currentStats,
+            configuredVenues: currentVenues
+          }
+        }
+      });
+    }
+
+    // Also call existing deleteVenue to unassign any programs in that venue
+    await deleteVenue(eventId, cleanVenue);
+
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/print/schedule");
+    revalidatePath("/print/venue");
+    revalidatePath("/print/stage-manager");
+
+    return { success: true };
+  } catch (e: any) {
+    console.error("deleteCustomVenue error:", e);
+    return { success: false, error: e.message || "Failed to delete custom venue" };
+  }
+}
+

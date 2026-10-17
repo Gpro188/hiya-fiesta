@@ -20,6 +20,8 @@ import {
   autoGenerateSchedule, 
   renameVenue,
   deleteVenue,
+  addCustomVenue,
+  deleteCustomVenue,
   applySequentialVenueSchedule,
   publishMasterScheduleToAllZones,
   publishZoneSchedule,
@@ -39,7 +41,8 @@ export default function AdminScheduler({
   eventStatusOverride = "AUTO",
   eventStartDate = null,
   eventEndDate = null,
-  isCollab = false
+  isCollab = false,
+  savedVenues = []
 }: { 
   initialPrograms: any[], 
   eventId: string, 
@@ -49,13 +52,16 @@ export default function AdminScheduler({
   eventStatusOverride?: string,
   eventStartDate?: string | null,
   eventEndDate?: string | null,
-  isCollab?: boolean
+  isCollab?: boolean,
+  savedVenues?: string[]
 }) {
   const [programs, setPrograms] = useState<any[]>(initialPrograms);
   const [statusOverride, setStatusOverride] = useState(eventStatusOverride);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [newVenueName, setNewVenueName] = useState("");
-  const [localVenues, setLocalVenues] = useState<string[]>([]);
+  const [localVenues, setLocalVenues] = useState<string[]>(() => {
+    return Array.isArray(savedVenues) ? [...savedVenues] : [];
+  });
   
   // Active stage tab: "ALL", a specific venue like "Stage 1", or "Unassigned"
   const [activeStageTab, setActiveStageTab] = useState<string>("ALL");
@@ -143,6 +149,13 @@ export default function AdminScheduler({
         const parsedDates = JSON.parse(savedDates);
         if (parsedDates && typeof parsedDates === "object") {
           setVenueDates(parsedDates);
+        }
+      }
+      const savedCustomVenues = localStorage.getItem(`custom_venues_${eventId}`);
+      if (savedCustomVenues) {
+        const parsedCustom = JSON.parse(savedCustomVenues);
+        if (Array.isArray(parsedCustom)) {
+          setLocalVenues(prev => Array.from(new Set([...prev, ...parsedCustom])));
         }
       }
     } catch (e) {
@@ -237,12 +250,33 @@ export default function AdminScheduler({
     }
   }, [allVenues, batchTargetStage]);
 
-  const handleAddVenue = () => {
+  const handleAddVenue = async () => {
     const clean = newVenueName.trim();
-    if (clean && !allVenues.includes(clean)) {
-      setLocalVenues(prev => [...prev, clean]);
+    if (!clean) return;
+    if (!allVenues.includes(clean)) {
+      const updated = Array.from(new Set([...localVenues, clean]));
+      setLocalVenues(updated);
+      try {
+        localStorage.setItem(`custom_venues_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
       setNewVenueName("");
       setActiveStageTab(clean);
+      setLoadingId(`add-venue-${clean}`);
+      try {
+        const res = await addCustomVenue(eventId, clean);
+        if (res.success) {
+          alert(`✅ Stage "${clean}" created and saved permanently!`);
+        } else {
+          console.warn("Server addCustomVenue notice:", res.error);
+        }
+      } catch (e: any) {
+        console.warn("addCustomVenue error:", e);
+      } finally {
+        setLoadingId(null);
+      }
+    } else {
+      setActiveStageTab(clean);
+      setNewVenueName("");
     }
   };
 
@@ -973,7 +1007,10 @@ export default function AdminScheduler({
   // 1-Click Save Order & Timings for a venue
   const handleApplyVenueTimings = async (venue: string) => {
     const venueProgs = groupedPrograms[venue] || [];
-    if (venueProgs.length === 0) return;
+    if (venueProgs.length === 0) {
+      alert(`ℹ️ Stage "${venue}" is saved! Please assign at least one program to this stage using the selector below to generate the sequential timing schedule.`);
+      return;
+    }
 
     const targetDateStr = getVenueDate(venue, venueProgs);
     const buf = getVenueBuffer(venue, venueProgs);
@@ -1033,7 +1070,11 @@ export default function AdminScheduler({
       const res = await renameVenue(eventId, oldName, clean);
       if (res.success) {
         setPrograms(prev => prev.map(p => p.venue === oldName ? { ...p, venue: clean } : p));
-        setLocalVenues(prev => prev.map(v => v === oldName ? clean : v));
+        const updated = localVenues.map(v => v === oldName ? clean : v);
+        setLocalVenues(updated);
+        try {
+          localStorage.setItem(`custom_venues_${eventId}`, JSON.stringify(updated));
+        } catch (e) {}
         if (activeStageTab === oldName) setActiveStageTab(clean);
       } else {
         alert("Failed to rename venue: " + (res.error || "Unknown error"));
@@ -1052,10 +1093,14 @@ export default function AdminScheduler({
 
     setLoadingId(`delete-${venueName}`);
     try {
-      const res = await deleteVenue(eventId, venueName);
+      const updated = localVenues.filter(v => v !== venueName);
+      setLocalVenues(updated);
+      try {
+        localStorage.setItem(`custom_venues_${eventId}`, JSON.stringify(updated));
+      } catch (e) {}
+      const res = await deleteCustomVenue(eventId, venueName);
       if (res.success) {
         setPrograms(prev => prev.map(p => p.venue === venueName ? { ...p, venue: null } : p));
-        setLocalVenues(prev => prev.filter(v => v !== venueName));
         if (activeStageTab === venueName) setActiveStageTab("ALL");
       } else {
         alert("Failed to delete venue: " + (res.error || "Unknown error"));
@@ -2513,8 +2558,55 @@ export default function AdminScheduler({
             {/* Programs List */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {venueProgs.length === 0 ? (
-                <div style={{ color: "var(--text-muted)", fontSize: "0.875rem", padding: "var(--spacing-md)", textAlign: "center", border: "1px dashed var(--border-color)", borderRadius: "var(--radius-md)" }}>
-                  No programs assigned to this stage yet.
+                <div style={{ 
+                  fontSize: "0.875rem", 
+                  padding: "var(--spacing-lg)", 
+                  textAlign: "center", 
+                  border: "2px dashed #cbd5e1", 
+                  borderRadius: "12px",
+                  backgroundColor: "#f8fafc",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "12px"
+                }}>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#1e293b" }}>
+                    📍 Stage "{venue}" is Active & Ready
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "#64748b", maxWidth: "480px" }}>
+                    No programs are currently scheduled on this stage. Select an unassigned on-stage program below to immediately place it on <strong>{venue}</strong>:
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", marginTop: "4px" }}>
+                    <select
+                      id={`quick-assign-${venue}`}
+                      className="form-input"
+                      style={{ maxWidth: "380px", fontSize: "0.85rem", padding: "6px 10px", fontWeight: 700 }}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>-- Select an Unassigned Program ({(groupedPrograms["Unassigned"] || []).length} available) --</option>
+                      {(groupedPrograms["Unassigned"] || []).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.programCode ? `[${p.programCode}] ` : ""}{p.name} ({p.festName || (p.festType === "PG" ? "PG Fest" : "State Final")})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: "6px 16px", fontWeight: 800, fontSize: "0.85rem", backgroundColor: "#059669", borderColor: "#059669" }}
+                      onClick={async () => {
+                        const sel = document.getElementById(`quick-assign-${venue}`) as HTMLSelectElement | null;
+                        const progId = sel?.value;
+                        if (!progId) {
+                          alert("Please select an unassigned program first.");
+                          return;
+                        }
+                        await handleAssignVenue(progId, venue);
+                      }}
+                      disabled={loadingId !== null}
+                    >
+                      + Assign to {venue}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 predictedList.map((item: any, idx: number) => {

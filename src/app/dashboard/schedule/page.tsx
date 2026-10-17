@@ -148,7 +148,8 @@ export default async function SchedulePage(props: {
         where: { id: stateEv.id },
         include: {
           zone: true,
-          selectedJudges: { select: { id: true, username: true } }
+          selectedJudges: { select: { id: true, username: true } },
+          homepageSetting: { select: { statsCounter: true } }
         }
       });
       zoneJudges = activeEv?.selectedJudges || [];
@@ -157,11 +158,17 @@ export default async function SchedulePage(props: {
         where: { id: activeEventId },
         include: { 
           zone: true,
-          selectedJudges: { select: { id: true, username: true } } 
+          selectedJudges: { select: { id: true, username: true } },
+          homepageSetting: { select: { statsCounter: true } }
         }
       });
       zoneJudges = activeEv?.selectedJudges || [];
     }
+
+    const statsCounter = (activeEv?.homepageSetting?.statsCounter as any) || {};
+    const configuredVenues: string[] = Array.isArray(statsCounter.configuredVenues)
+      ? statsCounter.configuredVenues
+      : [];
 
     const targetZoneId = isCollab ? null : (activeEv?.zoneId || activeEv?.zone?.id);
 
@@ -303,6 +310,7 @@ export default async function SchedulePage(props: {
             eventStartDate={activeEv?.startDate ? activeEv.startDate.toISOString() : null}
             eventEndDate={activeEv?.endDate ? activeEv.endDate.toISOString() : null}
             isCollab={isCollab}
+            savedVenues={configuredVenues}
           />
         </div>
       </div>
