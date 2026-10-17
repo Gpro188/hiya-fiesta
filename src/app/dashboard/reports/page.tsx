@@ -647,6 +647,93 @@ export default async function ReportsPage(props: {
             </div>
           </div>
 
+          {/* State Fest Candidate ID Cards (Selected Students) */}
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🪪</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>State Fest ID Cards (Selected Students)</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>293 SELECTED WINNERS</span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(142,0,51,0.1)', color: '#8E0033', fontWeight: 700 }}>7.5 × 12.5 CM EXACT</span>
+            </div>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Official ID cards for all 293 students qualified and selected for the State Festival from Zonal First Places, with exact physical card fitting PDF export, On-Stage / Off-Stage filtering, and zone selection.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a
+                href="/print/id-cards?isState=true&stageType=ALL"
+                target="_blank"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#8E0033',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🪪 All Selected Students (293)
+              </a>
+              <a
+                href="/print/id-cards?isState=true&stageType=ON_STAGE"
+                target="_blank"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🎭 On-Stage Only (193)
+              </a>
+              <a
+                href="/print/id-cards?isState=true&stageType=OFF_STAGE"
+                target="_blank"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                📝 Off-Stage Only (141)
+              </a>
+              <a
+                href="/print/id-cards?eventId=collab_state_pg"
+                target="_blank"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  padding: '6px 12px',
+                  backgroundColor: '#7c3aed',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🌟 State + PG Collab
+              </a>
+            </div>
+          </div>
+
           {/* 1st Place with Grade B, C & No Grade (All Zones) */}
           <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #d97706', backgroundColor: 'rgba(217,119,6,0.05)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🥇</div>

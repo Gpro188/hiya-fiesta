@@ -12,14 +12,22 @@ export default function BulkIdCardsClient({
   candidates,
   settings,
   initialStageType = "ON_STAGE",
+  eventName,
+  isStateFest = false,
+  zones = [],
 }: {
   candidates: any[];
   settings: any;
   initialStageType?: string;
+  eventName?: string;
+  isStateFest?: boolean;
+  zones?: any[];
 }) {
   const [stageFilter, setStageFilter] = useState<StageFilter>(
     initialStageType === "OFF_STAGE" ? "OFF_STAGE" : initialStageType === "ALL" ? "ALL" : "ON_STAGE"
   );
+  const [selectedZone, setSelectedZone] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [paperSize, setPaperSize] = useState<PaperSize>("CARD");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("MAX");
   const [showCutBorders, setShowCutBorders] = useState<boolean>(true);
@@ -47,27 +55,50 @@ export default function BulkIdCardsClient({
     ).length;
   }, [candidates]);
 
-  // Filter candidates by Stage Type
+  // Filter candidates by Stage Type, Zone, and Search
   const filteredCandidates = useMemo(() => {
-    if (stageFilter === "ALL") return candidates;
+    let result = candidates;
+
+    // Filter by Stage Type
     if (stageFilter === "ON_STAGE") {
-      return candidates.filter((c) =>
+      result = result.filter((c) =>
         c.programs?.some((p: any) => {
           const st = (p.program?.stageType || p.stageType || "").toUpperCase();
           return st === "ON_STAGE" || st.includes("ON");
         })
       );
-    }
-    if (stageFilter === "OFF_STAGE") {
-      return candidates.filter((c) =>
+    } else if (stageFilter === "OFF_STAGE") {
+      result = result.filter((c) =>
         c.programs?.some((p: any) => {
           const st = (p.program?.stageType || p.stageType || "").toUpperCase();
           return st === "OFF_STAGE" || st.includes("OFF");
         })
       );
     }
-    return candidates;
-  }, [candidates, stageFilter]);
+
+    // Filter by Zone
+    if (selectedZone !== "ALL") {
+      result = result.filter((c) => {
+        const zName = c.institution?.zone?.name || c.team?.event?.zone?.name || "";
+        const zId = c.institution?.zoneId || c.team?.event?.zoneId || "";
+        return zName.toLowerCase() === selectedZone.toLowerCase() || zId === selectedZone;
+      });
+    }
+
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((c) => {
+        const name = (c.name || "").toLowerCase();
+        const chest = String(c.chestNumber || "").toLowerCase();
+        const inst = (c.institution?.name || c.team?.name || "").toLowerCase();
+        const zone = (c.institution?.zone?.name || c.team?.event?.zone?.name || "").toLowerCase();
+        return name.includes(q) || chest.includes(q) || inst.includes(q) || zone.includes(q);
+      });
+    }
+
+    return result;
+  }, [candidates, stageFilter, selectedZone, searchQuery]);
 
   // Determine capacity per sheet
   // CARD: 1 card per page (Exact 7.5cm x 12.5cm fitting type)
@@ -333,25 +364,43 @@ export default function BulkIdCardsClient({
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "1.35rem", fontWeight: 800, margin: 0, color: "#111827" }}>
-                Candidate ID Card Printing &amp; PDF Export
+                {isStateFest ? "🏆 State Festival Selected Students ID Cards" : "Candidate ID Card Printing & PDF Export"}
               </h1>
-              <span
-                style={{
-                  backgroundColor: "#eff6ff",
-                  color: "#1d4ed8",
-                  padding: "3px 10px",
-                  borderRadius: "999px",
-                  fontSize: "0.75rem",
-                  fontWeight: 800,
-                  border: "1px solid #bfdbfe",
-                }}
-              >
-                Exact Physical Card Size: 7.5 cm (W) × 12.5 cm (H)
-              </span>
+              {isStateFest ? (
+                <span
+                  style={{
+                    backgroundColor: "#8E0033",
+                    color: "#ffffff",
+                    padding: "3px 12px",
+                    borderRadius: "999px",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.5px",
+                    boxShadow: "0 2px 6px rgba(142, 0, 51, 0.25)"
+                  }}
+                >
+                  STATE FINAL QUALIFIED • {candidates.length} CANDIDATES
+                </span>
+              ) : (
+                <span
+                  style={{
+                    backgroundColor: "#eff6ff",
+                    color: "#1d4ed8",
+                    padding: "3px 10px",
+                    borderRadius: "999px",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    border: "1px solid #bfdbfe",
+                  }}
+                >
+                  Exact Physical Card Size: 7.5 cm (W) × 12.5 cm (H)
+                </span>
+              )}
             </div>
             <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "4px 0 0 0" }}>
-              Showing <strong>{filteredCandidates.length}</strong> candidates • {pages.length} {pages.length === 1 ? "page" : "pages"} on{" "}
+              Showing <strong>{filteredCandidates.length}</strong> {filteredCandidates.length === 1 ? "candidate" : "candidates"} • {pages.length} {pages.length === 1 ? "page" : "pages"} on{" "}
               <strong>{pageConfig.orientationName}</strong>
+              {isStateFest && " • Includes all zonal 1st place & state selected students"}
             </p>
           </div>
 
@@ -429,7 +478,7 @@ export default function BulkIdCardsClient({
           </div>
         </div>
 
-        {/* Filter Controls Row: Stage Filter, Paper Size, Layout */}
+        {/* Filter Controls Row: Stage Filter, Zone, Search, Paper Size, Layout */}
         <div
           style={{
             display: "flex",
@@ -441,67 +490,147 @@ export default function BulkIdCardsClient({
             borderTop: "1px solid #f1f5f9",
           }}
         >
-          {/* Stage Filter: All, On-Stage Only, Off-Stage Only */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>
-              🎭 Stage Filter:
-            </span>
-            <div
-              style={{
-                display: "inline-flex",
-                borderRadius: "8px",
-                border: "1.5px solid #cbd5e1",
-                overflow: "hidden",
-                backgroundColor: "#f8fafc",
-              }}
-            >
-              <button
-                onClick={() => setStageFilter("ALL")}
+          {/* Left Controls: Stage Filter, Zone Filter, Live Search */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            {/* Stage Filter: All, On-Stage Only, Off-Stage Only */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.80rem", fontWeight: 800, color: "#0f172a" }}>
+                🎭 Stage:
+              </span>
+              <div
                 style={{
-                  padding: "6px 14px",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer",
-                  backgroundColor: stageFilter === "ALL" ? "#0f172a" : "transparent",
-                  color: stageFilter === "ALL" ? "#ffffff" : "#475569",
-                  transition: "all 0.15s",
+                  display: "inline-flex",
+                  borderRadius: "8px",
+                  border: "1.5px solid #cbd5e1",
+                  overflow: "hidden",
+                  backgroundColor: "#f8fafc",
                 }}
               >
-                All Candidates ({totalCount})
-              </button>
-              <button
-                onClick={() => setStageFilter("ON_STAGE")}
+                <button
+                  onClick={() => setStageFilter("ALL")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.80rem",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    backgroundColor: stageFilter === "ALL" ? "#0f172a" : "transparent",
+                    color: stageFilter === "ALL" ? "#ffffff" : "#475569",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  All ({totalCount})
+                </button>
+                <button
+                  onClick={() => setStageFilter("ON_STAGE")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.80rem",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    backgroundColor: stageFilter === "ON_STAGE" ? "#4f46e5" : "transparent",
+                    color: stageFilter === "ON_STAGE" ? "#ffffff" : "#475569",
+                    borderLeft: "1px solid #cbd5e1",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  🎭 On-Stage ({onStageCount})
+                </button>
+                <button
+                  onClick={() => setStageFilter("OFF_STAGE")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.80rem",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    backgroundColor: stageFilter === "OFF_STAGE" ? "#059669" : "transparent",
+                    color: stageFilter === "OFF_STAGE" ? "#ffffff" : "#475569",
+                    borderLeft: "1px solid #cbd5e1",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  📝 Off-Stage ({offStageCount})
+                </button>
+              </div>
+            </div>
+
+            {/* Zone Filter Dropdown (shown for State Fest or when zones available) */}
+            {(isStateFest || zones.length > 0) && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "0.80rem", fontWeight: 800, color: "#0f172a" }}>
+                  📍 Zone:
+                </span>
+                <select
+                  value={selectedZone}
+                  onChange={(e) => setSelectedZone(e.target.value)}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "0.80rem",
+                    fontWeight: 700,
+                    borderRadius: "8px",
+                    border: "1.5px solid #cbd5e1",
+                    backgroundColor: "#f8fafc",
+                    color: "#0f172a",
+                    cursor: "pointer",
+                    height: "32px"
+                  }}
+                >
+                  <option value="ALL">All Zones ({candidates.length})</option>
+                  {zones.map((z: any) => {
+                    const count = candidates.filter(c =>
+                      (c.institution?.zone?.name || c.team?.event?.zone?.name) === z.name ||
+                      (c.institution?.zoneId || c.team?.event?.zoneId) === z.id
+                    ).length;
+                    return (
+                      <option key={z.id} value={z.name}>
+                        {z.name} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            {/* Live Search Bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", position: "relative" }}>
+              <input
+                type="text"
+                placeholder="🔍 Search Student, Chest #, College..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
-                  padding: "6px 14px",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer",
-                  backgroundColor: stageFilter === "ON_STAGE" ? "#4f46e5" : "transparent",
-                  color: stageFilter === "ON_STAGE" ? "#ffffff" : "#475569",
-                  borderLeft: "1px solid #cbd5e1",
-                  transition: "all 0.15s",
+                  padding: "5px 10px",
+                  fontSize: "0.80rem",
+                  fontWeight: 600,
+                  borderRadius: "8px",
+                  border: "1.5px solid #cbd5e1",
+                  backgroundColor: "#ffffff",
+                  width: "190px",
+                  height: "32px",
+                  boxSizing: "border-box"
                 }}
-              >
-                🎭 On-Stage Only ({onStageCount})
-              </button>
-              <button
-                onClick={() => setStageFilter("OFF_STAGE")}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer",
-                  backgroundColor: stageFilter === "OFF_STAGE" ? "#059669" : "transparent",
-                  color: stageFilter === "OFF_STAGE" ? "#ffffff" : "#475569",
-                  borderLeft: "1px solid #cbd5e1",
-                  transition: "all 0.15s",
-                }}
-              >
-                📝 Off-Stage Only ({offStageCount})
-              </button>
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    color: "#94a3b8",
+                    fontWeight: 800,
+                    fontSize: "0.85rem",
+                    marginLeft: "-24px",
+                    padding: "0 6px",
+                    zIndex: 2
+                  }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
 
@@ -723,6 +852,7 @@ export default function BulkIdCardsClient({
                     <CandidateIdCard
                       candidate={pageCandidates[0]}
                       settings={settings}
+                      eventName={eventName}
                       isSchedulePublished={
                         pageCandidates[0]?.team?.event?.statusOverride === "SCHEDULE_PUBLISHED" ||
                         pageCandidates[0]?.team?.event?.parent?.statusOverride === "SCHEDULE_PUBLISHED"
@@ -761,6 +891,7 @@ export default function BulkIdCardsClient({
                             <CandidateIdCard
                               candidate={candidate}
                               settings={settings}
+                              eventName={eventName}
                               isSchedulePublished={isSchedulePublished}
                             />
                           </div>
@@ -790,6 +921,7 @@ export default function BulkIdCardsClient({
                               <CandidateIdCard
                                 candidate={candidate}
                                 settings={settings}
+                                eventName={eventName}
                                 isSchedulePublished={isSchedulePublished}
                               />
                             </div>
@@ -817,6 +949,7 @@ export default function BulkIdCardsClient({
                           <CandidateIdCard
                             candidate={candidate}
                             settings={settings}
+                            eventName={eventName}
                             isSchedulePublished={isSchedulePublished}
                           />
                         </div>
