@@ -14,11 +14,16 @@ export default async function CandidateIdCardPage({ params }: { params: Promise<
       team: {
         include: {
           event: {
-            include: { parent: true },
+            include: { parent: true, zone: true },
+          },
+          institution: {
+            include: { zone: true },
           },
         },
       },
-      institution: true,
+      institution: {
+        include: { zone: true },
+      },
       category: true,
       programs: {
         include: { program: true },

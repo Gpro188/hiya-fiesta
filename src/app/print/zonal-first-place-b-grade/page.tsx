@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function ZonalFirstPlaceBGradePage() {
   const stateEvent = await prisma.event.findFirst({
     where: { type: "STATE" },
+    include: { programs: true },
   });
+
+  const masterProgMap = new Map(stateEvent?.programs.map((p) => [p.programCode, p.id]) || []);
 
   const settings = await getSettings(stateEvent?.id);
   const festName = settings.festName || stateEvent?.name || "CSWC Hiya Fiesta 2026";
@@ -165,6 +168,8 @@ export default async function ZonalFirstPlaceBGradePage() {
       marks: (r as any).marks || (r as any).totalMarks || 0,
       grade,
       isConfirmed,
+      masterProgramId: masterProgMap.get(progCode) || null,
+      zoneEventId: r.candidate?.team?.eventId || r.team?.eventId || r.program?.eventId || "",
     });
 
     if (!zoneSummaryMap.has(zoneName)) {

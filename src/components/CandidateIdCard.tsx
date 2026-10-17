@@ -140,6 +140,23 @@ export default function CandidateIdCard({
   const teamName = candidate.institution?.name || candidate.team?.name || "INSTITUTION";
   const categoryName = candidate.category?.name || "FADHILA";
   const chestNo = candidate.chestNumber ? candidate.chestNumber : "---";
+
+  // Zone & Institution resolution for State Festival ID cards
+  const rawZone = (candidate.institution as any)?.zone?.name ||
+                  (candidate.team as any)?.event?.zone?.name ||
+                  (candidate.team as any)?.institution?.zone?.name ||
+                  (candidate.team as any)?.event?.name || "";
+  const cleanZone = rawZone.replace(/\s*Zone\s*$/i, "").trim();
+  const displayZone = cleanZone ? `${cleanZone.toUpperCase()} ZONE` : "";
+  const institutionName = candidate.institution?.name || (candidate.team as any)?.institution?.name || candidate.team?.name || "";
+
+  // Check if this card is being rendered for the State Festival
+  const isStateCard = Boolean(
+    (eventName && (eventName.toUpperCase().includes("STATE") || eventName.toUpperCase().includes("FINALE") || eventName.toUpperCase().includes("GRAND"))) ||
+    (settings?.festName && settings.festName.toUpperCase().includes("STATE")) ||
+    (candidate.team as any)?.event?.type === "STATE"
+  );
+
   const allPrograms = candidate.programs || [];
   // Deduplicate programs by normalized program name (handles duplicate ProgramAssignment DB records & cross-event twin programs)
   const seenProgNames = new Set<string>();
@@ -383,27 +400,75 @@ export default function CandidateIdCard({
           {candidate.name}
         </div>
 
-        {/* Institution / Team Name in Bold Black/Charcoal */}
-        <div
-          style={{
-            fontSize: teamFontSize,
-            fontWeight: 800,
-            color: "#1f2937",
-            textTransform: "uppercase",
-            letterSpacing: "0.3px",
-            lineHeight: 1.18,
-            marginTop: "2px",
-            maxWidth: "94%",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            wordBreak: "break-word",
-          }}
-          title={teamName}
-        >
-          {teamName}
-        </div>
+        {/* Zone as Team & Institution as Address for State Fest */}
+        {isStateCard && displayZone ? (
+          <div style={{ marginTop: "2px", width: "100%", padding: "0 4px", boxSizing: "border-box" }}>
+            {/* Zone Name as Primary Team */}
+            <div
+              style={{
+                fontSize: "0.82rem",
+                fontWeight: 900,
+                color: "#8E0033",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                lineHeight: 1.15,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "4px",
+              }}
+              title={`Team: ${displayZone}`}
+            >
+              <span>📍</span>
+              <span>{displayZone}</span>
+            </div>
+
+            {/* Institution as Address / College */}
+            {institutionName && (
+              <div
+                style={{
+                  fontSize: institutionName.length > 32 ? "0.54rem" : "0.60rem",
+                  fontWeight: 700,
+                  color: "#475569",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.2px",
+                  lineHeight: 1.15,
+                  marginTop: "1.5px",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  wordBreak: "break-word",
+                }}
+                title={`Institution: ${institutionName}`}
+              >
+                🏛️ {institutionName}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Normal Zonal Fest Card: Institution / Team Name in Bold Black/Charcoal */
+          <div
+            style={{
+              fontSize: teamFontSize,
+              fontWeight: 800,
+              color: "#1f2937",
+              textTransform: "uppercase",
+              letterSpacing: "0.3px",
+              lineHeight: 1.18,
+              marginTop: "2px",
+              maxWidth: "94%",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              wordBreak: "break-word",
+            }}
+            title={teamName}
+          >
+            {teamName}
+          </div>
+        )}
       </div>
 
       {/* Category & Event Section (Divided with Center Vertical Line, Left & Right aligned) */}

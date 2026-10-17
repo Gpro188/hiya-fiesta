@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { promoteToState, unpromoteFromState } from "@/app/dashboard/promotions/actions";
 
 export interface FirstPlaceBGradeItem {
   id: string;
@@ -23,6 +24,8 @@ export interface FirstPlaceBGradeItem {
   marks: number;
   grade: string;
   isConfirmed: boolean;
+  masterProgramId?: string | null;
+  zoneEventId?: string;
 }
 
 export interface ZoneBGradeSummary {
@@ -39,27 +42,137 @@ export interface ZoneBGradeSummary {
 export default function ZonalFirstPlaceBGradeClient({
   festName,
   items,
-  zoneSummaries,
+  zoneSummaries: initialZoneSummaries,
 }: {
   festName: string;
   items: FirstPlaceBGradeItem[];
   zoneSummaries: ZoneBGradeSummary[];
 }) {
+  const [itemList, setItemList] = useState<FirstPlaceBGradeItem[]>(items);
   const [selectedZone, setSelectedZone] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedGrade, setSelectedGrade] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const totalCount = items.length;
-  const gradeBTotal = items.filter((i) => i.grade === "B").length;
-  const gradeCTotal = items.filter((i) => i.grade === "C").length;
-  const noGradeTotal = items.filter((i) => i.grade !== "B" && i.grade !== "C").length;
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
-  const confirmedTotal = items.filter((i) => i.isConfirmed).length;
-  const pendingTotal = items.filter((i) => !i.isConfirmed).length;
+  const totalCount = itemList.length;
+  const gradeBTotal = itemList.filter((i) => i.grade === "B").length;
+  const gradeCTotal = itemList.filter((i) => i.grade === "C").length;
+  const noGradeTotal = itemList.filter((i) => i.grade !== "B" && i.grade !== "C").length;
+
+  const confirmedTotal = itemList.filter((i) => i.isConfirmed).length;
+  const pendingTotal = itemList.filter((i) => !i.isConfirmed).length;
+
+  // Recompute zone summaries dynamically based on live confirmation state
+  const zoneSummaries = useMemo(() => {
+    const map = new Map<string, ZoneBGradeSummary>();
+    for (const item of itemList) {
+      if (!map.has(item.zoneName)) {
+        map.set(item.zoneName, {
+          zoneName: item.zoneName,
+          zoneCode: item.zoneCode,
+          totalCount: 0,
+          gradeBCount: 0,
+          gradeCCount: 0,
+          noGradeCount: 0,
+          confirmedCount: 0,
+          pendingCount: 0,
+        });
+      }
+      const s = map.get(item.zoneName)!;
+      s.totalCount++;
+      if (item.grade === "B") s.gradeBCount = (s.gradeBCount || 0) + 1;
+      else if (item.grade === "C") s.gradeCCount = (s.gradeCCount || 0) + 1;
+      else s.noGradeCount = (s.noGradeCount || 0) + 1;
+
+      if (item.isConfirmed) s.confirmedCount++;
+      else s.pendingCount++;
+    }
+    return Array.from(map.values()).sort((a, b) => b.totalCount - a.totalCount);
+  }, [itemList]);
+
+  const handleConfirm = async (item: FirstPlaceBGradeItem) => {
+    if (!item.masterProgramId) {
+      alert(`Master program not found for program code "${item.programCode}".`);
+      return;
+    }
+    try {
+      setActionLoadingId(item.id);
+      const res = await promoteToState(item.id, item.masterProgramId);
+      if (res?.success) {
+        setItemList(prev => prev.map(i => i.id === item.id ? { ...i, isConfirmed: true } : i));
+        setToastMessage({ type: "success", text: `✅ "${item.candidateName}" confirmed & added to State Final for ${item.programName}!` });
+        setTimeout(() => setToastMessage(null), 4000);
+      } else {
+        alert(res?.error || "Failed to confirm candidate to State Final.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Error confirming candidate to State Final.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUnconfirm = async (item: FirstPlaceBGradeItem) => {
+    if (!item.masterProgramId || !item.zoneEventId) {
+      alert("Missing required program/zone identifier to unconfirm.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to remove ${item.candidateName} (${item.programName}) from the State Final?`)) {
+      return;
+    }
+    try {
+      setActionLoadingId(item.id);
+      const res = await unpromoteFromState(item.masterProgramId, item.zoneEventId);
+      if (res?.success) {
+        setItemList(prev => prev.map(i => i.id === item.id ? { ...i, isConfirmed: false } : i));
+        setToastMessage({ type: "info", text: `ℹ️ Removed ${item.candidateName} from State Final.` });
+        setTimeout(() => setToastMessage(null), 4000);
+      } else {
+        alert(res?.error || "Failed to remove candidate from State Final.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Error removing candidate from State Final.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleBulkConfirmPending = async () => {
+    const pendingFiltered = filteredItems.filter(i => !i.isConfirmed && i.masterProgramId);
+    if (pendingFiltered.length === 0) {
+      alert("No pending candidates in the current filter to confirm.");
+      return;
+    }
+    if (!confirm(`Confirm and add all ${pendingFiltered.length} pending candidate(s) to the State Final?`)) {
+      return;
+    }
+
+    try {
+      setBulkLoading(true);
+      let successCount = 0;
+      for (const item of pendingFiltered) {
+        if (!item.masterProgramId) continue;
+        const res = await promoteToState(item.id, item.masterProgramId);
+        if (res?.success) {
+          successCount++;
+          setItemList(prev => prev.map(i => i.id === item.id ? { ...i, isConfirmed: true } : i));
+        }
+      }
+      setToastMessage({ type: "success", text: `🚀 Successfully confirmed ${successCount} candidates to State Final!` });
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (e: any) {
+      alert(e.message || "Error during bulk confirmation.");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    return itemList.filter((item) => {
       if (selectedZone !== "ALL" && item.zoneName !== selectedZone) {
         return false;
       }
@@ -96,7 +209,7 @@ export default function ZonalFirstPlaceBGradeClient({
       }
       return true;
     });
-  }, [items, selectedZone, selectedStatus, selectedGrade, searchQuery]);
+  }, [itemList, selectedZone, selectedStatus, selectedGrade, searchQuery]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -193,6 +306,31 @@ export default function ZonalFirstPlaceBGradeClient({
           }
         }
       `}</style>
+
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            zIndex: 9999,
+            padding: "14px 20px",
+            borderRadius: "12px",
+            backgroundColor: toastMessage.type === "success" ? "#059669" : toastMessage.type === "error" ? "#dc2626" : "#2563eb",
+            color: "#ffffff",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "0.90rem",
+            fontWeight: 700,
+          }}
+        >
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
 
       {/* Top Interactive Navbar (Screen Only) */}
       <div
@@ -852,6 +990,39 @@ export default function ZonalFirstPlaceBGradeClient({
                 Showing <b>{filteredItems.length}</b> of {totalCount} programs
               </span>
             </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {filteredItems.filter((i) => !i.isConfirmed).length > 0 && (
+                <button
+                  type="button"
+                  disabled={bulkLoading}
+                  onClick={handleBulkConfirmPending}
+                  className="no-print"
+                  style={{
+                    backgroundColor: "#059669",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "6px 14px",
+                    fontSize: "0.80rem",
+                    fontWeight: 800,
+                    cursor: bulkLoading ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: "0 2px 6px rgba(5,150,105,0.3)",
+                  }}
+                  title="Confirm and add all currently filtered pending winners to State Final"
+                >
+                  <span>⚡</span>
+                  <span>
+                    {bulkLoading
+                      ? "Confirming All..."
+                      : `Bulk Confirm All Filtered (${filteredItems.filter((i) => !i.isConfirmed).length})`}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -981,41 +1152,93 @@ export default function ZonalFirstPlaceBGradeClient({
                         </span>
                       </td>
                       <td style={{ padding: "10px 14px", textAlign: "center" }}>
-                        {item.isConfirmed ? (
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              padding: "4px 10px",
-                              borderRadius: "12px",
-                              fontSize: "0.75rem",
-                              fontWeight: 800,
-                              backgroundColor: "#ecfdf5",
-                              color: "#059669",
-                              border: "1px solid #a7f3d0",
-                            }}
-                          >
-                            <span>✓</span> Confirmed to State
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              padding: "4px 10px",
-                              borderRadius: "12px",
-                              fontSize: "0.75rem",
-                              fontWeight: 800,
-                              backgroundColor: "#fef3c7",
-                              color: "#b45309",
-                              border: "1px solid #fde68a",
-                            }}
-                          >
-                            <span>⏳</span> Pending Review
-                          </span>
-                        )}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                          {item.isConfirmed ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                padding: "4px 10px",
+                                borderRadius: "12px",
+                                fontSize: "0.75rem",
+                                fontWeight: 800,
+                                backgroundColor: "#ecfdf5",
+                                color: "#059669",
+                                border: "1px solid #a7f3d0",
+                              }}
+                            >
+                              <span>✓</span> Confirmed to State
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                padding: "4px 10px",
+                                borderRadius: "12px",
+                                fontSize: "0.75rem",
+                                fontWeight: 800,
+                                backgroundColor: "#fef3c7",
+                                color: "#b45309",
+                                border: "1px solid #fde68a",
+                              }}
+                            >
+                              <span>⏳</span> Pending Review
+                            </span>
+                          )}
+
+                          {/* Quick Interactive Actions (Hidden in Print) */}
+                          <div className="no-print" style={{ display: "flex", gap: "4px" }}>
+                            {!item.isConfirmed ? (
+                              <button
+                                onClick={() => handleConfirm(item)}
+                                disabled={actionLoadingId === item.id || bulkLoading}
+                                style={{
+                                  padding: "3px 8px",
+                                  fontSize: "0.70rem",
+                                  fontWeight: 800,
+                                  backgroundColor: "#059669",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: actionLoadingId === item.id || bulkLoading ? "not-allowed" : "pointer",
+                                  opacity: actionLoadingId === item.id || bulkLoading ? 0.6 : 1,
+                                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                }}
+                                title="Promote & confirm this 1st place winner directly to State Final"
+                              >
+                                {actionLoadingId === item.id ? "Adding..." : "⚡ Add to State"}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUnconfirm(item)}
+                                disabled={actionLoadingId === item.id || bulkLoading}
+                                style={{
+                                  padding: "3px 8px",
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  backgroundColor: "#fef2f2",
+                                  color: "#b91c1c",
+                                  border: "1px solid #fecaca",
+                                  borderRadius: "6px",
+                                  cursor: actionLoadingId === item.id || bulkLoading ? "not-allowed" : "pointer",
+                                  opacity: actionLoadingId === item.id || bulkLoading ? 0.6 : 1,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                }}
+                                title="Remove from State Final"
+                              >
+                                {actionLoadingId === item.id ? "Removing..." : "✕ Remove"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ))
