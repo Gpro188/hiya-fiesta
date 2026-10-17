@@ -133,15 +133,23 @@ export default async function ScoringPage(props: {
     }
   }
 
-  const candidateZoneFilter: any[] = [
-    { team: { eventId: activeEventId } }
-  ];
-  if (activeEvent.zoneId) {
-    candidateZoneFilter.push(
-      { institution: { zoneId: activeEvent.zoneId } },
-      { team: { institution: { zoneId: activeEvent.zoneId } } },
-      { team: { event: { zoneId: activeEvent.zoneId } } }
-    );
+  const isStateFest = activeEvent.type === "STATE" || !activeEvent.parentId || 
+    activeEvent.name.toLowerCase().includes("state") || 
+    activeEvent.name.toLowerCase().includes("grand");
+
+  const candidateZoneFilter: any[] = [];
+  if (isStateFest) {
+    // In State Fest, candidates come from all zonal teams; do not filter out by home zone eventId
+    candidateZoneFilter.push({});
+  } else {
+    candidateZoneFilter.push({ team: { eventId: activeEventId } });
+    if (activeEvent.zoneId) {
+      candidateZoneFilter.push(
+        { institution: { zoneId: activeEvent.zoneId } },
+        { team: { institution: { zoneId: activeEvent.zoneId } } },
+        { team: { event: { zoneId: activeEvent.zoneId } } }
+      );
+    }
   }
 
   const [programsForScoring, availableJudges, childProgramsWithAssignments] = await Promise.all([
@@ -211,7 +219,15 @@ export default async function ScoringPage(props: {
                   select: {
                     id: true,
                     name: true,
-                    flagColor: true
+                    flagColor: true,
+                    magazineCode: true,
+                    institution: {
+                      select: {
+                        id: true,
+                        name: true,
+                        zone: { select: { id: true, name: true, code: true } }
+                      }
+                    }
                   }
                 }
               }
@@ -264,7 +280,15 @@ export default async function ScoringPage(props: {
                       select: {
                         id: true,
                         name: true,
-                        flagColor: true
+                        flagColor: true,
+                        magazineCode: true,
+                        institution: {
+                          select: {
+                            id: true,
+                            name: true,
+                            zone: { select: { id: true, name: true, code: true } }
+                          }
+                        }
                       }
                     }
                   }
@@ -405,10 +429,16 @@ export default async function ScoringPage(props: {
   const [results, allPrograms, allResultsForScore] = await Promise.all([
     prisma.result.findMany({
       where: { 
-        OR: [
-          { team: { eventId: activeEventId } },
-          { candidate: { team: { eventId: activeEventId } } }
-        ],
+        OR: isStateFest
+          ? [
+              { program: { eventId: programsEventId } },
+              { team: { eventId: activeEventId } },
+              { candidate: { team: { eventId: activeEventId } } }
+            ]
+          : [
+              { team: { eventId: activeEventId } },
+              { candidate: { team: { eventId: activeEventId } } }
+            ],
         // If JUDGE: only show results for their venue's programs
         ...(judgeVenue && venueProgramIdSet.size > 0 ? { programId: { in: Array.from(venueProgramIdSet) } } : {})
       },
@@ -423,9 +453,44 @@ export default async function ScoringPage(props: {
         teamId: true,
         programId: true,
         createdAt: true,
-        candidate: { select: { name: true, chestNumber: true, team: { select: { name: true, flagColor: true } }, category: { select: { name: true } } } },
-        team: { select: { name: true, flagColor: true } },
-        program: { select: { id: true, name: true, category: { select: { name: true } } } }
+        candidate: {
+          select: {
+            name: true,
+            chestNumber: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                flagColor: true,
+                magazineCode: true,
+                institution: {
+                  select: {
+                    id: true,
+                    name: true,
+                    zone: { select: { id: true, name: true, code: true } }
+                  }
+                }
+              }
+            },
+            category: { select: { name: true } }
+          }
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
+            flagColor: true,
+            magazineCode: true,
+            institution: {
+              select: {
+                id: true,
+                name: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            }
+          }
+        },
+        program: { select: { id: true, name: true, programCode: true, category: { select: { name: true } } } }
       },
       orderBy: { createdAt: 'desc' },
       take: 200 // Limit to 200 for speed
@@ -544,9 +609,6 @@ export default async function ScoringPage(props: {
     return "OTHER";
   };
 
-  const isStateFest = !activeEvent.parentId || 
-    activeEvent.name.toLowerCase().includes("state") || 
-    activeEvent.name.toLowerCase().includes("grand");
 
   const teamScoresMap: Record<string, { 
     publishedPoints: number; 
@@ -679,6 +741,76 @@ export default async function ScoringPage(props: {
   }));
 
   const zoneScores = Object.values(zoneScoresMap);
+
+  // Fetch State Magazine entries with New State Codes if this is a state event
+  let stateMagazineEntries: any[] = [];
+  if (isStateFest) {
+    const magTeams = await prisma.team.findMany({
+      where: {
+        OR: [
+          { isMagazineParticipating: true },
+          { magazineCode: { not: null } },
+        ],
+      },
+      include: {
+        institution: {
+          include: { zone: true },
+        },
+        event: {
+          include: { zone: true },
+        },
+        results: {
+          where: {
+            program: {
+              OR: [
+                { name: { contains: "magazine", mode: "insensitive" } },
+                { programCode: "43" },
+              ],
+            },
+          },
+        },
+      },
+      orderBy: [
+        { institution: { zone: { name: "asc" } } },
+        { magazineCode: "asc" },
+        { name: "asc" },
+      ],
+    });
+
+    const winners = magTeams.filter(t => {
+      const zone = t.institution?.zone || t.event?.zone;
+      const isKarnataka = zone?.code === "KAR" || zone?.name?.toLowerCase().includes("karnataka") || false;
+      const rank1Result = t.results.find(r => r.rank === 1);
+      return Boolean(rank1Result) && !isKarnataka;
+    });
+
+    winners.sort((a, b) => {
+      const zA = a.institution?.zone?.name || "";
+      const zB = b.institution?.zone?.name || "";
+      const cmp = zA.localeCompare(zB);
+      if (cmp !== 0) return cmp;
+      return a.name.localeCompare(b.name);
+    });
+
+    stateMagazineEntries = winners.map((t, idx) => {
+      const inst = t.institution;
+      const zone = inst?.zone || t.event?.zone;
+      const num = String(idx + 1).padStart(2, "0");
+      const bestResult = t.results.sort((a, b) => (a.rank || 99) - (b.rank || 99))[0];
+
+      return {
+        teamId: t.id,
+        teamName: t.name,
+        institutionName: inst?.name || t.name,
+        zoneName: zone?.name || "General",
+        zoneCode: zone?.code || zone?.name?.substring(0, 3)?.toUpperCase() || "GEN",
+        zonalMagazineCode: t.magazineCode || null,
+        stateMagazineCode: `SMAG-${num}`,
+        zonalRank: bestResult?.rank || null,
+        zonalGrade: bestResult?.grade || null
+      };
+    });
+  }
 
   const isFestCompleted = activeEvent.statusOverride === "COMPLETED";
   const isScoringLocked = isFestCompleted && session.user.role !== "SUPER_ADMIN";
@@ -829,6 +961,8 @@ export default async function ScoringPage(props: {
                   userVenue={judgeVenue}
                   isCompleted={isScoringLocked}
                   completedFestName={activeEvent.name}
+                  stateMagazineEntries={stateMagazineEntries}
+                  isStateFest={isStateFest}
                 />
               </Suspense>
             </div>

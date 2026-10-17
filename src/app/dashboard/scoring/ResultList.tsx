@@ -283,6 +283,9 @@ export default function ResultList({
               <div style={{ padding: '0' }}>
                 {group.results.sort((a,b) => (a.rank || 99) - (b.rank || 99)).map((result) => {
                   const isGroupOrGeneral = group.program.type !== "INDIVIDUAL";
+                  const isMagazine = group.program.name.toLowerCase().includes("magazine") || (group.program as any).programCode === "43";
+                  const magCode = (result.team as any)?.magazineCode || (result.candidate?.team as any)?.magazineCode;
+                  const zoneName = (result.team as any)?.institution?.zone?.name || (result.candidate?.team as any)?.institution?.zone?.name;
                   const participantName = result.candidate ? result.candidate.name : (result.team ? result.team.name : 'Unknown');
                   const participantChest = result.candidate ? result.candidate.chestNumber : (result.team ? result.team.prefixCode : '-');
                   const teamInfo = result.candidate ? result.candidate.team : result.team;
@@ -319,16 +322,30 @@ export default function ResultList({
                         </div>
 
                         <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {participantName}
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{participantName}</span>
                             {participantChest && participantChest !== '-' && (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, marginLeft: '6px' }}>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>
                                 (#{participantChest})
+                              </span>
+                            )}
+                            {isMagazine && magCode && (
+                              <span style={{
+                                fontSize: '0.70rem',
+                                fontWeight: 800,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: '#f3e8ff',
+                                color: '#7e22ce',
+                                border: '1px solid #d8b4fe'
+                              }}>
+                                📖 {magCode}
                               </span>
                             )}
                           </div>
                           <div style={{ fontSize: '0.74rem', color: teamInfo?.flagColor || '#2563eb', fontWeight: 700, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {teamInfo?.name}
+                            {teamInfo?.name}{zoneName ? ` • ${zoneName}` : ''}
                           </div>
                         </div>
                       </div>

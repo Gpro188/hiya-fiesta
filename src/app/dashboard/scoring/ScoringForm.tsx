@@ -5,6 +5,18 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { batchSubmitProgramMarks, assignJudgesToVenueAction } from "./actions";
 import { isInstitutionProgram, isProgramGeneral } from "@/lib/programUtils";
 
+export interface StateMagazineScoringEntry {
+  teamId: string;
+  teamName: string;
+  institutionName: string;
+  zoneName: string;
+  zoneCode: string;
+  zonalMagazineCode: string | null;
+  stateMagazineCode: string;
+  zonalRank?: number | null;
+  zonalGrade?: string | null;
+}
+
 interface ScoringEntry {
   participantId: string;
   candidateId?: string;
@@ -12,6 +24,9 @@ interface ScoringEntry {
   name: string;
   chestNumber?: string;
   magazineCode?: string;
+  stateMagazineCode?: string;
+  zonalMagazineCode?: string;
+  zoneName?: string;
   teamName?: string;
   marks: string;
   rank: string;
@@ -27,7 +42,9 @@ export default function ScoringForm({
   userRole = "SUPER_ADMIN",
   userVenue = null,
   isCompleted = false,
-  completedFestName = ""
+  completedFestName = "",
+  stateMagazineEntries = [],
+  isStateFest = false,
 }: { 
   events: any[];
   availableJudges?: any[];
@@ -35,6 +52,8 @@ export default function ScoringForm({
   userVenue?: string | null;
   isCompleted?: boolean;
   completedFestName?: string;
+  stateMagazineEntries?: StateMagazineScoringEntry[];
+  isStateFest?: boolean;
 }) {
   const isStageJury = userRole === "JUDGE" || Boolean(userVenue);
   const [eventId, setEventId] = useState(events[0]?.id || "");
@@ -206,51 +225,78 @@ export default function ScoringForm({
         return 0;
       });
     } else {
-      // For general / group / team programs: extract unique teams from registered candidate assignments
-      const registeredTeamMap = new Map<string, any>();
-      const assignments = selecteCSWCgram.assignments || [];
-      for (const a of assignments) {
-        const t = a.candidate?.team;
-        if (t && !registeredTeamMap.has(t.id)) {
-          registeredTeamMap.set(t.id, t);
-        }
-      }
+      // Check if this is an institution/magazine program in State Fest
+      const isMagProgram = isInstitutionProgram(selecteCSWCgram);
 
-      // Also preserve any teams that have recorded results already
-      for (const res of existingResults) {
-        if (res.teamId && !registeredTeamMap.has(res.teamId)) {
-          const matchingTeam = selectedEvent?.teams?.find((t: any) => t.id === res.teamId);
-          if (matchingTeam) {
-            registeredTeamMap.set(res.teamId, matchingTeam);
+      if (isMagProgram && (isStateFest || stateMagazineEntries.length > 0) && stateMagazineEntries.length > 0) {
+        initialEntries = stateMagazineEntries.map((mag) => {
+          const res = existingResults.find((r: any) => r.teamId === mag.teamId);
+          return {
+            participantId: mag.teamId,
+            teamId: mag.teamId,
+            name: mag.institutionName || mag.teamName,
+            teamName: mag.teamName,
+            magazineCode: mag.stateMagazineCode,
+            stateMagazineCode: mag.stateMagazineCode,
+            zonalMagazineCode: mag.zonalMagazineCode || undefined,
+            zoneName: mag.zoneName,
+            marks: res ? res.marks.toString() : "",
+            rank: res?.rank ? res.rank.toString() : "",
+            grade: res?.grade || "",
+            points: res?.points || 0
+          };
+        });
+      } else {
+        // For general / group / team programs: extract unique teams from registered candidate assignments
+        const registeredTeamMap = new Map<string, any>();
+        const assignments = selecteCSWCgram.assignments || [];
+        for (const a of assignments) {
+          const t = a.candidate?.team;
+          if (t && !registeredTeamMap.has(t.id)) {
+            registeredTeamMap.set(t.id, t);
           }
         }
-      }
 
-      // If registered teams exist from assignments or results, show only those registered teams!
-      // Otherwise fallback to all event teams (for institutional/magazine programs where candidates aren't assigned)
-      let teams = Array.from(registeredTeamMap.values());
-      if (teams.length === 0) {
-        teams = selectedEvent?.teams || [];
-      }
+        // Also preserve any teams that have recorded results already
+        for (const res of existingResults) {
+          if (res.teamId && !registeredTeamMap.has(res.teamId)) {
+            const matchingTeam = selectedEvent?.teams?.find((t: any) => t.id === res.teamId);
+            if (matchingTeam) {
+              registeredTeamMap.set(res.teamId, matchingTeam);
+            }
+          }
+        }
 
-      initialEntries = teams.map((t: any) => {
-        const res = existingResults.find((r: any) => r.teamId === t.id);
-        return {
-          participantId: t.id,
-          teamId: t.id,
-          name: t.name,
-          teamName: t.name,
-          magazineCode: t.magazineCode,
-          marks: res ? res.marks.toString() : "",
-          rank: res?.rank ? res.rank.toString() : "",
-          grade: res?.grade || "",
-          points: res?.points || 0
-        };
-      });
+        // If registered teams exist from assignments or results, show only those registered teams!
+        // Otherwise fallback to all event teams (for institutional/magazine programs where candidates aren't assigned)
+        let teams = Array.from(registeredTeamMap.values());
+        if (teams.length === 0) {
+          teams = selectedEvent?.teams || [];
+        }
+
+        initialEntries = teams.map((t: any) => {
+          const res = existingResults.find((r: any) => r.teamId === t.id);
+          const zCode = t.magazineCode || t.institution?.magazineCode;
+          const zName = t.institution?.zone?.name;
+          return {
+            participantId: t.id,
+            teamId: t.id,
+            name: t.name,
+            teamName: t.name,
+            magazineCode: t.magazineCode,
+            zonalMagazineCode: zCode,
+            zoneName: zName,
+            marks: res ? res.marks.toString() : "",
+            rank: res?.rank ? res.rank.toString() : "",
+            grade: res?.grade || "",
+            points: res?.points || 0
+          };
+        });
+      }
     }
 
     setEntries(initialEntries);
-  }, [programId, selecteCSWCgram, isIndividual, selectedEvent]);
+  }, [programId, selecteCSWCgram, isIndividual, selectedEvent, stateMagazineEntries, isStateFest]);
 
   // Points matrix calculation
   const calculatePoints = (r: string, g: string) => {
@@ -861,6 +907,56 @@ export default function ScoringForm({
             </div>
           </div>
 
+          {isInstitutionProgram(selecteCSWCgram) && (
+            <div style={{
+              margin: '12px 20px',
+              padding: '12px 16px',
+              backgroundColor: '#faf5ff',
+              border: '1.5px solid #d8b4fe',
+              borderRadius: '10px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.6rem' }}>📖</span>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#6b21a8', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>State Magazine Valuation (Program 43)</span>
+                    <span style={{ fontSize: '0.68rem', backgroundColor: '#7e22ce', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      NEW STATE CODES ACTIVE
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#7e22ce', marginTop: '2px' }}>
+                    New State Codes (<strong>SMAG-01 to SMAG-07</strong>) resolve the zonal code collision. Enter scores directly matching the physical valuation sheet.
+                  </div>
+                </div>
+              </div>
+              <a
+                href="/print/state-magazine-valuation"
+                target="_blank"
+                className="btn"
+                style={{
+                  padding: '7px 16px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  backgroundColor: '#7e22ce',
+                  color: '#fff',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(126, 34, 206, 0.25)'
+                }}
+              >
+                <span>🖨️</span> Print / View State Valuation Sheet ↗
+              </a>
+            </div>
+          )}
+
           {entries.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#7a7480' }}>
               <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📋</div>
@@ -876,7 +972,17 @@ export default function ScoringForm({
                     {isIndividual ? (
                       <th style={{ padding: '12px 16px', width: '110px' }}>Chest No</th>
                     ) : isInstitutionProgram(selecteCSWCgram) ? (
-                      <th style={{ padding: '12px 16px', width: '130px', color: '#9333ea' }}>Magazine Code</th>
+                      <>
+                        <th style={{ padding: '12px 16px', width: '140px', color: '#7e22ce' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📖 State Code</span>
+                            <span style={{ fontSize: '0.62rem', backgroundColor: '#7e22ce', color: '#fff', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                              NEW
+                            </span>
+                          </span>
+                        </th>
+                        <th style={{ padding: '12px 16px', width: '125px', color: '#64748b' }}>Zonal Code</th>
+                      </>
                     ) : null}
                     {isIndividual ? (
                       <>
@@ -884,7 +990,7 @@ export default function ScoringForm({
                         <th style={{ padding: '12px 16px' }}>Institution / Team</th>
                       </>
                     ) : (
-                      <th colSpan={2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
+                      <th colSpan={isInstitutionProgram(selecteCSWCgram) ? 1 : 2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
                     )}
                     <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
                     <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
@@ -906,11 +1012,38 @@ export default function ScoringForm({
                           {entry.chestNumber || '-'}
                         </td>
                       ) : isInstitutionProgram(selecteCSWCgram) ? (
-                        <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace", color: '#9333ea' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(147, 51, 234, 0.1)', border: '1px solid rgba(147, 51, 234, 0.3)' }}>
-                            {entry.magazineCode || '-'}
-                          </span>
-                        </td>
+                        <>
+                          <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: '#f3e8ff',
+                              color: '#7e22ce',
+                              border: '1.5px solid #c084fc',
+                              fontSize: '0.92rem',
+                              letterSpacing: '0.04em',
+                              display: 'inline-block'
+                            }}>
+                              {entry.stateMagazineCode || entry.magazineCode || '-'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            {entry.zonalMagazineCode ? (
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: '#f1f5f9',
+                                color: '#475569',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '0.8rem'
+                              }}>
+                                {entry.zonalMagazineCode}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>-</span>
+                            )}
+                          </td>
+                        </>
                       ) : null}
 
                       {isIndividual ? (
@@ -941,8 +1074,23 @@ export default function ScoringForm({
                           </td>
                         </>
                       ) : (
-                        <td colSpan={2} style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420', fontSize: '0.95rem' }}>
-                          🏛️ {entry.name}
+                        <td colSpan={isInstitutionProgram(selecteCSWCgram) ? 1 : 2} style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420', fontSize: '0.92rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>🏛️ {entry.name}</span>
+                            {entry.zoneName && (
+                              <span style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                backgroundColor: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe'
+                              }}>
+                                {entry.zoneName}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       )}
 
