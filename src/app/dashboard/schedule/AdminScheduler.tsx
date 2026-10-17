@@ -33,6 +33,14 @@ import {
   resolveClashesSafe
 } from "./actions";
 
+export type VenueBreakConfig = {
+  enabled: boolean;
+  start: string;
+  end: string;
+  name?: string;
+  hideBanner?: boolean;
+};
+
 export default function AdminScheduler({ 
   initialPrograms, 
   eventId, 
@@ -85,9 +93,8 @@ export default function AdminScheduler({
 
   // Venue start time configuration: { [venue]: "09:30" }
   const [venueStartTimes, setVenueStartTimes] = useState<Record<string, string>>({});
-
-  // Venue break configuration: { [venue]: { enabled: boolean; start: string; end: string } }
-  const [venueBreaks, setVenueBreaks] = useState<Record<string, { enabled: boolean; start: string; end: string }>>({});
+  // Venue break configuration: { [venue]: VenueBreakConfig }
+  const [venueBreaks, setVenueBreaks] = useState<Record<string, VenueBreakConfig>>({});
 
   // Venue date configuration: { [venue]: "2026-10-20" }
   const [venueDates, setVenueDates] = useState<Record<string, string>>({});
@@ -428,11 +435,11 @@ export default function AdminScheduler({
   };
 
   // Helper to get active break config for a venue
-  const getVenueBreak = (venue: string): { enabled: boolean; start: string; end: string } => {
+  const getVenueBreak = (venue: string): VenueBreakConfig => {
     if (venueBreaks[venue]) {
       return venueBreaks[venue];
     }
-    return { enabled: true, start: "13:00", end: "13:45" };
+    return { enabled: true, start: "13:00", end: "13:45", name: "Lunch / Prayer Break", hideBanner: false };
   };
 
   // Helper to get predicted sequential timeline starting from venue start time and respecting breaks and festival day
@@ -441,7 +448,7 @@ export default function AdminScheduler({
     venuePrograms: any[], 
     bufferMinutes: number = 5, 
     customStartTime?: string,
-    customBreak?: { enabled: boolean; start: string; end: string },
+    customBreak?: VenueBreakConfig,
     customDate?: string
   ) => {
     const targetDateStr = customDate || getVenueDate(venue, venuePrograms);
@@ -542,6 +549,8 @@ export default function AdminScheduler({
       breakStartDate,
       breakEndDate,
       breakEnabled: breakConfig.enabled,
+      breakName: breakConfig.name || "Lunch / Prayer Break",
+      hideBreakBanner: Boolean(breakConfig.hideBanner),
       isBreakBeforeStart
     };
   };
@@ -611,7 +620,7 @@ export default function AdminScheduler({
   };
 
   // Change break configuration for a venue, persist to localStorage, and recalculate
-  const handleVenueBreakChange = (venue: string, newBreak: { enabled: boolean; start: string; end: string }) => {
+  const handleVenueBreakChange = (venue: string, newBreak: VenueBreakConfig) => {
     setVenueBreaks(prev => {
       const updated = { ...prev, [venue]: newBreak };
       try {
@@ -624,7 +633,8 @@ export default function AdminScheduler({
     if (venueProgs.length > 0) {
       const buf = getVenueBuffer(venue, venueProgs);
       const startTimeStr = getVenueStartTime(venue, venueProgs);
-      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, newBreak);
+      const targetDateStr = getVenueDate(venue, venueProgs);
+      const { predictedList } = getPredictedVenueTimeline(venue, venueProgs, buf, startTimeStr, newBreak, targetDateStr);
       const updateMap = new Map(predictedList.map(item => [item.program.id, item.predictedStart.toISOString()]));
       setPrograms(prev => prev.map(p => {
         if (updateMap.has(p.id)) {
@@ -2432,8 +2442,8 @@ export default function AdminScheduler({
                       </select>
                     </div>
 
-                    {/* Break Option (NEW!) */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", borderLeft: "1.5px solid #cbd5e1", paddingLeft: "10px" }}>
+                    {/* Break Option (Custom name & hide banner support) */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", borderLeft: "1.5px solid #cbd5e1", paddingLeft: "10px", flexWrap: "wrap" }}>
                       <label style={{ fontSize: "0.78rem", fontWeight: 800, color: "#b45309", margin: 0, display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
                         <input
                           type="checkbox"
@@ -2444,13 +2454,13 @@ export default function AdminScheduler({
                         <span>🍽️ Break:</span>
                       </label>
                       {venueBreak.enabled ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
                           <input
                             type="time"
                             value={venueBreak.start}
                             onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, start: e.target.value })}
                             className="form-input"
-                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "105px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
                             title="Break Start Time"
                           />
                           <span style={{ fontSize: "0.72rem", color: "#64748b" }}>–</span>
@@ -2459,9 +2469,42 @@ export default function AdminScheduler({
                             value={venueBreak.end}
                             onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, end: e.target.value })}
                             className="form-input"
-                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "105px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
+                            style={{ fontSize: "0.78rem", padding: "2px 4px", width: "95px", fontWeight: 700, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#b45309" }}
                             title="Break End Time"
                           />
+                          <input
+                            type="text"
+                            value={venueBreak.name ?? ""}
+                            placeholder="Break Name (e.g. Lunch / Prayer)"
+                            onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, name: e.target.value })}
+                            className="form-input"
+                            style={{ fontSize: "0.75rem", padding: "2px 6px", width: "135px", fontWeight: 600, backgroundColor: "#fffbeb", borderColor: "#fde68a", color: "#78350f" }}
+                            title="Custom break name shown on schedule"
+                          />
+                          <label 
+                            style={{ 
+                              fontSize: "0.72rem", 
+                              fontWeight: 700, 
+                              color: venueBreak.hideBanner ? "#dc2626" : "#64748b", 
+                              display: "inline-flex", 
+                              alignItems: "center", 
+                              gap: "3px", 
+                              cursor: "pointer",
+                              backgroundColor: venueBreak.hideBanner ? "#fee2e2" : "#f1f5f9",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              border: `1px solid ${venueBreak.hideBanner ? '#fca5a5' : '#cbd5e1'}`
+                            }} 
+                            title="Hide break banner row from schedule while keeping the stage paused"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(venueBreak.hideBanner)}
+                              onChange={(e) => handleVenueBreakChange(venue, { ...venueBreak, hideBanner: e.target.checked })}
+                              style={{ cursor: "pointer" }}
+                            />
+                            <span>{venueBreak.hideBanner ? "Banner Hidden" : "Hide Banner"}</span>
+                          </label>
                         </div>
                       ) : (
                         <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>None</span>
@@ -2622,7 +2665,7 @@ export default function AdminScheduler({
 
                   return (
                     <div key={program.id} style={{ display: "contents" }}>
-                      {item.isFirstAfterBreak && timeline.breakStartDate && timeline.breakEndDate && (
+                      {!timeline.hideBreakBanner && item.isFirstAfterBreak && timeline.breakStartDate && timeline.breakEndDate && (
                         <div style={{
                           padding: "10px 16px",
                           borderRadius: "10px",
@@ -2636,9 +2679,9 @@ export default function AdminScheduler({
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "0.85rem" }}>
                             <span style={{ fontSize: "1.1rem" }}>🍽️</span>
-                            <span>LUNCH / PRAYER BREAK</span>
+                            <span style={{ textTransform: "uppercase" }}>{timeline.breakName || "LUNCH / PRAYER BREAK"}</span>
                             <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#92400e" }}>
-                              (Stage paused for prayer & lunch)
+                              (Stage paused for {timeline.breakName ? timeline.breakName.toLowerCase() : "prayer & lunch"})
                             </span>
                           </div>
                           <div style={{

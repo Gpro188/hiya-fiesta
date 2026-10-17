@@ -47,6 +47,14 @@ export default async function PrintValuationPage(props: {
     }
   }
 
+  if (!eventId) {
+    const stateEv = await prisma.event.findFirst({
+      where: { type: "STATE" },
+      select: { id: true }
+    });
+    if (stateEv) eventId = stateEv.id;
+  }
+
   const orientation = searchParams.orientation === "portrait" ? "portrait" : "landscape";
   const activeStageType = searchParams.stageType || "ALL";
   const activeVenue = searchParams.venue || "ALL";

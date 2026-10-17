@@ -11,7 +11,10 @@ import ProgramsRegistrationClient, {
 
 export const dynamic = "force-dynamic";
 
-export default async function ProgramsRegistrationReportPage() {
+export default async function ProgramsRegistrationReportPage(props: {
+  searchParams?: Promise<{ eventId?: string }>;
+}) {
+  const searchParams = props.searchParams ? await props.searchParams : {};
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -29,14 +32,22 @@ export default async function ProgramsRegistrationReportPage() {
     select: { zoneId: true, eventId: true },
   });
 
-  // Get state event
-  const stateEvent = await prisma.event.findFirst({
-    where: { type: "STATE" },
-    select: { id: true },
-  });
-  const settings = await getSettings(stateEvent?.id);
+  // Target event: prioritize searchParams.eventId, then user eventId (for ZONE_ADMIN), then state event
+  let targetEventId = searchParams.eventId;
+  if (!targetEventId && role === "ZONE_ADMIN" && fullUser?.eventId) {
+    targetEventId = fullUser.eventId;
+  }
+  if (!targetEventId) {
+    const stateEvent = await prisma.event.findFirst({
+      where: { type: "STATE" },
+      select: { id: true },
+    });
+    targetEventId = stateEvent?.id;
+  }
 
-  // Fetch all 8 regional zones with their institutions
+  const settings = await getSettings(targetEventId);
+
+  // Fetch all regional zones with their institutions
   const rawZones = await prisma.zone.findMany({
     select: {
       id: true,
@@ -55,7 +66,7 @@ export default async function ProgramsRegistrationReportPage() {
     orderBy: { name: "asc" },
   });
 
-  // Preferred regional sort order (North to South)
+  // Preferred regional sort order (North to South, excluding Karnataka)
   const zoneOrder: Record<string, number> = {
     KSG: 1,
     KNR: 2,
@@ -82,20 +93,9 @@ export default async function ProgramsRegistrationReportPage() {
     }))
     .sort((a, b) => (zoneOrder[a.code] || 99) - (zoneOrder[b.code] || 99));
 
-  const masterEvent = await prisma.event.findFirst({
-    where: {
-      OR: [
-        { parentId: null },
-        { type: "STATE" },
-        { name: { contains: "State Final" } }
-      ]
-    },
-    select: { id: true }
-  });
-
-  // Fetch all official master programs with category and candidate assignments
+  // Fetch all programs for target event with category and candidate assignments
   const programs = await prisma.program.findMany({
-    where: masterEvent ? { eventId: masterEvent.id } : {},
+    where: targetEventId ? { eventId: targetEventId } : {},
     include: {
       category: { select: { name: true } },
       event: { select: { id: true, name: true, type: true } },
@@ -106,6 +106,17 @@ export default async function ProgramsRegistrationReportPage() {
               id: true,
               name: true,
               chestNumber: true,
+              institutionId: true,
+              institution: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  place: true,
+                  zoneId: true,
+                  zone: { select: { id: true, name: true, code: true } },
+                },
+              },
               team: {
                 select: {
                   id: true,
@@ -118,11 +129,13 @@ export default async function ProgramsRegistrationReportPage() {
                       code: true,
                       name: true,
                       place: true,
+                      zoneId: true,
                       zone: { select: { id: true, name: true, code: true } },
                     },
                   },
                   event: {
                     select: {
+                      zoneId: true,
                       zone: { select: { id: true, name: true, code: true } },
                     },
                   },
@@ -156,20 +169,33 @@ export default async function ProgramsRegistrationReportPage() {
     const institutionCounts: Record<string, number> = {};
 
     let participants = p.assignments
-      .filter((a) => Boolean(a.candidate))
       .map((a) => {
         const c = a.candidate;
+        if (!c) return null;
+
         const assignedZone =
-          c.team?.institution?.zone || c.team?.event?.zone || null;
+          c.institution?.zone ||
+          c.team?.institution?.zone ||
+          c.team?.event?.zone ||
+          null;
+
+        // Skip Karnataka participants
+        if (
+          assignedZone?.code === "KAR" ||
+          assignedZone?.name?.toUpperCase().includes("KARNATAKA")
+        ) {
+          return null;
+        }
 
         const zoneId = assignedZone?.id || "UNKNOWN";
         const zoneName = assignedZone?.name || "Unknown Zone";
         const zoneCode = assignedZone?.code || "UNK";
 
-        const instId = c.team?.institution?.id || c.team?.institutionId || "UNKNOWN";
-        const instCode = c.team?.institution?.code || c.team?.prefixCode || "-";
-        const instName = c.team?.institution?.name || c.team?.name || "-";
-        const instPlace = c.team?.institution?.place || null;
+        const inst = c.institution || c.team?.institution || null;
+        const instId = inst?.id || c.team?.institutionId || c.institutionId || "UNKNOWN";
+        const instCode = inst?.code || c.team?.prefixCode || "-";
+        const instName = inst?.name || c.team?.name || "-";
+        const instPlace = inst?.place || null;
 
         // Increment count for this zone
         if (assignedZone?.id && zoneCounts[assignedZone.id] !== undefined) {
@@ -194,7 +220,8 @@ export default async function ProgramsRegistrationReportPage() {
           zoneName,
           zoneCode,
         };
-      });
+      })
+      .filter((part): part is NonNullable<typeof part> => part !== null);
 
     if (role === "ZONE_ADMIN" && fullUser?.zoneId) {
       participants = participants.filter((part) => part.zoneId === fullUser.zoneId);

@@ -22,6 +22,14 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
     }
   }
 
+  if (!eventId && !searchParams.teamId) {
+    const stateEv = await prisma.event.findFirst({
+      where: { type: "STATE" },
+      select: { id: true }
+    });
+    if (stateEv) eventId = stateEv.id;
+  }
+
   const settings = await getSettings(eventId);
   
   const whereClause: any = {};
@@ -38,7 +46,24 @@ export default async function PrintCandidatesPage(props: { searchParams: Promise
 
   if (!searchParams.teamId && eventId) {
     const ev = await prisma.event.findUnique({ where: { id: eventId } });
-    if (ev?.type === "STATE" || !ev?.parentId) {
+    if (ev?.type === "STATE") {
+      delete whereClause.team;
+      whereClause.OR = [
+        { isStateQualified: true },
+        { assignments: { some: { program: { eventId } } } }
+      ];
+      whereClause.isApproved = true;
+      whereClause.NOT = {
+        OR: [
+          { team: { event: { zone: { code: "KAR" } } } },
+          { team: { institution: { zone: { code: "KAR" } } } },
+          { institution: { zone: { code: "KAR" } } },
+          { team: { event: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } } },
+          { team: { institution: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } } },
+          { institution: { zone: { name: { contains: "Karnataka", mode: "insensitive" } } } }
+        ]
+      };
+    } else if (!ev?.parentId) {
       whereClause.NOT = {
         OR: [
           { team: { event: { zone: { code: "KAR" } } } },
