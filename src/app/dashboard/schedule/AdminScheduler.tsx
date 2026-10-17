@@ -106,6 +106,14 @@ export default function AdminScheduler({
   const [clashStats, setClashStats] = useState<{critical:number;high:number;medium:number;manageable:number}>({critical:0,high:0,medium:0,manageable:0});
   const [clashMsg, setClashMsg] = useState<string | null>(null);
 
+  // Per-item saved notification map: { [programId]: "Saved! ✅" }
+  const [savedItemMap, setSavedItemMap] = useState<Record<string, string>>({});
+
+  // Candidate Collision Inspector state
+  const [collisionInspectorOpen, setCollisionInspectorOpen] = useState(true);
+  const [collisionViewMode, setCollisionViewMode] = useState<"CANDIDATES" | "SEVERITY">("CANDIDATES");
+  const [collisionSearch, setCollisionSearch] = useState<string>("");
+
   // Load saved venue buffer gaps and start times from localStorage on mount
   useEffect(() => {
     try {
@@ -438,21 +446,38 @@ export default function AdminScheduler({
       totalCandidates += calcInfo.candidateCount;
       const effectiveDuration = p.duration && p.duration > 0 ? p.duration : (calcInfo.duration > 0 ? calcInfo.duration : 10);
 
-      // Check if this program needs to jump across the break window
+      // If program has an explicit/saved startTime, honor its exact date and time!
+      let start: Date;
+      let end: Date;
       let isFirstAfterBreak = false;
-      if (breakConfig.enabled && breakStartDate && breakEndDate) {
-        if (currentCursor >= breakStartDate && currentCursor < breakEndDate) {
-          currentCursor = new Date(breakEndDate.getTime());
-          isFirstAfterBreak = true;
-        } else if (currentCursor < breakStartDate && (currentCursor.getTime() + effectiveDuration * 60000) > breakStartDate.getTime()) {
-          currentCursor = new Date(breakEndDate.getTime());
-          isFirstAfterBreak = true;
-        }
-      }
 
-      const start = new Date(currentCursor.getTime());
-      const end = new Date(start.getTime() + effectiveDuration * 60000);
-      currentCursor = new Date(end.getTime() + bufferMinutes * 60000);
+      if (p.startTime) {
+        const explicitDate = new Date(p.startTime);
+        if (!isNaN(explicitDate.getTime())) {
+          start = explicitDate;
+          end = new Date(start.getTime() + effectiveDuration * 60000);
+          currentCursor = new Date(end.getTime() + bufferMinutes * 60000);
+        } else {
+          start = new Date(currentCursor.getTime());
+          end = new Date(start.getTime() + effectiveDuration * 60000);
+          currentCursor = new Date(end.getTime() + bufferMinutes * 60000);
+        }
+      } else {
+        // Check if this program needs to jump across the break window
+        if (breakConfig.enabled && breakStartDate && breakEndDate) {
+          if (currentCursor >= breakStartDate && currentCursor < breakEndDate) {
+            currentCursor = new Date(breakEndDate.getTime());
+            isFirstAfterBreak = true;
+          } else if (currentCursor < breakStartDate && (currentCursor.getTime() + effectiveDuration * 60000) > breakStartDate.getTime()) {
+            currentCursor = new Date(breakEndDate.getTime());
+            isFirstAfterBreak = true;
+          }
+        }
+
+        start = new Date(currentCursor.getTime());
+        end = new Date(start.getTime() + effectiveDuration * 60000);
+        currentCursor = new Date(end.getTime() + bufferMinutes * 60000);
+      }
 
       return {
         program: p,
@@ -610,7 +635,8 @@ export default function AdminScheduler({
       const buf = getVenueBuffer(v, vProgs);
       const startTimeStr = getVenueStartTime(v, vProgs);
       const breakConfig = getVenueBreak(v);
-      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf, startTimeStr, breakConfig);
+      const venueDateStr = getVenueDate(v, vProgs);
+      const { predictedList } = getPredictedVenueTimeline(v, vProgs, buf, startTimeStr, breakConfig, venueDateStr);
       timelines[v] = predictedList;
     }
     return timelines;
@@ -632,6 +658,183 @@ export default function AdminScheduler({
   } = useMemo(() => {
     return detectClashesBySeverity(allVenueTimelines, targetZoneId);
   }, [allVenueTimelines, targetZoneId]);
+
+  // Group candidate collisions by Candidate for transparent inspection
+  const clashesByCandidate = useMemo(() => {
+    const map = new Map<string, {
+      candidateId: string;
+      candidateName: string;
+      chestNumber?: string | null;
+      institutionName?: string | null;
+      zoneName?: string | null;
+      clashes: CandidateClash[];
+    }>();
+
+    for (const c of clashes) {
+      if (!map.has(c.candidateId)) {
+        map.set(c.candidateId, {
+          candidateId: c.candidateId,
+          candidateName: c.candidateName,
+          chestNumber: c.chestNumber,
+          institutionName: c.institutionName,
+          zoneName: c.zoneName,
+          clashes: []
+        });
+      }
+      map.get(c.candidateId)!.clashes.push(c);
+    }
+
+    return Array.from(map.values());
+  }, [clashes]);
+
+  // Helper to extract program's scheduled or fallback IST date string: "YYYY-MM-DD"
+  const getItemDateStr = useCallback((program: any, fallbackDateStr?: string): string => {
+    if (program.startTime) {
+      const d = new Date(program.startTime);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      }
+    }
+    return fallbackDateStr || festivalDays[0]?.dateStr || "2026-10-20";
+  }, [festivalDays]);
+
+  // Helper to extract program's scheduled or fallback IST time string: "HH:mm"
+  const getItemTimeStr = useCallback((program: any, fallbackTime?: Date | null): string => {
+    const d = program.startTime ? new Date(program.startTime) : fallbackTime;
+    if (!d || isNaN(d.getTime())) return "09:30";
+    return d.toLocaleTimeString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }, []);
+
+  // Helper to construct ISO timestamp in Asia/Kolkata from dateStr ("YYYY-MM-DD") and timeStr ("HH:mm")
+  const combineDateAndTime = useCallback((dateStr: string, timeStr: string): string => {
+    const [sh, sm] = (timeStr || "09:30").split(":").map(Number);
+    const hour = isNaN(sh) ? 9 : sh;
+    const minute = isNaN(sm) ? 30 : sm;
+    const baseDate = getFestivalBaseDate(dateStr, hour, minute);
+    return baseDate.toISOString();
+  }, []);
+
+  // Handler to update a single item's schedule (Date and/or Start Time) in local state
+  const handleItemScheduleChange = useCallback((programId: string, newDateStr: string, newTimeStr: string) => {
+    const targetIso = combineDateAndTime(newDateStr, newTimeStr);
+    setPrograms(prev => prev.map(p => {
+      if (p.id === programId) {
+        return { ...p, startTime: targetIso };
+      }
+      return p;
+    }));
+  }, [combineDateAndTime]);
+
+  // Handler to immediately save a single program's schedule to the database
+  const handleSaveItem = useCallback(async (program: any, venue: string, item: any) => {
+    setLoadingId(program.id);
+    try {
+      const vSelect = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | null)?.value || program.venue || venue;
+      const targetVenue = vSelect === "Unassigned" ? null : vSelect;
+      const modeSelect = document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null;
+      const modeVal = modeSelect?.value || program.durationMode || "AUTO";
+      const durInput = document.getElementById(`dur-${program.id}`) as HTMLInputElement | null;
+      const enteredMins = parseInt(durInput?.value || "5") || (program.duration || 10);
+
+      let d = enteredMins;
+      if (modeVal === "PER_TEAM") {
+        d = item.teamCount > 0 ? item.teamCount * enteredMins : enteredMins;
+      } else if (modeVal === "PER_CANDIDATE") {
+        d = item.candidateCount > 0 ? item.candidateCount * enteredMins : enteredMins;
+      }
+
+      const curDate = getItemDateStr(program, getVenueDate(venue));
+      const curTime = getItemTimeStr(program, item.predictedStart);
+      const targetIso = combineDateAndTime(curDate, curTime);
+      const s = program.stageType || "ON_STAGE";
+
+      await updateProgramSchedule(program.id, {
+        venue: targetVenue,
+        startTime: targetVenue ? targetIso : null,
+        duration: d,
+        durationMode: modeVal,
+        stageType: s
+      }, eventId);
+
+      // Update local state to ensure it stays in sync
+      setPrograms(prev => prev.map(p => p.id === program.id ? {
+        ...p,
+        venue: targetVenue,
+        startTime: targetVenue ? targetIso : null,
+        duration: d,
+        durationMode: modeVal
+      } : p));
+
+      setSavedItemMap(prev => ({ ...prev, [program.id]: "Saved! ✅" }));
+      setTimeout(() => {
+        setSavedItemMap(prev => ({ ...prev, [program.id]: "" }));
+      }, 3000);
+    } catch (e: any) {
+      alert("Error saving program: " + (e.message || "Unknown error"));
+    } finally {
+      setLoadingId(null);
+    }
+  }, [eventId, getItemDateStr, getItemTimeStr, combineDateAndTime, getVenueDate]);
+
+  // Quick 1-click action: Move program to Day 2
+  const handleQuickMoveToDay2 = useCallback(async (programId: string) => {
+    const prog = programs.find(p => p.id === programId);
+    if (!prog) return;
+    const day2 = festivalDays[1]?.dateStr || "2026-10-21";
+    const curTime = getItemTimeStr(prog, new Date());
+    const newIso = combineDateAndTime(day2, curTime);
+    
+    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, startTime: newIso } : p));
+    
+    try {
+      const v = prog.venue === "Unassigned" ? null : prog.venue;
+      await updateProgramSchedule(programId, {
+        venue: v,
+        startTime: v ? newIso : null,
+        duration: prog.duration || 10,
+        durationMode: prog.durationMode || "AUTO",
+        stageType: prog.stageType || "ON_STAGE"
+      }, eventId);
+      setSavedItemMap(prev => ({ ...prev, [programId]: "Moved to Day 2! ✅" }));
+      setTimeout(() => {
+        setSavedItemMap(prev => ({ ...prev, [programId]: "" }));
+      }, 3000);
+    } catch (e) {
+      console.error("Quick move to Day 2 failed:", e);
+    }
+  }, [programs, festivalDays, getItemTimeStr, combineDateAndTime, eventId]);
+
+  // Quick 1-click action: Shift program time by X minutes
+  const handleQuickShiftTime = useCallback(async (programId: string, shiftMinutes: number) => {
+    const prog = programs.find(p => p.id === programId);
+    if (!prog || !prog.startTime) return;
+    const curD = new Date(prog.startTime);
+    const newD = new Date(curD.getTime() + shiftMinutes * 60000);
+    const newIso = newD.toISOString();
+    
+    setPrograms(prev => prev.map(p => p.id === programId ? { ...p, startTime: newIso } : p));
+    try {
+      const v = prog.venue === "Unassigned" ? null : prog.venue;
+      await updateProgramSchedule(programId, {
+        venue: v,
+        startTime: v ? newIso : null,
+        duration: prog.duration || 10,
+        durationMode: prog.durationMode || "AUTO",
+        stageType: prog.stageType || "ON_STAGE"
+      }, eventId);
+      setSavedItemMap(prev => ({ ...prev, [programId]: `Shifted +${shiftMinutes}m! ✅` }));
+      setTimeout(() => {
+        setSavedItemMap(prev => ({ ...prev, [programId]: "" }));
+      }, 3000);
+    } catch (e) {
+      console.error("Shift time failed:", e);
+    }
+  }, [programs, eventId]);
 
   // Assign program to a venue
   const handleAssignVenue = async (programId: string, targetVenue: string) => {
@@ -1303,14 +1506,14 @@ export default function AdminScheduler({
         </div>
       )}
 
-      {/* 4-SEVERITY CANDIDATE CLASH & FIX ASSISTANT */}
-      {liveScoredClashes.length > 0 ? (
+      {/* CANDIDATE COLLISION & CLASH INSPECTOR */}
+      {clashes.length > 0 ? (
         <div style={{
           padding: "18px 22px",
           borderRadius: "14px",
           backgroundColor: "#ffffff",
-          border: criticalCount > 0 ? "2px solid #ef4444" : highCount > 0 ? "2px solid #f97316" : "2px solid #eab308",
-          boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
+          border: criticalCount > 0 ? "2px solid #ef4444" : "2px solid #f97316",
+          boxShadow: "0 6px 20px rgba(239, 68, 68, 0.10)",
           display: "flex",
           flexDirection: "column",
           gap: "14px"
@@ -1318,43 +1521,65 @@ export default function AdminScheduler({
           {/* Header Row */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "1.6rem" }}>
-                {criticalCount > 0 ? "🚨" : highCount > 0 ? "⚠️" : "⚡"}
+              <span style={{ fontSize: "1.8rem" }}>
+                {criticalCount > 0 ? "🚨" : "⚠️"}
               </span>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0f172a" }}>
-                  Schedule Clash Analysis ({liveScoredClashes.length} Total Overlap{liveScoredClashes.length > 1 ? "s" : ""})
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "#991b1b", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>Candidate Collision Center</span>
+                  <span style={{
+                    backgroundColor: "#fee2e2",
+                    color: "#dc2626",
+                    padding: "2px 10px",
+                    borderRadius: "9999px",
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    border: "1px solid #fca5a5"
+                  }}>
+                    {clashesByCandidate.length} Candidate{clashesByCandidate.length > 1 ? "s" : ""} Overlapping • {clashes.length} Colliding Pair{clashes.length > 1 ? "s" : ""}
+                  </span>
                 </h3>
                 <p style={{ margin: "2px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
-                  Candidate clashes categorized into 4 severity levels with auto-fix slot reordering.
+                  The same candidates are enrolled in multiple on-stage programs scheduled at overlapping times. Use <strong>Day 2 shifting</strong> or adjust start times to resolve.
                 </p>
               </div>
             </div>
 
-            {/* Severity summary pills */}
+            {/* Controls: View Tabs & Toggle */}
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-              {criticalCount > 0 && (
-                <span style={{ backgroundColor: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", padding: "4px 10px", borderRadius: "8px", fontSize: "0.78rem", fontWeight: 800 }}>
-                  🔴 Critical: {criticalCount}
-                </span>
-              )}
-              {highCount > 0 && (
-                <span style={{ backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fdba74", padding: "4px 10px", borderRadius: "8px", fontSize: "0.78rem", fontWeight: 800 }}>
-                  🟠 High: {highCount}
-                </span>
-              )}
-              {mediumCount > 0 && (
-                <span style={{ backgroundColor: "#fefce8", color: "#ca8a04", border: "1px solid #fde047", padding: "4px 10px", borderRadius: "8px", fontSize: "0.78rem", fontWeight: 800 }}>
-                  🟡 Medium: {mediumCount}
-                </span>
-              )}
-              {manageableCount > 0 && (
-                <span style={{ backgroundColor: "#f0fdf4", color: "#16a34a", border: "1px solid #86efac", padding: "4px 10px", borderRadius: "8px", fontSize: "0.78rem", fontWeight: 800 }}>
-                  🟢 Manageable: {manageableCount}
-                </span>
-              )}
+              <div style={{ display: "flex", borderRadius: "8px", border: "1px solid #cbd5e1", overflow: "hidden" }}>
+                <button
+                  type="button"
+                  onClick={() => setCollisionViewMode("CANDIDATES")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    border: "none",
+                    backgroundColor: collisionViewMode === "CANDIDATES" ? "#8E0033" : "#ffffff",
+                    color: collisionViewMode === "CANDIDATES" ? "#ffffff" : "#475569",
+                    cursor: "pointer"
+                  }}
+                >
+                  👥 By Candidate ({clashesByCandidate.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCollisionViewMode("SEVERITY")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    border: "none",
+                    backgroundColor: collisionViewMode === "SEVERITY" ? "#8E0033" : "#ffffff",
+                    color: collisionViewMode === "SEVERITY" ? "#ffffff" : "#475569",
+                    cursor: "pointer"
+                  }}
+                >
+                  ⚡ By Severity ({liveScoredClashes.length})
+                </button>
+              </div>
 
-              {/* Auto Fix Button for Manageable Clashes */}
               {manageableCount > 0 && (
                 <button
                   onClick={handleResolveManageableClashes}
@@ -1364,8 +1589,8 @@ export default function AdminScheduler({
                     background: "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)",
                     color: "#ffffff",
                     fontWeight: 800,
-                    fontSize: "0.8rem",
-                    padding: "6px 14px",
+                    fontSize: "0.78rem",
+                    padding: "5px 12px",
                     borderRadius: "8px",
                     border: "none",
                     cursor: clashFixLoading ? "not-allowed" : "pointer",
@@ -1376,82 +1601,335 @@ export default function AdminScheduler({
                   }}
                 >
                   <span>🔧</span>
-                  <span>{clashFixLoading ? "Reordering..." : `Auto-Fix Manageable (${manageableCount})`}</span>
+                  <span>{clashFixLoading ? "Fixing..." : `Auto-Fix (${manageableCount})`}</span>
                 </button>
               )}
-            </div>
-          </div>
 
-          {clashMsg && (
-            <div style={{
-              padding: "8px 12px",
-              borderRadius: "8px",
-              backgroundColor: clashMsg.startsWith("❌") ? "#fef2f2" : "#f0fdf4",
-              border: `1px solid ${clashMsg.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
-              color: clashMsg.startsWith("❌") ? "#991b1b" : "#166534",
-              fontSize: "0.82rem",
-              fontWeight: 700
-            }}>
-              {clashMsg}
-            </div>
-          )}
-
-          {/* Cards List */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "10px", maxHeight: "240px", overflowY: "auto", padding: "2px" }}>
-            {liveScoredClashes.map((c, idx) => (
-              <div
-                key={idx}
+              <button
+                type="button"
+                onClick={() => setCollisionInspectorOpen(!collisionInspectorOpen)}
                 style={{
-                  backgroundColor: "#ffffff",
-                  border: `1.5px solid ${c.severityColor}`,
-                  borderRadius: "10px",
-                  padding: "10px 14px",
-                  fontSize: "0.8rem",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.04)"
+                  padding: "5px 10px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: "#f8fafc",
+                  color: "#475569",
+                  cursor: "pointer"
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{
-                    backgroundColor: `${c.severityColor}15`,
-                    color: c.severityColor,
-                    padding: "2px 8px",
-                    borderRadius: "6px",
-                    fontWeight: 800,
-                    fontSize: "0.72rem",
-                    border: `1px solid ${c.severityColor}35`
-                  }}>
-                    {c.severityLabel}
+                {collisionInspectorOpen ? "▲ Hide Details" : "▼ Show Details"}
+              </button>
+            </div>
+          </div>
+
+          {collisionInspectorOpen && (
+            <>
+              {/* Filter / Search Bar */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", backgroundColor: "#f8fafc", padding: "8px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: "220px" }}>
+                  <span style={{ fontSize: "0.85rem" }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search candidate name, chest number or program..."
+                    value={collisionSearch}
+                    onChange={(e) => setCollisionSearch(e.target.value)}
+                    style={{
+                      border: "none",
+                      outline: "none",
+                      backgroundColor: "transparent",
+                      fontSize: "0.82rem",
+                      width: "100%",
+                      fontWeight: 600
+                    }}
+                  />
+                  {collisionSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCollisionSearch("")}
+                      style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: "0.8rem" }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>Quick Guide:</span>
+                  <span style={{ fontSize: "0.72rem", backgroundColor: "#eef2ff", color: "#4338ca", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>
+                    💡 Move 2nd Program to Day 2 to completely resolve clash
                   </span>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>
-                    {c.overlapMinutes} min overlap
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: "4px" }}>
-                  👤 {c.candidateName}
-                </div>
-
-                <div style={{ color: "#334155", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  📍 <strong>{c.program1Venue}</strong>: {c.program1Name} ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
-                </div>
-                <div style={{ color: "#334155", fontSize: "0.75rem", marginBottom: "4px" }}>
-                  📍 <strong>{c.program2Venue}</strong>: {c.program2Name} ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
-                </div>
-
-                <div style={{
-                  fontSize: "0.72rem",
-                  color: "#475569",
-                  backgroundColor: "#f8fafc",
-                  padding: "6px 8px",
-                  borderRadius: "6px",
-                  marginTop: "6px",
-                  borderLeft: `3px solid ${c.severityColor}`
-                }}>
-                  {c.explanation}
                 </div>
               </div>
-            ))}
-          </div>
+
+              {clashMsg && (
+                <div style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  backgroundColor: clashMsg.startsWith("❌") ? "#fef2f2" : "#f0fdf4",
+                  border: `1px solid ${clashMsg.startsWith("❌") ? "#fca5a5" : "#86efac"}`,
+                  color: clashMsg.startsWith("❌") ? "#991b1b" : "#166534",
+                  fontSize: "0.82rem",
+                  fontWeight: 700
+                }}>
+                  {clashMsg}
+                </div>
+              )}
+
+              {/* Collisions Content */}
+              {collisionViewMode === "CANDIDATES" ? (
+                /* Grouped by Candidate View */
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "420px", overflowY: "auto", paddingRight: "4px" }}>
+                  {clashesByCandidate
+                    .filter(c => {
+                      if (!collisionSearch.trim()) return true;
+                      const q = collisionSearch.toLowerCase();
+                      const matchName = c.candidateName.toLowerCase().includes(q);
+                      const matchChest = c.chestNumber && c.chestNumber.toLowerCase().includes(q);
+                      const matchProgs = c.clashes.some(cl => 
+                        cl.program1Name.toLowerCase().includes(q) || 
+                        cl.program2Name.toLowerCase().includes(q) ||
+                        (cl.program1Code && cl.program1Code.toLowerCase().includes(q)) ||
+                        (cl.program2Code && cl.program2Code.toLowerCase().includes(q))
+                      );
+                      return matchName || matchChest || matchProgs;
+                    })
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: "#ffffff",
+                          border: "1.5px solid #fca5a5",
+                          borderRadius: "10px",
+                          padding: "12px 16px",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.03)"
+                        }}
+                      >
+                        {/* Candidate Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "1.1rem" }}>👤</span>
+                            <span style={{ fontWeight: 900, fontSize: "0.92rem", color: "#0f172a" }}>
+                              {item.candidateName}
+                            </span>
+                            {item.chestNumber && (
+                              <span style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "1px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 800 }}>
+                                #{item.chestNumber}
+                              </span>
+                            )}
+                            {item.institutionName && (
+                              <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>
+                                • {item.institutionName}
+                              </span>
+                            )}
+                            {item.zoneName && (
+                              <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                                ({item.zoneName})
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ backgroundColor: "#fee2e2", color: "#dc2626", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 800, border: "1px solid #fca5a5" }}>
+                            ⚠️ {item.clashes.length} Colliding Pair{item.clashes.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+
+                        {/* Conflicting Programs */}
+                        {item.clashes.map((clash, cIdx) => (
+                          <div
+                            key={cIdx}
+                            style={{
+                              backgroundColor: "#fef2f2",
+                              border: "1px solid #fecaca",
+                              borderRadius: "8px",
+                              padding: "10px 12px",
+                              marginTop: cIdx > 0 ? "8px" : "0"
+                            }}
+                          >
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "10px", alignItems: "center" }}>
+                              {/* Program 1 */}
+                              <div style={{ backgroundColor: "#ffffff", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px", flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontSize: "0.68rem",
+                                    fontWeight: 800,
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    backgroundColor: clash.program1Fest?.includes("PG") ? "rgba(168, 85, 247, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                    color: clash.program1Fest?.includes("PG") ? "#7e22ce" : "#1d4ed8"
+                                  }}>
+                                    {clash.program1Fest}
+                                  </span>
+                                  <span style={{ fontWeight: 800, fontSize: "0.82rem", color: "#0f172a" }}>
+                                    {clash.program1Code ? `[${clash.program1Code}] ` : ""}{clash.program1Name}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "#475569" }}>
+                                  📍 <strong>{clash.program1Venue}</strong>
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "#1e293b", fontWeight: 700, marginTop: "2px" }}>
+                                  📅 {new Date(clash.program1Start).toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })} • 🕒 {formatTimeAmPm(clash.program1Start)} – {formatTimeAmPm(clash.program1End)}
+                                </div>
+                              </div>
+
+                              {/* Overlap Indicator */}
+                              <div style={{ textAlign: "center", padding: "0 4px" }}>
+                                <div style={{ backgroundColor: "#dc2626", color: "#fff", padding: "3px 8px", borderRadius: "6px", fontSize: "0.70rem", fontWeight: 900, whiteSpace: "nowrap" }}>
+                                  ⚡ OVERLAP
+                                </div>
+                                <div style={{ fontSize: "0.70rem", fontWeight: 800, color: "#991b1b", marginTop: "2px" }}>
+                                  {clash.overlapMinutes}m
+                                </div>
+                              </div>
+
+                              {/* Program 2 */}
+                              <div style={{ backgroundColor: "#ffffff", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px", flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontSize: "0.68rem",
+                                    fontWeight: 800,
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    backgroundColor: clash.program2Fest?.includes("PG") ? "rgba(168, 85, 247, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                    color: clash.program2Fest?.includes("PG") ? "#7e22ce" : "#1d4ed8"
+                                  }}>
+                                    {clash.program2Fest}
+                                  </span>
+                                  <span style={{ fontWeight: 800, fontSize: "0.82rem", color: "#0f172a" }}>
+                                    {clash.program2Code ? `[${clash.program2Code}] ` : ""}{clash.program2Name}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "#475569" }}>
+                                  📍 <strong>{clash.program2Venue}</strong>
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "#1e293b", fontWeight: 700, marginTop: "2px" }}>
+                                  📅 {new Date(clash.program2Start).toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })} • 🕒 {formatTimeAmPm(clash.program2Start)} – {formatTimeAmPm(clash.program2End)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 1-Click Resolve Actions */}
+                            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginTop: "8px", paddingTop: "6px", borderTop: "1px dashed #fca5a5", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "0.72rem", color: "#7f1d1d", fontWeight: 700 }}>Quick Actions:</span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickMoveToDay2(clash.program2Id)}
+                                style={{
+                                  padding: "3px 10px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 800,
+                                  backgroundColor: "#4338ca",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer"
+                                }}
+                                title="Move Program 2 to Day 2"
+                              >
+                                📅 Move "{clash.program2Name}" to Day 2
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickShiftTime(clash.program2Id, 45)}
+                                style={{
+                                  padding: "3px 10px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 800,
+                                  backgroundColor: "#059669",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer"
+                                }}
+                                title="Delay Program 2 by 45 minutes"
+                              >
+                                🕒 Delay "{clash.program2Name}" (+45m)
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                /* Scored Severity View */
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "10px", maxHeight: "360px", overflowY: "auto", padding: "2px" }}>
+                  {liveScoredClashes.map((c, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: `1.5px solid ${c.severityColor}`,
+                        borderRadius: "10px",
+                        padding: "10px 14px",
+                        fontSize: "0.8rem",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.04)"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                        <span style={{
+                          backgroundColor: `${c.severityColor}15`,
+                          color: c.severityColor,
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                          fontWeight: 800,
+                          fontSize: "0.72rem",
+                          border: `1px solid ${c.severityColor}35`
+                        }}>
+                          {c.severityLabel}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>
+                          {c.overlapMinutes} min overlap
+                        </span>
+                      </div>
+
+                      <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: "4px" }}>
+                        👤 {c.candidateName}
+                      </div>
+
+                      <div style={{ color: "#334155", fontSize: "0.75rem", marginBottom: "2px" }}>
+                        📍 <strong>{c.program1Venue}</strong>: {c.program1Name} ({formatTimeAmPm(c.program1Start)} - {formatTimeAmPm(c.program1End)})
+                      </div>
+                      <div style={{ color: "#334155", fontSize: "0.75rem", marginBottom: "4px" }}>
+                        📍 <strong>{c.program2Venue}</strong>: {c.program2Name} ({formatTimeAmPm(c.program2Start)} - {formatTimeAmPm(c.program2End)})
+                      </div>
+
+                      <div style={{
+                        fontSize: "0.72rem",
+                        color: "#475569",
+                        backgroundColor: "#f8fafc",
+                        padding: "6px 8px",
+                        borderRadius: "6px",
+                        marginTop: "6px",
+                        borderLeft: `3px solid ${c.severityColor}`
+                      }}>
+                        {c.explanation}
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickMoveToDay2(c.program2Id)}
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "0.70rem",
+                            fontWeight: 800,
+                            backgroundColor: "#4338ca",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          📅 Shift to Day 2
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div style={{
@@ -2296,43 +2774,203 @@ export default function AdminScheduler({
                           backgroundColor: "#fef2f2",
                           border: "1.5px solid #ef4444",
                           borderRadius: "8px",
-                          padding: "8px 12px",
+                          padding: "10px 14px",
                           color: "#991b1b",
-                          fontSize: "0.78rem",
+                          fontSize: "0.80rem",
                           display: "flex",
                           flexDirection: "column",
-                          gap: "4px"
+                          gap: "8px",
+                          boxShadow: "0 2px 8px rgba(239, 68, 68, 0.12)"
                         }}>
+                          <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: "6px", color: "#b91c1c", fontSize: "0.85rem" }}>
+                            <span>⚠️</span>
+                            <span>CANDIDATE COLLISION ALERT ({itemClashes.length} Conflict{itemClashes.length > 1 ? "s" : ""})</span>
+                          </div>
+
                           {itemClashes.map((c: any, cIdx: number) => {
-                            const otherVenue = c.program1Id === program.id ? c.program2Venue : c.program1Venue;
-                            const otherProg = c.program1Id === program.id ? c.program2Name : c.program1Name;
-                            const otherStart = c.program1Id === program.id ? c.program2Start : c.program1Start;
-                            const otherEnd = c.program1Id === program.id ? c.program2End : c.program1End;
+                            const isProg1 = c.program1Id === program.id;
+                            const otherVenue = isProg1 ? c.program2Venue : c.program1Venue;
+                            const otherProg = isProg1 ? c.program2Name : c.program1Name;
+                            const otherCode = isProg1 ? c.program2Code : c.program1Code;
+                            const otherFest = isProg1 ? c.program2Fest : c.program1Fest;
+                            const otherStart = isProg1 ? c.program2Start : c.program1Start;
+                            const otherEnd = isProg1 ? c.program2End : c.program1End;
+                            const otherDateStr = new Date(otherStart).toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" });
 
                             return (
-                              <div key={cIdx}>
-                                ⚠️ <strong>Candidate Clash:</strong> <u>{c.candidateName}</u> is also scheduled in <strong>"{otherProg}"</strong> on <strong>{otherVenue}</strong> ({formatTimeAmPm(otherStart)} - {formatTimeAmPm(otherEnd)}).
+                              <div key={cIdx} style={{ backgroundColor: "#ffffff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #fca5a5" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px", marginBottom: "4px" }}>
+                                  <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem" }}>
+                                    👤 <u>{c.candidateName}</u> {c.chestNumber ? `(Chest #${c.chestNumber})` : ""}
+                                    {c.institutionName ? <span style={{ color: "#64748b", fontWeight: 600 }}> • {c.institutionName}</span> : null}
+                                  </div>
+                                  <span style={{ fontSize: "0.72rem", backgroundColor: "#fee2e2", color: "#dc2626", padding: "1px 6px", borderRadius: "4px", fontWeight: 800 }}>
+                                    {c.overlapMinutes}m Overlap
+                                  </span>
+                                </div>
+                                
+                                <div style={{ fontSize: "0.76rem", color: "#475569" }}>
+                                  Also scheduled in <strong style={{ color: "#0f172a" }}>"{otherCode ? `[${otherCode}] ` : ""}{otherProg}"</strong> ({otherFest}) on <strong style={{ color: "#4338ca" }}>{otherVenue}</strong>:
+                                  <span style={{ color: "#b91c1c", fontWeight: 700, marginLeft: "4px" }}>
+                                    📅 {otherDateStr} • 🕒 {formatTimeAmPm(otherStart)} – {formatTimeAmPm(otherEnd)}
+                                  </span>
+                                </div>
                               </div>
                             );
                           })}
-                          <span style={{ fontSize: "0.72rem", color: "#b91c1c", fontWeight: 600 }}>
-                            👉 Click <strong>▲</strong> or <strong>▼</strong> above to move this program up/down and resolve this clash!
-                          </span>
+
+                          {/* Quick Conflict Resolution Buttons */}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", paddingTop: "4px", borderTop: "1px dashed #fca5a5" }}>
+                            <span style={{ fontSize: "0.72rem", color: "#991b1b", fontWeight: 700 }}>
+                              ⚡ Quick Resolution:
+                            </span>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickMoveToDay2(program.id)}
+                                style={{
+                                  padding: "3px 10px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 800,
+                                  backgroundColor: "#4338ca",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer"
+                                }}
+                                title="Move this program to Day 2 to resolve overlap"
+                              >
+                                📅 Move This Program to Day 2
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickShiftTime(program.id, 45)}
+                                style={{
+                                  padding: "3px 10px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 800,
+                                  backgroundColor: "#059669",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer"
+                                }}
+                                title="Shift start time by +45 minutes"
+                              >
+                                🕒 Delay Start (+45m)
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
 
-                      {/* Bottom Controls Row: Stage Assignment, Timing Mode, Duration & Save */}
+                      {/* Bottom Controls Row: Day, Start Time, Stage, Timing Mode, Duration & Save */}
                       <div style={{ 
                         display: "flex", 
                         flexWrap: "wrap", 
                         gap: "10px", 
                         alignItems: "flex-end",
-                        paddingTop: "8px",
-                        borderTop: "1px dashed #f1f5f9"
+                        paddingTop: "10px",
+                        borderTop: "1px dashed #e2e8f0"
                       }}>
+                        {/* Day Selector (Day 1 vs Day 2) */}
+                        <div className="form-group" style={{ marginBottom: 0, minWidth: "150px" }}>
+                          <label className="form-label" style={{ fontSize: "0.72rem", marginBottom: "2px", fontWeight: 800, color: "#4338ca", display: "flex", alignItems: "center", gap: "3px" }}>
+                            <span>📅</span>
+                            <span>Scheduled Day</span>
+                          </label>
+                          <select
+                            className="form-input"
+                            value={getItemDateStr(program, venueDateStr)}
+                            onChange={(e) => {
+                              const newDate = e.target.value;
+                              const curTime = getItemTimeStr(program, item.predictedStart);
+                              handleItemScheduleChange(program.id, newDate, curTime);
+                            }}
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "0.8rem",
+                              height: "32px",
+                              fontWeight: 800,
+                              backgroundColor: "#eef2ff",
+                              borderColor: "#c7d2fe",
+                              color: "#4338ca",
+                              borderRadius: "6px",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {festivalDays.map(d => (
+                              <option key={d.dateStr} value={d.dateStr}>{d.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Start Time Input (with AM/PM Toggle) */}
+                        <div className="form-group" style={{ marginBottom: 0, minWidth: "160px" }}>
+                          <label className="form-label" style={{ fontSize: "0.72rem", marginBottom: "2px", fontWeight: 800, color: "#15803d", display: "flex", alignItems: "center", gap: "3px" }}>
+                            <span>🕒</span>
+                            <span>Start Time</span>
+                          </label>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <input
+                              type="time"
+                              className="form-input"
+                              value={getItemTimeStr(program, item.predictedStart)}
+                              onChange={(e) => {
+                                const newTime = e.target.value;
+                                const curDate = getItemDateStr(program, venueDateStr);
+                                handleItemScheduleChange(program.id, curDate, newTime);
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                fontSize: "0.8rem",
+                                height: "32px",
+                                width: "95px",
+                                fontWeight: 800,
+                                backgroundColor: "#f0fdf4",
+                                borderColor: "#bbf7d0",
+                                color: "#15803d"
+                              }}
+                              title="Set custom start time for this program"
+                            />
+                            {(() => {
+                              const timeStr = getItemTimeStr(program, item.predictedStart);
+                              const [hStr, mStr] = timeStr.split(":");
+                              const h = parseInt(hStr, 10);
+                              const isPm = !isNaN(h) && h >= 12;
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const curH = isNaN(h) ? 9 : h;
+                                    const targetH = isPm ? (curH - 12) : (curH + 12);
+                                    const newTime = `${String(targetH).padStart(2, "0")}:${mStr || "00"}`;
+                                    const curDate = getItemDateStr(program, venueDateStr);
+                                    handleItemScheduleChange(program.id, curDate, newTime);
+                                  }}
+                                  title={`Currently ${isPm ? "PM" : "AM"}. Click to toggle.`}
+                                  style={{
+                                    fontSize: "0.70rem",
+                                    fontWeight: 800,
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    border: isPm ? "1px solid #f87171" : "1px solid #86efac",
+                                    backgroundColor: isPm ? "#fee2e2" : "#dcfce7",
+                                    color: isPm ? "#dc2626" : "#15803d",
+                                    cursor: "pointer",
+                                    height: "32px"
+                                  }}
+                                >
+                                  {isPm ? "PM 🌙" : "AM ☀️"}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
                         {/* Stage Selector */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, minWidth: "140px" }}>
+                          <div className="form-group" style={{ marginBottom: 0, minWidth: "135px" }}>
                             <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Stage</label>
                             <select 
                               className="form-input" 
@@ -2349,8 +2987,8 @@ export default function AdminScheduler({
 
                         {/* Timing Mode */}
                         {!isBreak && (
-                          <div className="form-group" style={{ marginBottom: 0, minWidth: "170px" }}>
-                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Timing Calculation Mode</label>
+                          <div className="form-group" style={{ marginBottom: 0, minWidth: "160px" }}>
+                            <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>Timing Mode</label>
                             <select
                               id={`mode-${program.id}`}
                               className="form-input"
@@ -2369,9 +3007,9 @@ export default function AdminScheduler({
                               }}
                               style={{ padding: "4px 8px", fontSize: "0.78rem", height: "32px", fontWeight: 700 }}
                             >
-                              <option value="PER_TEAM">👥 Per Group/Team (Teams × Mins)</option>
-                              <option value="PER_CANDIDATE">👤 Per Candidate (Candidates × Mins)</option>
-                              <option value="TOTAL_FIXED">⏱️ Fixed Total Time (No multiplier)</option>
+                              <option value="PER_TEAM">👥 Per Group/Team</option>
+                              <option value="PER_CANDIDATE">👤 Per Candidate</option>
+                              <option value="TOTAL_FIXED">⏱️ Fixed Total</option>
                             </select>
                           </div>
                         )}
@@ -2379,7 +3017,7 @@ export default function AdminScheduler({
                         {/* Duration Input with Equation */}
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: "0.7rem", marginBottom: "2px", fontWeight: 700 }}>
-                            {isFixedTime ? "Total Time (mins)" : isTeamBased ? "Mins / Team" : "Mins / Candidate"}
+                            {isFixedTime ? "Total (mins)" : isTeamBased ? "Mins / Team" : "Mins / Candidate"}
                           </label>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <input 
@@ -2399,7 +3037,7 @@ export default function AdminScheduler({
                                 }
                                 handleDurationChange(venue, program.id, newTotal, modeVal);
                               }}
-                              style={{ padding: "4px 8px", fontSize: "0.8rem", width: "70px", height: "32px" }}
+                              style={{ padding: "4px 8px", fontSize: "0.8rem", width: "65px", height: "32px" }}
                             />
                             {!isFixedTime && isTeamBased && item.teamCount > 0 && (
                               <span style={{ fontSize: "0.72rem", color: "#475569", whiteSpace: "nowrap" }}>
@@ -2414,44 +3052,23 @@ export default function AdminScheduler({
                           </div>
                         </div>
 
-                        {/* Save Item Button */}
+                        {/* Save Item Button with Live Status */}
                         <button 
                           className="btn btn-primary"
-                          style={{ padding: "5px 14px", fontSize: "0.8rem", flex: "0 0 auto", height: "32px", fontWeight: 800 }}
-                          disabled={loadingId === program.id}
-                          onClick={async () => {
-                            setLoadingId(program.id);
-                            try {
-                              const v = (document.getElementById(`venue-${program.id}`) as HTMLSelectElement | null)?.value || venue;
-                              const targetVenue = v === "Unassigned" ? null : v;
-                              const modeSelect = document.getElementById(`mode-${program.id}`) as HTMLSelectElement | null;
-                              const modeVal = modeSelect?.value || (isFixedTime ? "TOTAL_FIXED" : isTeamBased ? "PER_TEAM" : "PER_CANDIDATE");
-                              const enteredMins = parseInt((document.getElementById(`dur-${program.id}`) as HTMLInputElement).value) || 1;
-                              
-                              let d = enteredMins;
-                              if (modeVal === "PER_TEAM") {
-                                d = item.teamCount > 0 ? item.teamCount * enteredMins : enteredMins;
-                              } else if (modeVal === "PER_CANDIDATE") {
-                                d = item.candidateCount > 0 ? item.candidateCount * enteredMins : enteredMins;
-                              }
-
-                              const s = program.stageType || "ON_STAGE";
-                              await updateProgramSchedule(program.id, {
-                                venue: targetVenue,
-                                startTime: targetVenue ? item.predictedStart.toISOString() : null,
-                                duration: d,
-                                durationMode: modeVal,
-                                stageType: s
-                              }, eventId);
-                              alert("✅ Program saved!");
-                            } catch (e: any) {
-                              alert("Error saving: " + (e.message || "Unknown error"));
-                            } finally {
-                              setLoadingId(null);
-                            }
+                          style={{
+                            padding: "5px 16px",
+                            fontSize: "0.8rem",
+                            flex: "0 0 auto",
+                            height: "32px",
+                            fontWeight: 800,
+                            backgroundColor: savedItemMap[program.id] ? "#16a34a" : "#8E0033",
+                            borderColor: savedItemMap[program.id] ? "#16a34a" : "#8E0033",
+                            transition: "all 0.2s ease"
                           }}
+                          disabled={loadingId === program.id}
+                          onClick={() => handleSaveItem(program, venue, item)}
                         >
-                          {loadingId === program.id ? "..." : "Save"}
+                          {loadingId === program.id ? "Saving..." : savedItemMap[program.id] || "💾 Save Item"}
                         </button>
                       </div>
                     </div>

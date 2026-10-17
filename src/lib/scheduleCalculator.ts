@@ -400,13 +400,19 @@ export interface CandidateClash {
   candidateId: string;
   candidateName: string;
   chestNumber?: string | null;
+  institutionName?: string | null;
+  zoneName?: string | null;
   program1Id: string;
   program1Name: string;
+  program1Code?: string | null;
+  program1Fest?: string | null;
   program1Venue: string;
   program1Start: Date;
   program1End: Date;
   program2Id: string;
   program2Name: string;
+  program2Code?: string | null;
+  program2Fest?: string | null;
   program2Venue: string;
   program2Start: Date;
   program2End: Date;
@@ -429,8 +435,13 @@ export function detectCandidateScheduleClashes(
   const candidateAppearances = new Map<string, Array<{
     candidateId: string;
     candidateName: string;
+    chestNumber?: string | null;
+    institutionName?: string | null;
+    zoneName?: string | null;
     programId: string;
     programName: string;
+    programCode?: string | null;
+    festType?: string | null;
     venue: string;
     start: Date;
     end: Date;
@@ -454,8 +465,13 @@ export function detectCandidateScheduleClashes(
         list.push({
           candidateId: cand.id,
           candidateName: cand.name || "Candidate",
+          chestNumber: (cand as any).chestNumber || null,
+          institutionName: (cand as any).institution?.name || (cand as any).team?.institution?.name || null,
+          zoneName: (cand as any).institution?.zone?.name || (cand as any).team?.institution?.zone?.name || null,
           programId: slot.program.id,
           programName: slot.program.name,
+          programCode: slot.program.programCode || null,
+          festType: (slot.program as any).festType || ((slot.program as any).event?.name?.toLowerCase().includes("pg") ? "PG" : "STATE"),
           venue: venue,
           start: slot.predictedStart,
           end: slot.predictedEnd,
@@ -494,13 +510,20 @@ export function detectCandidateScheduleClashes(
           const clash: CandidateClash = {
             candidateId: candId,
             candidateName: a.candidateName,
+            chestNumber: a.chestNumber || b.chestNumber || null,
+            institutionName: a.institutionName || b.institutionName || null,
+            zoneName: a.zoneName || b.zoneName || null,
             program1Id: a.programId,
             program1Name: a.programName,
+            program1Code: a.programCode,
+            program1Fest: a.festType === "PG" ? "Fadheela PG" : "State Final",
             program1Venue: a.venue,
             program1Start: a.start,
             program1End: a.end,
             program2Id: b.programId,
             program2Name: b.programName,
+            program2Code: b.programCode,
+            program2Fest: b.festType === "PG" ? "Fadheela PG" : "State Final",
             program2Venue: b.venue,
             program2Start: b.start,
             program2End: b.end,

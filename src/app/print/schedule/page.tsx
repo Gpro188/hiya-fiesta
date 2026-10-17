@@ -330,6 +330,19 @@ export default async function PrintSchedulePage(props: {
                 }
 
                 const prevProg = idx > 0 ? venueProgs[idx - 1] : null;
+                const curDate = p.startTime ? new Date(p.startTime) : null;
+                const prevDate = prevProg?.startTime ? new Date(prevProg.startTime) : null;
+                const curDateStr = curDate ? curDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+                const prevDateStr = prevDate ? prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+                const isNewDay = curDateStr && (idx === 0 || curDateStr !== prevDateStr);
+                const dayDisplayLabel = curDate ? curDate.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  timeZone: 'Asia/Kolkata'
+                }) : '';
+
                 let showBreakRow = false;
                 let gapStartStr = "";
                 let gapEndStr = "";
@@ -352,6 +365,13 @@ export default async function PrintSchedulePage(props: {
 
                 return (
                   <React.Fragment key={p.id}>
+                    {isNewDay && (
+                      <tr style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>
+                        <td colSpan={isCollab ? 7 : 6} style={{ border: '1px solid #1e293b', padding: '7px 12px', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                          📅 {dayDisplayLabel ? dayDisplayLabel.toUpperCase() : 'SCHEDULED DAY'}
+                        </td>
+                      </tr>
+                    )}
                     {showBreakRow && (
                       <tr style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
                         <td style={{ border: '1px solid #fde68a', padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}>-</td>
