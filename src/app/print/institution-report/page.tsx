@@ -118,7 +118,10 @@ export default async function PrintInstitutionReportPage(props: {
                   programCode: true,
                   venue: true,
                   startTime: true,
-                  stageType: true
+                  stageType: true,
+                  category: {
+                    select: { name: true }
+                  }
                 }
               }
             },
@@ -761,9 +764,26 @@ export default async function PrintInstitutionReportPage(props: {
                                       fontSize: "0.82rem",
                                     }}
                                   >
-                                    <span style={{ fontWeight: 800, color: "#1e293b" }}>
-                                      {as.program?.programCode ? `${as.program.programCode} - ` : ""}
-                                      {as.program?.name}
+                                    <span style={{ fontWeight: 800, color: "#1e293b", display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                      <span>
+                                        {as.program?.programCode ? `${as.program.programCode} - ` : ""}
+                                        {as.program?.name}
+                                      </span>
+                                      {as.program?.category?.name && (
+                                        <span
+                                          style={{
+                                            fontSize: "0.68rem",
+                                            fontWeight: 800,
+                                            padding: "1px 6px",
+                                            borderRadius: "4px",
+                                            backgroundColor: as.program.category.name === "FADHILA" ? "#e0e7ff" : as.program.category.name === "FADHEELA" ? "#fce7f3" : "#f1f5f9",
+                                            color: as.program.category.name === "FADHILA" ? "#3730a3" : as.program.category.name === "FADHEELA" ? "#9d174d" : "#475569",
+                                            letterSpacing: "0.3px",
+                                          }}
+                                        >
+                                          {as.program.category.name}
+                                        </span>
+                                      )}
                                     </span>
                                     <div
                                       style={{
