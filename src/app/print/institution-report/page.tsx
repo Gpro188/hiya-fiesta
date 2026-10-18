@@ -62,7 +62,10 @@ export default async function PrintInstitutionReportPage(props: {
   }
 
   const effectiveEventId = activeEvent?.id;
-  const settings = await getSettings(effectiveEventId);
+  const stateEvent = await prisma.event.findFirst({ where: { type: "STATE" } });
+  // If state final exists, the Zonal Team Manager roster represents confirmed participants for the State Final
+  const targetProgramEventId = stateEvent?.id || effectiveEventId;
+  const settings = await getSettings(targetProgramEventId || effectiveEventId);
   const eventName = activeEvent?.name || "Zonal Festival";
 
   // Build team query
@@ -93,10 +96,7 @@ export default async function PrintInstitutionReportPage(props: {
             some: {
               program: {
                 stageType: "ON_STAGE",
-                OR: [
-                  { event: { type: "STATE" } },
-                  ...(effectiveEventId ? [{ eventId: effectiveEventId }] : [])
-                ]
+                eventId: targetProgramEventId
               }
             }
           }
@@ -107,10 +107,7 @@ export default async function PrintInstitutionReportPage(props: {
             where: {
               program: {
                 stageType: "ON_STAGE",
-                OR: [
-                  { event: { type: "STATE" } },
-                  ...(effectiveEventId ? [{ eventId: effectiveEventId }] : [])
-                ]
+                eventId: targetProgramEventId
               }
             },
             include: {
