@@ -91,7 +91,10 @@ export default async function PrintInstitutionReportPage(props: {
         where: {
           programs: {
             some: {
-              program: { stageType: "ON_STAGE" }
+              program: {
+                stageType: "ON_STAGE",
+                ...(effectiveEventId ? { eventId: effectiveEventId } : {})
+              }
             }
           }
         },
@@ -99,7 +102,10 @@ export default async function PrintInstitutionReportPage(props: {
           category: true,
           programs: {
             where: {
-              program: { stageType: "ON_STAGE" }
+              program: {
+                stageType: "ON_STAGE",
+                ...(effectiveEventId ? { eventId: effectiveEventId } : {})
+              }
             },
             include: {
               program: {
@@ -368,7 +374,10 @@ export default async function PrintInstitutionReportPage(props: {
             const inst = team.institution;
             const candidates = team.candidates;
             const totalOnStageEntries = candidates.reduce(
-              (sum: number, c: any) => sum + c.programs.length,
+              (sum: number, c: any) => {
+                const uniqueSet = new Set(c.programs.map((as: any) => as.program?.id || as.programId));
+                return sum + uniqueSet.size;
+              },
               0
             );
 
@@ -617,6 +626,10 @@ export default async function PrintInstitutionReportPage(props: {
                     <tbody>
                       {candidates.map((c: any, idx: number) => {
                         const photo = c.photoUrl || c.photo;
+                        // Deduplicate any repeated assignments to the same program
+                        const uniquePrograms = Array.from(
+                          new Map(c.programs.map((as: any) => [as.program?.id || as.programId, as])).values()
+                        ) as typeof c.programs;
                         return (
                           <tr key={c.id} style={{ borderBottom: "1px solid #cbd5e1" }}>
                             <td
@@ -731,7 +744,7 @@ export default async function PrintInstitutionReportPage(props: {
                               }}
                             >
                               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                {c.programs.map((as: any) => (
+                                {uniquePrograms.map((as: any) => (
                                   <div
                                     key={as.id}
                                     style={{
