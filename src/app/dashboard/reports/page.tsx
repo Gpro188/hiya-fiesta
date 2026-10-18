@@ -829,15 +829,47 @@ export default async function ReportsPage(props: {
             </a>
           )}
 
+          {/* On-Stage Only Institution-Based Participation List for Zonal Team Managers */}
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.04)', boxShadow: '0 4px 14px rgba(142,0,51,0.08)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎭</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>On-Stage Institution Participation List</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>ON-STAGE ONLY</span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#0284c7', color: '#ffffff', fontWeight: 800 }}>ZONAL TEAM MANAGERS</span>
+            </div>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Official institution-based roster strictly for On-Stage participants. Includes candidate photos, chest numbers, venues, performance times, gate-entry checkboxes, and Team Manager sign-off for each zone.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a href={`/print/institution-report?eventId=${activeEventId}`} target="_blank" style={{ fontSize: '0.78rem', fontWeight: 800, padding: '6px 12px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span>📸</span> View Institution On-Stage Roster (With Photos)
+              </a>
+              <a href={`/print/institution-attendance?eventId=${activeEventId}&stageType=ON_STAGE`} target="_blank" style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', backgroundColor: '#0284c7', color: '#fff', borderRadius: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span>📝</span> On-Stage Attendance Roll
+              </a>
+            </div>
+          </div>
+
           {/* Institution Registration & Attendance Sheet */}
-          <a href={`/print/institution-attendance?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #0284c7', backgroundColor: 'rgba(2,132,199,0.03)' }}>
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '1.5px solid #0284c7', backgroundColor: 'rgba(2,132,199,0.03)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', flexWrap: 'wrap' }}>
-              <h4 style={{ margin: 0, color: '#0284c7' }}>Institution Registration &amp; Attendance Sheet</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#0284c7', fontWeight: 800 }}>Institution Registration &amp; Attendance Sheet</h4>
               <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(2,132,199,0.1)', color: '#0284c7', fontWeight: 800 }}>SIGN SHEET</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print institution-wise participant list with attendance checkbox and Team Manager signature box for zonal fest entry.</p>
-          </a>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Print institution-wise participant list with attendance checkbox and Team Manager signature box for zonal fest entry.</p>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <a href={`/print/institution-attendance?eventId=${activeEventId}&stageType=ON_STAGE`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 800, padding: '4px 9px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                🎭 On-Stage Only
+              </a>
+              <a href={`/print/institution-attendance?eventId=${activeEventId}`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 9px', backgroundColor: '#0284c7', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                All Programs
+              </a>
+              <a href={`/print/institution-attendance?eventId=${activeEventId}&stageType=OFF_STAGE`} target="_blank" style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 9px', backgroundColor: '#7c3aed', color: '#fff', borderRadius: '4px', textDecoration: 'none' }}>
+                Off-Stage Only
+              </a>
+            </div>
+          </div>
 
           <a href={`/print/candidates?eventId=${activeEventId}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>👥</div>
@@ -1057,16 +1089,25 @@ export default async function ReportsPage(props: {
           </a>
 
           {/* Always accessible: On-Stage Program Entry & Verification Sheet */}
-          <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📑</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>On-Stage Program Entry Sheet (With Photos)</h4>
-              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>FEST ENTRY PASS</span>
+          <div className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', border: '2px solid #8E0033', backgroundColor: 'rgba(142,0,51,0.03)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎭</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0, color: '#8E0033', fontWeight: 800 }}>On-Stage Only Institution Participation List</h4>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#8E0033', color: '#ffffff', fontWeight: 800 }}>ON-STAGE ONLY</span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#0284c7', color: '#ffffff', fontWeight: 800 }}>FEST ENTRY PASS</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Official On-Stage program allocation & candidate verification sheet with photos and chest numbers required for Zone Fest entry.
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Official On-Stage program allocation &amp; candidate verification sheet with photos and chest numbers required for Zonal Fest entry by Team Managers.
             </p>
-          </a>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a href={`/print/institution-report?teamId=${team.id}`} target="_blank" style={{ fontSize: '0.78rem', fontWeight: 800, padding: '6px 12px', backgroundColor: '#8E0033', color: '#fff', borderRadius: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span>📸</span> Print On-Stage Entry Pass (With Photos)
+              </a>
+              <a href={`/print/institution-attendance?teamId=${team.id}&stageType=ON_STAGE`} target="_blank" style={{ fontSize: '0.78rem', fontWeight: 700, padding: '6px 12px', backgroundColor: '#0284c7', color: '#fff', borderRadius: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span>📝</span> On-Stage Attendance Roll
+              </a>
+            </div>
+          </div>
 
           {isSchedulePublished ? (
             <a href={`/print/schedule?teamId=${team.id}`} target="_blank" className="glass-panel" style={{ padding: 'var(--spacing-lg)', display: 'block', textDecoration: 'none', transition: 'all 0.2s', border: '1.5px solid #3b82f6' }}>

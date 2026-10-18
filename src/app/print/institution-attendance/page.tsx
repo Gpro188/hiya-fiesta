@@ -9,10 +9,11 @@ export default async function PrintInstitutionAttendancePage(props: {
     eventId?: string;
     zoneId?: string;
     teamId?: string;
+    stageType?: string;
   }>;
 }) {
   const searchParams = await props.searchParams;
-  const { eventId, zoneId, teamId } = searchParams;
+  const { eventId, zoneId, teamId, stageType } = searchParams;
 
   // Find the state event as a default or reference
   const stateEvent = await prisma.event.findFirst({
@@ -820,6 +821,16 @@ export default async function PrintInstitutionAttendancePage(props: {
     if (zoneEvent) teamWhere.eventId = zoneEvent.id;
   }
 
+  const candidateWhere: any = { isApproved: true };
+  const programWhere: any = {};
+  if (stageType === "ON_STAGE") {
+    candidateWhere.programs = { some: { program: { stageType: "ON_STAGE" } } };
+    programWhere.program = { stageType: "ON_STAGE" };
+  } else if (stageType === "OFF_STAGE") {
+    candidateWhere.programs = { some: { program: { stageType: "OFF_STAGE" } } };
+    programWhere.program = { stageType: "OFF_STAGE" };
+  }
+
   const teams = await prisma.team.findMany({
     where: teamWhere,
     orderBy: [{ name: "asc" }],
@@ -831,11 +842,12 @@ export default async function PrintInstitutionAttendancePage(props: {
         include: { zone: true },
       },
       candidates: {
-        where: { isApproved: true },
+        where: candidateWhere,
         orderBy: [{ name: "asc" }],
         include: {
           category: { select: { name: true } },
           programs: {
+            where: programWhere,
             include: {
               program: {
                 select: { id: true, name: true, programCode: true, type: true, stageType: true },
@@ -888,20 +900,31 @@ export default async function PrintInstitutionAttendancePage(props: {
           }}
         >
           <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "1.1rem",
-                fontWeight: 800,
-                letterSpacing: "0.5px",
-                color: "#f8fafc",
-              }}
-            >
-              INSTITUTION REGISTRATION &amp; ATTENDANCE SHEET
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "1.1rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.5px",
+                  color: "#f8fafc",
+                }}
+              >
+                {stageType === "ON_STAGE"
+                  ? "ON-STAGE INSTITUTION REGISTRATION & ATTENDANCE SHEET"
+                  : stageType === "OFF_STAGE"
+                  ? "OFF-STAGE INSTITUTION REGISTRATION & ATTENDANCE SHEET"
+                  : "INSTITUTION REGISTRATION & ATTENDANCE SHEET"}
+              </h1>
+              {stageType === "ON_STAGE" && (
+                <span style={{ fontSize: "0.72rem", padding: "2px 8px", borderRadius: "999px", backgroundColor: "#8E0033", color: "#fff", fontWeight: 800 }}>
+                  ON-STAGE ONLY
+                </span>
+              )}
+            </div>
             <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
               {activeEvent?.name || settings.festName} • {teamsWithCandidates.length} Institution(s)
-              listed
+              listed {stageType === "ON_STAGE" ? "• (On-Stage Participants Only)" : ""}
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
@@ -956,7 +979,7 @@ export default async function PrintInstitutionAttendancePage(props: {
           )}
 
           {allZoneEvents.map((ev) => {
-            const url = `/print/institution-attendance?eventId=${ev.id}`;
+            const url = `/print/institution-attendance?eventId=${ev.id}${stageType ? `&stageType=${stageType}` : ""}`;
             const isSelected = ev.id === eventId || (activeEvent && activeEvent.id === ev.id);
             return (
               <a
@@ -977,6 +1000,64 @@ export default async function PrintInstitutionAttendancePage(props: {
               </a>
             );
           })}
+        </div>
+
+        {/* Stage Type Filter Pills */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            alignItems: "center",
+            marginTop: "10px",
+            paddingTop: "8px",
+            borderTop: "1px dashed #334155",
+            fontSize: "0.78rem",
+          }}
+        >
+          <span style={{ color: "#94a3b8", fontWeight: 700 }}>Program Filter:</span>
+          <a
+            href={`/print/institution-attendance?eventId=${activeEvent?.id || ""}&stageType=ON_STAGE${teamId ? `&teamId=${teamId}` : ""}`}
+            style={{
+              padding: "4px 12px",
+              borderRadius: "5px",
+              border: stageType === "ON_STAGE" ? "2px solid #38bdf8" : "1px solid #475569",
+              backgroundColor: stageType === "ON_STAGE" ? "#8E0033" : "#1e293b",
+              color: "#fff",
+              fontWeight: stageType === "ON_STAGE" ? 800 : 600,
+              textDecoration: "none",
+            }}
+          >
+            🎭 On-Stage Only (Team Manager Pass)
+          </a>
+          <a
+            href={`/print/institution-attendance?eventId=${activeEvent?.id || ""}${teamId ? `&teamId=${teamId}` : ""}`}
+            style={{
+              padding: "4px 12px",
+              borderRadius: "5px",
+              border: !stageType || stageType === "ALL" ? "2px solid #38bdf8" : "1px solid #475569",
+              backgroundColor: !stageType || stageType === "ALL" ? "#0284c7" : "#1e293b",
+              color: "#fff",
+              fontWeight: !stageType || stageType === "ALL" ? 800 : 600,
+              textDecoration: "none",
+            }}
+          >
+            📝 All Programs (On + Off Stage)
+          </a>
+          <a
+            href={`/print/institution-attendance?eventId=${activeEvent?.id || ""}&stageType=OFF_STAGE${teamId ? `&teamId=${teamId}` : ""}`}
+            style={{
+              padding: "4px 12px",
+              borderRadius: "5px",
+              border: stageType === "OFF_STAGE" ? "2px solid #38bdf8" : "1px solid #475569",
+              backgroundColor: stageType === "OFF_STAGE" ? "#7c3aed" : "#1e293b",
+              color: "#fff",
+              fontWeight: stageType === "OFF_STAGE" ? 800 : 600,
+              textDecoration: "none",
+            }}
+          >
+            🎨 Off-Stage Only
+          </a>
         </div>
       </div>
 
