@@ -93,7 +93,10 @@ export default async function PrintInstitutionReportPage(props: {
             some: {
               program: {
                 stageType: "ON_STAGE",
-                ...(effectiveEventId ? { eventId: effectiveEventId } : {})
+                OR: [
+                  { event: { type: "STATE" } },
+                  ...(effectiveEventId ? [{ eventId: effectiveEventId }] : [])
+                ]
               }
             }
           }
@@ -104,7 +107,10 @@ export default async function PrintInstitutionReportPage(props: {
             where: {
               program: {
                 stageType: "ON_STAGE",
-                ...(effectiveEventId ? { eventId: effectiveEventId } : {})
+                OR: [
+                  { event: { type: "STATE" } },
+                  ...(effectiveEventId ? [{ eventId: effectiveEventId }] : [])
+                ]
               }
             },
             include: {
