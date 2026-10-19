@@ -594,9 +594,12 @@ export default function GalleryClient({
           position: relative;
           border-radius: 14px;
           overflow: hidden;
-          aspect-ratio: 4 / 3;
-          background-color: #1a101c;
+          aspect-ratio: 4 / 5;
+          background-color: #150918;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
           border: 1px solid rgba(255, 255, 255, 0.08);
           transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
@@ -612,7 +615,7 @@ export default function GalleryClient({
         .photo-img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
           display: block;
           transition: transform 0.4s ease;
         }
