@@ -570,39 +570,46 @@ export default function GalleryClient({
           font-size: 0.8rem;
         }
 
-        /* Responsive Grid: 2 columns on Mobile, 3-4 on Tablet/Desktop */
+        /* Responsive Masonry Grid: 2 columns on Mobile, 3 on Tablet, 4 on Desktop */
         .photo-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
+          column-count: 2;
+          column-gap: 14px;
         }
         @media (min-width: 640px) {
           .photo-grid {
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 18px;
+            column-count: 3;
+            column-gap: 18px;
           }
         }
         @media (min-width: 1024px) {
           .photo-grid {
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 22px;
+            column-count: 4;
+            column-gap: 22px;
           }
         }
 
-        /* Photo Card */
+        /* Photo Card - Natural Aspect Ratio (Zero Cropping) */
         .photo-card {
           position: relative;
           border-radius: 14px;
           overflow: hidden;
-          aspect-ratio: 4 / 5;
           background-color: #150918;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          break-inside: avoid;
+          margin-bottom: 14px;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
           border: 1px solid rgba(255, 255, 255, 0.08);
           transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+        }
+        @media (min-width: 640px) {
+          .photo-card {
+            margin-bottom: 18px;
+          }
+        }
+        @media (min-width: 1024px) {
+          .photo-card {
+            margin-bottom: 22px;
+          }
         }
         @media (hover: hover) {
           .photo-card:hover {
@@ -614,8 +621,7 @@ export default function GalleryClient({
 
         .photo-img {
           width: 100%;
-          height: 100%;
-          object-fit: contain;
+          height: auto;
           display: block;
           transition: transform 0.4s ease;
         }
