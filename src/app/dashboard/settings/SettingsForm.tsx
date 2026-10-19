@@ -682,34 +682,60 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                         gap: '12px'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 800, color: 'var(--ink, #1e293b)', fontSize: '0.95rem' }}>
                           📍 {zone.name}
                         </span>
-                        <select
-                          className="form-input"
-                          style={{ 
-                            width: 'auto', 
-                            padding: '4px 8px', 
-                            fontSize: '0.76rem', 
-                            fontWeight: 700, 
-                            borderRadius: '6px',
-                            backgroundColor: zone.statusOverride === 'HIDDEN' ? '#fee2e2' : undefined,
-                            color: zone.statusOverride === 'HIDDEN' ? '#dc2626' : undefined,
-                            borderColor: zone.statusOverride === 'HIDDEN' ? '#f87171' : undefined
-                          }}
-                          value={zone.statusOverride}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, statusOverride: val } : z));
-                          }}
-                        >
-                          <option value="AUTO">AUTO (Date Clock)</option>
-                          <option value="LIVE">LIVE NOW</option>
-                          <option value="COMPLETED">COMPLETED</option>
-                          <option value="REGISTRATION">REGISTRATION</option>
-                          <option value="HIDDEN">🔒 HIDDEN (Hide Results & Zone)</option>
-                        </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newStatus = zone.statusOverride === 'HIDDEN' ? 'COMPLETED' : 'HIDDEN';
+                              setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, statusOverride: newStatus } : z));
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              borderRadius: '6px',
+                              backgroundColor: zone.statusOverride === 'HIDDEN' ? '#dcfce7' : '#fee2e2',
+                              color: zone.statusOverride === 'HIDDEN' ? '#15803d' : '#dc2626',
+                              border: `1px solid ${zone.statusOverride === 'HIDDEN' ? '#86efac' : '#fca5a5'}`,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title={zone.statusOverride === 'HIDDEN' ? 'Click to show this zone' : 'Click to hide this zone'}
+                          >
+                            <span>{zone.statusOverride === 'HIDDEN' ? '👁️ Show' : '🔒 Hide'}</span>
+                          </button>
+
+                          <select
+                            className="form-input"
+                            style={{ 
+                              width: 'auto', 
+                              padding: '4px 8px', 
+                              fontSize: '0.76rem', 
+                              fontWeight: 700, 
+                              borderRadius: '6px',
+                              backgroundColor: zone.statusOverride === 'HIDDEN' ? '#fee2e2' : undefined,
+                              color: zone.statusOverride === 'HIDDEN' ? '#dc2626' : undefined,
+                              borderColor: zone.statusOverride === 'HIDDEN' ? '#f87171' : undefined
+                            }}
+                            value={zone.statusOverride}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setZoneSchedules(prev => prev.map(z => z.id === zone.id ? { ...z, statusOverride: val } : z));
+                            }}
+                          >
+                            <option value="AUTO">AUTO (Date Clock)</option>
+                            <option value="LIVE">LIVE NOW</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="REGISTRATION">REGISTRATION</option>
+                            <option value="HIDDEN">🔒 HIDDEN</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
