@@ -62,9 +62,20 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
 
   let preFestData = { teamsCount: 0, candidatesCount: 0, programsCount: 0, programsList: [] as any[] };
   if (!showResultsDashboard) {
+    const isStateEvent = event.type === "STATE" || !event.parentId;
     const [teamsCount, candidatesCount, programsList] = await Promise.all([
       prisma.team.count({ where: { eventId: event.id } }),
-      prisma.candidate.count({ where: { team: { eventId: event.id } } }),
+      isStateEvent
+        ? prisma.candidate.count({
+            where: {
+              programs: {
+                some: {
+                  program: { eventId: event.id }
+                }
+              }
+            }
+          })
+        : prisma.candidate.count({ where: { team: { eventId: event.id } } }),
       prisma.program.findMany({
         where: { eventId: event.id, type: { not: 'BREAK' } },
         include: { category: { select: { name: true } } },

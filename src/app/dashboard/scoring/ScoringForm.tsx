@@ -165,13 +165,13 @@ export default function ScoringForm({
     return code.includes(q) || name.includes(q) || cat.includes(q);
   });
 
-  const selecteCSWCgram = allPrograms.find((p: any) => p.id === programId);
-  const isGeneral = isProgramGeneral(selecteCSWCgram);
-  const isIndividual = !isGeneral && selecteCSWCgram?.type === "INDIVIDUAL" && !isInstitutionProgram(selecteCSWCgram);
+  const selectedProgram = allPrograms.find((p: any) => p.id === programId);
+  const isGeneral = isProgramGeneral(selectedProgram);
+  const isIndividual = !isGeneral && selectedProgram?.type === "INDIVIDUAL" && !isInstitutionProgram(selectedProgram);
 
   // When selected program changes, build list of all candidates / teams with existing scores
   useEffect(() => {
-    if (!selecteCSWCgram) {
+    if (!selectedProgram) {
       setEntries([]);
       setEvaluator1("");
       setEvaluator2("");
@@ -179,22 +179,22 @@ export default function ScoringForm({
     }
 
     // Pre-select program judges if assigned
-    if (selecteCSWCgram.judges && selecteCSWCgram.judges.length >= 2) {
-      setEvaluator1(selecteCSWCgram.judges[0]?.username || "");
-      setEvaluator2(selecteCSWCgram.judges[1]?.username || "");
-    } else if (selecteCSWCgram.judges && selecteCSWCgram.judges.length === 1) {
-      setEvaluator1(selecteCSWCgram.judges[0]?.username || "");
+    if (selectedProgram.judges && selectedProgram.judges.length >= 2) {
+      setEvaluator1(selectedProgram.judges[0]?.username || "");
+      setEvaluator2(selectedProgram.judges[1]?.username || "");
+    } else if (selectedProgram.judges && selectedProgram.judges.length === 1) {
+      setEvaluator1(selectedProgram.judges[0]?.username || "");
       setEvaluator2("");
     } else {
       setEvaluator1("");
       setEvaluator2("");
     }
 
-    const existingResults = selecteCSWCgram.results || [];
+    const existingResults = selectedProgram.results || [];
     let initialEntries: ScoringEntry[] = [];
 
     if (isIndividual) {
-      const assignments = selecteCSWCgram.assignments || [];
+      const assignments = selectedProgram.assignments || [];
       initialEntries = assignments.map((a: any) => {
         const cand = a.candidate;
         const res = existingResults.find((r: any) => r.candidateId === cand.id);
@@ -228,7 +228,7 @@ export default function ScoringForm({
       });
     } else {
       // Check if this is an institution/magazine program in State Fest
-      const isMagProgram = isInstitutionProgram(selecteCSWCgram);
+      const isMagProgram = isInstitutionProgram(selectedProgram);
 
       if (isMagProgram && (isStateFest || stateMagazineEntries.length > 0) && stateMagazineEntries.length > 0) {
         initialEntries = stateMagazineEntries.map((mag) => {
@@ -251,7 +251,7 @@ export default function ScoringForm({
       } else {
         // For general / group / team programs: extract unique teams from registered candidate assignments
         const registeredTeamMap = new Map<string, any>();
-        const assignments = selecteCSWCgram.assignments || [];
+        const assignments = selectedProgram.assignments || [];
         for (const a of assignments) {
           const t = a.candidate?.team;
           if (t && !registeredTeamMap.has(t.id)) {
@@ -298,7 +298,7 @@ export default function ScoringForm({
     }
 
     setEntries(initialEntries);
-  }, [programId, selecteCSWCgram, isIndividual, selectedEvent, stateMagazineEntries, isStateFest]);
+  }, [programId, selectedProgram, isIndividual, selectedEvent, stateMagazineEntries, isStateFest]);
 
   // Points matrix calculation
   const calculatePoints = (r: string, g: string) => {
@@ -306,8 +306,8 @@ export default function ScoringForm({
     if (!isIndividual) {
       pointsConfig = { rank1: 10, rank2: 6, rank3: 3, gradeA: 5, gradeB: 3, gradeC: 1 };
     }
-    if (selecteCSWCgram?.category?.pointMatrix) {
-      const matrix = selecteCSWCgram.category.pointMatrix;
+    if (selectedProgram?.category?.pointMatrix) {
+      const matrix = selectedProgram.category.pointMatrix;
       const str = isIndividual ? matrix.individualPoints : matrix.groupPoints;
       if (str) {
         try { pointsConfig = JSON.parse(str); } catch (e) {}
@@ -390,7 +390,7 @@ export default function ScoringForm({
     }
 
     const isJudge = userRole === "JUDGE";
-    const currentVenue = selecteCSWCgram?.venue || selectedVenue;
+    const currentVenue = selectedProgram?.venue || selectedVenue;
     const result = await batchSubmitProgramMarks({
       eventId,
       programId,
@@ -649,7 +649,7 @@ export default function ScoringForm({
       </div>
 
       {/* Evaluating Juries Consensus Banner */}
-      {selecteCSWCgram && (
+      {selectedProgram && (
         <div style={{
           backgroundColor: '#fff',
           borderRadius: '14px',
@@ -663,7 +663,7 @@ export default function ScoringForm({
               <div>
                 <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>Venue Juries & Consensus Valuation</strong>
                 <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                  Stage / Venue: <strong>{selecteCSWCgram.venue || selectedVenue || "Main Stage"}</strong> • Select which <strong>2 Juries</strong> evaluated this session
+                  Stage / Venue: <strong>{selectedProgram.venue || selectedVenue || "Main Stage"}</strong> • Select which <strong>2 Juries</strong> evaluated this session
                 </div>
               </div>
             </div>
@@ -684,9 +684,9 @@ export default function ScoringForm({
                 style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator1 ? '2px solid #3b82f6' : '1px solid #cbd5e1' }}
               >
                 <option value="">-- Choose Evaluator 1 --</option>
-                {selecteCSWCgram.judges && selecteCSWCgram.judges.length > 0 && (
+                {selectedProgram.judges && selectedProgram.judges.length > 0 && (
                   <optgroup label={`🏛️ Current Program / Venue Juries`}>
-                    {selecteCSWCgram.judges.map((j: any) => (
+                    {selectedProgram.judges.map((j: any) => (
                       <option key={`prog_j1_${j.id}`} value={j.username}>
                         ⭐ Assigned Venue Jury: {j.username}
                       </option>
@@ -694,7 +694,7 @@ export default function ScoringForm({
                   </optgroup>
                 )}
                 <optgroup label="📋 All Available Fest Juries">
-                  {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                  {availableJudges.filter((j: any) => !selectedProgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
                     <option key={`all_j1_${j.id}`} value={j.username}>
                       {j.place ? `[${j.place}] ` : ''}{j.username} {j.phone && j.phone !== "ACTIVE" ? `(${j.phone})` : ''}
                     </option>
@@ -714,9 +714,9 @@ export default function ScoringForm({
                 style={{ padding: '8px 12px', fontSize: '0.88rem', fontWeight: 600, border: evaluator2 ? '2px solid #ec4899' : '1px solid #cbd5e1' }}
               >
                 <option value="">-- Choose Evaluator 2 --</option>
-                {selecteCSWCgram.judges && selecteCSWCgram.judges.length > 0 && (
+                {selectedProgram.judges && selectedProgram.judges.length > 0 && (
                   <optgroup label={`🏛️ Current Program / Venue Juries`}>
-                    {selecteCSWCgram.judges.map((j: any) => (
+                    {selectedProgram.judges.map((j: any) => (
                       <option key={`prog_j2_${j.id}`} value={j.username}>
                         ⭐ Assigned Venue Jury: {j.username}
                       </option>
@@ -724,7 +724,7 @@ export default function ScoringForm({
                   </optgroup>
                 )}
                 <optgroup label="📋 All Available Fest Juries">
-                  {availableJudges.filter((j: any) => !selecteCSWCgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
+                  {availableJudges.filter((j: any) => !selectedProgram.judges?.some((pj: any) => pj.id === j.id)).map((j: any) => (
                     <option key={`all_j2_${j.id}`} value={j.username}>
                       {j.place ? `[${j.place}] ` : ''}{j.username} {j.phone && j.phone !== "ACTIVE" ? `(${j.phone})` : ''}
                     </option>
@@ -755,7 +755,7 @@ export default function ScoringForm({
                 style={{ width: 16, height: 16, accentColor: '#2563eb' }}
               />
               <span>
-                🏛️ Assign selected juries to Venue &quot;{selecteCSWCgram.venue || selectedVenue || "Main Stage"}&quot; (Applies when saving result)
+                🏛️ Assign selected juries to Venue &quot;{selectedProgram.venue || selectedVenue || "Main Stage"}&quot; (Applies when saving result)
               </span>
             </label>
 
@@ -766,7 +766,7 @@ export default function ScoringForm({
                 onClick={async () => {
                   setAssigningVenueJuries(true);
                   setVenueAssignMessage(null);
-                  const currentV = selecteCSWCgram.venue || selectedVenue || "Main Stage";
+                  const currentV = selectedProgram.venue || selectedVenue || "Main Stage";
                   const res = await assignJudgesToVenueAction(eventId, currentV, [evaluator1, evaluator2].filter(Boolean));
                   if (res.success) {
                     setVenueAssignMessage(`✅ Successfully assigned to all ${res.count} programs at ${currentV}!`);
@@ -809,7 +809,7 @@ export default function ScoringForm({
       )}
 
       {/* Program Candidates Total Marks Grid */}
-      {selecteCSWCgram && (
+      {selectedProgram && (
         <div style={{
           backgroundColor: '#fff',
           borderRadius: '16px',
@@ -829,20 +829,20 @@ export default function ScoringForm({
           }}>
             <div>
               <h3 style={{ margin: '0 0 6px 0', color: '#1a1420', fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span>{selecteCSWCgram.name}</span>
+                <span>{selectedProgram.name}</span>
                 <span style={{
                   fontSize: '0.74rem',
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: '6px',
                   letterSpacing: '0.03em',
-                  backgroundColor: selecteCSWCgram.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
-                  color: selecteCSWCgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
-                  border: `1.5px solid ${selecteCSWCgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
+                  backgroundColor: selectedProgram.stageType === "OFF_STAGE" ? 'rgba(14, 165, 233, 0.16)' : 'rgba(236, 72, 153, 0.16)',
+                  color: selectedProgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777',
+                  border: `1.5px solid ${selectedProgram.stageType === "OFF_STAGE" ? '#0284c7' : '#db2777'}`
                 }}>
-                  {selecteCSWCgram.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
+                  {selectedProgram.stageType === "OFF_STAGE" ? "🎨 OFF STAGE" : "🎭 ON STAGE"}
                 </span>
-                {isInstitutionProgram(selecteCSWCgram) && (
+                {isInstitutionProgram(selectedProgram) && (
                   <span style={{
                     fontSize: '0.74rem',
                     fontWeight: 800,
@@ -857,7 +857,7 @@ export default function ScoringForm({
                 )}
               </h3>
               <p style={{ margin: 0, fontSize: '0.82rem', color: '#7a7480' }}>
-                Category: <strong>{selecteCSWCgram.category?.name || 'General'}</strong> • Type: <strong>{isInstitutionProgram(selecteCSWCgram) ? 'INSTITUTION' : selecteCSWCgram.type}</strong> • Entries: <strong>{entries.length}</strong>
+                Category: <strong>{selectedProgram.category?.name || 'General'}</strong> • Type: <strong>{isInstitutionProgram(selectedProgram) ? 'INSTITUTION' : selectedProgram.type}</strong> • Entries: <strong>{entries.length}</strong>
               </p>
             </div>
             
@@ -909,7 +909,7 @@ export default function ScoringForm({
             </div>
           </div>
 
-          {isInstitutionProgram(selecteCSWCgram) && (
+          {isInstitutionProgram(selectedProgram) && (
             <div style={{
               margin: '12px 20px',
               padding: '12px 16px',
@@ -981,7 +981,7 @@ export default function ScoringForm({
                     <th style={{ padding: '12px 16px', width: '50px', textAlign: 'center' }}>#</th>
                     {isIndividual ? (
                       <th style={{ padding: '12px 16px', width: '110px' }}>Chest No</th>
-                    ) : isInstitutionProgram(selecteCSWCgram) ? (
+                    ) : isInstitutionProgram(selectedProgram) ? (
                       <>
                         <th style={{ padding: '12px 16px', width: '140px', color: '#7e22ce' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1002,7 +1002,7 @@ export default function ScoringForm({
                         </th>
                       </>
                     ) : (
-                      <th colSpan={isInstitutionProgram(selecteCSWCgram) ? 1 : 2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
+                      <th colSpan={isInstitutionProgram(selectedProgram) ? 1 : 2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
                     )}
                     <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
                     <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
@@ -1023,7 +1023,7 @@ export default function ScoringForm({
                         <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--primary, #e6007e)' }}>
                           {entry.chestNumber || '-'}
                         </td>
-                      ) : isInstitutionProgram(selecteCSWCgram) ? (
+                      ) : isInstitutionProgram(selectedProgram) ? (
                         <>
                           <td style={{ padding: '12px 16px', fontWeight: 900, fontFamily: "'IBM Plex Mono', monospace" }}>
                             <span style={{
@@ -1103,7 +1103,7 @@ export default function ScoringForm({
                           </td>
                         </>
                       ) : (
-                        <td colSpan={isInstitutionProgram(selecteCSWCgram) ? 1 : 2} style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420', fontSize: '0.92rem' }}>
+                        <td colSpan={isInstitutionProgram(selectedProgram) ? 1 : 2} style={{ padding: '12px 16px', fontWeight: 800, color: '#1a1420', fontSize: '0.92rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <span>🏛️ {entry.name}</span>
                             {entry.zoneName && (
