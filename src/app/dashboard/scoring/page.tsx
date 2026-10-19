@@ -24,46 +24,85 @@ export default async function ScoringPage(props: {
     redirect("/dashboard");
   }
 
-  // Scope events strictly to logged in Admin's main event and its sub-events
-  let userEventId = session.user.eventId;
-  if (!userEventId && (session.user as any).zoneId) {
-    const zoneEv = await prisma.event.findFirst({
-      where: { zoneId: (session.user as any).zoneId, type: "ZONE" },
-      orderBy: { createdAt: "desc" },
-      select: { id: true }
+  // Resolve judge venue & zone early to determine stage login context
+  let judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
+  let judgeZoneId = (session.user as any).zoneId || null;
+  const usernameLower = (session.user.username || "").toLowerCase();
+
+  if (session.user.role === "JUDGE") {
+    const dbJudge = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { place: true, zoneId: true, eventId: true }
     });
-    if (zoneEv) userEventId = zoneEv.id;
-  }
-
-  let eventWhere: any = userEventId ? {
-    OR: [
-      { id: userEventId },
-      { parentId: userEventId }
-    ]
-  } : {};
-
-  if (session.user.role === "SUPER_ADMIN") {
-    if (searchParams.session === "state") {
-      eventWhere = { type: "STATE" };
-    } else if (searchParams.session === "zone") {
-      eventWhere = { type: "ZONE" };
+    if (dbJudge) {
+      if (dbJudge.place) judgeVenue = dbJudge.place;
+      if (dbJudge.zoneId) judgeZoneId = dbJudge.zoneId;
     }
   }
 
-  const rawEvents = await prisma.event.findMany({
-    where: eventWhere,
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, createdAt: true }
-  });
+  // Pre-fetch State Final and Fadheela PG Fest events
+  const [stateEv, pgEv] = await Promise.all([
+    prisma.event.findFirst({
+      where: { type: "STATE" },
+      select: { id: true, name: true, createdAt: true, type: true }
+    }),
+    prisma.event.findFirst({
+      where: { name: { contains: "Fadheela", mode: "insensitive" } },
+      select: { id: true, name: true, createdAt: true, type: true }
+    })
+  ]);
 
-  // Deduplicate events by normalized name to prevent duplicate event switcher tabs
-  const seenEventNames = new Set<string>();
-  const events = rawEvents.filter(ev => {
-    const key = ev.name.trim().toLowerCase();
-    if (seenEventNames.has(key)) return false;
-    seenEventNames.add(key);
-    return true;
-  });
+  // Detect if this user is a Collaborative / State On-Stage Login
+  const isCollabStageLogin = 
+    usernameLower.startsWith("collab_") ||
+    (session.user.role === "JUDGE" && Boolean(judgeVenue) && !judgeZoneId && (!session.user.eventId || session.user.eventId === stateEv?.id)) ||
+    (session.user.role === "SUPER_ADMIN" && searchParams.session === "state");
+
+  let events: any[] = [];
+
+  if (isCollabStageLogin) {
+    // For Collaborative On-Stage logins: ONLY State Final & Fadheela PG Fest! Completely exclude all regular zones.
+    events = [stateEv, pgEv].filter(Boolean) as any[];
+  } else {
+    // Scope events strictly to logged in Admin's main event and its sub-events
+    let userEventId = session.user.eventId;
+    if (!userEventId && (session.user as any).zoneId) {
+      const zoneEv = await prisma.event.findFirst({
+        where: { zoneId: (session.user as any).zoneId, type: "ZONE" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true }
+      });
+      if (zoneEv) userEventId = zoneEv.id;
+    }
+
+    let eventWhere: any = userEventId ? {
+      OR: [
+        { id: userEventId },
+        { parentId: userEventId }
+      ]
+    } : {};
+
+    if (session.user.role === "SUPER_ADMIN") {
+      if (searchParams.session === "zone") {
+        eventWhere = { type: "ZONE" };
+      }
+    }
+
+    const rawEvents = await prisma.event.findMany({
+      where: eventWhere,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, name: true, createdAt: true }
+    });
+
+    // Deduplicate events by normalized name to prevent duplicate event switcher tabs
+    const seenEventNames = new Set<string>();
+    events = rawEvents.filter(ev => {
+      const key = ev.name.trim().toLowerCase();
+      if (seenEventNames.has(key)) return false;
+      seenEventNames.add(key);
+      return true;
+    });
+  }
 
   const activeEventId = (searchParams.eventId && events.some(e => e.id === searchParams.eventId)) 
     ? searchParams.eventId 
@@ -126,16 +165,7 @@ export default async function ScoringPage(props: {
 
   const programsEventId = isStateFest ? activeEvent.id : (activeEvent.type === "ZONE" ? activeEvent.id : (activeEvent.parentId || activeEvent.id));
 
-  let judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
-  if (session.user.role === "JUDGE" && !judgeVenue) {
-    const dbJudge = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { place: true }
-    });
-    if (dbJudge?.place) {
-      judgeVenue = dbJudge.place;
-    }
-  }
+
 
   const candidateZoneFilter: any[] = [];
   if (!isStateFest) {
@@ -1006,6 +1036,72 @@ export default async function ScoringPage(props: {
               <h2 style={{ marginBottom: 'var(--spacing-lg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                  Rapid Result Entry
               </h2>
+
+              {isCollabStageLogin && stateEv && pgEv && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                  border: '1.5px solid rgba(234, 179, 8, 0.35)',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>🤝</span>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ca8a04' }}>
+                        Collaborative Stage Portal • {judgeVenue ? judgeVenue.toUpperCase() : 'ON STAGE'}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        Currently scoring: <strong style={{ color: 'var(--text-primary)' }}>{activeEvent.name}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Switch Festival:</span>
+                    <a
+                      href={`/dashboard/scoring?eventId=${stateEv.id}`}
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        textDecoration: 'none',
+                        backgroundColor: activeEventId === stateEv.id ? '#1e40af' : '#ffffff',
+                        color: activeEventId === stateEv.id ? '#ffffff' : '#1e40af',
+                        border: '1.5px solid #1e40af',
+                        boxShadow: activeEventId === stateEv.id ? '0 2px 8px rgba(30, 64, 175, 0.3)' : 'none',
+                        transition: '0.2s'
+                      }}
+                    >
+                      🏆 State Final
+                    </a>
+                    <a
+                      href={`/dashboard/scoring?eventId=${pgEv.id}`}
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        textDecoration: 'none',
+                        backgroundColor: activeEventId === pgEv.id ? '#7e22ce' : '#ffffff',
+                        color: activeEventId === pgEv.id ? '#ffffff' : '#7e22ce',
+                        border: '1.5px solid #7e22ce',
+                        boxShadow: activeEventId === pgEv.id ? '0 2px 8px rgba(126, 34, 206, 0.3)' : 'none',
+                        transition: '0.2s'
+                      }}
+                    >
+                      🎓 Fadheela PG
+                    </a>
+                  </div>
+                </div>
+              )}
+
               <Suspense fallback={<div>Loading form...</div>}>
                 <ScoringForm 
                   events={[activeEventWithPrograms]} 
