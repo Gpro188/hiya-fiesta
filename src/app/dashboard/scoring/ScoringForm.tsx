@@ -57,7 +57,16 @@ export default function ScoringForm({
   isStateFest?: boolean;
 }) {
   const isStageJury = userRole === "JUDGE" || Boolean(userVenue);
-  const [eventId, setEventId] = useState(events[0]?.id || "");
+  const searchParams = useSearchParams();
+  const urlEventId = searchParams.get('eventId');
+  const urlProgramId = searchParams.get('programId');
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [eventId, setEventId] = useState(() => {
+    if (urlEventId && events.some(e => e.id === urlEventId)) return urlEventId;
+    return events[0]?.id || "";
+  });
   const [selectedVenue, setSelectedVenue] = useState<string>(userVenue || "");
   const [categoryId, setCategoryId] = useState("");
   const [programId, setProgramId] = useState("");
@@ -82,7 +91,14 @@ export default function ScoringForm({
   }, [userVenue]);
 
   useEffect(() => {
-    if (events.length > 0) {
+    if (urlEventId && events.some(e => e.id === urlEventId) && urlEventId !== eventId) {
+      setEventId(urlEventId);
+      setCategoryId("");
+      setProgramId("");
+      setEntries([]);
+      setEvaluator1("");
+      setEvaluator2("");
+    } else if (!events.some(e => e.id === eventId) && events.length > 0) {
       setEventId(events[0].id);
       setCategoryId("");
       setProgramId("");
@@ -90,12 +106,7 @@ export default function ScoringForm({
       setEvaluator1("");
       setEvaluator2("");
     }
-  }, [events]);
-
-  const searchParams = useSearchParams();
-  const urlProgramId = searchParams.get('programId');
-  const router = useRouter();
-  const pathname = usePathname();
+  }, [urlEventId, events, eventId]);
 
   const selectedEvent = events.find(e => e.id === eventId);
   const allPrograms = selectedEvent?.programs || [];
@@ -506,12 +517,14 @@ export default function ScoringForm({
             className="form-input" 
             value={eventId}
             onChange={(e) => {
-              setEventId(e.target.value);
+              const newEventId = e.target.value;
+              setEventId(newEventId);
               setCategoryId("");
               setProgramId("");
               setEntries([]);
               setEvaluator1("");
               setEvaluator2("");
+              router.replace(`${pathname}?eventId=${newEventId}`, { scroll: false });
             }}
             required
             style={{ padding: '9px 12px', fontSize: '0.9rem', fontWeight: 600 }}

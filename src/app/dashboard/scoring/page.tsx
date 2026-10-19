@@ -11,6 +11,115 @@ import PendingProgramsList from "./PendingProgramsList";
 import EventSwitcher from "@/app/components/EventSwitcher";
 import { isProgramGeneral } from "@/lib/programUtils";
 
+async function fetchVenueProgramsForEvent(eventId: string, judgeVenue: string | null) {
+  const progs = await prisma.program.findMany({
+    where: { eventId },
+    select: {
+      id: true,
+      name: true,
+      programCode: true,
+      stageType: true,
+      venue: true,
+      startTime: true,
+      type: true,
+      categoryId: true,
+      candidateLimitPerTeam: true,
+      judges: {
+        select: {
+          id: true,
+          username: true,
+        }
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          pointMatrix: true,
+        }
+      },
+      results: {
+        where: {
+          OR: [
+            { team: { eventId } },
+            { candidate: { team: { eventId } } }
+          ]
+        },
+        select: {
+          id: true,
+          marks: true,
+          rank: true,
+          grade: true,
+          points: true,
+          candidateId: true,
+          teamId: true
+        }
+      },
+      assignments: {
+        select: {
+          id: true,
+          createdAt: true,
+          replacedFromChest: true,
+          replacementNote: true,
+          candidate: {
+            select: {
+              id: true,
+              name: true,
+              chestNumber: true,
+              replacedFromChest: true,
+              replacementNote: true,
+              institution: {
+                select: {
+                  id: true,
+                  name: true,
+                  zone: { select: { id: true, name: true, code: true } }
+                }
+              },
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  flagColor: true,
+                  magazineCode: true,
+                  institution: {
+                    select: {
+                      id: true,
+                      name: true,
+                      zone: { select: { id: true, name: true, code: true } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const filtered = judgeVenue
+    ? progs.filter(p => p.venue && p.venue.trim().toLowerCase() === judgeVenue.trim().toLowerCase())
+    : progs;
+
+  return filtered.map(p => {
+    const updatedAssignments = [...p.assignments];
+    updatedAssignments.sort((a: any, b: any) => {
+      const cA = a.candidate?.chestNumber;
+      const cB = b.candidate?.chestNumber;
+      if (cA && cB) {
+        const numA = parseInt(cA, 10);
+        const numB = parseInt(cB, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return cA.localeCompare(cB);
+      }
+      return 0;
+    });
+    return {
+      ...p,
+      assignments: updatedAssignments
+    };
+  });
+}
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -465,6 +574,24 @@ export default async function ScoringPage(props: {
     programs: finalProgramsForScoring
   };
 
+  let formEvents: any[] = [activeEventWithPrograms];
+
+  if (isCollabStageLogin && stateEv && pgEv) {
+    if (activeEventId === stateEv.id) {
+      const pgPrograms = await fetchVenueProgramsForEvent(pgEv.id, judgeVenue);
+      const pgEventWithPrograms = { ...pgEv, programs: pgPrograms };
+      formEvents = [activeEventWithPrograms, pgEventWithPrograms];
+    } else if (activeEventId === pgEv.id) {
+      const statePrograms = await fetchVenueProgramsForEvent(stateEv.id, judgeVenue);
+      const stateEventWithPrograms = { ...stateEv, programs: statePrograms };
+      formEvents = [stateEventWithPrograms, activeEventWithPrograms];
+    } else {
+      const pgPrograms = await fetchVenueProgramsForEvent(pgEv.id, judgeVenue);
+      const pgEventWithPrograms = { ...pgEv, programs: pgPrograms };
+      formEvents = [activeEventWithPrograms, pgEventWithPrograms];
+    }
+  }
+
   // Fetch results, pending programs, and flat results for standings in PARALLEL
   const [results, allPrograms, allResultsForScore] = await Promise.all([
     prisma.result.findMany({
@@ -549,6 +676,8 @@ export default async function ScoringPage(props: {
         programCode: true,
         stageType: true,
         type: true,
+        eventId: true,
+        venue: true,
         results: { 
           where: {
             OR: [
@@ -1104,7 +1233,7 @@ export default async function ScoringPage(props: {
 
               <Suspense fallback={<div>Loading form...</div>}>
                 <ScoringForm 
-                  events={[activeEventWithPrograms]} 
+                  events={formEvents} 
                   availableJudges={availableJudges}
                   userRole={session.user.role}
                   userVenue={judgeVenue}
@@ -1150,7 +1279,7 @@ export default async function ScoringPage(props: {
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
                 Programs with assignments but no results recorded for <strong>{activeEvent.name}</strong>.
               </p>
-              <PendingProgramsList programs={pendingPrograms} />
+              <PendingProgramsList programs={pendingPrograms} activeEventId={activeEventId} />
             </div>
           </div>
         </div>

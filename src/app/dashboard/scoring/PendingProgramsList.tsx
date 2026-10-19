@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function PendingProgramsList({ programs }: { programs: any[] }) {
+export default function PendingProgramsList({ 
+  programs, 
+  activeEventId 
+}: { 
+  programs: any[]; 
+  activeEventId?: string; 
+}) {
   const [isOpen, setIsOpen] = useState(true);
   const [stageFilter, setStageFilter] = useState<"ALL" | "ON_STAGE" | "OFF_STAGE">("ALL");
   const [scopeFilter, setScopeFilter] = useState<string>("ALL");
@@ -194,7 +200,11 @@ export default function PendingProgramsList({ programs }: { programs: any[] }) {
               <button
                 key={program.id}
                 onClick={() => {
-                  router.push(`?programId=${program.id}#scoring-form`);
+                  const targetEventId = program.eventId || activeEventId;
+                  const url = targetEventId 
+                    ? `?eventId=${targetEventId}&programId=${program.id}#scoring-form`
+                    : `?programId=${program.id}#scoring-form`;
+                  router.push(url);
                 }}
                 style={{
                   padding: "10px 12px",
