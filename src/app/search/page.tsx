@@ -192,13 +192,14 @@ export default async function SearchPage(props: {
             candidate: {
               include: {
                 team: {
-                  include: { institution: true }
+                  include: { institution: { include: { zone: true } } }
                 },
+                institution: { include: { zone: true } },
                 category: true
               }
             },
             team: {
-              include: { institution: true }
+              include: { institution: { include: { zone: true } } }
             }
           }
         }
@@ -551,110 +552,191 @@ export default async function SearchPage(props: {
                           <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f9ebf2' }}>
                             {isPublished ? (
                               <div>
-                                {/* Podium Highlights: Rank 1, 2, 3 */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                                  {/* Rank 1 */}
-                                  {rank1List.map((res: any) => {
-                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
-                                    const chestNo = res.candidate?.chestNumber;
-                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
-                                    return (
-                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fffbeb', border: '1.5px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>🥇</span>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <strong style={{ fontSize: '0.9rem', color: '#92400e' }}>1st Place</strong>
-                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
-                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                {(() => {
+                                  const isState = program.event?.type === 'STATE' || !program.event?.parentId || (program.event?.name && /state/i.test(program.event.name)) || (activeEventName && /state/i.test(activeEventName));
+                                  return (
+                                    <>
+                                      {/* Podium Highlights: Rank 1, 2, 3 */}
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                                        {/* Rank 1 */}
+                                        {rank1List.map((res: any) => {
+                                          const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                          const chestNo = res.candidate?.chestNumber;
+                                          const zoneName = res.candidate?.institution?.zone?.name 
+                                            || res.candidate?.team?.institution?.zone?.name 
+                                            || res.team?.institution?.zone?.name 
+                                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                                          const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.institution || res.candidate?.team?.institution || res.candidate?.team || res.team);
+                                          return (
+                                            <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fffbeb', border: '1.5px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                              <span style={{ fontSize: '1.5rem' }}>🥇</span>
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                  <strong style={{ fontSize: '0.9rem', color: '#92400e' }}>1st Place</strong>
+                                                  {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                                  {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                  {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
+                                                </div>
+                                                {isState && zoneName ? (
+                                                  <div style={{ fontSize: '0.75rem', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <span style={{ 
+                                                      background: '#fdf2f8', 
+                                                      color: '#be185d', 
+                                                      border: '1px solid #fbcfe8', 
+                                                      padding: '1px 6px', 
+                                                      borderRadius: '4px', 
+                                                      fontWeight: 800, 
+                                                      fontSize: '0.72rem' 
+                                                    }}>
+                                                      📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                                    </span>
+                                                    {instName && <span style={{ color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>{instName}</span>}
+                                                  </div>
+                                                ) : (
+                                                  <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
 
-                                  {/* Rank 2 */}
-                                  {rank2List.map((res: any) => {
-                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
-                                    const chestNo = res.candidate?.chestNumber;
-                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
-                                    return (
-                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#f8fafc', border: '1.5px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>🥈</span>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <strong style={{ fontSize: '0.9rem', color: '#475569' }}>2nd Place</strong>
-                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
-                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                        {/* Rank 2 */}
+                                        {rank2List.map((res: any) => {
+                                          const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                          const chestNo = res.candidate?.chestNumber;
+                                          const zoneName = res.candidate?.institution?.zone?.name 
+                                            || res.candidate?.team?.institution?.zone?.name 
+                                            || res.team?.institution?.zone?.name 
+                                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                                          const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.institution || res.candidate?.team?.institution || res.candidate?.team || res.team);
+                                          return (
+                                            <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#f8fafc', border: '1.5px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                              <span style={{ fontSize: '1.5rem' }}>🥈</span>
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                  <strong style={{ fontSize: '0.9rem', color: '#475569' }}>2nd Place</strong>
+                                                  {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                                  {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                  {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
+                                                </div>
+                                                {isState && zoneName ? (
+                                                  <div style={{ fontSize: '0.75rem', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <span style={{ 
+                                                      background: '#fdf2f8', 
+                                                      color: '#be185d', 
+                                                      border: '1px solid #fbcfe8', 
+                                                      padding: '1px 6px', 
+                                                      borderRadius: '4px', 
+                                                      fontWeight: 800, 
+                                                      fontSize: '0.72rem' 
+                                                    }}>
+                                                      📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                                    </span>
+                                                    {instName && <span style={{ color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>{instName}</span>}
+                                                  </div>
+                                                ) : (
+                                                  <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
 
-                                  {/* Rank 3 */}
-                                  {rank3List.map((res: any) => {
-                                    const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
-                                    const chestNo = res.candidate?.chestNumber;
-                                    const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.team || res.team);
-                                    return (
-                                      <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>🥉</span>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <strong style={{ fontSize: '0.9rem', color: '#c2410c' }}>3rd Place</strong>
-                                            {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
-                                            {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
-                                          </div>
-                                          <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {instName}{instPlace ? ` • ${instPlace}` : ''}
-                                          </div>
-                                        </div>
+                                        {/* Rank 3 */}
+                                        {rank3List.map((res: any) => {
+                                          const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team Entry');
+                                          const chestNo = res.candidate?.chestNumber;
+                                          const zoneName = res.candidate?.institution?.zone?.name 
+                                            || res.candidate?.team?.institution?.zone?.name 
+                                            || res.team?.institution?.zone?.name 
+                                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                                          const { name: instName, place: instPlace } = formatInstitutionDisplay(res.candidate?.institution || res.candidate?.team?.institution || res.candidate?.team || res.team);
+                                          return (
+                                            <div key={res.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                              <span style={{ fontSize: '1.5rem' }}>🥉</span>
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                  <strong style={{ fontSize: '0.9rem', color: '#c2410c' }}>3rd Place</strong>
+                                                  {res.grade && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#e6007e' }}>• Grade {res.grade}</span>}
+                                                  {res.points > 0 && <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#15803d' }}>• {res.points} Pts</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1a1420', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                  {candName} {chestNo && <span style={{ color: '#7a7480', fontSize: '0.75rem' }}>({chestNo})</span>}
+                                                </div>
+                                                {isState && zoneName ? (
+                                                  <div style={{ fontSize: '0.75rem', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <span style={{ 
+                                                      background: '#fdf2f8', 
+                                                      color: '#be185d', 
+                                                      border: '1px solid #fbcfe8', 
+                                                      padding: '1px 6px', 
+                                                      borderRadius: '4px', 
+                                                      fontWeight: 800, 
+                                                      fontSize: '0.72rem' 
+                                                    }}>
+                                                      📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                                    </span>
+                                                    {instName && <span style={{ color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>{instName}</span>}
+                                                  </div>
+                                                ) : (
+                                                  <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
-                                    );
-                                  })}
-                                </div>
 
-                                {/* Other Grades (Grade A & B) */}
-                                {otherGrades.length > 0 && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Other Grade Winners:</span>
-                                    {otherGrades.map((res: any) => {
-                                      const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team');
-                                      const chestNo = res.candidate?.chestNumber;
-                                      return (
-                                        <span 
-                                          key={res.id} 
-                                          style={{ 
-                                            fontSize: '0.72rem', 
-                                            padding: '2px 8px', 
-                                            borderRadius: '6px', 
-                                            backgroundColor: '#f1f5f9', 
-                                            border: '1px solid #e2e8f0', 
-                                            color: '#334155',
-                                            fontWeight: 600
-                                          }}
-                                        >
-                                          {candName} {chestNo ? `(${chestNo})` : ''} - <strong style={{ color: '#e6007e' }}>Grade {res.grade}</strong>
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                      {/* Other Grades (Grade A & B) */}
+                                      {otherGrades.length > 0 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Other Grade Winners:</span>
+                                          {otherGrades.map((res: any) => {
+                                            const candName = res.candidate ? res.candidate.name : (res.team ? res.team.name : 'Team');
+                                            const chestNo = res.candidate?.chestNumber;
+                                            const zoneName = res.candidate?.institution?.zone?.name 
+                                              || res.candidate?.team?.institution?.zone?.name 
+                                              || res.team?.institution?.zone?.name 
+                                              || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                                            return (
+                                              <span 
+                                                key={res.id} 
+                                                style={{ 
+                                                  fontSize: '0.72rem', 
+                                                  padding: '2px 8px', 
+                                                  borderRadius: '6px', 
+                                                  backgroundColor: '#f1f5f9', 
+                                                  border: '1px solid #e2e8f0', 
+                                                  color: '#334155',
+                                                  fontWeight: 600,
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '4px'
+                                                }}
+                                              >
+                                                <span>{candName} {chestNo ? `(${chestNo})` : ''}</span>
+                                                {isState && zoneName && (
+                                                  <span style={{ color: '#be185d', fontWeight: 800 }}>• 📍 {zoneName}</span>
+                                                )}
+                                                <span>- <strong style={{ color: '#e6007e' }}>Grade {res.grade}</strong></span>
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             ) : (
                               <div style={{ padding: '8px 0', color: '#94a3b8', fontSize: '0.85rem' }}>

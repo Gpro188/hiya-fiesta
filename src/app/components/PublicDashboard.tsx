@@ -60,6 +60,10 @@ export default function PublicDashboard({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedChampion]);
 
+  // Current active event and state fest detection
+  const currentEvent = initialEvents.find(e => e.id === activeEventId);
+  const isStateFest = currentEvent?.type === 'STATE' || !currentEvent?.parentId || (currentEvent?.name && /state/i.test(currentEvent.name));
+
   // Client-side filtering for simple search
   const filteredResults = data.latestResults.filter(res => 
     res.program?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1987,16 +1991,45 @@ export default function PublicDashboard({
                                         #{s.chestNumber}
                                       </span>
                                     )}
-                                    <span style={{ 
-                                      color: s.teamColor || '#881337', 
-                                      fontWeight: 600,
-                                      maxWidth: '160px',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis'
-                                    }}>
-                                      {s.teamName}
-                                    </span>
+                                    {isStateFest && s.zoneName ? (
+                                      <>
+                                        <span style={{ 
+                                          fontWeight: 800, 
+                                          background: '#fdf2f8', 
+                                          color: '#be185d', 
+                                          border: '1px solid #fbcfe8', 
+                                          padding: '1px 7px', 
+                                          borderRadius: '6px', 
+                                          fontSize: '0.72rem',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}>
+                                          📍 {s.zoneName.toUpperCase().includes('ZONE') ? s.zoneName : `${s.zoneName} ZONE`}
+                                        </span>
+                                        <span style={{ 
+                                          color: '#64748b', 
+                                          fontWeight: 600,
+                                          maxWidth: '180px',
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis'
+                                        }} title={s.institutionName}>
+                                          {s.institutionName}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span style={{ 
+                                        color: s.teamColor || '#881337', 
+                                        fontWeight: 600,
+                                        maxWidth: '160px',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {s.teamName}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -2071,14 +2104,42 @@ export default function PublicDashboard({
                       }}>
                         🏆
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#0F172A' }}>
-                          {res.candidate?.name || res.team?.name}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-                          {res.program?.name} • <span style={{ fontWeight: 700 }}>{res.candidate?.team?.name || res.team?.name}</span>
-                        </div>
-                      </div>
+                      {(() => {
+                        const zoneName = res.candidate?.institution?.zone?.name 
+                          || res.candidate?.team?.institution?.zone?.name 
+                          || res.team?.institution?.zone?.name 
+                          || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                        const instName = res.candidate?.institution?.name || res.candidate?.team?.institution?.name || res.candidate?.team?.name;
+
+                        return (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>{res.candidate?.name || res.team?.name}</span>
+                              {res.candidate?.chestNumber && (
+                                <span style={{ fontSize: '0.72rem', background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                  #{res.candidate.chestNumber}
+                                </span>
+                              )}
+                              {isStateFest && zoneName && (
+                                <span style={{ 
+                                  fontSize: '0.74rem', 
+                                  fontWeight: 800, 
+                                  background: '#fdf2f8', 
+                                  color: '#be185d', 
+                                  border: '1px solid #fbcfe8', 
+                                  padding: '1px 8px', 
+                                  borderRadius: '6px' 
+                                }}>
+                                  📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+                              {res.program?.name} • <span style={{ fontWeight: 700 }}>{isStateFest && zoneName ? (instName || zoneName) : (res.candidate?.team?.name || res.team?.name)}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
@@ -2193,7 +2254,16 @@ export default function PublicDashboard({
                     Chest #{selectedChampion.chestNumber}
                   </span>
                 )}
-                <span>🏛️ {selectedChampion.teamName}</span>
+                {isStateFest && selectedChampion.zoneName ? (
+                  <>
+                    <span style={{ background: '#facc15', color: '#0f172a', padding: '2px 9px', borderRadius: '6px', fontWeight: 900 }}>
+                      📍 Team: {selectedChampion.zoneName.toUpperCase().includes('ZONE') ? selectedChampion.zoneName : `${selectedChampion.zoneName} ZONE`}
+                    </span>
+                    <span>🏛️ Institution: {selectedChampion.institutionName}</span>
+                  </>
+                ) : (
+                  <span>🏛️ {selectedChampion.teamName}</span>
+                )}
               </div>
             </div>
 

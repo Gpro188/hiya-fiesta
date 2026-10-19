@@ -580,6 +580,8 @@ export default function TVDisplayClient({
   const [isPaused, setIsPaused] = useState(false);
   const [leftFade, setLeftFade] = useState(true);
 
+  const isStateFest = event?.type === 'STATE' || !event?.parentId || (event?.name && /state/i.test(event.name));
+
   // ── Dynamic Location State & Persistence ──
   const defaultLocation = useMemo(() => {
     if (initialLocation) return initialLocation;
@@ -981,7 +983,7 @@ export default function TVDisplayClient({
                           {overall1.name}
                         </div>
                         <div style={{ fontSize: "0.76rem", fontWeight: 800, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>
-                          📍 {overall1.place || "Zone Center"}
+                          📍 {isStateFest ? "Zone Champion" : (overall1.place || "Zone Center")}
                         </div>
                       </div>
                       {/* HUGE POINTS FONT */}
@@ -1004,7 +1006,7 @@ export default function TVDisplayClient({
                     <InstitutionLogo logoUrl={overall2.logoUrl} name={overall2.name} size={40} bg="#334155" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: "1.02rem", fontWeight: 900, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{overall2.name}</div>
-                      <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontWeight: 700, marginTop: 1 }}>{overall2.place || "Zone Center"} · Runner-up</div>
+                      <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontWeight: 700, marginTop: 1 }}>{isStateFest ? "Runner-up Zone" : `${overall2.place || "Zone Center"} · Runner-up`}</div>
                     </div>
                     {/* Big Runner Up points */}
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1023,7 +1025,7 @@ export default function TVDisplayClient({
                     <InstitutionLogo logoUrl={overall3.logoUrl} name={overall3.name} size={40} bg="#334155" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: "1.02rem", fontWeight: 900, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{overall3.name}</div>
-                      <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontWeight: 700, marginTop: 1 }}>{overall3.place || "Zone Center"} · 2nd Runner-up</div>
+                      <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontWeight: 700, marginTop: 1 }}>{isStateFest ? "2nd Runner-up Zone" : `${overall3.place || "Zone Center"} · 2nd Runner-up`}</div>
                     </div>
                     {/* Big 3rd points */}
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1181,7 +1183,7 @@ export default function TVDisplayClient({
                               )}
                             </div>
                             <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {cand.institutionName || cand.teamName}{cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}
+                              {cand.zoneName ? `📍 ${cand.zoneName.toUpperCase().includes('ZONE') ? cand.zoneName : `${cand.zoneName} ZONE`} · ${cand.institutionName || cand.teamName}` : `${cand.institutionName || cand.teamName}${cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}`}
                             </div>
                           </div>
                           {/* Points badge */}
@@ -1252,7 +1254,7 @@ export default function TVDisplayClient({
                               )}
                             </div>
                             <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.72)", fontWeight: 700, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {cand.institutionName || cand.teamName}{cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}
+                              {cand.zoneName ? `📍 ${cand.zoneName.toUpperCase().includes('ZONE') ? cand.zoneName : `${cand.zoneName} ZONE`} · ${cand.institutionName || cand.teamName}` : `${cand.institutionName || cand.teamName}${cand.institutionPlace ? ` · ${cand.institutionPlace}` : ""}`}
                             </div>
                           </div>
                           {/* Points badge */}

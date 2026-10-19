@@ -84,13 +84,13 @@ export default async function TVDisplayPage(props: {
           include: {
             candidate: {
               include: {
-                team: { include: { institution: true } },
-                institution: true
+                team: { include: { institution: { include: { zone: true } } } },
+                institution: { include: { zone: true } }
               }
             },
             team: {
               include: {
-                institution: true
+                institution: { include: { zone: true } }
               }
             }
           },
@@ -145,7 +145,7 @@ export default async function TVDisplayPage(props: {
   const overallStar = champions.overallTopStar || topStars[0] || null;
 
   // Process published programs in published order
-  const isStateFest = eventObj?.type === "STATE";
+  const isStateFest = eventObj?.type === "STATE" || !eventObj?.parentId || (eventObj?.name && /state/i.test(eventObj.name));
 
   const publishedPrograms = publishedProgramsRaw.map((prog: any) => {
     const isGeneral = isProgramGeneral(prog);
@@ -180,17 +180,23 @@ export default async function TVDisplayPage(props: {
         const isIndiv = Boolean(r.candidate);
 
         if (isStateFest) {
-          // STATE fest: zones are the "teams". Show zone name as identifier.
-          // For individual results, the candidate's team IS the zone-team.
-          // For group/team results, r.team is the zone-team.
-          const zoneName = isIndiv
-            ? (r.candidate.team?.name || r.candidate.institution?.name || "Zone")
-            : (r.team?.name || "Zone");
-          const candidateName = isIndiv ? r.candidate.name : (r.team?.name || "Zone");
+          // STATE fest: zones are the competing teams.
+          const zoneName = r.candidate?.institution?.zone?.name 
+            || r.candidate?.team?.institution?.zone?.name 
+            || r.team?.institution?.zone?.name 
+            || (r.team?.name?.toUpperCase().includes("ZONE") || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(r.team?.name?.toUpperCase() || "") ? r.team?.name : null)
+            || (isIndiv ? r.candidate.team?.name : r.team?.name);
+          const candidateName = isIndiv ? r.candidate.name : (r.team?.name || "Zone Entry");
+          const collegeName = isIndiv
+            ? (r.candidate.institution?.name || r.candidate.team?.institution?.name || r.candidate.team?.name || "")
+            : "";
+          const displayZone = zoneName ? (zoneName.toUpperCase().includes("ZONE") ? zoneName : `${zoneName} ZONE`) : "State Zone";
+          const displayAffiliation = collegeName ? `📍 ${displayZone} (${collegeName})` : `📍 ${displayZone}`;
+
           return {
             rank: r.rank,
             name: candidateName,
-            college: zoneName,
+            college: displayAffiliation,
             place: "",
             chestNumber: r.candidate?.chestNumber || null,
             grade: r.grade || null,

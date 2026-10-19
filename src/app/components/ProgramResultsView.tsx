@@ -19,6 +19,8 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
   const rank1 = winners.filter((w: any) => w.rank === 1);
   const rank2 = winners.filter((w: any) => w.rank === 2);
   const rank3 = winners.filter((w: any) => w.rank === 3);
+
+  const isStateFest = program.event?.type === 'STATE' || !program.event?.parentId || (program.event?.name && /state/i.test(program.event.name));
   
   const finalPosterUrl = null;
 
@@ -174,9 +176,9 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
             flexWrap: 'wrap',
             boxShadow: '0 6px 24px -4px rgba(230, 0, 126, 0.07)'
           }}>
-             {rank2[0] && <WinnerDisplay result={rank2[0]} rank={2} />}
-             {rank1[0] && <WinnerDisplay result={rank1[0]} rank={1} isMain />}
-             {rank3[0] && <WinnerDisplay result={rank3[0]} rank={3} />}
+             {rank2[0] && <WinnerDisplay result={rank2[0]} rank={2} isStateFest={isStateFest} />}
+             {rank1[0] && <WinnerDisplay result={rank1[0]} rank={1} isMain isStateFest={isStateFest} />}
+             {rank3[0] && <WinnerDisplay result={rank3[0]} rank={3} isStateFest={isStateFest} />}
              
              {winners.length === 0 && (
                 <div style={{ textAlign: 'center', color: '#7a7480', padding: '40px' }}>
@@ -200,7 +202,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                   <tr style={{ color: '#7a7480', fontSize: '0.75rem', textTransform: 'uppercase' }}>
                     <th style={{ padding: '14px 16px' }}>Rank/Grade</th>
                     <th style={{ padding: '14px 16px' }}>Participant</th>
-                    <th style={{ padding: '14px 16px' }}>Team</th>
+                    <th style={{ padding: '14px 16px' }}>{isStateFest ? "Zone (Team) / Institution" : "Team"}</th>
                     <th style={{ padding: '14px 16px', textAlign: 'right' }}>Points</th>
                   </tr>
                 </thead>
@@ -231,8 +233,39 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         {(() => {
-                          const instObj = res.candidate?.team || res.team || { name: res.candidate?.institution?.name };
+                          const zoneName = res.candidate?.institution?.zone?.name 
+                            || res.candidate?.team?.institution?.zone?.name 
+                            || res.team?.institution?.zone?.name 
+                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                          const instObj = res.candidate?.institution || res.candidate?.team?.institution || res.team?.institution || res.team;
                           const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+
+                          if (isStateFest && zoneName) {
+                            return (
+                              <div>
+                                <div style={{ 
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: '#fdf2f8', 
+                                  color: '#be185d', 
+                                  border: '1px solid #fbcfe8', 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '0.78rem', 
+                                  fontWeight: 800 
+                                }}>
+                                  📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                </div>
+                                {instName && (
+                                  <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '3px', fontWeight: 600 }}>
+                                    {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
                           return (
                             <div>
                               <div style={{ color: '#332938', fontWeight: 700 }}>
@@ -296,10 +329,29 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                           {res.candidate ? res.candidate.name : (res.team?.institution?.name || res.team?.name)}
                         </div>
                         {(() => {
+                          const zoneName = res.candidate?.institution?.zone?.name 
+                            || res.candidate?.team?.institution?.zone?.name 
+                            || res.team?.institution?.zone?.name 
+                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
                           const instObj = res.candidate?.institution || res.candidate?.team?.institution || res.team?.institution || res.team;
                           const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
                           return (
                             <div>
+                              {isStateFest && zoneName && (
+                                <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                                  <span style={{ 
+                                    background: '#fdf2f8', 
+                                    color: '#be185d', 
+                                    border: '1px solid #fbcfe8', 
+                                    padding: '1px 6px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.72rem', 
+                                    fontWeight: 800 
+                                  }}>
+                                    📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                  </span>
+                                </div>
+                              )}
                               {res.candidate && (
                                 <div style={{ color: '#475569', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700, wordBreak: 'break-word' }}>
                                   {instName}
@@ -502,12 +554,17 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
   );
 }
 
-function WinnerDisplay({ result, rank, isMain = false }: { result: any, rank: number, isMain?: boolean }) {
+function WinnerDisplay({ result, rank, isMain = false, isStateFest = false }: { result: any, rank: number, isMain?: boolean, isStateFest?: boolean }) {
   const name = result?.candidate?.name || result?.team?.name || 'TBA';
   const points = result?.points || 0;
   const chest = result?.candidate?.chestNumber;
-  const instObj = result?.candidate?.team || result?.team || { name: result?.candidate?.institution?.name };
+  const instObj = result?.candidate?.institution || result?.candidate?.team?.institution || result?.team?.institution || result?.team || { name: result?.candidate?.institution?.name };
   const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+
+  const zoneName = result?.candidate?.institution?.zone?.name 
+    || result?.candidate?.team?.institution?.zone?.name 
+    || result?.team?.institution?.zone?.name 
+    || (result?.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(result?.team?.name?.toUpperCase() || "") ? result?.team?.name : null);
   
   const rankColor = rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : '#D97706';
   const gradientBg = rank === 1 
@@ -592,17 +649,40 @@ function WinnerDisplay({ result, rank, isMain = false }: { result: any, rank: nu
         }}>
           {points} <span style={{ fontSize: '0.75rem', color: '#7a7480', fontWeight: 700 }}>PTS</span>
         </div>
-        {instName && (
-          <div style={{ marginTop: '6px' }}>
-            <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700, lineHeight: 1.3 }}>
-              {instName}
+        {isStateFest && zoneName ? (
+          <div style={{ marginTop: '8px' }}>
+            <div style={{ 
+              display: 'inline-block',
+              background: '#fdf2f8', 
+              color: '#be185d', 
+              border: '1.5px solid #fbcfe8', 
+              padding: '3px 10px', 
+              borderRadius: '8px', 
+              fontSize: '0.8rem', 
+              fontWeight: 900,
+              boxShadow: '0 2px 6px rgba(190, 24, 93, 0.1)'
+            }}>
+              📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
             </div>
-            {instPlace && (
-              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
-                📍 {instPlace}
+            {instName && (
+              <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, marginTop: '5px', lineHeight: 1.25 }}>
+                {instName}{instPlace ? ` • ${instPlace}` : ''}
               </div>
             )}
           </div>
+        ) : (
+          instName && (
+            <div style={{ marginTop: '6px' }}>
+              <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700, lineHeight: 1.3 }}>
+                {instName}
+              </div>
+              {instPlace && (
+                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                  📍 {instPlace}
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
     </div>

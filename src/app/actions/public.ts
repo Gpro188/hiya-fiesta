@@ -35,10 +35,28 @@ const getCachedPublicEventData = unstable_cache(
               name: true, 
               chestNumber: true, 
               category: { select: { id: true, name: true } },
-              team: { select: { id: true, name: true, prefixCode: true, flagColor: true } } 
+              team: { 
+                select: { 
+                  id: true, 
+                  name: true, 
+                  prefixCode: true, 
+                  flagColor: true,
+                  institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
+                } 
+              },
+              institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
             } 
           },
-          team: { select: { id: true, name: true, prefixCode: true, flagColor: true, leaderPhoto: true } },
+          team: { 
+            select: { 
+              id: true, 
+              name: true, 
+              prefixCode: true, 
+              flagColor: true, 
+              leaderPhoto: true,
+              institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
+            } 
+          },
           program: { select: { id: true, name: true, eventId: true, category: { select: { id: true, name: true } } } }
         },
         orderBy: { updatedAt: 'desc' },
@@ -479,6 +497,7 @@ const getCachedPublicEventData = unstable_cache(
       name: string, 
       chestNumber: string | null,
       teamName: string, 
+      zoneName: string | null,
       institutionName: string,
       institutionPlace: string | null,
       teamPrefix: string | null,
@@ -518,11 +537,17 @@ const getCachedPublicEventData = unstable_cache(
           cleanInstName = cleanInstName.replace(new RegExp(`,\\s*${escaped}$`, 'i'), '').trim();
         }
 
+        const candZone = candInst?.zone?.name 
+          || res.candidate.team?.institution?.zone?.name 
+          || res.team?.institution?.zone?.name 
+          || (res.team?.name?.toUpperCase().includes("ZONE") || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+
         candidateScores[candId] = {
           id: candId,
           name: res.candidate.name,
           chestNumber: res.candidate.chestNumber || null,
           teamName: res.candidate.team?.name || "Team",
+          zoneName: candZone || null,
           institutionName: cleanInstName || res.candidate.team?.name || "Institution",
           institutionPlace: rawInstPlace || null,
           teamPrefix: res.candidate.team?.prefixCode || null,
@@ -770,15 +795,15 @@ const getCacheCSWCgramResults = unstable_cache(
               include: {
                 team: {
                   include: {
-                    institution: { select: { name: true, place: true } }
+                    institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
                   }
                 },
-                institution: { select: { name: true, place: true } }
+                institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
               }
             },
             team: {
               include: {
-                institution: { select: { name: true, place: true } }
+                institution: { select: { name: true, place: true, zone: { select: { id: true, name: true, code: true } } } }
               }
             }
           },
