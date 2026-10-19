@@ -339,7 +339,7 @@ export default function FestCountdownView({
           <div style={{ fontSize: "2rem", marginBottom: "4px" }}>🏛️</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#8E0033" }}>{teamsCount}</div>
           <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-            Participating Institutions
+            {eventName.toLowerCase().includes("state") || festName.toLowerCase().includes("state") ? "Participating Zones" : "Participating Institutions"}
           </div>
         </div>
 
