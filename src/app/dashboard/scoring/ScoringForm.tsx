@@ -200,12 +200,14 @@ export default function ScoringForm({
         const res = existingResults.find((r: any) => r.candidateId === cand.id);
         const repChest = a.replacedFromChest || cand.replacedFromChest || null;
         const repNote = a.replacementNote || cand.replacementNote || null;
+        const zName = cand.institution?.zone?.name || cand.team?.institution?.zone?.name || cand.team?.event?.zone?.name;
         return {
           participantId: cand.id,
           candidateId: cand.id,
           name: cand.name,
           chestNumber: cand.chestNumber,
           teamName: cand.team?.name,
+          zoneName: zName,
           replacedFromChest: repChest,
           replacementNote: repNote,
           marks: res ? res.marks.toString() : "",
@@ -960,8 +962,16 @@ export default function ScoringForm({
           {entries.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#7a7480' }}>
               <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📋</div>
-              <strong>No participants assigned to this program in this zone.</strong>
-              <p style={{ fontSize: '0.85rem', margin: '4px 0 0 0' }}>Assign candidates from Program Assignments tab first.</p>
+              <strong>
+                {isStateFest
+                  ? "No qualified candidates assigned to this program yet."
+                  : "No participants assigned to this program in this zone."}
+              </strong>
+              <p style={{ fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                {isStateFest
+                  ? "Finalists qualify from zone results or manual state assignment."
+                  : "Assign candidates from Program Assignments tab first."}
+              </p>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -987,7 +997,9 @@ export default function ScoringForm({
                     {isIndividual ? (
                       <>
                         <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
-                        <th style={{ padding: '12px 16px' }}>Institution / Team</th>
+                        <th style={{ padding: '12px 16px' }}>
+                          {isStateFest ? "Institution / Zone" : "Institution / Team"}
+                        </th>
                       </>
                     ) : (
                       <th colSpan={isInstitutionProgram(selecteCSWCgram) ? 1 : 2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
@@ -1070,7 +1082,24 @@ export default function ScoringForm({
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px', color: '#4b5563', fontWeight: 600, fontSize: '0.82rem' }}>
-                            {entry.teamName || '-'}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <span>{entry.teamName || '-'}</span>
+                              {entry.zoneName && (
+                                <span style={{
+                                  fontSize: '0.70rem',
+                                  fontWeight: 800,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  display: 'inline-block',
+                                  width: 'fit-content'
+                                }}>
+                                  📍 {entry.zoneName}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </>
                       ) : (

@@ -138,10 +138,7 @@ export default async function ScoringPage(props: {
     activeEvent.name.toLowerCase().includes("grand");
 
   const candidateZoneFilter: any[] = [];
-  if (isStateFest) {
-    // In State Fest, candidates come from all zonal teams; do not filter out by home zone eventId
-    candidateZoneFilter.push({});
-  } else {
+  if (!isStateFest) {
     candidateZoneFilter.push({ team: { eventId: activeEventId } });
     if (activeEvent.zoneId) {
       candidateZoneFilter.push(
@@ -152,7 +149,13 @@ export default async function ScoringPage(props: {
     }
   }
 
-  const [programsForScoring, availableJudges, childProgramsWithAssignments] = await Promise.all([
+  const assignmentCandidateWhere = isStateFest ? {} : {
+    candidate: {
+      OR: candidateZoneFilter
+    }
+  };
+
+  const [programsForScoring, availableJudges, childProgramsWithAssignments, allDbZones] = await Promise.all([
     prisma.program.findMany({
       where: { 
         eventId: programsEventId,
@@ -198,11 +201,7 @@ export default async function ScoringPage(props: {
           }
         },
         assignments: {
-          where: {
-            candidate: {
-              OR: candidateZoneFilter
-            }
-          },
+          where: assignmentCandidateWhere,
           select: {
             id: true,
             createdAt: true,
@@ -215,6 +214,13 @@ export default async function ScoringPage(props: {
                 chestNumber: true,
                 replacedFromChest: true,
                 replacementNote: true,
+                institution: {
+                  select: {
+                    id: true,
+                    name: true,
+                    zone: { select: { id: true, name: true, code: true } }
+                  }
+                },
                 team: {
                   select: {
                     id: true,
@@ -259,11 +265,7 @@ export default async function ScoringPage(props: {
               }
             },
             assignments: {
-              where: {
-                candidate: {
-                  OR: candidateZoneFilter
-                }
-              },
+              where: assignmentCandidateWhere,
               select: {
                 id: true,
                 createdAt: true,
@@ -276,6 +278,13 @@ export default async function ScoringPage(props: {
                     chestNumber: true,
                     replacedFromChest: true,
                     replacementNote: true,
+                    institution: {
+                      select: {
+                        id: true,
+                        name: true,
+                        zone: { select: { id: true, name: true, code: true } }
+                      }
+                    },
                     team: {
                       select: {
                         id: true,
@@ -297,7 +306,8 @@ export default async function ScoringPage(props: {
             }
           }
         })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    prisma.zone.findMany({ select: { id: true, name: true, code: true } })
   ]);
 
   // Index child programs by programCode and name so child data (assignments, venue, judges) merges smoothly
@@ -429,16 +439,10 @@ export default async function ScoringPage(props: {
   const [results, allPrograms, allResultsForScore] = await Promise.all([
     prisma.result.findMany({
       where: { 
-        OR: isStateFest
-          ? [
-              { program: { eventId: programsEventId } },
-              { team: { eventId: activeEventId } },
-              { candidate: { team: { eventId: activeEventId } } }
-            ]
-          : [
-              { team: { eventId: activeEventId } },
-              { candidate: { team: { eventId: activeEventId } } }
-            ],
+        OR: [
+          { team: { eventId: activeEventId } },
+          { candidate: { team: { eventId: activeEventId } } }
+        ],
         // If JUDGE: only show results for their venue's programs
         ...(judgeVenue && venueProgramIdSet.size > 0 ? { programId: { in: Array.from(venueProgramIdSet) } } : {})
       },
@@ -457,6 +461,13 @@ export default async function ScoringPage(props: {
           select: {
             name: true,
             chestNumber: true,
+            institution: {
+              select: {
+                id: true,
+                name: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            },
             team: {
               select: {
                 id: true,
@@ -499,11 +510,7 @@ export default async function ScoringPage(props: {
       where: { 
         eventId: programsEventId, 
         assignments: {
-          some: {
-            candidate: {
-              OR: candidateZoneFilter
-            }
-          }
+          some: assignmentCandidateWhere
         } 
       },
       select: {
@@ -525,11 +532,7 @@ export default async function ScoringPage(props: {
         _count: {
           select: {
             assignments: {
-              where: {
-                candidate: {
-                  OR: candidateZoneFilter
-                }
-              }
+              where: assignmentCandidateWhere
             }
           }
         }
@@ -551,6 +554,13 @@ export default async function ScoringPage(props: {
           select: { 
             teamId: true,
             category: { select: { name: true } },
+            institution: {
+              select: {
+                id: true,
+                name: true,
+                zone: { select: { id: true, name: true, code: true } }
+              }
+            },
             team: {
               select: {
                 id: true,
@@ -695,13 +705,28 @@ export default async function ScoringPage(props: {
     }
 
     // Zone aggregation (for State Fest or multi-zone views)
-    const zone = result.team?.institution?.zone || result.candidate?.team?.institution?.zone;
-    if (zone && zone.id) {
-      if (!zoneScoresMap[zone.id]) {
-        zoneScoresMap[zone.id] = {
-          id: zone.id,
-          name: zone.name,
-          code: zone.code || zone.name.substring(0, 3).toUpperCase(),
+    const zone = result.team?.institution?.zone || 
+      result.candidate?.team?.institution?.zone ||
+      result.candidate?.institution?.zone;
+    let zoneId = zone?.id;
+    let zoneName = zone?.name;
+    let zoneCode = zone?.code;
+
+    if (!zoneId && result.team?.name && allDbZones) {
+      const matchedZone = allDbZones.find(z => z.name.trim().toLowerCase() === result.team?.name?.trim().toLowerCase());
+      if (matchedZone) {
+        zoneId = matchedZone.id;
+        zoneName = matchedZone.name;
+        zoneCode = matchedZone.code;
+      }
+    }
+
+    if (zoneId && zoneName) {
+      if (!zoneScoresMap[zoneId]) {
+        zoneScoresMap[zoneId] = {
+          id: zoneId,
+          name: zoneName,
+          code: zoneCode || zoneName.substring(0, 3).toUpperCase(),
           publishedPoints: 0,
           totalPoints: 0,
           fadhilaPublished: 0,
@@ -711,17 +736,17 @@ export default async function ScoringPage(props: {
         };
       }
       // Overall Zone Points (ALL programs included)
-      zoneScoresMap[zone.id].totalPoints += pts;
-      if (isPub) zoneScoresMap[zone.id].publishedPoints += pts;
+      zoneScoresMap[zoneId].totalPoints += pts;
+      if (isPub) zoneScoresMap[zoneId].publishedPoints += pts;
 
       // Category Zone Points (INDIVIDUAL programs only)
       if (isIndiv) {
         if (cat === "FADHILA") {
-          zoneScoresMap[zone.id].fadhilaTotal += pts;
-          if (isPub) zoneScoresMap[zone.id].fadhilaPublished += pts;
+          zoneScoresMap[zoneId].fadhilaTotal += pts;
+          if (isPub) zoneScoresMap[zoneId].fadhilaPublished += pts;
         } else if (cat === "FADHEELA") {
-          zoneScoresMap[zone.id].fadheelaTotal += pts;
-          if (isPub) zoneScoresMap[zone.id].fadheelaPublished += pts;
+          zoneScoresMap[zoneId].fadheelaTotal += pts;
+          if (isPub) zoneScoresMap[zoneId].fadheelaPublished += pts;
         }
       }
     }

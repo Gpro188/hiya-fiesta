@@ -210,6 +210,56 @@ export async function submitMarks(data: {
       return { success: false, error: "Candidate or Team must be specified" };
     }
 
+    const targetEvent = data.eventId ? await prisma.event.findUnique({
+      where: { id: data.eventId },
+      include: { teams: true }
+    }) : null;
+    const isStateEvent = targetEvent?.type === "STATE" || (targetEvent && !targetEvent.parentId);
+
+    if (candidateId && isStateEvent && targetEvent?.teams && targetEvent.teams.length > 0) {
+      const cand = await prisma.candidate.findUnique({
+        where: { id: candidateId },
+        select: {
+          teamId: true,
+          institution: { select: { zone: { select: { name: true } } } },
+          team: { 
+            select: { 
+              institution: { select: { zone: { select: { name: true } } } },
+              event: { select: { name: true, zone: { select: { name: true } } } }
+            } 
+          }
+        }
+      });
+      const zName = cand?.institution?.zone?.name || cand?.team?.institution?.zone?.name || cand?.team?.event?.zone?.name;
+      if (zName) {
+        const stateTeam = targetEvent.teams.find(t => 
+          t.name.trim().toLowerCase() === zName.trim().toLowerCase() ||
+          zName.trim().toLowerCase().includes(t.name.trim().toLowerCase())
+        );
+        if (stateTeam) teamId = stateTeam.id;
+      }
+    } else if (teamId && isStateEvent && targetEvent?.teams && targetEvent.teams.length > 0) {
+      const isAlreadyStateTeam = targetEvent.teams.some(t => t.id === teamId);
+      if (!isAlreadyStateTeam) {
+        const teamObj = await prisma.team.findUnique({
+          where: { id: teamId },
+          select: {
+            name: true,
+            institution: { select: { zone: { select: { name: true } } } },
+            event: { select: { name: true, zone: { select: { name: true } } } }
+          }
+        });
+        const zName = teamObj?.institution?.zone?.name || teamObj?.event?.zone?.name || teamObj?.name;
+        if (zName) {
+          const stateTeam = targetEvent.teams.find(t => 
+            t.name.trim().toLowerCase() === zName.trim().toLowerCase() ||
+            zName.trim().toLowerCase().includes(t.name.trim().toLowerCase())
+          );
+          if (stateTeam) teamId = stateTeam.id;
+        }
+      }
+    }
+
     // If manual mode, we calculate points immediately
     let points = 0;
     let rank = data.manualRank || null;
@@ -241,11 +291,13 @@ export async function submitMarks(data: {
           marks: data.marks, 
           rank: data.manualRank !== undefined ? data.manualRank : undefined, 
           grade: data.manualGrade !== undefined ? data.manualGrade : undefined,
-          points: (data.manualRank || data.manualGrade) ? points : undefined
+          points: (data.manualRank || data.manualGrade) ? points : undefined,
+          ...(teamId ? { teamId } : {})
         },
         create: {
           candidateId,
           programId: data.programId,
+          teamId,
           marks: data.marks,
           rank: data.manualRank || null,
           grade: data.manualGrade || null,
@@ -344,15 +396,44 @@ export async function batchSubmitProgramMarks(data: {
       }
     }
 
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: data.eventId },
+      include: { teams: true }
+    });
+    const isStateEvent = targetEvent?.type === "STATE" || (targetEvent && !targetEvent.parentId);
+
     // Pre-fetch candidate teamIds to ensure teamId is saved on results for quick aggregation
     const candidateIds = data.entries.map(e => e.candidateId).filter(Boolean) as string[];
     const candidateTeamMap = new Map<string, string>();
     if (candidateIds.length > 0) {
       const candidates = await prisma.candidate.findMany({
         where: { id: { in: candidateIds } },
-        select: { id: true, teamId: true }
+        select: { 
+          id: true, 
+          teamId: true,
+          institution: { select: { zone: { select: { name: true } } } },
+          team: { 
+            select: { 
+              institution: { select: { zone: { select: { name: true } } } },
+              event: { select: { name: true, zone: { select: { name: true } } } }
+            } 
+          }
+        }
       });
       candidates.forEach(c => {
+        if (isStateEvent && targetEvent?.teams && targetEvent.teams.length > 0) {
+          const zName = c.institution?.zone?.name || c.team?.institution?.zone?.name || c.team?.event?.zone?.name;
+          if (zName) {
+            const stateTeam = targetEvent.teams.find(t => 
+              t.name.trim().toLowerCase() === zName.trim().toLowerCase() ||
+              zName.trim().toLowerCase().includes(t.name.trim().toLowerCase())
+            );
+            if (stateTeam) {
+              candidateTeamMap.set(c.id, stateTeam.id);
+              return;
+            }
+          }
+        }
         if (c.teamId) candidateTeamMap.set(c.id, c.teamId);
       });
     }
@@ -396,8 +477,31 @@ export async function batchSubmitProgramMarks(data: {
             }
           });
         } else if (entry.teamId) {
+          let resolvedTeamId = entry.teamId;
+          if (isStateEvent && targetEvent?.teams && targetEvent.teams.length > 0) {
+            const isAlreadyStateTeam = targetEvent.teams.some(t => t.id === entry.teamId);
+            if (!isAlreadyStateTeam) {
+              const teamObj = await prisma.team.findUnique({
+                where: { id: entry.teamId },
+                select: {
+                  name: true,
+                  institution: { select: { zone: { select: { name: true } } } },
+                  event: { select: { name: true, zone: { select: { name: true } } } }
+                }
+              });
+              const zName = teamObj?.institution?.zone?.name || teamObj?.event?.zone?.name || teamObj?.name;
+              if (zName) {
+                const stateTeam = targetEvent.teams.find(t => 
+                  t.name.trim().toLowerCase() === zName.trim().toLowerCase() ||
+                  zName.trim().toLowerCase().includes(t.name.trim().toLowerCase())
+                );
+                if (stateTeam) resolvedTeamId = stateTeam.id;
+              }
+            }
+          }
+
           await tx.result.upsert({
-            where: { teamId_programId: { teamId: entry.teamId, programId: data.programId } },
+            where: { teamId_programId: { teamId: resolvedTeamId, programId: data.programId } },
             update: {
               marks: entry.marks,
               rank: entry.rank || null,
@@ -406,7 +510,7 @@ export async function batchSubmitProgramMarks(data: {
               isPublished: shouldPublish
             },
             create: {
-              teamId: entry.teamId,
+              teamId: resolvedTeamId,
               programId: data.programId,
               marks: entry.marks,
               rank: entry.rank || null,
