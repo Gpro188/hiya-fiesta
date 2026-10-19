@@ -103,7 +103,8 @@ export default async function HomePage() {
     const now = new Date();
     liveStats.completedZones = zoneEvents.filter(ev => {
       if (ev.statusOverride === 'COMPLETED') return true;
-      if (ev.statusOverride === 'AUTO' && ev.endDate && now > ev.endDate) return true;
+      if (ev.endDate && now > ev.endDate) return true;
+      if (ev.zoneActiveEndTime && now > ev.zoneActiveEndTime) return true;
       return false;
     }).length;
 
@@ -171,7 +172,7 @@ export default async function HomePage() {
     const festStart = ev.zoneActiveStartTime || ev.startDate;
     const festEnd = ev.zoneActiveEndTime || ev.endDate;
 
-    if (ev.statusOverride && ev.statusOverride !== 'AUTO') {
+    if (ev.statusOverride && ev.statusOverride !== 'AUTO' && ev.statusOverride !== 'SCHEDULE_PUBLISHED') {
       switch(ev.statusOverride) {
         case 'COMPLETED':  badgeText = "COMPLETED";    badgeClass = "hf-badge-completed";    break;
         case 'LIVE':       badgeText = "LIVE NOW";     badgeClass = "hf-badge-live";         break;

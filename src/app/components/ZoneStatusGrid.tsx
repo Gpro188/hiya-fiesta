@@ -22,6 +22,7 @@ export type ZoneEventData = {
 
 export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
   const [now, setNow] = useState<number>(Date.now());
+  const [filterTab, setFilterTab] = useState<"ALL" | "UPCOMING" | "COMPLETED">("ALL");
 
   // Update clock every second for live countdown
   useEffect(() => {
@@ -31,17 +32,95 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
     return () => clearInterval(timer);
   }, []);
 
+  // Pre-calculate status for each event
+  const processedZones = zones.map((ev) => {
+    const startTarget = ev.zoneActiveStartTime || ev.startDate;
+    const endTarget = ev.zoneActiveEndTime || ev.endDate;
+    const startTime = startTarget ? new Date(startTarget).getTime() : null;
+    const endTime = endTarget ? new Date(endTarget).getTime() : null;
+
+    let isLive = false;
+    let isCompleted = false;
+    let isUpcoming = false;
+
+    if (ev.statusOverride && ev.statusOverride !== "AUTO" && ev.statusOverride !== "SCHEDULE_PUBLISHED") {
+      isLive = ev.statusOverride === "LIVE";
+      isCompleted = ev.statusOverride === "COMPLETED";
+      isUpcoming = ev.statusOverride === "REGISTRATION" || ev.statusOverride === "PENDING";
+    } else {
+      if (endTime && now > endTime) {
+        isCompleted = true;
+      } else if (startTime && now >= startTime) {
+        isLive = true;
+      } else if (startTime && now < startTime) {
+        isUpcoming = true;
+      }
+    }
+
+    // Safety fallback: if explicitly marked COMPLETED in database
+    if (ev.statusOverride === "COMPLETED") {
+      isCompleted = true;
+      isLive = false;
+      isUpcoming = false;
+    }
+
+    // If it's State Final or PG Fest and not completed/live, it is Upcoming
+    if (!isCompleted && !isLive && ((ev as any).type === "STATE" || ev.zone?.code === "FPG")) {
+      isUpcoming = true;
+    }
+
+    const diff = startTime && isUpcoming && !isCompleted && !isLive ? Math.max(0, startTime - now) : -1;
+
+    let countdownObj: { days: number; hours: number; minutes: number; seconds: number } | null = null;
+    if (diff > 0) {
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      countdownObj = { days, hours, minutes, seconds };
+    }
+
+    const formatDt = (d: any) => {
+      if (!d) return null;
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return null;
+      return dt.toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    const formattedStart = formatDt(startTarget);
+    const formattedEnd = formatDt(endTarget);
+
+    const currentBadgeText = isCompleted
+      ? "COMPLETED"
+      : isLive
+      ? "LIVE NOW"
+      : isUpcoming
+      ? "STARTS SOON"
+      : ev.badgeText || "PENDING";
+
+    return {
+      ev,
+      startTime,
+      endTime,
+      diff,
+      isLive,
+      isCompleted,
+      isUpcoming,
+      countdownObj,
+      formattedStart,
+      formattedEnd,
+      currentBadgeText
+    };
+  });
+
   // Find next upcoming zone fest that has not started yet
-  const upcomingZones = zones
-    .map((ev) => {
-      const startTarget = ev.zoneActiveStartTime || ev.startDate;
-      const startTime = startTarget ? new Date(startTarget).getTime() : null;
-      const isCompleted = ev.statusOverride === "COMPLETED";
-      const isLive = ev.statusOverride === "LIVE";
-      const diff = startTime && !isCompleted && !isLive ? startTime - now : -1;
-      return { ev, startTime, diff };
-    })
-    .filter((item) => item.diff > 0)
+  const upcomingZones = processedZones
+    .filter((item) => item.diff > 0 && !item.isCompleted && !item.isLive)
     .sort((a, b) => a.diff - b.diff);
 
   const nextUpcoming = upcomingZones[0] || null;
@@ -51,16 +130,27 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
   const pgUpcoming = upcomingZones.find(u => u.ev.zone?.code === "FPG" || u.ev.name.includes("Fadheela"));
   const isCollabFinale = Boolean(stateUpcoming && pgUpcoming && Math.abs(stateUpcoming.diff - pgUpcoming.diff) < 3600000 * 24);
 
-  let nextUpcomingCount: { days: number; hours: number; minutes: number; seconds: number } | null = null;
-  if (nextUpcoming) {
-    const diff = nextUpcoming.diff;
-    nextUpcomingCount = {
-      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-      seconds: Math.floor((diff % (1000 * 60)) / 1000),
-    };
-  }
+  let nextUpcomingCount = nextUpcoming?.countdownObj || null;
+
+  // Sort cards: Live first, Upcoming second (State Final & PG Fest), Completed last (8 regional zones)
+  const sortedZones = [...processedZones].sort((a, b) => {
+    if (a.isLive && !b.isLive) return -1;
+    if (!a.isLive && b.isLive) return 1;
+    if (a.isUpcoming && !b.isUpcoming) return -1;
+    if (!a.isUpcoming && b.isUpcoming) return 1;
+    if (!a.isCompleted && b.isCompleted) return -1;
+    if (a.isCompleted && !b.isCompleted) return 1;
+    return 0;
+  });
+
+  const upcomingCount = processedZones.filter(z => z.isUpcoming || z.isLive).length;
+  const completedCount = processedZones.filter(z => z.isCompleted).length;
+
+  const displayZones = sortedZones.filter(item => {
+    if (filterTab === "UPCOMING") return item.isUpcoming || item.isLive;
+    if (filterTab === "COMPLETED") return item.isCompleted;
+    return true;
+  });
 
   return (
     <div>
@@ -258,66 +348,89 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
         </div>
       )}
 
+      {/* ── Category Filter Tabs ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "12px",
+        marginBottom: "22px"
+      }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setFilterTab("ALL")}
+            style={{
+              padding: "7px 16px",
+              borderRadius: "30px",
+              border: filterTab === "ALL" ? "2px solid #8E0033" : "1px solid #cbd5e1",
+              backgroundColor: filterTab === "ALL" ? "#8E0033" : "#ffffff",
+              color: filterTab === "ALL" ? "#ffffff" : "#475569",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            All Festivals ({zones.length})
+          </button>
+          <button
+            onClick={() => setFilterTab("UPCOMING")}
+            style={{
+              padding: "7px 16px",
+              borderRadius: "30px",
+              border: filterTab === "UPCOMING" ? "2px solid #8E0033" : "1px solid #cbd5e1",
+              backgroundColor: filterTab === "UPCOMING" ? "#8E0033" : "#ffffff",
+              color: filterTab === "UPCOMING" ? "#ffffff" : "#475569",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.2s ease"
+            }}
+          >
+            <span>⏳ Upcoming Grand Finales ({upcomingCount})</span>
+            {upcomingCount > 0 && (
+              <span style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: filterTab === "UPCOMING" ? "#fecdd3" : "#e11d48",
+                display: "inline-block"
+              }} />
+            )}
+          </button>
+          <button
+            onClick={() => setFilterTab("COMPLETED")}
+            style={{
+              padding: "7px 16px",
+              borderRadius: "30px",
+              border: filterTab === "COMPLETED" ? "2px solid #059669" : "1px solid #cbd5e1",
+              backgroundColor: filterTab === "COMPLETED" ? "#059669" : "#ffffff",
+              color: filterTab === "COMPLETED" ? "#ffffff" : "#475569",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.2s ease"
+            }}
+          >
+            <span>🏁 Completed Zones ({completedCount})</span>
+          </button>
+        </div>
+
+        <div style={{ fontSize: "0.82rem", color: "#64748b", fontWeight: 600 }}>
+          Showing <strong>{displayZones.length}</strong> of {zones.length} festivals
+        </div>
+      </div>
+
       {/* ── Zone Status Cards Grid ── */}
       <div className="zone-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-        {zones.map((ev) => {
-          const startTarget = ev.zoneActiveStartTime || ev.startDate;
-          const endTarget = ev.zoneActiveEndTime || ev.endDate;
-          const startTime = startTarget ? new Date(startTarget).getTime() : null;
-          const endTime = endTarget ? new Date(endTarget).getTime() : null;
-
-          let isLive = false;
-          let isCompleted = false;
-          let isUpcoming = false;
-
-          if (ev.statusOverride && ev.statusOverride !== "AUTO") {
-            isLive = ev.statusOverride === "LIVE";
-            isCompleted = ev.statusOverride === "COMPLETED";
-            isUpcoming = ev.statusOverride === "REGISTRATION" || ev.statusOverride === "PENDING";
-          } else {
-            if (endTime && now > endTime) {
-              isCompleted = true;
-            } else if (startTime && now >= startTime) {
-              isLive = true;
-            } else if (startTime && now < startTime) {
-              isUpcoming = true;
-            }
-          }
-
-          // Calculate countdown object
-          let countdownObj: { days: number; hours: number; minutes: number; seconds: number } | null = null;
-          if (startTime && isUpcoming && !isLive && !isCompleted) {
-            const diff = Math.max(0, startTime - now);
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            countdownObj = { days, hours, minutes, seconds };
-          }
-
-          const formatDt = (d: any) => {
-            if (!d) return null;
-            const dt = new Date(d);
-            if (isNaN(dt.getTime())) return null;
-            return dt.toLocaleDateString([], {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-          };
-
-          const formattedStart = formatDt(startTarget);
-          const formattedEnd = formatDt(endTarget);
-
-          const currentBadgeText = isCompleted
-            ? "COMPLETED"
-            : isLive
-            ? "LIVE NOW"
-            : isUpcoming
-            ? "STARTS SOON"
-            : ev.badgeText || "PENDING";
-
+        {displayZones.map(({ ev, isLive, isCompleted, isUpcoming, countdownObj, formattedStart, formattedEnd, currentBadgeText }) => {
           return (
             <Link
               className="zone-card"
@@ -379,6 +492,22 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                         🎓 PG FEST (2-TEAM BATTLE)
                       </div>
                     )}
+                    {isCompleted && (ev as any).type !== "STATE" && ev.zone?.code !== "FPG" && (
+                      <div style={{
+                        display: "inline-block",
+                        fontSize: "0.68rem",
+                        fontWeight: 800,
+                        backgroundColor: "#ecfdf5",
+                        color: "#059669",
+                        border: "1px solid #a7f3d0",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        marginBottom: "5px",
+                        letterSpacing: "0.5px"
+                      }}>
+                        🏁 ZONAL FINALE COMPLETED
+                      </div>
+                    )}
                     <h3
                       style={{
                         margin: 0,
@@ -396,7 +525,7 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                     className="go"
                     style={{
                       fontSize: "1.2rem",
-                      color: isLive ? "#8E0033" : isCompleted ? "#059669" : "#94a3b8",
+                      color: isLive ? "#8E0033" : isCompleted ? "#059669" : "#be123c",
                       fontWeight: 700,
                     }}
                   >
@@ -497,12 +626,16 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                     <span>Competitions In Progress</span>
                   </div>
                 ) : isCompleted ? (
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "0.74rem", fontWeight: 700, color: "#475569" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "0.74rem", fontWeight: 700, color: "#059669" }}>
                     <span>🏁 All Results Finalized</span>
                   </div>
-                ) : !countdownObj ? (
+                ) : countdownObj ? (
+                  <div style={{ fontSize: "0.74rem", color: "#8E0033", fontWeight: 700 }}>
+                    ⏳ Grand Finale Countdown
+                  </div>
+                ) : (
                   <div style={{ fontSize: "0.74rem", color: "#94a3b8" }}>Upcoming Festival</div>
-                ) : <div />}
+                )}
 
               <span
                 className="zone-status-tag"
@@ -519,14 +652,14 @@ export default function ZoneStatusGrid({ zones }: { zones: ZoneEventData[] }) {
                   backgroundColor: isLive
                     ? "rgba(16, 185, 129, 0.12)"
                     : isCompleted
-                    ? "rgba(100, 116, 139, 0.1)"
-                    : "rgba(245, 158, 11, 0.1)",
-                  color: isLive ? "#059669" : isCompleted ? "#475569" : "#d97706",
+                    ? "rgba(5, 150, 105, 0.12)"
+                    : "rgba(244, 63, 94, 0.12)",
+                  color: isLive ? "#059669" : isCompleted ? "#059669" : "#be123c",
                   border: isLive
                     ? "1px solid rgba(16, 185, 129, 0.3)"
                     : isCompleted
-                    ? "1px solid rgba(100, 116, 139, 0.2)"
-                    : "1px solid rgba(245, 158, 11, 0.3)",
+                    ? "1px solid rgba(5, 150, 105, 0.3)"
+                    : "1px solid rgba(244, 63, 94, 0.3)",
                 }}
               >
                 <span

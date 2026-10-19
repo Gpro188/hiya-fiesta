@@ -52,10 +52,10 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
     isExplicitCompleted;
   
   // Festival is completed if explicitly COMPLETED or if endTarget has passed
-  const isCompleted = isExplicitCompleted || Boolean(event.statusOverride === "AUTO" && endTarget && now > endTarget);
+  const isCompleted = isExplicitCompleted || Boolean((event.statusOverride === "AUTO" || event.statusOverride === "SCHEDULE_PUBLISHED") && endTarget && now > endTarget);
 
   // Festival is started/live if explicitly LIVE or if startTarget has passed and not yet completed
-  const isStarted = isExplicitLive || Boolean(event.statusOverride === "AUTO" && startTarget && now >= startTarget && !isCompleted);
+  const isStarted = isExplicitLive || Boolean((event.statusOverride === "AUTO" || event.statusOverride === "SCHEDULE_PUBLISHED") && startTarget && now >= startTarget && !isCompleted);
 
   // Results & Standings Dashboard ONLY renders when festival is LIVE or COMPLETED
   const showResultsDashboard = isStarted || isCompleted;
