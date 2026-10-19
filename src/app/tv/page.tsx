@@ -57,16 +57,13 @@ export default async function TVDisplayPage(props: {
     getPublicEventData(eventObj.id),
     prisma.program.findMany({
       where: {
-        OR: [
-          { eventId: eventObj.id },
-          { eventId: programsEventId }
-        ],
+        eventId: eventObj.id,
         results: {
           some: {
             isPublished: true,
             OR: [
-              { team: { eventId: eventObj.id } },
-              { candidate: { team: { eventId: eventObj.id } } }
+              { program: { eventId: eventObj.id } },
+              { team: { eventId: eventObj.id } }
             ]
           }
         }
@@ -77,8 +74,8 @@ export default async function TVDisplayPage(props: {
           where: {
             isPublished: true,
             OR: [
-              { team: { eventId: eventObj.id } },
-              { candidate: { team: { eventId: eventObj.id } } }
+              { program: { eventId: eventObj.id } },
+              { team: { eventId: eventObj.id } }
             ]
           },
           include: {

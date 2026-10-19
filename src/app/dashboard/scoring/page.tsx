@@ -120,7 +120,11 @@ export default async function ScoringPage(props: {
     );
   }
 
-  const programsEventId = activeEvent.parentId || activeEvent.id;
+  const isStateFest = activeEvent.type === "STATE" || !activeEvent.parentId || 
+    activeEvent.name.toLowerCase().includes("state") || 
+    activeEvent.name.toLowerCase().includes("grand");
+
+  const programsEventId = isStateFest ? activeEvent.id : (activeEvent.type === "ZONE" ? activeEvent.id : (activeEvent.parentId || activeEvent.id));
 
   let judgeVenue = session.user.role === "JUDGE" ? (session.user as any).venue || null : null;
   if (session.user.role === "JUDGE" && !judgeVenue) {
@@ -132,10 +136,6 @@ export default async function ScoringPage(props: {
       judgeVenue = dbJudge.place;
     }
   }
-
-  const isStateFest = activeEvent.type === "STATE" || !activeEvent.parentId || 
-    activeEvent.name.toLowerCase().includes("state") || 
-    activeEvent.name.toLowerCase().includes("grand");
 
   const candidateZoneFilter: any[] = [];
   if (!isStateFest) {
@@ -440,8 +440,8 @@ export default async function ScoringPage(props: {
     prisma.result.findMany({
       where: { 
         OR: [
-          { team: { eventId: activeEventId } },
-          { candidate: { team: { eventId: activeEventId } } }
+          { program: { eventId: activeEventId } },
+          { team: { eventId: activeEventId } }
         ],
         // If JUDGE: only show results for their venue's programs
         ...(judgeVenue && venueProgramIdSet.size > 0 ? { programId: { in: Array.from(venueProgramIdSet) } } : {})
@@ -541,8 +541,8 @@ export default async function ScoringPage(props: {
     prisma.result.findMany({
       where: { 
         OR: [
-          { team: { eventId: activeEventId } },
-          { candidate: { team: { eventId: activeEventId } } }
+          { program: { eventId: activeEventId } },
+          { team: { eventId: activeEventId } }
         ]
       },
       select: {

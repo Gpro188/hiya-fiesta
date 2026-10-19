@@ -79,8 +79,8 @@ export default async function SearchPage(props: {
     isPublished: true,
     ...(eventId ? {
       OR: [
-        { team: { eventId } },
-        { candidate: { team: { eventId } } }
+        { program: { eventId } },
+        { team: { eventId } }
       ]
     } : {})
   };

@@ -9,6 +9,7 @@ const getCachedPublicEventData = unstable_cache(
     // Execute all independent database queries in a single parallel batch
     // This reduces cross-continent network roundtrips from 5 sequential trips to 1
     const [
+      eventRecord,
       latestResults,
       teams,
       allPublishedResults,
@@ -18,13 +19,16 @@ const getCachedPublicEventData = unstable_cache(
       candidatesWithAssignments,
       pointMatrixRecord
     ] = await Promise.all([
+      // 0. Event Record
+      prisma.event.findUnique({
+        where: { id: eventId },
+        select: { id: true, name: true, type: true, parentId: true }
+      }),
+
       // 1. Get Latest Published Results (Top 30 to aggregate by programs)
       prisma.result.findMany({
         where: {
-          OR: [
-            { candidate: { team: { eventId } } },
-            { team: { eventId } }
-          ],
+          program: { eventId },
           isPublished: true
         },
         select: {
@@ -79,10 +83,7 @@ const getCachedPublicEventData = unstable_cache(
       // 3. Get All Published Results for Leaderboard & Category Champions
       prisma.result.findMany({
         where: {
-          OR: [
-            { candidate: { team: { eventId } } },
-            { team: { eventId } }
-          ],
+          program: { eventId },
           isPublished: true
         },
         select: {
@@ -145,17 +146,15 @@ const getCachedPublicEventData = unstable_cache(
         where: { 
           OR: [
             { category: { eventId } },
-            { team: { eventId } }
+            { team: { eventId } },
+            { programs: { some: { program: { eventId } } } }
           ]
         } 
       }),
       prisma.programAssignment.groupBy({ 
         by: ['candidateId'], 
         where: { 
-          OR: [
-            { program: { eventId } },
-            { candidate: { team: { eventId } } }
-          ]
+          program: { eventId }
         } 
       }),
 
@@ -282,6 +281,8 @@ const getCachedPublicEventData = unstable_cache(
       };
     });
 
+    const isStateFest = eventRecord?.type === "STATE" || !eventRecord?.parentId || (eventRecord?.name && eventRecord.name.toLowerCase().includes("state"));
+
     allPublishedResults.forEach(res => {
       let teamId: string | null = null;
       let teamName: string = "Unknown Team";
@@ -289,38 +290,37 @@ const getCachedPublicEventData = unstable_cache(
       let teamLeaderPhoto: string | null = null;
       let matchingTeam: any = null;
 
-      // 1. Direct match with event's teams (crucial for State Fest where teams are the 7 Zones)
-      if (res.teamId && teams.some(t => t.id === res.teamId)) {
-        matchingTeam = teams.find(t => t.id === res.teamId);
-      } else if (res.team && teams.some(t => t.id === res.team?.id)) {
-        matchingTeam = teams.find(t => t.id === res.team?.id);
-      } else if (res.candidate) {
-        // If event teams are Zones (e.g. State Fest), match candidate's zone to the event's zone team
-        const candZone = (
-          (res.candidate as any)?.institution?.zone?.name ||
-          (res.candidate as any)?.team?.institution?.zone?.name ||
-          ""
-        ).trim().toLowerCase();
+      if (isStateFest) {
+        // STATE FEST: Teams are the 7 Zones
+        if (res.teamId && teams.some(t => t.id === res.teamId)) {
+          matchingTeam = teams.find(t => t.id === res.teamId);
+        } else if (res.team && teams.some(t => t.id === res.team?.id)) {
+          matchingTeam = teams.find(t => t.id === res.team?.id);
+        } else if (res.candidate) {
+          const candZone = (
+            (res.candidate as any)?.institution?.zone?.name ||
+            (res.candidate as any)?.team?.institution?.zone?.name ||
+            ""
+          ).trim().toLowerCase();
 
-        if (candZone) {
-          matchingTeam = teams.find(t => 
-            t.name.trim().toLowerCase() === candZone || 
-            candZone.includes(t.name.trim().toLowerCase())
-          );
+          if (candZone) {
+            matchingTeam = teams.find(t => 
+              t.name.trim().toLowerCase() === candZone || 
+              candZone.includes(t.name.trim().toLowerCase())
+            );
+          }
         }
-
-        if (!matchingTeam && res.candidate.team) {
-          matchingTeam = teams.find(t => t.id === res.candidate?.team?.id) || res.candidate.team;
-        }
-      } else if (res.team) {
-        const teamZone = ((res.team as any)?.institution?.zone?.name || res.team.name || "").trim().toLowerCase();
-        if (teamZone) {
-          matchingTeam = teams.find(t => 
-            t.name.trim().toLowerCase() === teamZone || 
-            teamZone.includes(t.name.trim().toLowerCase())
-          );
-        }
-        if (!matchingTeam) {
+      } else {
+        // REGIONAL ZONE FEST: Teams are College Teams
+        matchingTeam = teams.find(t => 
+          t.id === res.candidate?.teamId || 
+          t.id === res.candidate?.team?.id || 
+          t.id === res.teamId || 
+          t.id === res.team?.id
+        );
+        if (!matchingTeam && res.candidate?.team) {
+          matchingTeam = res.candidate.team;
+        } else if (!matchingTeam && res.team) {
           matchingTeam = res.team;
         }
       }
