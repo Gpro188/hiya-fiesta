@@ -35,26 +35,81 @@ export default async function JuriesPage() {
       orderBy: { createdAt: 'desc' }
     });
 
-    const zones = await prisma.zone.findMany({
-      orderBy: { name: 'asc' }
-    });
-
-    const allEvents = await prisma.event.findMany({
-      include: {
-        zone: true,
-        selectedJudges: { select: { id: true, username: true, phone: true, place: true } },
-        programs: {
-          include: {
-            judges: { select: { id: true, username: true } },
-            category: true
-          },
-          orderBy: { name: 'asc' }
-        }
-      },
-      orderBy: { createdAt: 'asc' }
-    });
+    const [zones, allEvents, allVenueUsers] = await Promise.all([
+      prisma.zone.findMany({
+        orderBy: { name: 'asc' }
+      }),
+      prisma.event.findMany({
+        include: {
+          zone: true,
+          selectedJudges: { select: { id: true, username: true, phone: true, place: true } },
+          programs: {
+            include: {
+              judges: { select: { id: true, username: true } },
+              category: true
+            },
+            orderBy: { name: 'asc' }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.user.findMany({
+        where: {
+          role: "JUDGE",
+          place: { not: null }
+        },
+        select: {
+          id: true,
+          username: true,
+          place: true,
+          phone: true,
+          createdAt: true,
+          eventId: true,
+          zoneId: true
+        },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
 
     const stateEvent = allEvents.find(e => e.type === "STATE" || !e.parentId) || allEvents[0] || null;
+    const pgEvent = allEvents.find(e => e.name?.toLowerCase().includes("fadheela") || e.name?.toLowerCase().includes("pg")) || null;
+
+    let displayEvents = [...allEvents];
+
+    if (stateEvent && pgEvent) {
+      const stateProgsTagged = (stateEvent.programs || []).map((p: any) => ({
+        ...p,
+        festType: "STATE" as const,
+        festName: "State Final"
+      }));
+      const pgProgsTagged = (pgEvent.programs || []).map((p: any) => ({
+        ...p,
+        festType: "PG" as const,
+        festName: "Fadheela PG"
+      }));
+
+      // Combine selected judges
+      const combinedSelectedJudgesMap = new Map();
+      (stateEvent.selectedJudges || []).forEach((j: any) => combinedSelectedJudgesMap.set(j.id, j));
+      (pgEvent.selectedJudges || []).forEach((j: any) => combinedSelectedJudgesMap.set(j.id, j));
+      const combinedSelectedJudges = Array.from(combinedSelectedJudgesMap.values());
+
+      const collabEvent = {
+        id: "collab_state_pg",
+        name: "🌟 Grand Finale (State Fest + Fadheela PG Collab)",
+        type: "COLLAB",
+        isCollab: true,
+        selectedJudges: combinedSelectedJudges,
+        programs: [...stateProgsTagged, ...pgProgsTagged],
+        zone: null,
+      };
+
+      (stateEvent as any).programs = stateProgsTagged;
+      (pgEvent as any).programs = pgProgsTagged;
+
+      displayEvents = [collabEvent as any, ...allEvents];
+    }
+
     const statePrograms = stateEvent?.programs || [];
 
     return (
@@ -66,9 +121,10 @@ export default async function JuriesPage() {
         <AdminJuryList 
           judges={allJudges} 
           zones={zones} 
-          events={allEvents}
+          events={displayEvents}
           stateEvent={stateEvent} 
           statePrograms={statePrograms} 
+          allVenueUsers={allVenueUsers}
         />
       </div>
     );

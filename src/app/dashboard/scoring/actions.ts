@@ -543,15 +543,27 @@ export async function batchSubmitProgramMarks(data: {
         // If assignToVenue is selected, also assign these juries to all programs in this venue!
         if (data.assignToVenue && (data.venue || program.venue)) {
           const v = data.venue || program.venue;
-          const targetEvent = await prisma.event.findUnique({
-            where: { id: data.eventId },
-            select: { id: true, parentId: true }
-          });
-          const progEventId = targetEvent?.parentId || data.eventId;
+          let targetEventIds: string[] = [];
+          if (data.eventId === "collab_state_pg") {
+            const stateEv = await prisma.event.findFirst({ where: { type: "STATE" }, select: { id: true } });
+            const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela", mode: "insensitive" } }, select: { id: true } });
+            targetEventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+          } else {
+            const targetEvent = await prisma.event.findUnique({
+              where: { id: data.eventId },
+              select: { id: true, parentId: true, type: true }
+            });
+            if (targetEvent?.type === "STATE") {
+              const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela", mode: "insensitive" } }, select: { id: true } });
+              targetEventIds = [targetEvent.id, pgEv?.id].filter(Boolean) as string[];
+            } else {
+              targetEventIds = [targetEvent?.parentId || data.eventId];
+            }
+          }
 
           const venuePrograms = await prisma.program.findMany({
             where: {
-              eventId: progEventId,
+              eventId: { in: targetEventIds },
               venue: { equals: v, mode: "insensitive" }
             },
             select: { id: true }
@@ -602,15 +614,27 @@ export async function assignJudgesToVenueAction(eventId: string, venue: string, 
       return { success: false, error: "Selected juries were not found in user database." };
     }
 
-    const targetEvent = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { id: true, parentId: true }
-    });
-    const progEventId = targetEvent?.parentId || eventId;
+    let targetEventIds: string[] = [];
+    if (eventId === "collab_state_pg") {
+      const stateEv = await prisma.event.findFirst({ where: { type: "STATE" }, select: { id: true } });
+      const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela", mode: "insensitive" } }, select: { id: true } });
+      targetEventIds = [stateEv?.id, pgEv?.id].filter(Boolean) as string[];
+    } else {
+      const targetEvent = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: { id: true, parentId: true, type: true }
+      });
+      if (targetEvent?.type === "STATE") {
+        const pgEv = await prisma.event.findFirst({ where: { name: { contains: "Fadheela", mode: "insensitive" } }, select: { id: true } });
+        targetEventIds = [targetEvent.id, pgEv?.id].filter(Boolean) as string[];
+      } else {
+        targetEventIds = [targetEvent?.parentId || eventId];
+      }
+    }
 
     const venuePrograms = await prisma.program.findMany({
       where: {
-        eventId: progEventId,
+        eventId: { in: targetEventIds },
         venue: { equals: venue, mode: "insensitive" }
       },
       select: { id: true }

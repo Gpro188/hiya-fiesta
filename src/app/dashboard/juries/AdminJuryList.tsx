@@ -9,18 +9,20 @@ export default function AdminJuryList({
   zones, 
   events = [], 
   stateEvent, 
-  statePrograms 
+  statePrograms,
+  allVenueUsers = []
 }: { 
   judges: any[], 
   zones: any[], 
   events?: any[], 
   stateEvent?: any, 
-  statePrograms?: any[] 
+  statePrograms?: any[],
+  allVenueUsers?: any[]
 }) {
-  const [activeTab, setActiveTab] = useState<'list' | 'assign' | 'report'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'assign' | 'report'>('assign');
   const [filterZoneId, setFilterZoneId] = useState<string>('ALL');
   const [selectedEventId, setSelectedEventId] = useState<string>(
-    stateEvent?.id || (events && events[0]?.id) || ""
+    (events && events[0]?.id) || stateEvent?.id || ""
   );
   
   const activeAssignEvent = events.find(e => e.id === selectedEventId) || stateEvent || (events && events[0]);
@@ -127,11 +129,11 @@ export default function AdminJuryList({
                   className="form-input" 
                   value={selectedEventId} 
                   onChange={e => setSelectedEventId(e.target.value)}
-                  style={{ minWidth: '240px', fontWeight: 500 }}
+                  style={{ minWidth: '300px', fontWeight: 600 }}
                 >
                   {events.map(ev => (
                     <option key={ev.id} value={ev.id}>
-                      {ev.type === "STATE" || !ev.parentId ? "🏛️ " : "📍 "}
+                      {ev.id === "collab_state_pg" ? "🌟 " : (ev.type === "STATE" || !ev.parentId ? "🏛️ " : "📍 ")}
                       {ev.name} {ev.zone?.name ? `(${ev.zone.name})` : ""}
                     </option>
                   ))}
@@ -139,13 +141,62 @@ export default function AdminJuryList({
               </div>
             )}
           </div>
-          <ZoneJurySelection 
-            key={activeAssignEvent.id}
-            allJudges={judges} 
-            selectedJudges={activeAssignEvent.selectedJudges || []} 
-            programs={activeAssignEvent.programs || []}
-            eventId={activeAssignEvent.id} 
-          />
+
+          {activeAssignEvent.id === "collab_state_pg" && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              backgroundColor: 'rgba(234, 179, 8, 0.12)',
+              border: '1.5px solid rgba(234, 179, 8, 0.4)',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              marginBottom: 'var(--spacing-md)'
+            }}>
+              <span style={{ fontSize: '1.3rem' }}>🤝</span>
+              <div style={{ flex: 1, fontSize: '0.85rem' }}>
+                <strong style={{ color: '#ca8a04' }}>Collaborative Finale Festival Active:</strong> You are managing shared stages for both <strong>State Final</strong> and <strong>Fadheela PG Fest</strong>. Assigning a jury to a venue/stage will update both State and PG programs sharing that stage.
+              </div>
+            </div>
+          )}
+
+          {(() => {
+            const activePrograms = activeAssignEvent.programs || [];
+            const activeVenues = Array.from(
+              new Set(activePrograms.map((p: any) => p.venue?.trim()).filter(Boolean))
+            ).sort() as string[];
+
+            const programCountsByVenue: Record<string, number> = {};
+            activePrograms.forEach((p: any) => {
+              const v = p.venue?.trim() || "Unassigned / Off-Stage";
+              programCountsByVenue[v] = (programCountsByVenue[v] || 0) + 1;
+            });
+
+            const relevantVenueUsers = (allVenueUsers || []).filter((u: any) => {
+              if (activeAssignEvent?.id === "collab_state_pg") {
+                return true;
+              }
+              return u.eventId === activeAssignEvent?.id || (activeAssignEvent?.zoneId && u.zoneId === activeAssignEvent.zoneId);
+            });
+
+            const isCollab = activeAssignEvent.id === "collab_state_pg" || Boolean(activeAssignEvent.isCollab);
+
+            return (
+              <ZoneJurySelection 
+                key={activeAssignEvent.id}
+                allJudges={judges} 
+                selectedJudges={activeAssignEvent.selectedJudges || []} 
+                programs={activePrograms}
+                eventId={activeAssignEvent.id}
+                venues={activeVenues}
+                venueUsers={relevantVenueUsers}
+                programCountsByVenue={programCountsByVenue}
+                zoneCode={activeAssignEvent.zone?.code || (isCollab ? "collab" : "state")}
+                zoneName={activeAssignEvent.name || "State Festival"}
+                isCollab={isCollab}
+              />
+            );
+          })()}
         </div>
       )}
 
