@@ -512,7 +512,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                   const allZonesPublished = zoneSchedules.every(z => z.statusOverride === 'COMPLETED');
 
                   return (
-                    <div style={{
+                    <div id="zone-visibility" style={{
                       padding: '18px 22px',
                       borderRadius: '16px',
                       backgroundColor: allZonesHidden ? '#fff1f2' : allZonesPublished ? '#f0fdf4' : '#fffbeb',

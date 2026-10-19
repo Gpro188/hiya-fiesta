@@ -20,9 +20,9 @@ export default async function SettingsPage() {
 
   const eventFilter = (eventId && role !== "SUPER_ADMIN") ? { eventId } : undefined;
 
-  // Fetch events for deadline configuration
+  // Fetch events for deadline configuration (Admins see all events)
   const events = await prisma.event.findMany({
-    where: (eventId && role !== "SUPER_ADMIN") ? { 
+    where: (eventId && !["ADMIN", "SUPER_ADMIN"].includes(role)) ? { 
       OR: [
         { id: eventId },
         { parentId: eventId }
@@ -65,13 +65,22 @@ export default async function SettingsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {["ADMIN", "SUPER_ADMIN"].includes(role) && (
+            <a 
+              href="#zone-visibility" 
+              className="btn btn-secondary" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', borderColor: '#f43f5e', color: '#be123c', backgroundColor: '#fff1f2', fontWeight: 700 }}
+            >
+              <span>🛡️</span> Zone Results Visibility
+            </a>
+          )}
           {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
             <a 
               href="#registration-limits" 
               className="btn btn-secondary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
             >
-              <span>🎯</span> Candidate Program Limits
+              <span>🎯</span> Candidate Limits
             </a>
           )}
           {["ADMIN", "SUPER_ADMIN"].includes(role) && (
@@ -89,15 +98,20 @@ export default async function SettingsPage() {
               className="btn btn-primary" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
             >
-              <span>🎨</span> Homepage & Theme Settings
+              <span>🎨</span> Homepage Settings
             </a>
           )}
         </div>
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xl)' }}>
+        <div data-tour="settings-config" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
+          <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>General Configuration & Regional Zone Visibility</h2>
+          <SettingsForm initialSettings={settings} events={events as any} role={role} />
+        </div>
+
         {["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(role) && (
-          <div data-tour="settings-limits">
+          <div data-tour="settings-limits" id="registration-limits">
             <RegistrationLimitsCard initialSettings={settings} events={events as any} role={role} />
           </div>
         )}
@@ -107,11 +121,6 @@ export default async function SettingsPage() {
             <PointMatrixSettingsCard events={events as any} />
           </div>
         )}
-
-        <div data-tour="settings-config" className="glass-panel" style={{ padding: 'var(--spacing-lg)' }}>
-          <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.25rem' }}>General Configuration</h2>
-          <SettingsForm initialSettings={settings} events={events as any} role={role} />
-        </div>
 
         {role === "SUPER_ADMIN" && (
           <div data-tour="settings-maintenance" className="glass-panel" style={{ padding: 'var(--spacing-lg)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
