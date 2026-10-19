@@ -101,7 +101,7 @@ export default async function PrintResultsPage({
 
   // Helper to extract eventId from result
   const getResultEventId = (res: any) => {
-    return res.candidate?.team?.eventId || res.team?.eventId || null;
+    return res.team?.eventId || res.candidate?.team?.eventId || null;
   };
 
   // Filter results by Event / Zone if requested

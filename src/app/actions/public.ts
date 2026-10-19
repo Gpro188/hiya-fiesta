@@ -86,10 +86,10 @@ const getCachedPublicEventData = unstable_cache(
                   name: true, 
                   prefixCode: true, 
                   flagColor: true, 
-                  institution: { select: { logoUrl: true, name: true, place: true } } 
+                  institution: { select: { logoUrl: true, name: true, place: true, zone: { select: { name: true } } } } 
                 } 
               }, 
-              institution: { select: { name: true, place: true } },
+              institution: { select: { name: true, place: true, zone: { select: { name: true } } } },
               category: { select: { id: true, name: true } } 
             } 
           },
@@ -99,7 +99,7 @@ const getCachedPublicEventData = unstable_cache(
               name: true, 
               prefixCode: true, 
               flagColor: true, 
-              institution: { select: { logoUrl: true, name: true, place: true } } 
+              institution: { select: { logoUrl: true, name: true, place: true, zone: { select: { name: true } } } } 
             } 
           },
           program: { 
@@ -271,18 +271,47 @@ const getCachedPublicEventData = unstable_cache(
       let teamLeaderPhoto: string | null = null;
       let matchingTeam: any = null;
 
-      if (res.candidate) {
-        teamId = res.candidate.team.id;
-        teamName = res.candidate.team.name;
-        teamFlag = res.candidate.team.flagColor;
-        matchingTeam = teams.find(t => t.id === res.candidate?.team?.id);
-        teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
-      } else if (res.team) {
-        teamId = res.team.id;
-        teamName = res.team.name;
-        teamFlag = res.team.flagColor;
+      // 1. Direct match with event's teams (crucial for State Fest where teams are the 7 Zones)
+      if (res.teamId && teams.some(t => t.id === res.teamId)) {
+        matchingTeam = teams.find(t => t.id === res.teamId);
+      } else if (res.team && teams.some(t => t.id === res.team?.id)) {
         matchingTeam = teams.find(t => t.id === res.team?.id);
-        teamLeaderPhoto = matchingTeam?.leaderPhoto || null;
+      } else if (res.candidate) {
+        // If event teams are Zones (e.g. State Fest), match candidate's zone to the event's zone team
+        const candZone = (
+          (res.candidate as any)?.institution?.zone?.name ||
+          (res.candidate as any)?.team?.institution?.zone?.name ||
+          ""
+        ).trim().toLowerCase();
+
+        if (candZone) {
+          matchingTeam = teams.find(t => 
+            t.name.trim().toLowerCase() === candZone || 
+            candZone.includes(t.name.trim().toLowerCase())
+          );
+        }
+
+        if (!matchingTeam && res.candidate.team) {
+          matchingTeam = teams.find(t => t.id === res.candidate?.team?.id) || res.candidate.team;
+        }
+      } else if (res.team) {
+        const teamZone = ((res.team as any)?.institution?.zone?.name || res.team.name || "").trim().toLowerCase();
+        if (teamZone) {
+          matchingTeam = teams.find(t => 
+            t.name.trim().toLowerCase() === teamZone || 
+            teamZone.includes(t.name.trim().toLowerCase())
+          );
+        }
+        if (!matchingTeam) {
+          matchingTeam = res.team;
+        }
+      }
+
+      if (matchingTeam) {
+        teamId = matchingTeam.id;
+        teamName = matchingTeam.name;
+        teamFlag = matchingTeam.flagColor;
+        teamLeaderPhoto = matchingTeam.leaderPhoto || null;
       }
 
       if (teamId) {

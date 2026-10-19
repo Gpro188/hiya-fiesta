@@ -113,17 +113,21 @@ export default function TeamScorePreview({
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
-          🏆 Champions & Standings Hub
+          🏆 {isStateFest ? "State Zone Standings & Champions" : "Champions & Standings Hub"}
         </h3>
         {isStateFest && (
           <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-            State Fest Mode
+            7 Participating Zones
           </span>
         )}
       </div>
 
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.3 }}>
-        Category Champions are calculated <strong style={{ color: '#38bdf8' }}>strictly by Individual Programs</strong>. Overall Standings include <strong style={{ color: 'var(--warning)' }}>Total Points (Category + General)</strong>.
+        {isStateFest ? (
+          <>In State Fest, points are awarded to the <strong style={{ color: '#fbbf24' }}>7 Participating Zones</strong>. Category Champions are based on individual programs, while Overall Standings reflect total Zone points.</>
+        ) : (
+          <>Category Champions are calculated <strong style={{ color: '#38bdf8' }}>strictly by Individual Programs</strong>. Overall Standings include <strong style={{ color: 'var(--warning)' }}>Total Points (Category + General)</strong>.</>
+        )}
       </p>
 
       {/* Category Champions & Runner-Ups Hero Cards */}
@@ -138,9 +142,9 @@ export default function TeamScorePreview({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>👑</span> Overall Standings
+              <span>👑</span> {isStateFest ? "Overall Zone Standings" : "Overall Standings"}
             </div>
-            <span style={{ fontSize: '0.62rem', color: '#9ca3af', backgroundColor: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '3px' }}>Total Pts</span>
+            <span style={{ fontSize: '0.62rem', color: '#9ca3af', backgroundColor: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '3px' }}>{isStateFest ? "Zone Pts" : "Total Pts"}</span>
           </div>
 
           {/* Champion */}
@@ -149,7 +153,7 @@ export default function TeamScorePreview({
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 🥇 {overallChampion?.name || 'Tallying...'}
               </div>
-              <div style={{ fontSize: '0.64rem', color: '#fbbf24', fontWeight: 600 }}>CHAMPION</div>
+              <div style={{ fontSize: '0.64rem', color: '#fbbf24', fontWeight: 600 }}>{isStateFest ? "ZONE CHAMPION" : "CHAMPION"}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#fbbf24' }}>{overallChampion?.publishedPoints || 0} pts</div>
@@ -164,7 +168,7 @@ export default function TeamScorePreview({
                 <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   🥈 {overallRunnerUp.name}
                 </div>
-                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>{isStateFest ? "RUNNER-UP ZONE" : "RUNNER-UP"}</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{overallRunnerUp.publishedPoints} pts</div>
@@ -182,7 +186,7 @@ export default function TeamScorePreview({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              Fadhila Category
+              {isStateFest ? "Fadhila Category (Zone)" : "Fadhila Category"}
             </div>
             <span style={{ fontSize: '0.62rem', color: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
           </div>
@@ -193,7 +197,7 @@ export default function TeamScorePreview({
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 🥇 {fadhilaChampion?.name || 'Tallying...'}
               </div>
-              <div style={{ fontSize: '0.64rem', color: '#38bdf8', fontWeight: 600 }}>CHAMPION</div>
+              <div style={{ fontSize: '0.64rem', color: '#38bdf8', fontWeight: 600 }}>{isStateFest ? "ZONE CHAMPION" : "CHAMPION"}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#38bdf8' }}>{fadhilaChampion?.fadhilaPublished || 0} pts</div>
@@ -208,7 +212,7 @@ export default function TeamScorePreview({
                 <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   🥈 {fadhilaRunnerUp.name}
                 </div>
-                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>{isStateFest ? "RUNNER-UP ZONE" : "RUNNER-UP"}</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{fadhilaRunnerUp.fadhilaPublished || 0} pts</div>
@@ -226,7 +230,7 @@ export default function TeamScorePreview({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              Fadheela Category
+              {isStateFest ? "Fadheela Category (Zone)" : "Fadheela Category"}
             </div>
             <span style={{ fontSize: '0.62rem', color: '#f472b6', backgroundColor: 'rgba(244,114,182,0.12)', padding: '1px 5px', borderRadius: '3px' }}>Indiv Only</span>
           </div>
@@ -237,7 +241,7 @@ export default function TeamScorePreview({
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 🥇 {fadheelaChampion?.name || 'Tallying...'}
               </div>
-              <div style={{ fontSize: '0.64rem', color: '#f472b6', fontWeight: 600 }}>CHAMPION</div>
+              <div style={{ fontSize: '0.64rem', color: '#f472b6', fontWeight: 600 }}>{isStateFest ? "ZONE CHAMPION" : "CHAMPION"}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f472b6' }}>{fadheelaChampion?.fadheelaPublished || 0} pts</div>
@@ -252,7 +256,7 @@ export default function TeamScorePreview({
                 <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   🥈 {fadheelaRunnerUp.name}
                 </div>
-                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>RUNNER-UP</div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 600 }}>{isStateFest ? "RUNNER-UP ZONE" : "RUNNER-UP"}</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e5e7eb' }}>{fadheelaRunnerUp.fadheelaPublished || 0} pts</div>
@@ -288,7 +292,7 @@ export default function TeamScorePreview({
             transition: 'all 0.15s ease',
           }}
         >
-          🏆 Total Points
+          {isStateFest ? "🏆 Total Zone Points" : "🏆 Total Points"}
         </button>
         <button
           type="button"
@@ -354,7 +358,7 @@ export default function TeamScorePreview({
                     <div style={{ fontWeight: 600, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.82rem', width: '22px', display: 'inline-block' }}>{medal}</span>
                       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.name}>
-                        {item.name}
+                        {isStateFest ? `📍 ${item.name}` : item.name}
                       </span>
                       {titleBadge && (
                         <span style={{ 

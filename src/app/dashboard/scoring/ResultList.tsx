@@ -9,13 +9,15 @@ export default function ResultList({
   role,
   isCompleted = false,
   completedFestName = "",
-  activeEventId = ""
+  activeEventId = "",
+  isStateFest = false
 }: { 
   results: any[]; 
   role: string;
   isCompleted?: boolean;
   completedFestName?: string;
   activeEventId?: string;
+  isStateFest?: boolean;
 }) {
   const [filter, setFilter] = useState<'all' | 'published' | 'pending'>('all');
   const [editingResult, setEditingResult] = useState<any | null>(null);
@@ -272,7 +274,7 @@ export default function ResultList({
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase'
               }}>
-                <div>Participant / Institution</div>
+                <div>{isStateFest ? "Participant / Zone (Institution)" : "Participant / Institution"}</div>
                 <div style={{ textAlign: 'center' }}>Place / Rank</div>
                 <div style={{ textAlign: 'center' }}>Grade</div>
                 <div style={{ textAlign: 'center' }}>Total Points</div>
@@ -285,7 +287,14 @@ export default function ResultList({
                   const isGroupOrGeneral = group.program.type !== "INDIVIDUAL";
                   const isMagazine = group.program.name.toLowerCase().includes("magazine") || (group.program as any).programCode === "43";
                   const magCode = (result.team as any)?.magazineCode || (result.candidate?.team as any)?.magazineCode;
-                  const zoneName = (result.team as any)?.institution?.zone?.name || (result.candidate?.team as any)?.institution?.zone?.name;
+                  const rawZoneName = (result.team as any)?.institution?.zone?.name || 
+                    (result.candidate?.institution as any)?.zone?.name || 
+                    (result.candidate?.team as any)?.institution?.zone?.name ||
+                    (result.team?.name?.includes("MALAPPURAM") || ["KANNUR", "KASARAGOD", "KOZHIKODE", "PALAKKAD", "THRISSUR"].includes(result.team?.name?.toUpperCase() || "") ? result.team?.name : null);
+                  const instName = (result.candidate?.institution as any)?.name || 
+                    ((result.candidate?.team as any)?.name !== rawZoneName ? (result.candidate?.team as any)?.name : null) || 
+                    ((result.team as any)?.institution as any)?.name ||
+                    ((result.team as any)?.name !== rawZoneName ? (result.team as any)?.name : null);
                   const participantName = result.candidate ? result.candidate.name : (result.team ? result.team.name : 'Unknown');
                   const participantChest = result.candidate ? result.candidate.chestNumber : (result.team ? result.team.prefixCode : '-');
                   const teamInfo = result.candidate ? result.candidate.team : result.team;
@@ -344,9 +353,33 @@ export default function ResultList({
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.74rem', color: teamInfo?.flagColor || '#2563eb', fontWeight: 700, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {teamInfo?.name}{zoneName ? ` • ${zoneName}` : ''}
-                          </div>
+                          {isStateFest ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                              {rawZoneName && (
+                                <span style={{
+                                  fontSize: '0.70rem',
+                                  fontWeight: 800,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  display: 'inline-block'
+                                }}>
+                                  📍 {rawZoneName}
+                                </span>
+                              )}
+                              {instName && (
+                                <span style={{ fontSize: '0.73rem', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {instName}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.74rem', color: teamInfo?.flagColor || '#2563eb', fontWeight: 700, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {teamInfo?.name}{rawZoneName ? ` • ${rawZoneName}` : ''}
+                            </div>
+                          )}
                         </div>
                       </div>
 

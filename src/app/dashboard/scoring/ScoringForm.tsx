@@ -28,6 +28,7 @@ interface ScoringEntry {
   zonalMagazineCode?: string;
   zoneName?: string;
   teamName?: string;
+  institutionName?: string;
   marks: string;
   rank: string;
   grade: string;
@@ -207,6 +208,7 @@ export default function ScoringForm({
           name: cand.name,
           chestNumber: cand.chestNumber,
           teamName: cand.team?.name,
+          institutionName: cand.institution?.name || cand.team?.name,
           zoneName: zName,
           replacedFromChest: repChest,
           replacementNote: repNote,
@@ -998,11 +1000,13 @@ export default function ScoringForm({
                       <>
                         <th style={{ padding: '12px 16px' }}>Participant / Candidate</th>
                         <th style={{ padding: '12px 16px' }}>
-                          {isStateFest ? "Institution / Zone" : "Institution / Team"}
+                          {isStateFest ? "Zone (Team) / Institution" : "Institution / Team"}
                         </th>
                       </>
                     ) : (
-                      <th colSpan={isInstitutionProgram(selectedProgram) ? 1 : 2} style={{ padding: '12px 16px' }}>Team / Institution Name</th>
+                      <th colSpan={isInstitutionProgram(selectedProgram) ? 1 : 2} style={{ padding: '12px 16px' }}>
+                        {isStateFest ? "Zone (Team) / Institution" : "Team / Institution Name"}
+                      </th>
                     )}
                     <th style={{ padding: '12px 16px', width: '150px', color: '#b45309' }}>🥇 Place (Rank)</th>
                     <th style={{ padding: '12px 16px', width: '135px', color: '#be185d' }}>⭐ Grade</th>
@@ -1083,21 +1087,48 @@ export default function ScoringForm({
                           </td>
                           <td style={{ padding: '12px 16px', color: '#4b5563', fontWeight: 600, fontSize: '0.82rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <span>{entry.teamName || '-'}</span>
-                              {entry.zoneName && (
-                                <span style={{
-                                  fontSize: '0.70rem',
-                                  fontWeight: 800,
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#eff6ff',
-                                  color: '#1d4ed8',
-                                  border: '1px solid #bfdbfe',
-                                  display: 'inline-block',
-                                  width: 'fit-content'
-                                }}>
-                                  📍 {entry.zoneName}
-                                </span>
+                              {isStateFest ? (
+                                <>
+                                  <span style={{
+                                    fontSize: '0.74rem',
+                                    fontWeight: 800,
+                                    padding: '2px 8px',
+                                    borderRadius: '5px',
+                                    backgroundColor: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    border: '1px solid #bfdbfe',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    width: 'fit-content'
+                                  }}>
+                                    📍 {entry.zoneName || entry.teamName}
+                                  </span>
+                                  {(entry.institutionName || entry.teamName) && (
+                                    <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                      {entry.institutionName || entry.teamName}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <span>{entry.teamName || '-'}</span>
+                                  {entry.zoneName && (
+                                    <span style={{
+                                      fontSize: '0.70rem',
+                                      fontWeight: 800,
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      backgroundColor: '#eff6ff',
+                                      color: '#1d4ed8',
+                                      border: '1px solid #bfdbfe',
+                                      display: 'inline-block',
+                                      width: 'fit-content'
+                                    }}>
+                                      📍 {entry.zoneName}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </td>

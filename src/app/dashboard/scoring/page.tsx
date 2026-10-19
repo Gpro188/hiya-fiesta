@@ -656,27 +656,56 @@ export default async function ScoringPage(props: {
   }> = {};
 
   allResultsForScore.forEach(result => {
-    const tObj = result.candidate?.team || result.team;
-    const teamId = tObj?.id || result.teamId || result.candidate?.teamId;
+    let targetTeamId: string | null = null;
 
-    // Dynamically register team/institution if not already in teamScoresMap
-    if (teamId && !teamScoresMap[teamId]) {
-      teamScoresMap[teamId] = {
-        publishedPoints: 0,
-        totalPoints: 0,
-        fadhilaPublished: 0,
-        fadhilaTotal: 0,
-        fadheelaPublished: 0,
-        fadheelaTotal: 0,
-        zoneName: tObj?.institution?.zone?.name || undefined
-      };
-      eventTeams.push({
-        id: teamId,
-        name: tObj?.institution?.name || tObj?.name || "Institution",
-        institution: tObj?.institution,
-        flagColor: tObj?.flagColor || null
-      } as any);
+    if (isStateFest) {
+      // IN STATE FEST: Points strictly belong to the 7 Participating Zones!
+      // Institutions are merely candidate address/origin, not competing teams.
+      if (result.teamId && eventTeams.some(t => t.id === result.teamId)) {
+        targetTeamId = result.teamId;
+      } else {
+        const candZone = (
+          result.candidate?.institution?.zone?.name ||
+          result.candidate?.team?.institution?.zone?.name ||
+          result.team?.institution?.zone?.name ||
+          result.team?.name ||
+          ""
+        ).trim().toLowerCase();
+
+        if (candZone) {
+          const matched = eventTeams.find(t => 
+            t.name.trim().toLowerCase() === candZone ||
+            candZone.includes(t.name.trim().toLowerCase())
+          );
+          if (matched) targetTeamId = matched.id;
+        }
+      }
+    } else {
+      // REGIONAL ZONE FEST: Points belong to the institution colleges
+      const tObj = result.candidate?.team || result.team;
+      targetTeamId = tObj?.id || result.teamId || result.candidate?.teamId || null;
+
+      // Dynamically register team/institution if not already in teamScoresMap
+      if (targetTeamId && !teamScoresMap[targetTeamId]) {
+        teamScoresMap[targetTeamId] = {
+          publishedPoints: 0,
+          totalPoints: 0,
+          fadhilaPublished: 0,
+          fadhilaTotal: 0,
+          fadheelaPublished: 0,
+          fadheelaTotal: 0,
+          zoneName: tObj?.institution?.zone?.name || undefined
+        };
+        eventTeams.push({
+          id: targetTeamId,
+          name: tObj?.institution?.name || tObj?.name || "Institution",
+          institution: tObj?.institution,
+          flagColor: tObj?.flagColor || null
+        } as any);
+      }
     }
+
+    if (!targetTeamId || !teamScoresMap[targetTeamId]) return;
 
     const cat = detectCategory(result.program?.category?.name, result.candidate?.category?.name);
     const pts = result.points || 0;
@@ -687,20 +716,18 @@ export default async function ScoringPage(props: {
       (!result.program?.type || result.program.type === "INDIVIDUAL") && 
       !isProgramGeneral(result.program);
 
-    if (teamId && teamScoresMap[teamId]) {
-      // 1. Overall Institution Standings (Includes ALL: Category Individual + Group + General)
-      teamScoresMap[teamId].totalPoints += pts;
-      if (isPub) teamScoresMap[teamId].publishedPoints += pts;
+    // 1. Overall Standings (Includes ALL: Category Individual + Group + General)
+    teamScoresMap[targetTeamId].totalPoints += pts;
+    if (isPub) teamScoresMap[targetTeamId].publishedPoints += pts;
 
-      // 2. Category Champions (INDIVIDUAL Programs Points ONLY)
-      if (isIndiv) {
-        if (cat === "FADHILA") {
-          teamScoresMap[teamId].fadhilaTotal += pts;
-          if (isPub) teamScoresMap[teamId].fadhilaPublished += pts;
-        } else if (cat === "FADHEELA") {
-          teamScoresMap[teamId].fadheelaTotal += pts;
-          if (isPub) teamScoresMap[teamId].fadheelaPublished += pts;
-        }
+    // 2. Category Champions (INDIVIDUAL Programs Points ONLY)
+    if (isIndiv) {
+      if (cat === "FADHILA") {
+        teamScoresMap[targetTeamId].fadhilaTotal += pts;
+        if (isPub) teamScoresMap[targetTeamId].fadhilaPublished += pts;
+      } else if (cat === "FADHEELA") {
+        teamScoresMap[targetTeamId].fadheelaTotal += pts;
+        if (isPub) teamScoresMap[targetTeamId].fadheelaPublished += pts;
       }
     }
 
@@ -712,8 +739,9 @@ export default async function ScoringPage(props: {
     let zoneName = zone?.name;
     let zoneCode = zone?.code;
 
-    if (!zoneId && result.team?.name && allDbZones) {
-      const matchedZone = allDbZones.find(z => z.name.trim().toLowerCase() === result.team?.name?.trim().toLowerCase());
+    if (!zoneId && (result.team?.name || targetTeamId) && allDbZones) {
+      const tName = eventTeams.find(t => t.id === targetTeamId)?.name || result.team?.name;
+      const matchedZone = allDbZones.find(z => z.name.trim().toLowerCase() === tName?.trim().toLowerCase());
       if (matchedZone) {
         zoneId = matchedZone.id;
         zoneName = matchedZone.name;
@@ -1001,6 +1029,7 @@ export default async function ScoringPage(props: {
                 isCompleted={isScoringLocked}
                 completedFestName={activeEvent.name}
                 activeEventId={activeEventId}
+                isStateFest={isStateFest}
               />
             </div>
           </div>
