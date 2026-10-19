@@ -47,7 +47,10 @@ export default async function SearchPage(props: {
   }
 
   const rawEvents = await prisma.event.findMany({
-    where: eventWhere,
+    where: {
+      ...eventWhere,
+      statusOverride: { not: 'HIDDEN' }
+    },
     select: { id: true, name: true, parentId: true },
     orderBy: { createdAt: 'desc' }
   });

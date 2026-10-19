@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import PublicDashboard from "../../../components/PublicDashboard";
 import VisitTracker from "../../../components/VisitTracker";
@@ -166,7 +167,34 @@ export default async function FestPage(props: { params: Promise<{ id: string }> 
       {/* Main Dashboard Content */}
       <main style={{ flex: 1, padding: '32px 0 3.5rem 0' }}>
         <div className="wrap" style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px' }}>
-          {!showResultsDashboard ? (
+          {event.statusOverride === "HIDDEN" ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 24px',
+              backgroundColor: '#ffffff',
+              borderRadius: '22px',
+              border: '1.5px solid #fecdd3',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
+              maxWidth: '640px',
+              margin: '30px auto'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '14px' }}>🔒</div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>
+                Results Currently Hidden
+              </h2>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '24px' }}>
+                Results and standings for <strong>{mainEventName}</strong> are currently hidden by festival administration while State Fest competitions are underway.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link href="/" className="btn btn-ghost" style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '0.9rem' }}>
+                  ← Return to Home
+                </Link>
+                <Link href="/fest" className="btn btn-solid" style={{ padding: '10px 22px', borderRadius: '10px', backgroundColor: '#8E0033', color: '#ffffff', fontSize: '0.9rem', fontWeight: 700 }}>
+                  View Live State Results →
+                </Link>
+              </div>
+            </div>
+          ) : !showResultsDashboard ? (
             <FestCountdownView
               eventName={mainEventName}
               festName={homepageSettings?.heroTitle || settings.festName}

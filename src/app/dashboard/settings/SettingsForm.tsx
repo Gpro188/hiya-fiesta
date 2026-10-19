@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { updateSettings, updateEventDeadlines, updateZoneTimelines, resetSystem } from "./actions";
+import { updateSettings, updateEventDeadlines, updateZoneTimelines, resetSystem, toggleAllZoneVisibility } from "./actions";
 import ImageUpload from "../../components/ImageUpload";
 
 export default function SettingsForm({ initialSettings, events, role }: { initialSettings: any, events: any[], role: string }) {
   const router = useRouter();
+  const [loadingZoneToggle, setLoadingZoneToggle] = useState(false);
   const [festName, setFestName] = useState(initialSettings?.festName || "Arts Fest");
   const [festMoto, setFestMoto] = useState(initialSettings?.festMoto || "Celebrating Creativity");
   const [festLogo, setFestLogo] = useState(initialSettings?.festLogo || "");
@@ -505,13 +506,136 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
             {/* Individual Zone Schedules Grid */}
             {zoneSchedules.length > 0 && (
               <div>
+                {/* Master Zonal Results Visibility Card */}
+                {(() => {
+                  const allZonesHidden = zoneSchedules.every(z => z.statusOverride === 'HIDDEN');
+                  const allZonesPublished = zoneSchedules.every(z => z.statusOverride === 'COMPLETED');
+
+                  return (
+                    <div style={{
+                      padding: '18px 22px',
+                      borderRadius: '16px',
+                      backgroundColor: allZonesHidden ? '#fff1f2' : allZonesPublished ? '#f0fdf4' : '#fffbeb',
+                      border: `2px solid ${allZonesHidden ? '#f43f5e' : allZonesPublished ? '#22c55e' : '#f59e0b'}`,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+                      marginBottom: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '16px'
+                    }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                          <strong style={{ fontSize: '1.05rem', color: '#1e293b' }}>
+                            Regional Zone Results Visibility
+                          </strong>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            backgroundColor: allZonesHidden ? '#fee2e2' : allZonesPublished ? '#dcfce7' : '#fef3c7',
+                            color: allZonesHidden ? '#be123c' : allZonesPublished ? '#15803d' : '#b45309',
+                            border: `1px solid ${allZonesHidden ? '#fda4af' : allZonesPublished ? '#86efac' : '#fde68a'}`
+                          }}>
+                            {allZonesHidden 
+                              ? '🔒 All 8 Zone Results are HIDDEN' 
+                              : allZonesPublished 
+                              ? '👁️ All Zone Results are PUBLISHED' 
+                              : '⚙️ Custom Visibility (Some Hidden, Some Visible)'}
+                          </span>
+                        </div>
+                        <p style={{ margin: '6px 0 0', fontSize: '0.84rem', color: '#475569', maxWidth: '620px', lineHeight: 1.45 }}>
+                          Quickly turn OFF or restore all regional zone results across the public homepage, search, and results hub so that public attention is focused exclusively on the <strong>State Fest</strong>.
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          disabled={loadingZoneToggle}
+                          onClick={async () => {
+                            if (confirm("Are you sure you want to HIDE all regional zone results from the public website? Visitors will only see the State Fest.")) {
+                              setLoadingZoneToggle(true);
+                              const res = await toggleAllZoneVisibility('HIDE_ALL');
+                              if (res.success) {
+                                setZoneSchedules(prev => prev.map(z => ({ ...z, statusOverride: 'HIDDEN' })));
+                                setStatus({ type: 'success', message: res.message || "All Regional Zone results hidden." });
+                                router.refresh();
+                              } else {
+                                setStatus({ type: 'error', message: res.error || 'Failed to hide zones' });
+                              }
+                              setLoadingZoneToggle(false);
+                            }
+                          }}
+                          style={{
+                            padding: '9px 18px',
+                            borderRadius: '10px',
+                            border: '1.5px solid #dc2626',
+                            backgroundColor: allZonesHidden ? '#dc2626' : '#ffffff',
+                            color: allZonesHidden ? '#ffffff' : '#dc2626',
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            cursor: loadingZoneToggle ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: allZonesHidden ? '0 2px 8px rgba(220,38,38,0.25)' : 'none'
+                          }}
+                        >
+                          <span>🔒</span>
+                          <span>{loadingZoneToggle ? 'Updating...' : 'Hide All Zone Results'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={loadingZoneToggle}
+                          onClick={async () => {
+                            if (confirm("Publish and show all regional zone results on the public website?")) {
+                              setLoadingZoneToggle(true);
+                              const res = await toggleAllZoneVisibility('SHOW_ALL');
+                              if (res.success) {
+                                setZoneSchedules(prev => prev.map(z => ({ ...z, statusOverride: 'COMPLETED' })));
+                                setStatus({ type: 'success', message: res.message || "All Regional Zone results published." });
+                                router.refresh();
+                              } else {
+                                setStatus({ type: 'error', message: res.error || 'Failed to show zones' });
+                              }
+                              setLoadingZoneToggle(false);
+                            }
+                          }}
+                          style={{
+                            padding: '9px 18px',
+                            borderRadius: '10px',
+                            border: '1.5px solid #16a34a',
+                            backgroundColor: allZonesPublished ? '#16a34a' : '#ffffff',
+                            color: allZonesPublished ? '#ffffff' : '#16a34a',
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            cursor: loadingZoneToggle ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: allZonesPublished ? '0 2px 8px rgba(22,163,74,0.25)' : 'none'
+                          }}
+                        >
+                          <span>👁️</span>
+                          <span>{loadingZoneToggle ? 'Updating...' : 'Show / Publish All Zone Results'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
                   <div>
                     <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--primary)' }}>
                       📍 Configure Individual Zone Dates & Auto Countdown:
                     </h5>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      Set individual Start (Countdown) & End (Conclusion) times for each zone.
+                      Set individual Start (Countdown) & End (Conclusion) times for each zone, or hide/unhide specific zones.
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -550,8 +674,8 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                       style={{
                         padding: '16px',
                         borderRadius: '14px',
-                        border: '1.5px solid #e2e8f0',
-                        backgroundColor: '#ffffff',
+                        border: zone.statusOverride === 'HIDDEN' ? '1.5px solid #fecdd3' : '1.5px solid #e2e8f0',
+                        backgroundColor: zone.statusOverride === 'HIDDEN' ? '#fff5f5' : '#ffffff',
                         boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
                         display: 'flex',
                         flexDirection: 'column',
@@ -564,7 +688,16 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                         </span>
                         <select
                           className="form-input"
-                          style={{ width: 'auto', padding: '4px 8px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px' }}
+                          style={{ 
+                            width: 'auto', 
+                            padding: '4px 8px', 
+                            fontSize: '0.76rem', 
+                            fontWeight: 700, 
+                            borderRadius: '6px',
+                            backgroundColor: zone.statusOverride === 'HIDDEN' ? '#fee2e2' : undefined,
+                            color: zone.statusOverride === 'HIDDEN' ? '#dc2626' : undefined,
+                            borderColor: zone.statusOverride === 'HIDDEN' ? '#f87171' : undefined
+                          }}
                           value={zone.statusOverride}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -575,6 +708,7 @@ export default function SettingsForm({ initialSettings, events, role }: { initia
                           <option value="LIVE">LIVE NOW</option>
                           <option value="COMPLETED">COMPLETED</option>
                           <option value="REGISTRATION">REGISTRATION</option>
+                          <option value="HIDDEN">🔒 HIDDEN (Hide Results & Zone)</option>
                         </select>
                       </div>
 

@@ -1019,3 +1019,38 @@ export async function recalculateAllResults(eventId?: string) {
   }
 }
 
+export async function toggleAllZoneVisibility(action: 'HIDE_ALL' | 'SHOW_ALL') {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const newStatus = action === 'HIDE_ALL' ? 'HIDDEN' : 'COMPLETED';
+
+    await prisma.event.updateMany({
+      where: { type: 'ZONE' },
+      data: { statusOverride: newStatus }
+    });
+
+    clearSettingsCache();
+    revalidatePath("/");
+    revalidatePath("/fest");
+    revalidatePath("/fest", "layout");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/search");
+    revalidatePath("/tv");
+
+    return { 
+      success: true, 
+      message: action === 'HIDE_ALL' 
+        ? "🔒 All Regional Zone results and cards have been hidden from the public website." 
+        : "👁️ All Regional Zone results have been published and restored to the public website."
+    };
+  } catch (error: any) {
+    console.error("Failed to toggle all zone visibility:", error);
+    return { success: false, error: error.message || "Failed to update zone visibility" };
+  }
+}
+
