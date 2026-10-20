@@ -306,24 +306,32 @@ export async function submitMarks(data: {
         }
       });
     } else if (teamId) {
-      await prisma.result.upsert({
-        where: { teamId_programId: { teamId, programId: data.programId } },
-        update: { 
-          marks: data.marks, 
-          rank: data.manualRank !== undefined ? data.manualRank : undefined, 
-          grade: data.manualGrade !== undefined ? data.manualGrade : undefined,
-          points: (data.manualRank || data.manualGrade) ? points : undefined
-        },
-        create: {
-          teamId,
-          programId: data.programId,
-          marks: data.marks,
-          rank: data.manualRank || null,
-          grade: data.manualGrade || null,
-          points: points,
-          isPublished: false
-        }
+      const existingTeamResult = await prisma.result.findFirst({
+        where: { teamId, programId: data.programId, candidateId: null }
       });
+      if (existingTeamResult) {
+        await prisma.result.update({
+          where: { id: existingTeamResult.id },
+          data: { 
+            marks: data.marks, 
+            rank: data.manualRank !== undefined ? data.manualRank : undefined, 
+            grade: data.manualGrade !== undefined ? data.manualGrade : undefined,
+            points: (data.manualRank || data.manualGrade) ? points : undefined
+          }
+        });
+      } else {
+        await prisma.result.create({
+          data: {
+            teamId,
+            programId: data.programId,
+            marks: data.marks,
+            rank: data.manualRank || null,
+            grade: data.manualGrade || null,
+            points: points,
+            isPublished: false
+          }
+        });
+      }
     }
 
     // If NOT manual mode, recalculate program
@@ -500,25 +508,33 @@ export async function batchSubmitProgramMarks(data: {
             }
           }
 
-          await tx.result.upsert({
-            where: { teamId_programId: { teamId: resolvedTeamId, programId: data.programId } },
-            update: {
-              marks: entry.marks,
-              rank: entry.rank || null,
-              grade: entry.grade || null,
-              points: calcPoints,
-              isPublished: shouldPublish
-            },
-            create: {
-              teamId: resolvedTeamId,
-              programId: data.programId,
-              marks: entry.marks,
-              rank: entry.rank || null,
-              grade: entry.grade || null,
-              points: calcPoints,
-              isPublished: shouldPublish
-            }
+          const existingTeamResult = await tx.result.findFirst({
+            where: { teamId: resolvedTeamId, programId: data.programId, candidateId: null }
           });
+          if (existingTeamResult) {
+            await tx.result.update({
+              where: { id: existingTeamResult.id },
+              data: {
+                marks: entry.marks,
+                rank: entry.rank || null,
+                grade: entry.grade || null,
+                points: calcPoints,
+                isPublished: shouldPublish
+              }
+            });
+          } else {
+            await tx.result.create({
+              data: {
+                teamId: resolvedTeamId,
+                programId: data.programId,
+                marks: entry.marks,
+                rank: entry.rank || null,
+                grade: entry.grade || null,
+                points: calcPoints,
+                isPublished: shouldPublish
+              }
+            });
+          }
         }
       }
     });

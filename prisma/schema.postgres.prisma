@@ -270,7 +270,8 @@ model Result {
   program     Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, programId])
-  @@unique([teamId, programId])
+  @@index([teamId, programId])
+  @@index([teamId])
   @@index([programId])
   @@index([isPublished])
 }

@@ -80,6 +80,11 @@ export default function ScoringForm({
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (userVenue) {
@@ -428,6 +433,9 @@ export default function ScoringForm({
     } else {
       setStatus({ type: 'error', message: result.error || "Failed to save results." });
     }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     setLoading(false);
   };
 
@@ -652,7 +660,7 @@ export default function ScoringForm({
           >
             <option value="">-- Select Program ({searchedPrograms.length} Available) --</option>
             {searchedPrograms.map((p: any) => {
-              const timeStr = p.startTime ? new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+              const timeStr = mounted && p.startTime ? new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
               return (
                 <option key={p.id} value={p.id}>
                   {timeStr ? `${timeStr} • ` : ''}{p.programCode ? `[#${p.programCode}] ` : ''}{p.name} ({p.category?.name || 'General'}) [{p.stageType === 'OFF_STAGE' ? 'OFF' : 'ON'}]
