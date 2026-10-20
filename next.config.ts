@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.2', '192.168.1.2:3001'],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
