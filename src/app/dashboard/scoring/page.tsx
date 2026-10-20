@@ -101,7 +101,36 @@ async function fetchVenueProgramsForEvent(eventId: string, judgeVenue: string | 
     : progs;
 
   return filtered.map(p => {
-    const updatedAssignments = [...p.assignments];
+    let updatedAssignments = [...p.assignments];
+    const candLimit = p.candidateLimitPerTeam ?? 1;
+    if (p.type === "INDIVIDUAL") {
+      const assignmentsByTeam = new Map<string, any[]>();
+      for (const asgn of updatedAssignments) {
+        const teamId = asgn.candidate?.team?.id;
+        if (!teamId) continue;
+        if (!assignmentsByTeam.has(teamId)) assignmentsByTeam.set(teamId, []);
+        assignmentsByTeam.get(teamId)!.push(asgn);
+      }
+
+      const dedupedAssignments: any[] = [];
+      for (const [_, teamAsgns] of assignmentsByTeam.entries()) {
+        if (teamAsgns.length <= candLimit) {
+          dedupedAssignments.push(...teamAsgns);
+        } else {
+          teamAsgns.sort((a, b) => {
+            const aHasRep = (a.replacedFromChest || a.candidate?.replacedFromChest) ? 1 : 0;
+            const bHasRep = (b.replacedFromChest || b.candidate?.replacedFromChest) ? 1 : 0;
+            if (aHasRep !== bHasRep) return bHasRep - aHasRep;
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          dedupedAssignments.push(...teamAsgns.slice(0, candLimit));
+        }
+      }
+      updatedAssignments = dedupedAssignments;
+    }
+
     updatedAssignments.sort((a: any, b: any) => {
       const cA = a.candidate?.chestNumber;
       const cB = b.candidate?.chestNumber;
@@ -481,10 +510,11 @@ export default async function ScoringPage(props: {
       updatedAssignments = [...updatedAssignments, ...extraAssignments];
     }
 
-    // For individual programs with candidate limit per team == 1,
-    // ensure no team has multiple conflicting candidates due to legacy twin discrepancies.
+    // For individual programs with candidate limit per team (default 1),
+    // ensure no team has more candidates than the program's candidateLimitPerTeam.
     // Give priority to replacement candidates (with replacedFromChest) or newer assignments.
-    if (p.type === "INDIVIDUAL" || p.candidateLimitPerTeam === 1) {
+    const candLimit = p.candidateLimitPerTeam ?? 1;
+    if (p.type === "INDIVIDUAL") {
       const assignmentsByTeam = new Map<string, any[]>();
       for (const asgn of updatedAssignments) {
         const teamId = asgn.candidate?.team?.id;
@@ -495,7 +525,7 @@ export default async function ScoringPage(props: {
 
       const dedupedAssignments: any[] = [];
       for (const [_, teamAsgns] of assignmentsByTeam.entries()) {
-        if (teamAsgns.length <= 1) {
+        if (teamAsgns.length <= candLimit) {
           dedupedAssignments.push(...teamAsgns);
         } else {
           teamAsgns.sort((a, b) => {
@@ -506,7 +536,7 @@ export default async function ScoringPage(props: {
             const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return bTime - aTime;
           });
-          dedupedAssignments.push(teamAsgns[0]);
+          dedupedAssignments.push(...teamAsgns.slice(0, candLimit));
         }
       }
       updatedAssignments = dedupedAssignments;
