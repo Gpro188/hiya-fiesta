@@ -27,17 +27,21 @@ export default async function OffstageResultsPrintPage(props: {
     getSettings(requestedEventId),
     prisma.zone.findMany({ orderBy: { name: "asc" } }),
     prisma.event.findMany({
-      where: { parentId: null },
       include: { subEvents: true, zone: true },
       orderBy: { name: "asc" }
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } })
   ]);
 
+  const stateEvent = allEvents.find((e) => e.type === "STATE") || allEvents[0];
+  const effectiveEventId = requestedEventId || (!requestedZoneId ? stateEvent?.id : undefined);
+
   // Fetch all off-stage programs with their category, event, assignments, and results
   const offstagePrograms = await prisma.program.findMany({
     where: {
       stageType: "OFF_STAGE",
+      ...(effectiveEventId ? { eventId: effectiveEventId } : {}),
+      ...(requestedZoneId ? { event: { zoneId: requestedZoneId } } : {}),
       ...(requestedCategoryId !== "ALL" ? { categoryId: requestedCategoryId } : {})
     },
     include: {
@@ -103,9 +107,15 @@ export default async function OffstageResultsPrintPage(props: {
     );
   };
 
-  // Helper to resolve eventId from result
-  const getResultEventId = (res: any) => {
-    return res.candidate?.team?.eventId || res.team?.eventId || null;
+  // Helper to resolve eventId from result or program
+  const getResultEventId = (res: any, prog?: any) => {
+    return (
+      prog?.eventId ||
+      res.program?.eventId ||
+      res.candidate?.team?.eventId ||
+      res.team?.eventId ||
+      null
+    );
   };
 
   // Group programs by programCode/name and filter their results
@@ -130,16 +140,18 @@ export default async function OffstageResultsPrintPage(props: {
     let filteredResults = [...prog.results];
 
     // Filter by EventId
-    if (requestedEventId) {
+    if (effectiveEventId) {
       filteredResults = filteredResults.filter(
-        (r) => getResultEventId(r) === requestedEventId
+        (r) => prog.eventId === effectiveEventId || getResultEventId(r, prog) === effectiveEventId
       );
     }
 
     // Filter by ZoneId
     if (requestedZoneId) {
       filteredResults = filteredResults.filter(
-        (r) => getResultZone(r)?.id === requestedZoneId
+        (r) =>
+          prog.event?.zoneId === requestedZoneId ||
+          getResultZone(r)?.id === requestedZoneId
       );
     }
 
@@ -197,21 +209,22 @@ export default async function OffstageResultsPrintPage(props: {
     }
   }
 
-  // Selected Zone name
+  // Selected Zone / Event
   const activeZone = allZones.find((z) => z.id === requestedZoneId);
+  const activeEvent = allEvents.find((e) => e.id === effectiveEventId);
 
   // URL builder for interactive switcher toolbar
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const sp = new URLSearchParams();
-    const st = overrides.status !== undefined ? overrides.status : requestedStatus;
+    const st = "status" in overrides ? overrides.status : requestedStatus;
     if (st) sp.set("status", st);
-    const ev = overrides.eventId !== undefined ? overrides.eventId : requestedEventId;
+    const ev = "eventId" in overrides ? overrides.eventId : requestedEventId;
     if (ev) sp.set("eventId", ev);
-    const zn = overrides.zoneId !== undefined ? overrides.zoneId : requestedZoneId;
+    const zn = "zoneId" in overrides ? overrides.zoneId : requestedZoneId;
     if (zn) sp.set("zoneId", zn);
-    const cat = overrides.categoryId !== undefined ? overrides.categoryId : requestedCategoryId;
+    const cat = "categoryId" in overrides ? overrides.categoryId : requestedCategoryId;
     if (cat && cat !== "ALL") sp.set("categoryId", cat);
-    const ori = overrides.orientation !== undefined ? overrides.orientation : orientation;
+    const ori = "orientation" in overrides ? overrides.orientation : orientation;
     if (ori) sp.set("orientation", ori);
 
     const q = sp.toString();
@@ -282,7 +295,7 @@ export default async function OffstageResultsPrintPage(props: {
               OFF-STAGE RESULTS DECLARATION
             </h1>
             <p style={{ margin: "2px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>
-              {activeZone ? `Zone: ${activeZone.name}` : "All Zones Combined"} •{" "}
+              {activeZone ? `Zone: ${activeZone.name}` : activeEvent ? `Festival: ${activeEvent.name}` : "All Programs Combined"} •{" "}
               Programs: {programsWithFilteredResults.length} • Total Winners: {totalWinnersCount} (
               <span style={{ color: "#4ade80" }}>{totalPublishedWinners} Published</span>,{" "}
               <span style={{ color: "#facc15" }}>{totalPendingWinners} Pending to Announce</span>)
@@ -418,7 +431,7 @@ export default async function OffstageResultsPrintPage(props: {
             </span>
             <div style={{ display: "flex", gap: "4px", overflowX: "auto" }}>
               <Link
-                href={buildUrl({ zoneId: undefined, eventId: undefined })}
+                href={buildUrl({ zoneId: undefined, eventId: stateEvent?.id })}
                 style={{
                   padding: "3px 8px",
                   borderRadius: "4px",
@@ -430,7 +443,7 @@ export default async function OffstageResultsPrintPage(props: {
                   whiteSpace: "nowrap"
                 }}
               >
-                All Zones (State Final)
+                ⭐ State Final
               </Link>
               {allZones.map((z) => {
                 const isSelected = z.id === requestedZoneId;
@@ -584,7 +597,10 @@ export default async function OffstageResultsPrintPage(props: {
             </span>
             <span>•</span>
             <span>
-              ZONE: <strong>{activeZone ? activeZone.name : "ALL ZONES COMBINED"}</strong>
+              FESTIVAL / ZONE:{" "}
+              <strong>
+                {activeZone ? activeZone.name : activeEvent ? activeEvent.name : "STATE FINAL"}
+              </strong>
             </span>
             <span>•</span>
             <span>
