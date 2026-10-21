@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { promoteToState, autoPromoteZoneFirstPlaces, unpromoteFromState, unpromoteAllFromZone } from "./actions";
+import DirectCandidateReplacementModal from "@/app/dashboard/candidates/DirectCandidateReplacementModal";
 
 interface PromotionsClientProps {
   zoneEvents: any[];
@@ -111,6 +112,8 @@ export default function PromotionsClient({
     rank?: number;
     candidates: any[];
   } | null>(null);
+
+  const [replacingCandidateId, setReplacingCandidateId] = useState<string | null>(null);
 
   const isLocked = Boolean(isZoneAdmin && stateConfirmEndDate && new Date() > new Date(stateConfirmEndDate));
 
@@ -626,6 +629,33 @@ export default function PromotionsClient({
                           >
                             {c.team?.name || teamMembersModal.teamName}
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplacingCandidateId(c.id);
+                              setTeamMembersModal(null);
+                            }}
+                            style={{
+                              marginTop: "10px",
+                              padding: "4px 12px",
+                              borderRadius: "6px",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              backgroundColor: "rgba(99, 102, 241, 0.15)",
+                              color: "#818cf8",
+                              border: "1px solid rgba(99, 102, 241, 0.4)",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              transition: "all 0.15s ease",
+                            }}
+                            title="Replace this individual member with another student from this institution"
+                          >
+                            <span>🔄</span>
+                            <span>Replace Member</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -655,6 +685,20 @@ export default function PromotionsClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Direct Candidate Replacement Modal for Individual Member Swapping */}
+      {replacingCandidateId && (
+        <DirectCandidateReplacementModal
+          initialCandidateId={replacingCandidateId}
+          zones={zoneEvents.map((z: any) => ({ id: z.id, name: z.name, code: z.code || "" }))}
+          onClose={() => setReplacingCandidateId(null)}
+          onReplaced={() => {
+            setReplacingCandidateId(null);
+            showToast("Member replaced successfully!");
+            window.location.reload();
+          }}
+        />
       )}
 
       {/* Zone Lock Banner */}

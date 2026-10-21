@@ -879,8 +879,8 @@ export async function directProgramWiseCandidateReplacement(data: {
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Admin permissions required." };
     }
 
     const candidate = await prisma.candidate.findUnique({
@@ -1085,8 +1085,8 @@ export async function directReplaceCandidate(data: {
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Admin permissions required." };
     }
 
     const candidate = await prisma.candidate.findUnique({
@@ -1279,8 +1279,8 @@ export async function transferProgramToAnotherCandidate(data: {
 }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return { success: false, error: "Unauthorized: Super Admin permissions required." };
+    if (!session || !["ADMIN", "SUPER_ADMIN", "ZONE_ADMIN"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized: Admin permissions required." };
     }
 
     const assignment = await prisma.programAssignment.findUnique({
