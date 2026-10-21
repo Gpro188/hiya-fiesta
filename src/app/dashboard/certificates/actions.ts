@@ -325,9 +325,10 @@ export async function getCertificateWinners(params: {
   // Determine allowed event IDs for programs (handles zonal fests whose programs are created at parent level)
   const targetEvent = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true, parentId: true }
+    select: { id: true, parentId: true, type: true, name: true }
   });
   const allowedEventIds = [eventId, targetEvent?.parentId].filter(Boolean) as string[];
+  const isStateFest = targetEvent?.type === "STATE" || targetEvent?.name?.toUpperCase().includes("STATE");
 
   const programWhere: any = {
     eventId: { in: allowedEventIds },
@@ -343,15 +344,19 @@ export async function getCertificateWinners(params: {
   }
 
   // Find all uploaded / scored results without waiting for publication (isPublished is not restricted)
+  const resultsWhere: any = {
+    ...rankCondition,
+    program: programWhere
+  };
+  if (!isStateFest) {
+    resultsWhere.OR = [
+      { team: { eventId: eventId } },
+      { candidate: { team: { eventId: eventId } } }
+    ];
+  }
+
   const results = await prisma.result.findMany({
-    where: {
-      ...rankCondition,
-      program: programWhere,
-      OR: [
-        { team: { eventId: eventId } },
-        { candidate: { team: { eventId: eventId } } }
-      ]
-    },
+    where: resultsWhere,
     include: {
       program: {
         include: {
@@ -377,6 +382,11 @@ export async function getCertificateWinners(params: {
                 include: {
                   zone: true
                 }
+              },
+              event: {
+                include: {
+                  zone: true
+                }
               }
             }
           }
@@ -385,6 +395,11 @@ export async function getCertificateWinners(params: {
       team: {
         include: {
           institution: {
+            include: {
+              zone: true
+            }
+          },
+          event: {
             include: {
               zone: true
             }
@@ -408,32 +423,33 @@ export async function getCertificateWinners(params: {
   });
 
   // Query candidate assignments for General/Group programs and team results
-  const teamResults = filteredResults.filter(r => (r.teamId && !r.candidateId) || r.program.type === "GENERAL" || r.program.type === "GROUP");
-  const teamProgramIds = Array.from(new Set(teamResults.map(r => r.programId)));
-  const teamProgramCodes = Array.from(new Set(teamResults.map(r => r.program.programCode).filter(Boolean))) as string[];
-  const teamIds = Array.from(new Set(teamResults.map(r => r.teamId).filter(Boolean))) as string[];
+  const teamResults = filteredResults.filter(
+    (r) => (r.teamId && !r.candidateId) || r.program.type === "GENERAL" || r.program.type === "GROUP"
+  );
+  const teamProgramIds = Array.from(new Set(teamResults.map((r) => r.programId)));
+  const teamProgramCodes = Array.from(
+    new Set(teamResults.map((r) => r.program.programCode).filter(Boolean))
+  ) as string[];
 
   let teamAssignments: any[] = [];
-  if ((teamProgramIds.length > 0 || teamProgramCodes.length > 0) && teamIds.length > 0) {
+  if (teamProgramIds.length > 0 || teamProgramCodes.length > 0) {
     teamAssignments = await prisma.programAssignment.findMany({
       where: {
         OR: [
           { programId: { in: teamProgramIds } },
-          { program: { programCode: { in: teamProgramCodes } } }
-        ],
-        candidate: {
-          teamId: { in: teamIds }
-        }
+          { program: { programCode: { in: teamProgramCodes }, eventId: { in: allowedEventIds } } }
+        ]
       },
       include: {
-        program: { select: { id: true, programCode: true } },
+        program: { select: { id: true, programCode: true, eventId: true } },
         candidate: {
           include: {
             category: true,
             institution: { include: { zone: true } },
             team: {
               include: {
-                institution: { include: { zone: true } }
+                institution: { include: { zone: true } },
+                event: { include: { zone: true } }
               }
             }
           }
@@ -445,26 +461,6 @@ export async function getCertificateWinners(params: {
         { candidate: { name: "asc" } }
       ]
     });
-  }
-
-  const assignmentsByProgramAndTeam = new Map<string, any[]>();
-  for (const a of teamAssignments) {
-    const key = `${a.programId}_${a.candidate.teamId}`;
-    if (!assignmentsByProgramAndTeam.has(key)) {
-      assignmentsByProgramAndTeam.set(key, []);
-    }
-    assignmentsByProgramAndTeam.get(key)!.push(a.candidate);
-
-    if (a.program?.programCode) {
-      const codeKey = `${a.program.programCode}_${a.candidate.teamId}`;
-      if (!assignmentsByProgramAndTeam.has(codeKey)) {
-        assignmentsByProgramAndTeam.set(codeKey, []);
-      }
-      const existingInCodeKey = assignmentsByProgramAndTeam.get(codeKey)!;
-      if (!existingInCodeKey.some((c: any) => c.id === a.candidate.id)) {
-        existingInCodeKey.push(a.candidate);
-      }
-    }
   }
 
   // Query which certificates have been printed
@@ -504,64 +500,119 @@ export async function getCertificateWinners(params: {
     const categoryName = prog.type === "GENERAL"
       ? "General"
       : (prog.category?.name || cand?.category?.name || "General");
-    const zoneName = event.zone?.name || cand?.institution?.zone?.name || team?.institution?.zone?.name || "Zonal Fest";
 
     const isPublished = Boolean(res.isPublished);
     const publishedAt = res.isPublished ? res.updatedAt.toISOString() : null;
 
     // Check if this is a Team/General program with registered participants
+    let assignedCandidates: any[] = [];
     if (res.teamId && (!res.candidateId || prog.type === "GENERAL" || prog.type === "GROUP")) {
-      const key = `${res.programId}_${res.teamId}`;
-      let candidates = assignmentsByProgramAndTeam.get(key) || [];
-      if (candidates.length === 0 && prog.programCode) {
-        candidates = assignmentsByProgramAndTeam.get(`${prog.programCode}_${res.teamId}`) || [];
-      }
+      const progAssignments = teamAssignments.filter(
+        (a) => a.programId === res.programId || (prog.programCode && a.program?.programCode === prog.programCode)
+      );
 
-      if (candidates.length > 0) {
-        for (const assignedCand of candidates) {
-          const compId = `${res.id}_${assignedCand.id}`;
-          const isPrinted = printMap.has(compId) || printMap.has(res.id);
-          const printedAt = printMap.get(compId)?.toISOString() || printMap.get(res.id)?.toISOString() || null;
-          const inst = assignedCand.institution || assignedCand.team?.institution || team?.institution;
-          const institutionName = inst?.name || team?.name || "Institution";
-          const institutionPlace = inst?.place || "";
+      // 1. Direct teamId match (Zonal fest where candidate.teamId === res.teamId)
+      const directMatches = progAssignments
+        .filter((a) => a.candidate?.teamId === res.teamId)
+        .map((a) => a.candidate);
 
-          winners.push({
-            id: compId,
-            resultId: res.id,
-            candidateId: assignedCand.id,
-            candidateName: assignedCand.name,
-            chestNumber: assignedCand.chestNumber || "-",
-            institutionName,
-            institutionPlace,
-            teamName: team?.name,
-            programId: prog.id,
-            programName: prog.name,
-            programCode: prog.programCode || undefined,
-            categoryId: prog.categoryId || undefined,
-            // For GENERAL-type programs, always show "General" — never the student's own category
-            categoryName: prog.type === "GENERAL"
-              ? "General"
-              : (prog.category?.name || assignedCand.category?.name || "General"),
-            rank,
-            placeText: placeOrdinal,
-            grade,
-            gradeText,
-            zoneId: event.zoneId || undefined,
-            zoneName: event.zone?.name || inst?.zone?.name || "Zonal Fest",
-            eventId: event.id,
-            eventName: event.name,
-            marks: res.marks,
-            type: "GROUP",
-            stageType: prog.stageType || undefined,
-            isPublished,
-            publishedAt,
-            isPrinted,
-            printedAt
-          });
+      if (directMatches.length > 0) {
+        assignedCandidates = directMatches;
+      } else if (isStateFest || prog.type === "GENERAL" || prog.type === "GROUP") {
+        // 2. State Fest Zone match (When res.team represents a State Zone team)
+        const teamName = (team?.name || "").trim().toUpperCase();
+        const teamPrefix = (team?.prefixCode || "").trim().toUpperCase();
+
+        const zoneMatches = progAssignments
+          .filter((a) => {
+            const c = a.candidate;
+            if (!c) return false;
+            const candZoneName = (
+              c.institution?.zone?.name ||
+              c.team?.institution?.zone?.name ||
+              c.team?.event?.zone?.name ||
+              ""
+            ).trim().toUpperCase();
+            const candZoneCode = (c.institution?.zone?.code || "").trim().toUpperCase();
+
+            return (
+              teamName !== "" &&
+              (candZoneName === teamName ||
+                candZoneName.replace(/\s+ZONE$/i, "") === teamName.replace(/\s+ZONE$/i, "") ||
+                candZoneCode === teamPrefix)
+            );
+          })
+          .map((a) => a.candidate);
+
+        if (zoneMatches.length > 0) {
+          assignedCandidates = zoneMatches;
         }
-        continue;
       }
+    }
+
+    if (assignedCandidates.length > 0) {
+      for (const assignedCand of assignedCandidates) {
+        const compId = `${res.id}_${assignedCand.id}`;
+        const isPrinted = printMap.has(compId) || printMap.has(res.id);
+        const printedAt = printMap.get(compId)?.toISOString() || printMap.get(res.id)?.toISOString() || null;
+        const inst = assignedCand.institution || assignedCand.team?.institution || team?.institution;
+        const institutionName = inst?.name || team?.name || "Institution";
+
+        // Resolve candidate zone name
+        const candZone = (
+          assignedCand.institution?.zone?.name ||
+          assignedCand.team?.institution?.zone?.name ||
+          assignedCand.team?.event?.zone?.name ||
+          event.zone?.name ||
+          team?.name ||
+          "Zonal Fest"
+        ).trim();
+        const candZoneLabel = candZone.toUpperCase().includes("ZONE") ? candZone : `${candZone} Zone`;
+
+        let institutionPlace = inst?.place || "";
+        if (isStateFest) {
+          if (institutionPlace && !institutionPlace.toUpperCase().includes(candZone.toUpperCase())) {
+            institutionPlace = `${institutionPlace}, ${candZoneLabel}`;
+          } else if (!institutionPlace) {
+            institutionPlace = candZoneLabel;
+          }
+        }
+
+        winners.push({
+          id: compId,
+          resultId: res.id,
+          candidateId: assignedCand.id,
+          candidateName: assignedCand.name,
+          chestNumber: assignedCand.chestNumber || "-",
+          institutionName,
+          institutionPlace,
+          teamName: team?.name,
+          programId: prog.id,
+          programName: prog.name,
+          programCode: prog.programCode || undefined,
+          categoryId: prog.categoryId || undefined,
+          // For GENERAL-type programs, always show "General" — never the student's own category
+          categoryName: prog.type === "GENERAL"
+            ? "General"
+            : (prog.category?.name || assignedCand.category?.name || "General"),
+          rank,
+          placeText: placeOrdinal,
+          grade,
+          gradeText,
+          zoneId: assignedCand.institution?.zoneId || event.zoneId || undefined,
+          zoneName: isStateFest ? candZoneLabel : (event.zone?.name || candZoneLabel),
+          eventId: event.id,
+          eventName: event.name,
+          marks: res.marks,
+          type: "GROUP",
+          stageType: prog.stageType || undefined,
+          isPublished,
+          publishedAt,
+          isPrinted,
+          printedAt
+        });
+      }
+      continue;
     }
 
     // Individual Candidate or Fallback Team Winner
@@ -569,7 +620,25 @@ export async function getCertificateWinners(params: {
     const chestNumber = cand?.chestNumber || "-";
     const inst = cand?.institution || cand?.team?.institution || team?.institution;
     const institutionName = inst?.name || team?.name || "Institution";
-    const institutionPlace = inst?.place || "";
+
+    const candZone = (
+      cand?.institution?.zone?.name ||
+      cand?.team?.institution?.zone?.name ||
+      cand?.team?.event?.zone?.name ||
+      event.zone?.name ||
+      team?.institution?.zone?.name ||
+      "Zonal Fest"
+    ).trim();
+    const candZoneLabel = candZone.toUpperCase().includes("ZONE") ? candZone : `${candZone} Zone`;
+
+    let institutionPlace = inst?.place || "";
+    if (isStateFest) {
+      if (institutionPlace && !institutionPlace.toUpperCase().includes(candZone.toUpperCase())) {
+        institutionPlace = `${institutionPlace}, ${candZoneLabel}`;
+      } else if (!institutionPlace) {
+        institutionPlace = candZoneLabel;
+      }
+    }
 
     const isPrinted = printMap.has(res.id);
     const printedAt = printMap.get(res.id)?.toISOString() || null;
@@ -592,8 +661,8 @@ export async function getCertificateWinners(params: {
       placeText: placeOrdinal,
       grade,
       gradeText,
-      zoneId: event.zoneId || undefined,
-      zoneName,
+      zoneId: cand?.institution?.zoneId || event.zoneId || undefined,
+      zoneName: isStateFest ? candZoneLabel : (event.zone?.name || candZoneLabel),
       eventId: event.id,
       eventName: event.name,
       marks: res.marks,
