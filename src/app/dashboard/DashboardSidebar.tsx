@@ -89,8 +89,8 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
       section: "State Fest Control",
       items: [
         {
-          name: "State Advancements",
-          subtitle: "Zone List Conform",
+          name: "State Promotions / Confirm",
+          subtitle: "Zone 1st/2nd/3rd & Team Replace",
           icon: Star,
           href: "/dashboard/promotions",
           highlight: true,
@@ -334,8 +334,8 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
           href: "/dashboard/programs",
         },
         {
-          name: "State Advancements",
-          subtitle: "Promote winners to state",
+          name: "State Promotions / Confirm",
+          subtitle: "Zone 1st/2nd/3rd & Team Replace",
           icon: Star,
           href: "/dashboard/promotions",
           highlight: true,
@@ -427,6 +427,13 @@ function getNavItems(role: string): { section: string; items: NavItem[] }[] {
     groups.push({
       section: "Zone Management",
       items: [
+        {
+          name: "State Promotions / Confirm",
+          subtitle: "Zone 1st/2nd/3rd & Team Replace",
+          icon: Star,
+          href: "/dashboard/promotions",
+          highlight: true,
+        },
         {
           name: "Teams & Institutions",
           subtitle: "Confirm List & Chest Nos",

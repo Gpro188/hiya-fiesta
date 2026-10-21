@@ -75,9 +75,9 @@ export default async function PromotionsPage() {
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>State Advancements</h1>
+        <h1 style={{ marginBottom: 'var(--spacing-xs)' }}>State Promotions & Confirmation</h1>
         <p className="page-description">
-          Review and manage candidates promoted to the State Final.
+          Review and manage candidates promoted to the State Final. Confirm 1st place winners or switch to 2nd / 3rd place alternates.
         </p>
       </div>
 

@@ -574,6 +574,7 @@ export default async function DashboardPage() {
   const quickLinks: { label: string; href: string }[] = [];
   if (role === "ZONE_ADMIN") {
     quickLinks.push(
+      { label: "State Promotions / Confirm", href: "/dashboard/promotions" },
       { label: "Confirm Team Lists", href: "/dashboard/teams" },
       { label: "Scheduling & Stages", href: "/dashboard/schedule" },
       { label: "Assign Juries", href: "/dashboard/juries" },
@@ -583,6 +584,7 @@ export default async function DashboardPage() {
     );
   } else if (["ADMIN", "SUPER_ADMIN"].includes(role)) {
     quickLinks.push(
+      { label: "State Promotions / Confirm", href: "/dashboard/promotions" },
       { label: "Manage Teams", href: "/dashboard/teams" },
       { label: "Volunteers Hub", href: "/dashboard/volunteers" },
       { label: "Results Entry", href: "/dashboard/scoring" },
