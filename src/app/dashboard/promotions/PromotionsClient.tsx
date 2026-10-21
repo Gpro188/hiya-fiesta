@@ -9,6 +9,7 @@ interface PromotionsClientProps {
   masterPrograms: any[];
   categories?: any[];
   zonePrograms?: any[];
+  zoneResults?: any[];
   isZoneAdmin: boolean;
   stateConfirmEndDate: Date | null | undefined;
 }
@@ -18,61 +19,65 @@ export default function PromotionsClient({
   masterPrograms,
   categories = [],
   zonePrograms = [],
+  zoneResults = [],
   isZoneAdmin,
   stateConfirmEndDate,
 }: PromotionsClientProps) {
   // Precompute program counts with results per zone
   const zoneStats = useMemo(() => {
-    const map = new Map<string, { total: number; confirmed: number; pending: number; alternates: number }>();
+    const map = new Map<string, { total: number; withResults: number; confirmed: number; pending: number; alternates: number }>();
     for (const z of zoneEvents) {
-      const progs = masterPrograms.filter((prog: any) =>
-        prog.results?.some(
-          (r: any) => r.team?.eventId === z.id || r.candidate?.team?.eventId === z.id
-        )
-      );
-
+      let withResults = 0;
       let confirmed = 0;
       let alternates = 0;
       let pending = 0;
 
-      for (const p of progs) {
-        const zoneResults = (p.results || []).filter(
-          (r: any) => r.team?.eventId === z.id || r.candidate?.team?.eventId === z.id
+      for (const p of masterPrograms) {
+        const progZoneResults = zoneResults.filter(
+          (r: any) =>
+            r.program?.eventId === z.id &&
+            (r.program?.programCode === p.programCode ||
+             (r.program?.name && p.name && r.program.name.trim().toLowerCase() === p.name.trim().toLowerCase()))
         );
         const zoneAssignments = (p.assignments || []).filter(
           (a: any) => a.candidate?.team?.eventId === z.id
         );
         const isGroup =
-          p.type === "GROUP" || (!zoneResults[0]?.candidateId && Boolean(zoneResults[0]?.teamId));
+          p.type === "GROUP" || progZoneResults.some((r: any) => !r.candidateId && Boolean(r.teamId));
+
+        if (progZoneResults.length > 0) {
+          withResults++;
+        }
 
         let promotedResult: any = null;
         if (zoneAssignments.length > 0) {
           if (isGroup) {
             const assignedTeamId = zoneAssignments[0]?.candidate?.teamId;
-            promotedResult = zoneResults.find((r: any) => r.teamId === assignedTeamId) || null;
+            promotedResult = progZoneResults.find((r: any) => r.teamId === assignedTeamId) || null;
           } else {
             const assignedCandidateId = zoneAssignments[0]?.candidateId;
-            promotedResult = zoneResults.find((r: any) => r.candidateId === assignedCandidateId) || null;
+            promotedResult = progZoneResults.find((r: any) => r.candidateId === assignedCandidateId) || null;
           }
         }
 
-        if (promotedResult) {
+        const isConf = Boolean(promotedResult) || zoneAssignments.length > 0;
+        if (isConf) {
           confirmed++;
-          if (promotedResult.rank > 1) alternates++;
+          if (promotedResult?.rank > 1) alternates++;
         } else {
           pending++;
         }
       }
 
-      map.set(z.id, { total: progs.length, confirmed, pending, alternates });
+      map.set(z.id, { total: masterPrograms.length, withResults, confirmed, pending, alternates });
     }
     return map;
-  }, [zoneEvents, masterPrograms]);
+  }, [zoneEvents, masterPrograms, zoneResults]);
 
-  // Default to the first zone with published results (e.g. Thrissur)
+  // Default to the first zone with published results (e.g. Thrissur / Malappuram)
   const defaultZoneId = useMemo(() => {
     for (const z of zoneEvents) {
-      if ((zoneStats.get(z.id)?.total || 0) > 0) return z.id;
+      if ((zoneStats.get(z.id)?.withResults || 0) > 0) return z.id;
     }
     return zoneEvents[0]?.id || "";
   }, [zoneEvents, zoneStats]);
@@ -767,11 +772,13 @@ export default function PromotionsClient({
             }}
           >
             {zoneEvents.map((z) => {
-              const count = zoneStats.get(z.id)?.total || 0;
-              const conf = zoneStats.get(z.id)?.confirmed || 0;
+              const stats = zoneStats.get(z.id);
+              const conf = stats?.confirmed || 0;
+              const total = stats?.total || masterPrograms.length;
+              const withRes = stats?.withResults || 0;
               return (
                 <option key={z.id} value={z.id}>
-                  {z.name} ({count > 0 ? `${conf}/${count} Confirmed` : "0 Programs"})
+                  {z.name} ({conf}/{total} Confirmed • {withRes} Published)
                 </option>
               );
             })}
@@ -781,7 +788,7 @@ export default function PromotionsClient({
         {/* Quick Zone Switcher Pills */}
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {zoneEvents.map((z) => {
-            const hasResults = (zoneStats.get(z.id)?.total || 0) > 0;
+            const hasResults = (zoneStats.get(z.id)?.withResults || 0) > 0;
             const isSelected = selectedZoneId === z.id;
             return (
               <button
@@ -865,21 +872,18 @@ export default function PromotionsClient({
         (() => {
           const event = activeZone;
 
-          // Master programs that have published results for this zone
-          const programsWithZoneResults = masterPrograms.filter((prog: any) =>
-            prog.results?.some(
-              (r: any) => r.team?.eventId === event.id || r.candidate?.team?.eventId === event.id
-            )
-          );
-
           // Calculate statistics for this zone
           let confirmedCount = 0;
           let alternateCount = 0;
           let pendingCount = 0;
+          let withResultsCount = 0;
 
-          const analyzedPrograms = programsWithZoneResults.map((masterProg: any) => {
-            const zoneResults = (masterProg.results || []).filter(
-              (r: any) => r.team?.eventId === event.id || r.candidate?.team?.eventId === event.id
+          const analyzedPrograms = masterPrograms.map((masterProg: any) => {
+            const progZoneResults = zoneResults.filter(
+              (r: any) =>
+                r.program?.eventId === event.id &&
+                (r.program?.programCode === masterProg.programCode ||
+                 (r.program?.name && masterProg.name && r.program.name.trim().toLowerCase() === masterProg.name.trim().toLowerCase()))
             );
 
             // Filter master program assignments belonging to this zone
@@ -889,21 +893,25 @@ export default function PromotionsClient({
 
             const isGroup =
               masterProg.type === "GROUP" ||
-              (!zoneResults[0]?.candidateId && Boolean(zoneResults[0]?.teamId));
+              progZoneResults.some((r: any) => !r.candidateId && Boolean(r.teamId));
+
+            if (progZoneResults.length > 0) {
+              withResultsCount++;
+            }
 
             // Determine which result is currently promoted
             let promotedResult: any = null;
             if (zoneAssignments.length > 0) {
               if (isGroup) {
                 const assignedTeamId = zoneAssignments[0]?.candidate?.teamId;
-                promotedResult = zoneResults.find((r: any) => r.teamId === assignedTeamId) || null;
+                promotedResult = progZoneResults.find((r: any) => r.teamId === assignedTeamId) || null;
               } else {
                 const assignedCandidateId = zoneAssignments[0]?.candidateId;
-                promotedResult = zoneResults.find((r: any) => r.candidateId === assignedCandidateId) || null;
+                promotedResult = progZoneResults.find((r: any) => r.candidateId === assignedCandidateId) || null;
               }
             }
 
-            const isConfirmed = Boolean(promotedResult);
+            const isConfirmed = Boolean(promotedResult) || zoneAssignments.length > 0;
             const isAlternate = Boolean(promotedResult && promotedResult.rank > 1);
 
             if (isConfirmed) confirmedCount++;
@@ -912,7 +920,7 @@ export default function PromotionsClient({
 
             return {
               masterProg,
-              zoneResults,
+              zoneResults: progZoneResults,
               zoneAssignments,
               isGroup,
               promotedResult,
@@ -960,27 +968,6 @@ export default function PromotionsClient({
             }
           );
 
-          if (programsWithZoneResults.length === 0) {
-            return (
-              <div
-                className="glass-panel"
-                style={{
-                  padding: "48px 24px",
-                  textAlign: "center",
-                  borderRadius: "16px",
-                  border: "1px solid var(--border-color)",
-                }}
-              >
-                <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>⏳</div>
-                <h3 style={{ margin: 0, color: "var(--text-primary)" }}>{event.name}</h3>
-                <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: "0.9rem" }}>
-                  No published results found for this zone yet. Results will appear here automatically once the zone
-                  concludes.
-                </p>
-              </div>
-            );
-          }
-
           return (
             <div
               className="glass-panel"
@@ -991,6 +978,30 @@ export default function PromotionsClient({
                 boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
               }}
             >
+              {withResultsCount === 0 && (
+                <div
+                  style={{
+                    padding: "12px 18px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(245, 158, 11, 0.1)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    color: "var(--warning)",
+                    marginBottom: "20px",
+                    fontSize: "0.88rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <span style={{ fontSize: "1.2rem" }}>⏳</span>
+                  <span>
+                    <strong>Notice:</strong> Results have not yet been published for this zone. All{" "}
+                    <strong>{masterPrograms.length}</strong> State programs are listed below, and top candidates will
+                    appear here as soon as zone results are published.
+                  </span>
+                </div>
+              )}
+
               {/* Zone Header with Stats and Bulk Action */}
               <div
                 style={{
@@ -1015,17 +1026,21 @@ export default function PromotionsClient({
                         borderRadius: "20px",
                         fontSize: "0.75rem",
                         fontWeight: 700,
-                        backgroundColor: "rgba(99, 102, 241, 0.15)",
-                        color: "#818cf8",
-                        border: "1px solid rgba(99, 102, 241, 0.3)",
+                        backgroundColor: withResultsCount > 0 ? "rgba(99, 102, 241, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                        color: withResultsCount > 0 ? "#818cf8" : "#f59e0b",
+                        border: withResultsCount > 0 ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
                       }}
                     >
-                      ZONE CONCLUDED
+                      {withResultsCount > 0 ? "ZONE CONCLUDED" : "ZONE IN PROGRESS"}
                     </span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Total Programs: <strong>{programsWithZoneResults.length}</strong>
+                      Total Programs: <strong>{masterPrograms.length}</strong>
+                    </span>
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>•</span>
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      Published in Zone: <strong>{withResultsCount}</strong>
                     </span>
                     <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>•</span>
                     <span style={{ fontSize: "0.85rem", color: "var(--success)" }}>
@@ -1190,7 +1205,7 @@ export default function PromotionsClient({
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {(
                       [
-                        { id: "ALL", label: `All (${programsWithZoneResults.length})` },
+                        { id: "ALL", label: `All (${masterPrograms.length})` },
                         { id: "CONFIRMED", label: `Confirmed (${confirmedCount})` },
                         { id: "PENDING", label: `Pending (${pendingCount})` },
                         { id: "ALTERNATE", label: `Alternates (${alternateCount})` },
@@ -1333,8 +1348,23 @@ export default function PromotionsClient({
 
                               {/* 2. Published Results (Top 3) */}
                               <td style={{ padding: "14px", verticalAlign: "top" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                  {zoneResults.map((r: any) => {
+                                {zoneResults.length === 0 ? (
+                                  <div
+                                    style={{
+                                      padding: "6px 10px",
+                                      borderRadius: "6px",
+                                      backgroundColor: "rgba(255, 255, 255, 0.02)",
+                                      border: "1px dashed var(--border-color)",
+                                      fontSize: "0.8rem",
+                                      color: "var(--text-muted)",
+                                      fontStyle: "italic",
+                                    }}
+                                  >
+                                    ⏳ Zone results pending / not published
+                                  </div>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {zoneResults.map((r: any) => {
                                     const isSelected = promotedResult?.id === r.id;
                                     const rankBadgeColor =
                                       r.rank === 1 ? "#eab308" : r.rank === 2 ? "#94a3b8" : "#d97706";
@@ -1481,7 +1511,8 @@ export default function PromotionsClient({
                                     );
                                   })}
                                 </div>
-                              </td>
+                              )}
+                            </td>
 
                               {/* 3. Confirmed to State */}
                               <td style={{ padding: "14px", verticalAlign: "top" }}>
@@ -1624,108 +1655,114 @@ export default function PromotionsClient({
 
                               {/* 4. Action / Switch Selection */}
                               <td style={{ padding: "14px", verticalAlign: "top", textAlign: "right" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-end" }}>
-                                  {zoneResults.map((r: any) => {
-                                    const isSelected = promotedResult?.id === r.id;
-                                    const isLoading = loadingResultId === r.id;
+                                {zoneResults.length === 0 ? (
+                                  <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                                    Awaiting zone results
+                                  </span>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-end" }}>
+                                    {zoneResults.map((r: any) => {
+                                      const isSelected = promotedResult?.id === r.id;
+                                      const isLoading = loadingResultId === r.id;
 
-                                    if (isSelected) {
+                                      if (isSelected) {
+                                        return (
+                                          <div
+                                            key={r.id}
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "6px",
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                padding: "4px 10px",
+                                                borderRadius: "6px",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 700,
+                                                backgroundColor: "rgba(16, 185, 129, 0.15)",
+                                                color: "var(--success)",
+                                                border: "1px solid rgba(16, 185, 129, 0.4)",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "4px",
+                                              }}
+                                            >
+                                              <span>✓</span>
+                                              <span>Confirmed (Rank {r.rank})</span>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              disabled={Boolean(
+                                                loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
+                                              )}
+                                              onClick={() => handleUnpromote(masterProg, promotedResult, event.id)}
+                                              style={{
+                                                padding: "4px 8px",
+                                                borderRadius: "6px",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 700,
+                                                backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                                color: "#ef4444",
+                                                border: "1px solid rgba(239, 68, 68, 0.35)",
+                                                cursor: loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "3px",
+                                                transition: "all 0.15s ease",
+                                              }}
+                                              title="Remove this confirmation from State"
+                                            >
+                                              <span>✕</span>
+                                              <span>Remove</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+
                                       return (
-                                        <div
+                                        <button
                                           key={r.id}
+                                          type="button"
+                                          disabled={Boolean(
+                                            loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
+                                          )}
+                                          onClick={() => handlePromote(r, masterProg)}
+                                          className="btn"
                                           style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "6px",
+                                            padding: "4px 10px",
+                                            fontSize: "0.75rem",
+                                            fontWeight: 600,
+                                            borderRadius: "6px",
+                                            cursor:
+                                              loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
+                                                ? "not-allowed"
+                                                : "pointer",
+                                            backgroundColor:
+                                              r.rank === 1
+                                                ? "var(--primary)"
+                                                : "rgba(245, 158, 11, 0.12)",
+                                            borderColor: r.rank === 1 ? "var(--primary)" : "#f59e0b",
+                                            color: r.rank === 1 ? "#ffffff" : "#f59e0b",
+                                            border: "1px solid",
                                           }}
                                         >
-                                          <div
-                                            style={{
-                                              padding: "4px 10px",
-                                              borderRadius: "6px",
-                                              fontSize: "0.75rem",
-                                              fontWeight: 700,
-                                              backgroundColor: "rgba(16, 185, 129, 0.15)",
-                                              color: "var(--success)",
-                                              border: "1px solid rgba(16, 185, 129, 0.4)",
-                                              display: "flex",
-                                              alignItems: "center",
-                                              gap: "4px",
-                                            }}
-                                          >
-                                            <span>✓</span>
-                                            <span>Confirmed (Rank {r.rank})</span>
-                                          </div>
-
-                                          <button
-                                            type="button"
-                                            disabled={Boolean(
-                                              loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
-                                            )}
-                                            onClick={() => handleUnpromote(masterProg, promotedResult, event.id)}
-                                            style={{
-                                              padding: "4px 8px",
-                                              borderRadius: "6px",
-                                              fontSize: "0.75rem",
-                                              fontWeight: 700,
-                                              backgroundColor: "rgba(239, 68, 68, 0.12)",
-                                              color: "#ef4444",
-                                              border: "1px solid rgba(239, 68, 68, 0.35)",
-                                              cursor: loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin) ? "not-allowed" : "pointer",
-                                              display: "flex",
-                                              alignItems: "center",
-                                              gap: "3px",
-                                              transition: "all 0.15s ease",
-                                            }}
-                                            title="Remove this confirmation from State"
-                                          >
-                                            <span>✕</span>
-                                            <span>Remove</span>
-                                          </button>
-                                        </div>
+                                          {isLoading
+                                            ? "Updating..."
+                                            : promotedResult
+                                            ? r.rank === 1
+                                              ? "🔄 Switch to Rank 1"
+                                              : `🔄 Switch to Rank ${r.rank} (Alternate)`
+                                            : r.rank === 1
+                                            ? "✓ Confirm Rank 1"
+                                            : `Select Rank ${r.rank} (Alternate)`}
+                                        </button>
                                       );
-                                    }
-
-                                    return (
-                                      <button
-                                        key={r.id}
-                                        type="button"
-                                        disabled={Boolean(
-                                          loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
-                                        )}
-                                        onClick={() => handlePromote(r, masterProg)}
-                                        className="btn"
-                                        style={{
-                                          padding: "4px 10px",
-                                          fontSize: "0.75rem",
-                                          fontWeight: 600,
-                                          borderRadius: "6px",
-                                          cursor:
-                                            loadingResultId || bulkLoadingZoneId || (isLocked && isZoneAdmin)
-                                              ? "not-allowed"
-                                              : "pointer",
-                                          backgroundColor:
-                                            r.rank === 1
-                                              ? "var(--primary)"
-                                              : "rgba(245, 158, 11, 0.12)",
-                                          borderColor: r.rank === 1 ? "var(--primary)" : "#f59e0b",
-                                          color: r.rank === 1 ? "#ffffff" : "#f59e0b",
-                                          border: "1px solid",
-                                        }}
-                                      >
-                                        {isLoading
-                                          ? "Updating..."
-                                          : promotedResult
-                                          ? r.rank === 1
-                                            ? "🔄 Switch to Rank 1"
-                                            : `🔄 Switch to Rank ${r.rank} (Alternate)`
-                                          : r.rank === 1
-                                          ? "✓ Confirm Rank 1"
-                                          : `Select Rank ${r.rank} (Alternate)`}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                                    })}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );

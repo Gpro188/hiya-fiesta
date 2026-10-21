@@ -23,7 +23,7 @@ export default async function PromotionsPage() {
     orderBy: { name: 'asc' }
   });
 
-  // Fetch Master Event Programs with all published results and assignments
+  // Fetch Master Event Programs with all assignments (State Final roster)
   const masterEvent = await prisma.event.findFirst({
     where: { type: "STATE" },
     include: {
@@ -36,19 +36,26 @@ export default async function PromotionsPage() {
                 include: { team: true }
               }
             }
-          },
-          results: {
-            where: { isPublished: true, rank: { in: [1, 2, 3] } },
-            include: {
-              candidate: { include: { team: true } },
-              team: true
-            },
-            orderBy: { rank: 'asc' }
           }
         },
         orderBy: [{ programCode: 'asc' }, { name: 'asc' }]
       }
     }
+  });
+
+  // Fetch Published Top 3 results from all Zone Programs
+  const zoneResults = await prisma.result.findMany({
+    where: {
+      isPublished: true,
+      rank: { in: [1, 2, 3] },
+      program: { event: { type: "ZONE" } }
+    },
+    include: {
+      candidate: { include: { team: true } },
+      team: true,
+      program: { select: { id: true, name: true, programCode: true, eventId: true } }
+    },
+    orderBy: { rank: 'asc' }
   });
 
   // Fetch categories for filtering
@@ -86,6 +93,7 @@ export default async function PromotionsPage() {
         masterPrograms={masterEvent?.programs || []} 
         categories={categories}
         zonePrograms={zonePrograms}
+        zoneResults={zoneResults}
         isZoneAdmin={isZoneAdmin} 
         stateConfirmEndDate={masterEvent?.stateConfirmEndDate}
       />
