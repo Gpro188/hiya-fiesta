@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { clearSettingsCache } from "@/lib/settings";
 
 export async function saveMediaTemplate(programId: string, imageUrl: string) {
   try {
@@ -94,6 +95,7 @@ export async function updatePosterSettings(data: {
       });
     }
 
+    clearSettingsCache();
     revalidatePath("/", "layout");
     return { success: true };
   } catch (error) {

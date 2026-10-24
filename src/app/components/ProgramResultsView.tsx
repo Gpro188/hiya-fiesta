@@ -30,9 +30,6 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
   const posterBgImage = program.category?.posterBgUrl || settings?.posterBgUrl || "";
   const hasCustomBg = Boolean(posterBgImage && posterBgImage.trim().length > 0);
   const canDownloadPoster = winners.length > 0;
-  const primaryColor = settings?.posterPrimaryColor || '#1e293b';
-  const secondaryColor = settings?.posterSecondaryColor || '#e6007e';
-  const textColor = settings?.posterTextColor || '#1e293b';
 
   const proxyImage = (url: string | null | undefined) => {
       if (!url) return undefined;
@@ -124,6 +121,65 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
         const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
         window.open(waUrl, '_blank');
     }
+  };
+
+  const posterWinners = winners;
+  const hasManyWinners = posterWinners.length >= 4;
+
+  let layoutConfig: any = null;
+  if (settings?.posterHeaderUrl && typeof settings.posterHeaderUrl === 'string') {
+    try {
+      if (settings.posterHeaderUrl.startsWith('{')) {
+        layoutConfig = JSON.parse(settings.posterHeaderUrl);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const primaryColor = layoutConfig?.primaryColor || settings?.posterPrimaryColor || '#f03c6b';
+  const secondaryColor = layoutConfig?.secondaryColor || settings?.posterSecondaryColor || '#5a519f';
+  const textColor = layoutConfig?.textColor || settings?.posterTextColor || '#1e293b';
+
+  const cfg = {
+    resultNoTop: layoutConfig?.resultNoTop ?? 23,
+    resultNoLeft: layoutConfig?.resultNoLeft ?? 10,
+    resultNoFontSize: layoutConfig?.resultNoFontSize ?? 26,
+    showResultNo: layoutConfig?.showResultNo ?? true,
+
+    programTop: layoutConfig?.programTop ?? 26,
+    programLeft: layoutConfig?.programLeft ?? 10,
+    programWidth: layoutConfig?.programWidth ?? 55,
+    programFontSize: hasManyWinners 
+      ? Math.min(layoutConfig?.programFontSize ?? 44, 36)
+      : (layoutConfig?.programFontSize ?? 44),
+    programAlign: layoutConfig?.programAlign ?? 'left',
+
+    categoryTop: layoutConfig?.categoryTop ?? 34,
+    categoryLeft: layoutConfig?.categoryLeft ?? 10,
+    categoryFontSize: layoutConfig?.categoryFontSize ?? 15,
+    showCategoryBadge: layoutConfig?.showCategoryBadge ?? true,
+
+    winnersTop: hasManyWinners 
+      ? Math.min(layoutConfig?.winnersTop ?? 40, 39)
+      : (layoutConfig?.winnersTop ?? 41),
+    winnersLeft: layoutConfig?.winnersLeft ?? 10,
+    winnersWidth: layoutConfig?.winnersWidth ?? 52,
+    winnerItemGap: hasManyWinners 
+      ? Math.min(layoutConfig?.winnerItemGap ?? 20, 14)
+      : (layoutConfig?.winnerItemGap ?? 22),
+    winnerNameSize: hasManyWinners 
+      ? Math.min(layoutConfig?.winnerNameSize ?? 22, 19)
+      : (layoutConfig?.winnerNameSize ?? 24),
+    winnerInstSize: hasManyWinners 
+      ? Math.min(layoutConfig?.winnerInstSize ?? 14, 12)
+      : (layoutConfig?.winnerInstSize ?? 14),
+
+    showRankCircle: layoutConfig?.showRankCircle ?? true,
+    showChestNumber: layoutConfig?.showChestNumber ?? true,
+    showInstitutionName: layoutConfig?.showInstitutionName ?? true,
+    showPlace: layoutConfig?.showPlace ?? true,
+    showGrade: layoutConfig?.showGrade ?? true,
   };
 
   return (
@@ -465,12 +521,205 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
           }}>
               {/* FULL BLEED BACKGROUND */}
               {hasCustomBg ? (
-                  <img 
-                      src={proxyImage(posterBgImage)} 
-                      style={{ position: 'absolute', top: 0, left: 0, width: '1080px', height: '1350px', objectFit: 'cover', zIndex: 0 }} 
-                      alt="Poster Background" 
-                      crossOrigin="anonymous" 
-                  />
+                  <>
+                    <img 
+                        src={proxyImage(posterBgImage)} 
+                        style={{ position: 'absolute', top: 0, left: 0, width: '1080px', height: '1350px', objectFit: 'cover', zIndex: 0 }} 
+                        alt="Poster Background" 
+                        crossOrigin="anonymous" 
+                    />
+
+                    {/* 1. Result Number */}
+                    {cfg.showResultNo && (
+                      <div style={{
+                        position: 'absolute',
+                        top: `${cfg.resultNoTop}%`,
+                        left: `${cfg.resultNoLeft}%`,
+                        fontSize: `${cfg.resultNoFontSize}px`,
+                        zIndex: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <span style={{ fontStyle: 'italic', color: primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
+                        <span style={{ fontWeight: 800, color: secondaryColor, fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {program.programCode ? `#${program.programCode}` : '01'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 2. Program Name */}
+                    <div style={{
+                      position: 'absolute',
+                      top: `${cfg.programTop}%`,
+                      left: `${cfg.programLeft}%`,
+                      width: `${cfg.programWidth}%`,
+                      fontSize: `${cfg.programFontSize}px`,
+                      fontWeight: 900,
+                      color: primaryColor,
+                      lineHeight: 1.12,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.5px',
+                      textAlign: cfg.programAlign as any,
+                      zIndex: 2
+                    }}>
+                      {program.name}
+                    </div>
+
+                    {/* 3. Category Badge */}
+                    {cfg.showCategoryBadge && (
+                      <div style={{
+                        position: 'absolute',
+                        top: `${cfg.categoryTop}%`,
+                        left: `${cfg.categoryLeft}%`,
+                        zIndex: 2
+                      }}>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          backgroundColor: secondaryColor,
+                          color: '#FFFFFF',
+                          padding: '5px 18px',
+                          borderRadius: '6px',
+                          fontWeight: 800,
+                          fontSize: `${cfg.categoryFontSize}px`,
+                          letterSpacing: '2px',
+                          textTransform: 'uppercase',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}>
+                          {program.category?.name || 'General'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. Winners List */}
+                    <div style={{
+                      position: 'absolute',
+                      top: `${cfg.winnersTop}%`,
+                      left: `${cfg.winnersLeft}%`,
+                      width: `${cfg.winnersWidth}%`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: `${cfg.winnerItemGap}px`,
+                      zIndex: 2
+                    }}>
+                      {posterWinners.map((result: any, idx: number) => {
+                        const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
+                        const chest = result.candidate?.chestNumber || '';
+                        const zoneName = extractZoneName(result);
+                        const instObj = result.candidate?.institution || result.candidate?.team?.institution || result.team?.institution || result.team;
+                        const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+
+                        const rankNum = result.rank || (idx + 1);
+                        const rankColor = rankNum === 1 ? '#F59E0B' : rankNum === 2 ? '#94A3B8' : '#D97706';
+                        const rankBg = rankNum === 1 ? '#FEF3C7' : rankNum === 2 ? '#F1F5F9' : '#FFEDD5';
+                        const rankText = rankNum === 1 ? '#B45309' : rankNum === 2 ? '#475569' : '#9A3412';
+
+                        return (
+                          <div key={result.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: hasManyWinners ? '12px' : '16px' }}>
+                            {/* Rank Circle Badge */}
+                            {cfg.showRankCircle && (
+                              <div style={{
+                                width: hasManyWinners ? '44px' : '52px',
+                                height: hasManyWinners ? '44px' : '52px',
+                                borderRadius: '50%',
+                                backgroundColor: rankBg,
+                                border: `2.5px solid ${rankColor}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 900,
+                                fontSize: hasManyWinners ? '1.15rem' : '1.35rem',
+                                color: rankText,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                flexShrink: 0,
+                                marginTop: '2px',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                              }}>
+                                {String(rankNum).padStart(2, '0')}
+                              </div>
+                            )}
+
+                            {/* Participant Details */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{
+                                  fontSize: `${cfg.winnerNameSize}px`,
+                                  fontWeight: 900,
+                                  color: textColor,
+                                  lineHeight: 1.15,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '-0.3px'
+                                }}>
+                                  {name}
+                                </span>
+                                {cfg.showChestNumber && chest && (
+                                  <span style={{
+                                    fontSize: `${cfg.winnerNameSize * 0.85}px`,
+                                    fontWeight: 700,
+                                    color: '#64748B',
+                                    fontFamily: "'IBM Plex Mono', monospace"
+                                  }}>
+                                    ({chest})
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Zone Badge for State Fest */}
+                              {isStateFest && zoneName && (
+                                <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: '#fdf2f8',
+                                    color: '#be185d',
+                                    border: '1.5px solid #fbcfe8',
+                                    padding: hasManyWinners ? '1px 6px' : '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: hasManyWinners ? '0.78rem' : '0.85rem',
+                                    fontWeight: 900,
+                                    letterSpacing: '0.5px',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Institution Name & Place */}
+                              {cfg.showInstitutionName && instName && (
+                                <div style={{
+                                  fontSize: `${cfg.winnerInstSize}px`,
+                                  fontWeight: 700,
+                                  color: '#475569',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.3px',
+                                  lineHeight: 1.2,
+                                  marginTop: '1px'
+                                }}>
+                                  {instName}{cfg.showPlace && instPlace ? ` • ${instPlace}` : ''}
+                                </div>
+                              )}
+
+                              {/* Grade */}
+                              {cfg.showGrade && result.grade && (
+                                <div style={{
+                                  fontSize: `${cfg.winnerInstSize * 0.9}px`,
+                                  fontWeight: 800,
+                                  color: secondaryColor,
+                                  marginTop: '2px',
+                                  textTransform: 'uppercase'
+                                }}>
+                                  Grade {result.grade}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
               ) : (
                   <div style={{ position: 'absolute', top: 0, left: 0, width: '1080px', height: '1350px', zIndex: 0, background: 'linear-gradient(175deg, #FFF8FA 0%, #FFFFFF 40%, #FFF5F8 100%)' }}>
                       {/* Decorative Outer Borders */}
@@ -535,181 +784,166 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                               OFFICIAL VERIFIED RESULT
                           </div>
                       </div>
-                  </div>
-              )}
 
-              {/* DYNAMIC TEXT OVERLAY */}
-              <div style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  paddingTop: hasCustomBg ? (hasManyWinners ? '320px' : '350px') : '290px',
-                  paddingLeft: hasCustomBg ? '100px' : '60px',
-                  paddingRight: hasCustomBg ? '60px' : '60px',
-                  width: '1080px',
-                  height: '1350px',
-                  boxSizing: 'border-box'
-              }}>
-                  <div style={{ maxWidth: hasCustomBg ? '530px' : '960px', margin: hasCustomBg ? '0' : '0 auto' }}>
-                      
-                      {/* Result Number / Subheading */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: hasManyWinners ? '4px' : '8px' }}>
-                          <span style={{ fontSize: hasManyWinners ? '1.5rem' : '1.75rem', fontStyle: 'italic', color: primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
-                          <span style={{ fontSize: hasManyWinners ? '1.5rem' : '1.75rem', fontWeight: 900, color: secondaryColor, fontFamily: "'IBM Plex Mono', monospace" }}>
-                              {program.programCode ? `#${program.programCode}` : '01'}
-                          </span>
-                      </div>
-
-                      {/* Program Name */}
-                      <div style={{ 
-                          fontSize: hasManyWinners 
-                              ? (program.name?.length > 22 ? '2.3rem' : '2.6rem') 
-                              : (program.name?.length > 22 ? '2.8rem' : '3.3rem'), 
-                          fontWeight: 900, 
-                          color: primaryColor, 
-                          lineHeight: 1.12, 
-                          textTransform: 'uppercase', 
-                          letterSpacing: '-0.5px', 
-                          marginBottom: hasManyWinners ? '12px' : '20px' 
+                      {/* Framed content */}
+                      <div style={{
+                          position: 'absolute',
+                          top: '290px',
+                          left: '60px',
+                          right: '60px',
+                          bottom: '120px',
+                          boxSizing: 'border-box'
                       }}>
-                          {program.name}
-                      </div>
-
-                      {/* Category Badge */}
-                      <div style={{ marginBottom: hasManyWinners ? '20px' : '34px' }}>
-                          <div style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              backgroundColor: secondaryColor, 
-                              color: 'white', 
-                              padding: hasManyWinners ? '5px 18px' : '7px 22px', 
-                              borderRadius: '6px', 
-                              fontWeight: 800, 
-                              fontSize: hasManyWinners ? '1rem' : '1.15rem', 
-                              letterSpacing: '2px', 
-                              textTransform: 'uppercase',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                          }}>
-                              {program.category?.name || 'General'}
+                          {/* Result Number */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '1.6rem', fontStyle: 'italic', color: primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
+                              <span style={{ fontSize: '1.6rem', fontWeight: 900, color: secondaryColor, fontFamily: "'IBM Plex Mono', monospace" }}>
+                                  {program.programCode ? `#${program.programCode}` : '01'}
+                              </span>
                           </div>
-                      </div>
 
-                      {/* Winners List */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: hasManyWinners ? '16px' : '26px' }}>
-                          {posterWinners.map((result: any, idx: number) => {
-                              const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
-                              const chest = result.candidate?.chestNumber || '';
-                              const zoneName = extractZoneName(result);
-                              const instObj = result.candidate?.institution || result.candidate?.team?.institution || result.team?.institution || result.team;
-                              const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+                          {/* Program Name */}
+                          <div style={{ 
+                              fontSize: hasManyWinners ? '2.4rem' : '2.9rem', 
+                              fontWeight: 900, 
+                              color: primaryColor, 
+                              lineHeight: 1.12, 
+                              textTransform: 'uppercase', 
+                              letterSpacing: '-0.5px', 
+                              marginBottom: '16px' 
+                          }}>
+                              {program.name}
+                          </div>
 
-                              const rankNum = result.rank || (idx + 1);
-                              
-                              const rankColor = rankNum === 1 ? '#F59E0B' : rankNum === 2 ? '#94A3B8' : '#D97706';
-                              const rankBg = rankNum === 1 ? '#FEF3C7' : rankNum === 2 ? '#F1F5F9' : '#FFEDD5';
-                              const rankText = rankNum === 1 ? '#B45309' : rankNum === 2 ? '#475569' : '#9A3412';
+                          {/* Category Badge */}
+                          <div style={{ marginBottom: '24px' }}>
+                              <div style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  backgroundColor: secondaryColor, 
+                                  color: 'white', 
+                                  padding: '6px 20px', 
+                                  borderRadius: '6px', 
+                                  fontWeight: 800, 
+                                  fontSize: '1.05rem', 
+                                  letterSpacing: '2px', 
+                                  textTransform: 'uppercase',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                              }}>
+                                  {program.category?.name || 'General'}
+                              </div>
+                          </div>
 
-                              return (
-                                  <div key={result.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: hasManyWinners ? '14px' : '18px' }}>
-                                      {/* Rank Circle Badge */}
-                                      <div style={{ 
-                                          width: hasManyWinners ? '48px' : '56px', 
-                                          height: hasManyWinners ? '48px' : '56px', 
-                                          borderRadius: '50%', 
-                                          backgroundColor: rankBg, 
-                                          border: `2.5px solid ${rankColor}`, 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          justifyContent: 'center', 
-                                          fontWeight: 900, 
-                                          fontSize: hasManyWinners ? '1.25rem' : '1.45rem', 
-                                          color: rankText, 
-                                          fontFamily: "'IBM Plex Mono', monospace",
-                                          flexShrink: 0, 
-                                          marginTop: '2px',
-                                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
-                                      }}>
-                                          {String(rankNum).padStart(2, '0')}
-                                      </div>
-                                      
-                                      {/* Participant Details */}
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                                              <div style={{ 
-                                                  fontSize: hasManyWinners ? '1.45rem' : '1.7rem', 
-                                                  fontWeight: 900, 
-                                                  color: textColor, 
-                                                  lineHeight: 1.15, 
-                                                  textTransform: 'uppercase',
-                                                  letterSpacing: '-0.3px'
-                                              }}>
-                                                  {name}
-                                              </div>
-                                              {chest && (
-                                                  <div style={{ 
-                                                      fontSize: hasManyWinners ? '1.2rem' : '1.4rem', 
-                                                      fontWeight: 700, 
-                                                      color: '#64748B',
-                                                      fontFamily: "'IBM Plex Mono', monospace"
+                          {/* Winners List */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: hasManyWinners ? '16px' : '22px' }}>
+                              {posterWinners.map((result: any, idx: number) => {
+                                  const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
+                                  const chest = result.candidate?.chestNumber || '';
+                                  const zoneName = extractZoneName(result);
+                                  const instObj = result.candidate?.institution || result.candidate?.team?.institution || result.team?.institution || result.team;
+                                  const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+
+                                  const rankNum = result.rank || (idx + 1);
+                                  const rankColor = rankNum === 1 ? '#F59E0B' : rankNum === 2 ? '#94A3B8' : '#D97706';
+                                  const rankBg = rankNum === 1 ? '#FEF3C7' : rankNum === 2 ? '#F1F5F9' : '#FFEDD5';
+                                  const rankText = rankNum === 1 ? '#B45309' : rankNum === 2 ? '#475569' : '#9A3412';
+
+                                  return (
+                                      <div key={result.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                                          <div style={{ 
+                                              width: '48px', 
+                                              height: '48px', 
+                                              borderRadius: '50%', 
+                                              backgroundColor: rankBg, 
+                                              border: `2px solid ${rankColor}`, 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              justifyContent: 'center', 
+                                              fontWeight: 900, 
+                                              fontSize: '1.25rem', 
+                                              color: rankText, 
+                                              fontFamily: "'IBM Plex Mono', monospace",
+                                              flexShrink: 0, 
+                                              marginTop: '2px'
+                                          }}>
+                                              {String(rankNum).padStart(2, '0')}
+                                          </div>
+                                          
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                                                  <span style={{ 
+                                                      fontSize: '1.45rem', 
+                                                      fontWeight: 900, 
+                                                      color: textColor, 
+                                                      lineHeight: 1.15, 
+                                                      textTransform: 'uppercase'
                                                   }}>
-                                                      ({chest})
+                                                      {name}
+                                                  </span>
+                                                  {chest && (
+                                                      <span style={{ 
+                                                          fontSize: '1.2rem', 
+                                                          fontWeight: 700, 
+                                                          color: '#64748B',
+                                                          fontFamily: "'IBM Plex Mono', monospace"
+                                                      }}>
+                                                          ({chest})
+                                                      </span>
+                                                  )}
+                                              </div>
+
+                                              {isStateFest && zoneName && (
+                                                  <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                                                      <span style={{ 
+                                                          display: 'inline-flex',
+                                                          alignItems: 'center',
+                                                          gap: '4px',
+                                                          background: '#fdf2f8', 
+                                                          color: '#be185d', 
+                                                          border: '1px solid #fbcfe8', 
+                                                          padding: '1px 6px', 
+                                                          borderRadius: '4px', 
+                                                          fontSize: '0.8rem', 
+                                                          fontWeight: 900, 
+                                                          textTransform: 'uppercase'
+                                                      }}>
+                                                          📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                                      </span>
+                                                  </div>
+                                              )}
+
+                                              {instName && (
+                                                  <div style={{ 
+                                                      fontSize: '0.88rem', 
+                                                      fontWeight: 700, 
+                                                      color: '#475569', 
+                                                      textTransform: 'uppercase', 
+                                                      lineHeight: 1.25,
+                                                      marginTop: '2px'
+                                                  }}>
+                                                      {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                                  </div>
+                                              )}
+
+                                              {result.grade && (
+                                                  <div style={{ 
+                                                      fontSize: '0.82rem', 
+                                                      fontWeight: 800, 
+                                                      color: secondaryColor, 
+                                                      marginTop: '2px', 
+                                                      textTransform: 'uppercase' 
+                                                  }}>
+                                                      Grade {result.grade}
                                                   </div>
                                               )}
                                           </div>
-
-                                          {/* Zone Badge for State Fest */}
-                                          {isStateFest && zoneName && (
-                                              <div style={{ marginTop: '3px', marginBottom: '2px' }}>
-                                                  <div style={{ 
-                                                      display: 'inline-flex',
-                                                      alignItems: 'center',
-                                                      gap: '4px',
-                                                      background: '#fdf2f8', 
-                                                      color: '#be185d', 
-                                                      border: '1.5px solid #fbcfe8', 
-                                                      padding: hasManyWinners ? '2px 8px' : '3px 10px', 
-                                                      borderRadius: '6px', 
-                                                      fontSize: hasManyWinners ? '0.82rem' : '0.92rem', 
-                                                      fontWeight: 900,
-                                                      letterSpacing: '0.5px',
-                                                      textTransform: 'uppercase'
-                                                  }}>
-                                                      📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
-                                                  </div>
-                                              </div>
-                                          )}
-
-                                          {instName && (
-                                              <div style={{ 
-                                                  fontSize: hasManyWinners ? '0.88rem' : '0.98rem', 
-                                                  fontWeight: 700, 
-                                                  color: '#475569', 
-                                                  textTransform: 'uppercase', 
-                                                  letterSpacing: '0.3px', 
-                                                  lineHeight: 1.25,
-                                                  marginTop: '2px'
-                                              }}>
-                                                  {instName}{instPlace ? ` • ${instPlace}` : ''}
-                                              </div>
-                                          )}
-
-                                          {result.grade && (
-                                              <div style={{ 
-                                                  fontSize: hasManyWinners ? '0.82rem' : '0.9rem', 
-                                                  fontWeight: 800, 
-                                                  color: secondaryColor, 
-                                                  marginTop: '3px', 
-                                                  textTransform: 'uppercase' 
-                                              }}>
-                                                  Grade {result.grade}
-                                              </div>
-                                          )}
                                       </div>
-                                  </div>
-                              );
-                          })}
+                                  );
+                              })}
+                          </div>
                       </div>
                   </div>
-              </div>
+              )}
           </div>
       </div>
     </div>

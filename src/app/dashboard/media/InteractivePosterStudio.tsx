@@ -28,50 +28,61 @@ export default function InteractivePosterStudio({
     categories.reduce((acc, cat) => ({ ...acc, [cat.id]: cat.posterBgUrl || "" }), {})
   );
 
-  // Main Configurable Layout & Typography State
+  // Main Configurable Layout & Typography State - parse persisted layout if available
+  let savedLayout: any = {};
+  if (initialSettings?.posterHeaderUrl && typeof initialSettings.posterHeaderUrl === 'string') {
+    try {
+      if (initialSettings.posterHeaderUrl.startsWith('{')) {
+        savedLayout = JSON.parse(initialSettings.posterHeaderUrl);
+      }
+    } catch {
+      // ignore parse error
+    }
+  }
+
   const [config, setConfig] = useState({
     // Background & Event
     posterBgUrl: initialSettings?.posterBgUrl || "",
     targetEventId: initialSettings?.targetEventId || undefined,
 
     // Colors
-    primaryColor: initialSettings?.posterPrimaryColor || "#1e293b", // Program Name Color
-    secondaryColor: initialSettings?.posterSecondaryColor || "#e6007e", // Category & Accents
-    textColor: initialSettings?.posterTextColor || "#241B1B", // Winner Names Color
+    primaryColor: initialSettings?.posterPrimaryColor || "#f03c6b", // Program Name Color
+    secondaryColor: initialSettings?.posterSecondaryColor || "#5a519f", // Category & Accents
+    textColor: initialSettings?.posterTextColor || "#1e293b", // Winner Names Color
 
     // 1. Program Name Typography & Position
-    programTop: 27, // % from top
-    programLeft: 10, // % from left
-    programWidth: 65, // % max width
-    programFontSize: 56, // px
-    programAlign: 'left' as 'left' | 'center' | 'right',
+    programTop: savedLayout.programTop ?? 27, // % from top
+    programLeft: savedLayout.programLeft ?? 10, // % from left
+    programWidth: savedLayout.programWidth ?? 55, // % max width (safe for right artwork)
+    programFontSize: savedLayout.programFontSize ?? 46, // px
+    programAlign: (savedLayout.programAlign || 'left') as 'left' | 'center' | 'right',
 
     // 2. Category Badge Position & Size
-    categoryTop: 36, // % from top
-    categoryLeft: 10, // % from left
-    categoryFontSize: 18, // px
-    showCategoryBadge: true,
+    categoryTop: savedLayout.categoryTop ?? 35, // % from top
+    categoryLeft: savedLayout.categoryLeft ?? 10, // % from left
+    categoryFontSize: savedLayout.categoryFontSize ?? 16, // px
+    showCategoryBadge: savedLayout.showCategoryBadge ?? true,
 
     // 3. Result No Subheading
-    resultNoTop: 24, // % from top
-    resultNoLeft: 10, // % from left
-    resultNoFontSize: 28, // px
-    showResultNo: true,
+    resultNoTop: savedLayout.resultNoTop ?? 24, // % from top
+    resultNoLeft: savedLayout.resultNoLeft ?? 10, // % from left
+    resultNoFontSize: savedLayout.resultNoFontSize ?? 26, // px
+    showResultNo: savedLayout.showResultNo ?? true,
 
-    // 4. Winners Box Position & Spacing
-    winnersTop: 43, // % from top
-    winnersLeft: 10, // % from left
-    winnersWidth: 50, // % max width
-    winnerItemGap: 36, // px gap between rows
-    winnerNameSize: 26, // px
-    winnerInstSize: 15, // px
+    // 4. Winners Box Position & Spacing (tuned to never collide with bottom logo)
+    winnersTop: savedLayout.winnersTop ?? 41, // % from top
+    winnersLeft: savedLayout.winnersLeft ?? 10, // % from left
+    winnersWidth: savedLayout.winnersWidth ?? 52, // % max width
+    winnerItemGap: savedLayout.winnerItemGap ?? 22, // px gap between rows
+    winnerNameSize: savedLayout.winnerNameSize ?? 24, // px
+    winnerInstSize: savedLayout.winnerInstSize ?? 14, // px
 
     // 5. Visibility Controls for Clean Design
-    showRankCircle: true,
-    showChestNumber: true,
-    showInstitutionName: true,
-    showPlace: true,
-    showGrade: true,
+    showRankCircle: savedLayout.showRankCircle ?? true,
+    showChestNumber: savedLayout.showChestNumber ?? true,
+    showInstitutionName: savedLayout.showInstitutionName ?? true,
+    showPlace: savedLayout.showPlace ?? true,
+    showGrade: savedLayout.showGrade ?? true,
   });
 
   // Active Category & Background computation
@@ -82,10 +93,10 @@ export default function InteractivePosterStudio({
   // Test Winner Sample Data for Live Preview
   const [previewDoubleThird, setPreviewDoubleThird] = useState(false);
   const sampleWinners = [
-    { rank: 1, name: "FATHIMA SHIFA M", chest: "104", inst: "MARKAZ GIRLS HIGHER ACADEMY", place: "KUNDOTTY", grade: "A+" },
-    { rank: 2, name: "ALEEMA FIDA", chest: "108", inst: "BEELINE WOMEN'S COLLEGE", place: "SIDDAPURA", grade: "A" },
-    { rank: 3, name: "AYISHA RIDHA K", chest: "112", inst: "SAJIPA USTHAD WOMEN'S SHAREEATH", place: "BANTWAL", grade: "B+" },
-    ...(previewDoubleThird ? [{ rank: 3, name: "RAHEEMA P M", chest: "894", inst: "MSA WOMEN'S COLLEGE", place: "THRISSUR", grade: "A" }] : [])
+    { rank: 1, name: "SHADA SHEREEN CA", chest: "106", inst: "AL IHSAN ISLAMIC ARTS COLLEGE", place: "KODANGAD", grade: "A", zone: "MALAPPURAM WEST" },
+    { rank: 2, name: "FATHIMA RUSHDA NP", chest: "948", inst: "KMJ WOMEN'S ISLAMIC ARTS COLLEGE", place: "KANHIRODE", grade: "A", zone: "KANNUR" },
+    { rank: 3, name: "AYSHA", chest: "1023", inst: "MALIKDEENAR ISLAMIC WOMEN'S ARTS", place: "THALANGARA", grade: "A", zone: "KASARAGOD" },
+    ...(previewDoubleThird ? [{ rank: 3, name: "RAHEEMA P M", chest: "894", inst: "MSA WOMEN'S COLLEGE", place: "THRISSUR", grade: "A", zone: "THRISSUR" }] : [])
   ];
 
   const handleSaveCategoryBg = async (catId: string, url: string) => {
@@ -110,16 +121,44 @@ export default function InteractivePosterStudio({
   const handleSaveAll = async () => {
     setLoading(true);
     try {
+      const layoutData = {
+        programTop: config.programTop,
+        programLeft: config.programLeft,
+        programWidth: config.programWidth,
+        programFontSize: config.programFontSize,
+        programAlign: config.programAlign,
+        categoryTop: config.categoryTop,
+        categoryLeft: config.categoryLeft,
+        categoryFontSize: config.categoryFontSize,
+        showCategoryBadge: config.showCategoryBadge,
+        resultNoTop: config.resultNoTop,
+        resultNoLeft: config.resultNoLeft,
+        resultNoFontSize: config.resultNoFontSize,
+        showResultNo: config.showResultNo,
+        winnersTop: config.winnersTop,
+        winnersLeft: config.winnersLeft,
+        winnersWidth: config.winnersWidth,
+        winnerItemGap: config.winnerItemGap,
+        winnerNameSize: config.winnerNameSize,
+        winnerInstSize: config.winnerInstSize,
+        showRankCircle: config.showRankCircle,
+        showChestNumber: config.showChestNumber,
+        showInstitutionName: config.showInstitutionName,
+        showPlace: config.showPlace,
+        showGrade: config.showGrade,
+      };
+
       const res = await updatePosterSettings({
         posterBgUrl: config.posterBgUrl,
         posterPrimaryColor: config.primaryColor,
         posterSecondaryColor: config.secondaryColor,
         posterTextColor: config.textColor,
+        posterHeaderUrl: JSON.stringify(layoutData),
         targetEventId: config.targetEventId
       });
 
       if (res.success) {
-        alert("All Poster Studio settings saved successfully!");
+        alert("Poster Studio layout and colors saved successfully! These positions will now be applied to all downloaded posters.");
       } else {
         alert("Error: " + res.error);
       }
