@@ -14,7 +14,12 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
   const backLabel = eventId ? `← Back to ${program.event?.name || 'Zone'}` : '← Back';
 
   const results = program.results || [];
-  const winners = results.filter((r: any) => r.rank && r.rank <= 3).sort((a: any, b: any) => a.rank - b.rank);
+  const winners = results
+    .filter((r: any) => r.rank && r.rank <= 3)
+    .sort((a: any, b: any) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return (b.points || 0) - (a.points || 0);
+    });
   const others = results.filter((r: any) => !r.rank || r.rank > 3);
   const rank1 = winners.filter((w: any) => w.rank === 1);
   const rank2 = winners.filter((w: any) => w.rank === 2);
@@ -22,7 +27,12 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
 
   const isStateFest = program.event?.type === 'STATE' || !program.event?.parentId || (program.event?.name && /state/i.test(program.event.name));
   
-  const finalPosterUrl = null;
+  const posterBgImage = program.category?.posterBgUrl || settings?.posterBgUrl || "";
+  const hasCustomBg = Boolean(posterBgImage && posterBgImage.trim().length > 0);
+  const canDownloadPoster = winners.length > 0;
+  const primaryColor = settings?.posterPrimaryColor || '#1e293b';
+  const secondaryColor = settings?.posterSecondaryColor || '#e6007e';
+  const textColor = settings?.posterTextColor || '#1e293b';
 
   const proxyImage = (url: string | null | undefined) => {
       if (!url) return undefined;
@@ -34,7 +44,14 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
     if (!posterRef.current) return;
     setIsGenerating(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (typeof document !== 'undefined' && document.fonts) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          // ignore font loading error
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const node = posterRef.current;
       const opts = {
@@ -43,35 +60,26 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
         cacheBust: true,
         width: 1080,
         height: 1350,
-        style: { transform: 'scale(1)', margin: '0', left: '0', top: '0' },
-        // Skip cross-origin font sheets (Google Fonts) to avoid SecurityError.
-        // We embed font-face rules ourselves below if possible.
+        style: { transform: 'none', margin: '0', left: '0', top: '0' },
         skipFonts: false,
-        filter: (node: HTMLElement) => {
-          // never filter out nodes – just here to satisfy the type
-          return true;
-        },
+        filter: () => true,
       };
 
-      // ── 1st call: warm the image/font cache; ignore SecurityError from cross-origin sheets ──
+      // ── 1st call: warm image cache ──
       try {
         await toPng(node, opts);
       } catch (warmErr: any) {
-        // Only suppress the known CORS/cssRules error; rethrow anything else
         if (!String(warmErr).includes('cssRules') && !String(warmErr).includes('SecurityError')) {
-          throw warmErr;
+          // ignore CORS font warning
         }
       }
 
-      // ── Small extra delay so warmed images are definitely decoded ──
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 250));
 
-      // ── 2nd call: actual capture – cross-origin sheets are now cached ──
       let dataUrl: string;
       try {
         dataUrl = await toPng(node, opts);
       } catch (captureErr: any) {
-        // If still failing due to cross-origin CSS, retry with fonts skipped
         if (String(captureErr).includes('cssRules') || String(captureErr).includes('SecurityError')) {
           dataUrl = await toPng(node, { ...opts, skipFonts: true });
         } else {
@@ -80,7 +88,8 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
       }
 
       const link = document.createElement('a');
-      link.download = `${program.name}_Poster.png`;
+      const cleanProgramName = (program.name || 'Program').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.download = `${cleanProgramName}_Results_Poster.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -96,7 +105,9 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
     const winnersSummary = winners.map((w: any) => {
       const name = w.candidate?.name || w.team?.name;
       const rankText = w.rank === 1 ? '1st' : w.rank === 2 ? '2nd' : '3rd';
-      return `${rankText}: ${name}`;
+      const zone = extractZoneName(w);
+      const zoneText = isStateFest && zone ? ` (${zone.toUpperCase().includes('ZONE') ? zone : `${zone} ZONE`})` : '';
+      return `${rankText}: ${name}${zoneText}`;
     }).join('\n');
 
     const shareText = `🏆 *${program.event.name}* 🏆\n\n*Category:* ${program.category?.name || 'General'}\n*Program:* ${program.name}\n\n*Results:*\n${winnersSummary}\n\nCongratulations to all winners! 🎉\n\nView full results here:\n${shareUrl}`;
@@ -126,7 +137,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
           <p style={{ color: 'var(--text-secondary)' }}>{program.event.name} • {program.category?.name || 'General'}</p>
         </div>
         
-        {(finalPosterUrl || program.category?.posterBgUrl || settings?.posterBgUrl || isAuthorizedMedia) ? (
+        {canDownloadPoster ? (
             <div style={{ display: 'flex', gap: '10px' }}>
               <button 
                   onClick={handleShare} 
@@ -146,7 +157,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
             </div>
         ) : (
             <div style={{ padding: '0.75rem 1.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', fontSize: '0.9rem', border: '1px dashed var(--border-color)' }}>
-                ⏳ Poster being designed by Media Team
+                ⏳ Results awaiting official publication
             </div>
         )}
       </div>
@@ -176,9 +187,15 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
             flexWrap: 'wrap',
             boxShadow: '0 6px 24px -4px rgba(230, 0, 126, 0.07)'
           }}>
-             {rank2[0] && <WinnerDisplay result={rank2[0]} rank={2} isStateFest={isStateFest} />}
-             {rank1[0] && <WinnerDisplay result={rank1[0]} rank={1} isMain isStateFest={isStateFest} />}
-             {rank3[0] && <WinnerDisplay result={rank3[0]} rank={3} isStateFest={isStateFest} />}
+             {rank2.map((res: any) => (
+                <WinnerDisplay key={res.id} result={res} rank={2} isStateFest={isStateFest} />
+             ))}
+             {rank1.map((res: any) => (
+                <WinnerDisplay key={res.id} result={res} rank={1} isMain isStateFest={isStateFest} />
+             ))}
+             {rank3.map((res: any) => (
+                <WinnerDisplay key={res.id} result={res} rank={3} isStateFest={isStateFest} />
+             ))}
              
              {winners.length === 0 && (
                 <div style={{ textAlign: 'center', color: '#7a7480', padding: '40px' }}>
@@ -233,10 +250,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         {(() => {
-                          const zoneName = res.candidate?.institution?.zone?.name 
-                            || res.candidate?.team?.institution?.zone?.name 
-                            || res.team?.institution?.zone?.name 
-                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                          const zoneName = extractZoneName(res);
                           const instObj = res.candidate?.institution || res.candidate?.team?.institution || res.team?.institution || res.team;
                           const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
 
@@ -329,10 +343,7 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
                           {res.candidate ? res.candidate.name : (res.team?.institution?.name || res.team?.name)}
                         </div>
                         {(() => {
-                          const zoneName = res.candidate?.institution?.zone?.name 
-                            || res.candidate?.team?.institution?.zone?.name 
-                            || res.team?.institution?.zone?.name 
-                            || (res.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(res.team?.name?.toUpperCase() || "") ? res.team?.name : null);
+                          const zoneName = extractZoneName(res);
                           const instObj = res.candidate?.institution || res.candidate?.team?.institution || res.team?.institution || res.team;
                           const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
                           return (
@@ -446,111 +457,276 @@ export default function ProgramResultsView({ program, settings, userRole, eventI
         </div>
       </div>
 
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+      <div style={{ position: 'fixed', left: '-9999px', top: '0', pointerEvents: 'none', zIndex: -100 }}>
           <div ref={posterRef} className="printable-poster" style={{
               width: '1080px', height: '1350px', margin: '0', backgroundColor: '#ffffff',
               position: 'relative', overflow: 'hidden',
               fontFamily: "'Outfit', 'Arial', sans-serif"
           }}>
               {/* FULL BLEED BACKGROUND */}
-              {(program.category?.posterBgUrl || settings?.posterBgUrl) && (
+              {hasCustomBg ? (
                   <img 
-                      src={proxyImage(program.category?.posterBgUrl || settings.posterBgUrl)} 
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} 
-                      alt="Background" 
+                      src={proxyImage(posterBgImage)} 
+                      style={{ position: 'absolute', top: 0, left: 0, width: '1080px', height: '1350px', objectFit: 'cover', zIndex: 0 }} 
+                      alt="Poster Background" 
                       crossOrigin="anonymous" 
                   />
+              ) : (
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '1080px', height: '1350px', zIndex: 0, background: 'linear-gradient(175deg, #FFF8FA 0%, #FFFFFF 40%, #FFF5F8 100%)' }}>
+                      {/* Decorative Outer Borders */}
+                      <div style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', bottom: '16px', border: '2.5px solid rgba(230, 0, 126, 0.25)', borderRadius: '16px', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', top: '24px', left: '24px', right: '24px', bottom: '24px', border: '1.5px dashed rgba(245, 158, 11, 0.35)', borderRadius: '12px', pointerEvents: 'none' }} />
+
+                      {/* Top Header Banner */}
+                      <div style={{
+                          position: 'absolute',
+                          top: '24px',
+                          left: '24px',
+                          right: '24px',
+                          height: '240px',
+                          background: 'linear-gradient(135deg, #881337 0%, #be185d 50%, #701a75 100%)',
+                          borderRadius: '12px 12px 0 0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#FFFFFF',
+                          textAlign: 'center',
+                          padding: '20px 40px',
+                          boxSizing: 'border-box',
+                          boxShadow: '0 8px 24px rgba(136, 19, 55, 0.25)'
+                      }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '4px', color: '#FEF08A', textTransform: 'uppercase', marginBottom: '6px' }}>
+                              COUNCIL OF SAMASTHA WOMEN'S COLLEGES
+                          </div>
+                          <div style={{ fontSize: '3rem', fontWeight: 900, fontFamily: "'Fraunces', serif", letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1.1, textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+                              CSWC HIYA FIESTA 2026
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+                              <span style={{ height: '1.5px', width: '60px', background: 'rgba(254, 240, 138, 0.6)' }} />
+                              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '3px', color: '#FFFFFF', textTransform: 'uppercase' }}>
+                                  {isStateFest ? "STATE FESTIVAL FINAL • RESULTS" : `${program.event?.name || 'ZONE FESTIVAL'} • RESULTS`}
+                              </span>
+                              <span style={{ height: '1.5px', width: '60px', background: 'rgba(254, 240, 138, 0.6)' }} />
+                          </div>
+                      </div>
+
+                      {/* Bottom Footer Bar */}
+                      <div style={{
+                          position: 'absolute',
+                          bottom: '24px',
+                          left: '24px',
+                          right: '24px',
+                          height: '80px',
+                          background: 'linear-gradient(135deg, #1e1b4b 0%, #311042 100%)',
+                          borderRadius: '0 0 12px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0 40px',
+                          boxSizing: 'border-box',
+                          color: '#FFFFFF',
+                          fontSize: '0.88rem'
+                      }}>
+                          <div style={{ fontWeight: 700, letterSpacing: '0.5px' }}>
+                              CSWC HIYA FIESTA 2026 • SAMASTHA KERALA ISLAM MATHA VIDHYABHYASA BOARD
+                          </div>
+                          <div style={{ fontWeight: 800, color: '#FCD34D', letterSpacing: '1px' }}>
+                              OFFICIAL VERIFIED RESULT
+                          </div>
+                      </div>
+                  </div>
               )}
 
               {/* DYNAMIC TEXT OVERLAY */}
-              <div style={{ position: 'relative', zIndex: 1, paddingTop: '360px', paddingLeft: '110px', paddingRight: '110px', width: '100%', height: '100%', boxSizing: 'border-box' }}>
-                  
-                  {/* Result Number / Subheading */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '1.8rem', fontStyle: 'italic', color: '#1e293b', fontFamily: 'Georgia, serif' }}>Result</span>
-                      <span style={{ fontSize: '1.8rem', fontWeight: 700, color: '#1e293b' }}>{String(results.length).padStart(2, '0')}</span>
-                  </div>
-
-                  {/* Program Name */}
-                  <div style={{ fontSize: '3.6rem', fontWeight: 900, color: '#241B1B', lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.5px', maxWidth: '600px', marginBottom: '25px' }}>
-                      {program.name}
-                  </div>
-
-                  {/* Category Badge */}
-                  <div style={{ marginBottom: '60px' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#475569', color: 'white', padding: '8px 24px', borderRadius: '4px', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                          {program.category?.name || 'General'}
+              <div style={{
+                  position: 'relative',
+                  zIndex: 2,
+                  paddingTop: hasCustomBg ? (hasManyWinners ? '320px' : '350px') : '290px',
+                  paddingLeft: hasCustomBg ? '100px' : '60px',
+                  paddingRight: hasCustomBg ? '60px' : '60px',
+                  width: '1080px',
+                  height: '1350px',
+                  boxSizing: 'border-box'
+              }}>
+                  <div style={{ maxWidth: hasCustomBg ? '530px' : '960px', margin: hasCustomBg ? '0' : '0 auto' }}>
+                      
+                      {/* Result Number / Subheading */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: hasManyWinners ? '4px' : '8px' }}>
+                          <span style={{ fontSize: hasManyWinners ? '1.5rem' : '1.75rem', fontStyle: 'italic', color: primaryColor, fontFamily: 'Georgia, serif' }}>Result</span>
+                          <span style={{ fontSize: hasManyWinners ? '1.5rem' : '1.75rem', fontWeight: 900, color: secondaryColor, fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {program.programCode ? `#${program.programCode}` : '01'}
+                          </span>
                       </div>
-                  </div>
 
-                  {/* Winners List */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                      {results.slice(0, 4).map((result: any, idx: number) => {
-                          const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
-                          const chest = result.candidate?.chestNumber || '';
-                          const instName = result.candidate
-                            ? (result.candidate?.institution?.name || result.candidate?.team?.institution?.name || result.candidate?.team?.name || '')
-                            : (result.teamParticipants && result.teamParticipants.length > 0
-                                ? result.teamParticipants.map((p: any) => p.name).join(', ')
-                                : '');
-                          const instPlace = result.candidate?.institution?.place || result.team?.institution?.place || '';
-                          const rankNum = result.rank || (idx + 1);
-                          
-                          // Match the green/orange/red colors from the reference design
-                          const rankColor = rankNum === 1 ? '#4ade80' : rankNum === 2 ? '#fb923c' : rankNum === 3 ? '#ef4444' : '#94a3b8';
-                          const textColor = rankNum === 1 ? '#14532d' : rankNum === 2 ? '#7c2d12' : rankNum === 3 ? '#7f1d1d' : '#334155';
+                      {/* Program Name */}
+                      <div style={{ 
+                          fontSize: hasManyWinners 
+                              ? (program.name?.length > 22 ? '2.3rem' : '2.6rem') 
+                              : (program.name?.length > 22 ? '2.8rem' : '3.3rem'), 
+                          fontWeight: 900, 
+                          color: primaryColor, 
+                          lineHeight: 1.12, 
+                          textTransform: 'uppercase', 
+                          letterSpacing: '-0.5px', 
+                          marginBottom: hasManyWinners ? '12px' : '20px' 
+                      }}>
+                          {program.name}
+                      </div>
 
-                          return (
-                              <div key={result.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
-                                  {/* Rank Circle */}
-                                  <div style={{ 
-                                      width: '56px', height: '56px', borderRadius: '50%', 
-                                      backgroundColor: `${rankColor}30`, border: `2px solid ${rankColor}`, 
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                      fontWeight: 800, fontSize: '1.4rem', color: textColor, 
-                                      flexShrink: 0, marginTop: '2px' 
-                                  }}>
-                                      {String(rankNum).padStart(2, '0')}
-                                  </div>
-                                  
-                                  {/* Participant Details */}
-                                  <div style={{ maxWidth: '450px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
-                                          <div style={{ fontSize: '1.7rem', fontWeight: 800, color: '#241B1B', lineHeight: 1.1, textTransform: 'uppercase' }}>
-                                              {name}
-                                          </div>
-                                          {chest && (
-                                              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#334155' }}>
-                                                  ({chest})
-                                              </div>
-                                          )}
+                      {/* Category Badge */}
+                      <div style={{ marginBottom: hasManyWinners ? '20px' : '34px' }}>
+                          <div style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              backgroundColor: secondaryColor, 
+                              color: 'white', 
+                              padding: hasManyWinners ? '5px 18px' : '7px 22px', 
+                              borderRadius: '6px', 
+                              fontWeight: 800, 
+                              fontSize: hasManyWinners ? '1rem' : '1.15rem', 
+                              letterSpacing: '2px', 
+                              textTransform: 'uppercase',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                          }}>
+                              {program.category?.name || 'General'}
+                          </div>
+                      </div>
+
+                      {/* Winners List */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: hasManyWinners ? '16px' : '26px' }}>
+                          {posterWinners.map((result: any, idx: number) => {
+                              const name = result.candidate ? result.candidate.name : (result.team?.institution?.name || result.team?.name || '');
+                              const chest = result.candidate?.chestNumber || '';
+                              const zoneName = extractZoneName(result);
+                              const instObj = result.candidate?.institution || result.candidate?.team?.institution || result.team?.institution || result.team;
+                              const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
+
+                              const rankNum = result.rank || (idx + 1);
+                              
+                              const rankColor = rankNum === 1 ? '#F59E0B' : rankNum === 2 ? '#94A3B8' : '#D97706';
+                              const rankBg = rankNum === 1 ? '#FEF3C7' : rankNum === 2 ? '#F1F5F9' : '#FFEDD5';
+                              const rankText = rankNum === 1 ? '#B45309' : rankNum === 2 ? '#475569' : '#9A3412';
+
+                              return (
+                                  <div key={result.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: hasManyWinners ? '14px' : '18px' }}>
+                                      {/* Rank Circle Badge */}
+                                      <div style={{ 
+                                          width: hasManyWinners ? '48px' : '56px', 
+                                          height: hasManyWinners ? '48px' : '56px', 
+                                          borderRadius: '50%', 
+                                          backgroundColor: rankBg, 
+                                          border: `2.5px solid ${rankColor}`, 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          justifyContent: 'center', 
+                                          fontWeight: 900, 
+                                          fontSize: hasManyWinners ? '1.25rem' : '1.45rem', 
+                                          color: rankText, 
+                                          fontFamily: "'IBM Plex Mono', monospace",
+                                          flexShrink: 0, 
+                                          marginTop: '2px',
+                                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                                      }}>
+                                          {String(rankNum).padStart(2, '0')}
                                       </div>
-                                      {instName && (
-                                          <div style={{ marginTop: '6px' }}>
-                                              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.2 }}>
-                                                  {instName}
+                                      
+                                      {/* Participant Details */}
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                                              <div style={{ 
+                                                  fontSize: hasManyWinners ? '1.45rem' : '1.7rem', 
+                                                  fontWeight: 900, 
+                                                  color: textColor, 
+                                                  lineHeight: 1.15, 
+                                                  textTransform: 'uppercase',
+                                                  letterSpacing: '-0.3px'
+                                              }}>
+                                                  {name}
                                               </div>
-                                              {instPlace && (
-                                                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginTop: '2px' }}>
-                                                      📍 {instPlace}
+                                              {chest && (
+                                                  <div style={{ 
+                                                      fontSize: hasManyWinners ? '1.2rem' : '1.4rem', 
+                                                      fontWeight: 700, 
+                                                      color: '#64748B',
+                                                      fontFamily: "'IBM Plex Mono', monospace"
+                                                  }}>
+                                                      ({chest})
                                                   </div>
                                               )}
                                           </div>
-                                      )}
-                                      {result.grade && (
-                                          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#b91c1c', marginTop: '4px', textTransform: 'uppercase' }}>
-                                              Grade {result.grade}
-                                          </div>
-                                      )}
+
+                                          {/* Zone Badge for State Fest */}
+                                          {isStateFest && zoneName && (
+                                              <div style={{ marginTop: '3px', marginBottom: '2px' }}>
+                                                  <div style={{ 
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: '4px',
+                                                      background: '#fdf2f8', 
+                                                      color: '#be185d', 
+                                                      border: '1.5px solid #fbcfe8', 
+                                                      padding: hasManyWinners ? '2px 8px' : '3px 10px', 
+                                                      borderRadius: '6px', 
+                                                      fontSize: hasManyWinners ? '0.82rem' : '0.92rem', 
+                                                      fontWeight: 900,
+                                                      letterSpacing: '0.5px',
+                                                      textTransform: 'uppercase'
+                                                  }}>
+                                                      📍 {zoneName.toUpperCase().includes('ZONE') ? zoneName : `${zoneName} ZONE`}
+                                                  </div>
+                                              </div>
+                                          )}
+
+                                          {instName && (
+                                              <div style={{ 
+                                                  fontSize: hasManyWinners ? '0.88rem' : '0.98rem', 
+                                                  fontWeight: 700, 
+                                                  color: '#475569', 
+                                                  textTransform: 'uppercase', 
+                                                  letterSpacing: '0.3px', 
+                                                  lineHeight: 1.25,
+                                                  marginTop: '2px'
+                                              }}>
+                                                  {instName}{instPlace ? ` • ${instPlace}` : ''}
+                                              </div>
+                                          )}
+
+                                          {result.grade && (
+                                              <div style={{ 
+                                                  fontSize: hasManyWinners ? '0.82rem' : '0.9rem', 
+                                                  fontWeight: 800, 
+                                                  color: secondaryColor, 
+                                                  marginTop: '3px', 
+                                                  textTransform: 'uppercase' 
+                                              }}>
+                                                  Grade {result.grade}
+                                              </div>
+                                          )}
+                                      </div>
                                   </div>
-                              </div>
-                          );
-                      })}
+                              );
+                          })}
+                      </div>
                   </div>
               </div>
           </div>
       </div>
     </div>
+  );
+}
+
+function extractZoneName(result: any) {
+  return (
+    result?.candidate?.institution?.zone?.name ||
+    result?.candidate?.team?.institution?.zone?.name ||
+    result?.team?.institution?.zone?.name ||
+    result?.candidate?.team?.event?.zone?.name ||
+    result?.team?.event?.zone?.name ||
+    (result?.team?.name?.toUpperCase().includes('ZONE') ||
+    ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR", "KARNATAKA"].includes(result?.team?.name?.toUpperCase() || "")
+      ? result?.team?.name
+      : null)
   );
 }
 
@@ -561,10 +737,7 @@ function WinnerDisplay({ result, rank, isMain = false, isStateFest = false }: { 
   const instObj = result?.candidate?.institution || result?.candidate?.team?.institution || result?.team?.institution || result?.team || { name: result?.candidate?.institution?.name };
   const { name: instName, place: instPlace } = formatInstitutionDisplay(instObj);
 
-  const zoneName = result?.candidate?.institution?.zone?.name 
-    || result?.candidate?.team?.institution?.zone?.name 
-    || result?.team?.institution?.zone?.name 
-    || (result?.team?.name?.toUpperCase().includes('ZONE') || ["KANNUR", "KASARAGOD", "KOZHIKODE", "MALAPPURAM EAST", "MALAPPURAM WEST", "PALAKKAD", "THRISSUR"].includes(result?.team?.name?.toUpperCase() || "") ? result?.team?.name : null);
+  const zoneName = extractZoneName(result);
   
   const rankColor = rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : '#D97706';
   const gradientBg = rank === 1 

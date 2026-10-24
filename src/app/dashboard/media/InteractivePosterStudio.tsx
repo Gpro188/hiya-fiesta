@@ -80,10 +80,12 @@ export default function InteractivePosterStudio({
   const activeBg = activeCategoryBg || config.posterBgUrl || "";
 
   // Test Winner Sample Data for Live Preview
+  const [previewDoubleThird, setPreviewDoubleThird] = useState(false);
   const sampleWinners = [
     { rank: 1, name: "FATHIMA SHIFA M", chest: "104", inst: "MARKAZ GIRLS HIGHER ACADEMY", place: "KUNDOTTY", grade: "A+" },
     { rank: 2, name: "ALEEMA FIDA", chest: "108", inst: "BEELINE WOMEN'S COLLEGE", place: "SIDDAPURA", grade: "A" },
-    { rank: 3, name: "AYISHA RIDHA K", chest: "112", inst: "SAJIPA USTHAD WOMEN'S SHAREEATH", place: "BANTWAL", grade: "B+" }
+    { rank: 3, name: "AYISHA RIDHA K", chest: "112", inst: "SAJIPA USTHAD WOMEN'S SHAREEATH", place: "BANTWAL", grade: "B+" },
+    ...(previewDoubleThird ? [{ rank: 3, name: "RAHEEMA P M", chest: "894", inst: "MSA WOMEN'S COLLEGE", place: "THRISSUR", grade: "A" }] : [])
   ];
 
   const handleSaveCategoryBg = async (catId: string, url: string) => {
@@ -163,27 +165,47 @@ export default function InteractivePosterStudio({
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Real Fest Canvas (1080x1350)</span>
             </div>
 
-            <button 
-              type="button"
-              onClick={handleDownloadTestPoster}
-              disabled={downloading}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '8px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                background: '#FFFFFF',
-                color: '#e6007e',
-                border: '1.5px solid #f2d9e6',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <span>📥</span> {downloading ? "Rendering..." : "Download Test"}
-            </button>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setPreviewDoubleThird(prev => !prev)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  background: previewDoubleThird ? 'rgba(230, 0, 126, 0.1)' : '#FFFFFF',
+                  color: previewDoubleThird ? '#e6007e' : 'var(--text-secondary)',
+                  border: '1.5px solid',
+                  borderColor: previewDoubleThird ? '#e6007e' : '#f2d9e6',
+                  cursor: 'pointer'
+                }}
+              >
+                {previewDoubleThird ? '✓ Double 3rd (4)' : '+ Test Double 3rd'}
+              </button>
+
+              <button 
+                type="button"
+                onClick={handleDownloadTestPoster}
+                disabled={downloading}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  background: '#FFFFFF',
+                  color: '#e6007e',
+                  border: '1.5px solid #f2d9e6',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>📥</span> {downloading ? "Rendering..." : "Download Test"}
+              </button>
+            </div>
           </div>
 
           {/* Category Switcher Tabs on top of preview */}
